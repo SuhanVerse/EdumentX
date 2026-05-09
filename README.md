@@ -38,6 +38,10 @@ The detailed setup guide is here:
 
 [Documentation/PROJECT_SETUP.md](Documentation/PROJECT_SETUP.md)
 
+Firebase setup and the temporary development signup test are documented here:
+
+[Documentation/PROJECT_SETUP.md#9-firebase-files-and-initial-auth-test](Documentation/PROJECT_SETUP.md#9-firebase-files-and-initial-auth-test)
+
 Important folders:
 
 - `app/`: Expo Router entry files and app shell

@@ -207,7 +207,7 @@ EXPO_PUBLIC_APP_ENV=development
 
 Important: `EXPO_PUBLIC_` values are visible in the built app. Do not put private service account keys, admin SDK credentials, payment secrets, or AI provider secret keys in these variables.
 
-## 9. Firebase Files
+## 9. Firebase Files and Initial Auth Test
 
 The starting Firebase config files are:
 
@@ -218,9 +218,74 @@ firebase/storage.rules
 firebase/indexes.json
 ```
 
-The current rules are intentionally minimal and safe. They allow each signed-in user to access their own `users/{userId}` document and deny everything else until we design the full data model.
+The current rules are intentionally minimal and safe. They allow each signed-in user to access their own `users/{userId}` document only when the document ID matches the Firebase Auth UID. Everything else is denied until we design the full data model.
 
-Later, when Firebase is initialized, run:
+### Firebase Console Setup
+
+In Firebase Console:
+
+1. Open the `edumentx-dev` project.
+2. Go to **Project settings**.
+3. Under **Your apps**, create a **Web app**.
+4. Copy the Firebase config values into your local `.env` file.
+5. Go to **Build > Authentication > Sign-in method**.
+6. Enable **Email/Password** for development testing.
+7. Go to **Build > Firestore Database** and create the database if it is not created yet.
+8. Keep Firestore mostly empty. Do not manually create every collection.
+
+### Local Environment File
+
+Create your local file:
+
+```bash
+cp .env.example .env
+```
+
+Fill these values from the Firebase Web app config:
+
+```text
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=
+EXPO_PUBLIC_APP_ENV=development
+```
+
+Restart Expo after editing `.env`:
+
+```bash
+npx expo start --clear
+```
+
+### How Firestore Documents Are Created
+
+Do not manually create production collections from the Firebase Console.
+
+The app creates documents when users perform actions:
+
+```text
+users/{uid}                 created after development signup
+tutorProfiles/{uid}         later, after tutor profile setup
+enrollments/{autoId}        later, after student enrollment request
+batches/{autoId}            later, after tutor batch creation
+reviews/{autoId}            later, after completed enrollment review
+```
+
+The current starter app has a temporary **Firebase development signup** panel on the first screen. It uses Email/Password only for development:
+
+1. Enter name, email, password, phone, and role.
+2. Tap **Create test user**.
+3. Confirm Firebase Console shows a user in **Authentication > Users**.
+4. Confirm Firestore shows a matching document at `users/{same uid}`.
+
+Phone OTP remains the production target, but it should be implemented in a later auth sprint after deciding the Expo Go vs EAS development build approach.
+
+### Firebase CLI Init
+
+When the team is ready to connect the local Firebase CLI project, run:
 
 ```bash
 firebase login
