@@ -11,8 +11,10 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow create: if isOwner(userId);
-      allow read, update, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.uid == userId;
+      allow delete: if false;
     }
 
     match /{document=**} {
