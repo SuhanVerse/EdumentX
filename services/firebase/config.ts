@@ -1,15 +1,24 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+
+const firebaseEnvValues = {
+  EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+};
 
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '',
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? '',
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ?? '',
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? '',
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
+  apiKey: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_API_KEY ?? '',
+  authDomain: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
+  projectId: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? '',
+  storageBucket: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ?? '',
+  messagingSenderId: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? '',
+  appId: firebaseEnvValues.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
 };
 
 const requiredFirebaseEnvVars = [
@@ -21,7 +30,7 @@ const requiredFirebaseEnvVars = [
   'EXPO_PUBLIC_FIREBASE_APP_ID',
 ] as const;
 
-export const missingFirebaseEnvVars = requiredFirebaseEnvVars.filter((key) => !process.env[key]);
+export const missingFirebaseEnvVars = requiredFirebaseEnvVars.filter((key) => !firebaseEnvValues[key]?.trim());
 
 export const isFirebaseConfigured = missingFirebaseEnvVars.length === 0;
 
@@ -31,8 +40,42 @@ export function assertFirebaseConfigured() {
   }
 }
 
-export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export const firebaseApp = isFirebaseConfigured
+  ? getApps().length
+    ? getApp()
+    : initializeApp(firebaseConfig)
+  : null;
 
-export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
+export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
+export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
+export const storage: FirebaseStorage | null = firebaseApp ? getStorage(firebaseApp) : null;
+
+export function getFirebaseAuth() {
+  assertFirebaseConfigured();
+
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized.');
+  }
+
+  return auth;
+}
+
+export function getFirebaseDb() {
+  assertFirebaseConfigured();
+
+  if (!db) {
+    throw new Error('Firestore is not initialized.');
+  }
+
+  return db;
+}
+
+export function getFirebaseStorage() {
+  assertFirebaseConfigured();
+
+  if (!storage) {
+    throw new Error('Firebase Storage is not initialized.');
+  }
+
+  return storage;
+}
