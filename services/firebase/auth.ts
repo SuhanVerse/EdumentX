@@ -8,7 +8,7 @@ import {
 
 import type { UserRole } from '@/types/user';
 
-import { auth, assertFirebaseConfigured } from './config';
+import { auth, getFirebaseAuth, isFirebaseConfigured } from './config';
 import { createUserProfileDocument } from './users';
 
 export type DevelopmentSignupInput = {
@@ -20,7 +20,7 @@ export type DevelopmentSignupInput = {
 };
 
 export async function signUpDevelopmentUser(input: DevelopmentSignupInput) {
-  assertFirebaseConfigured();
+  const auth = getFirebaseAuth();
 
   const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
   const uid = credential.user.uid;
@@ -37,7 +37,7 @@ export async function signUpDevelopmentUser(input: DevelopmentSignupInput) {
 }
 
 export async function signInDevelopmentUser(email: string, password: string) {
-  assertFirebaseConfigured();
+  const auth = getFirebaseAuth();
 
   const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
 
@@ -45,9 +45,16 @@ export async function signInDevelopmentUser(email: string, password: string) {
 }
 
 export function subscribeToAuthUser(callback: (user: User | null) => void) {
+  if (!isFirebaseConfigured || !auth) {
+    callback(null);
+    return () => undefined;
+  }
+
   return onAuthStateChanged(auth, callback);
 }
 
 export function signOutDevelopmentUser() {
+  const auth = getFirebaseAuth();
+
   return signOut(auth);
 }

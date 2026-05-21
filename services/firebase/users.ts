@@ -2,7 +2,7 @@ import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import type { CreateUserProfileInput, UserProfile } from '@/types/user';
 
-import { assertFirebaseConfigured, db } from './config';
+import { getFirebaseDb } from './config';
 
 export function buildInitialUserProfile(input: CreateUserProfileInput): UserProfile {
   return {
@@ -21,9 +21,8 @@ export function buildInitialUserProfile(input: CreateUserProfileInput): UserProf
 }
 
 export async function createUserProfileDocument(input: CreateUserProfileInput) {
-  assertFirebaseConfigured();
-
   const profile = buildInitialUserProfile(input);
+  const db = getFirebaseDb();
 
   await setDoc(doc(db, 'users', input.uid), profile, { merge: true });
 

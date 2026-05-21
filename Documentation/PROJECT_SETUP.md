@@ -30,6 +30,15 @@ eas --version
 firebase --version
 ```
 
+This repo includes `.nvmrc`. On Ubuntu, load the project Node version before installing packages:
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm install
+nvm use
+```
+
 ## 3. Clone and Run the Project
 
 Clone the repo:
@@ -43,7 +52,7 @@ git checkout develop
 Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Create your local environment file:
@@ -55,20 +64,24 @@ cp .env.example .env
 Start the app:
 
 ```bash
+nvm use
 npm run start
 ```
 
 For Expo Go on your phone:
 
 ```bash
-npx expo start
+nvm use
+npx expo start --lan
 ```
 
 If your phone cannot connect through the same Wi-Fi:
 
 ```bash
-npx expo start --tunnel
+npx expo start --tunnel --clear
 ```
+
+Do not use `--localhost` for a real phone. It points Expo Go to the phone itself, not your laptop.
 
 ## 4. Current Folder Structure
 
@@ -179,6 +192,8 @@ Notes:
 - `npm run ios` is useful only for teammates using macOS with Xcode.
 - On Ubuntu, use Expo Go for mobile testing or EAS cloud builds for iOS.
 - Android Studio is optional at the beginning if you test on a real phone with Expo Go.
+- If `expo`, `tsc`, or `eslint` show `Exec format error`, rebuild dependencies using `Documentation/DEPENDENCY_AND_GIT_TROUBLESHOOTING.md`.
+- If Expo shows `TypeError: configs.toReversed is not a function`, run `source ~/.bashrc`, then `nvm use`. The terminal is using old Node.
 
 ## 8. Environment Variables
 
@@ -257,8 +272,11 @@ EXPO_PUBLIC_APP_ENV=development
 Restart Expo after editing `.env`:
 
 ```bash
+nvm use
 npx expo start --clear
 ```
+
+If Firebase values are empty, the app can still open for initial UI testing, but the temporary Firebase signup/login panel will stay disabled.
 
 ### How Firestore Documents Are Created
 
@@ -316,6 +334,39 @@ git push -u origin feature/your-feature-name
 Open pull requests into `develop`.
 
 Use normal merge commits. Do not use squash merge unless the team changes the rule later.
+
+### Sync `develop` After Merging Into `main`
+
+When a `develop -> main` pull request is merged, GitHub creates a merge commit on `main`. That commit does not automatically move back to `develop`, so GitHub may show:
+
+```text
+develop is 1 commit behind main
+```
+
+Fix it with:
+
+```bash
+git checkout main
+git pull origin main
+
+git checkout develop
+git pull origin develop
+git merge main
+git push origin develop
+```
+
+Before pushing a feature branch, update it from `develop`:
+
+```bash
+git checkout develop
+git pull origin develop
+
+git checkout feature/your-feature-name
+git merge develop
+git push origin feature/your-feature-name
+```
+
+Detailed commands are in `Documentation/DEPENDENCY_AND_GIT_TROUBLESHOOTING.md`.
 
 ## 11. When to Update This Documentation
 
