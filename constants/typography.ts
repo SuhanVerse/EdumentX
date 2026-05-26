@@ -1,4 +1,9 @@
 export const typography = {
+  heroTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '500',
+  },
   screenTitle: {
     fontSize: 28,
     lineHeight: 34,
@@ -17,6 +22,11 @@ export const typography = {
   body: {
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: '400',
+  },
+  onboardingBody: {
+    fontSize: 15,
+    lineHeight: 24,
     fontWeight: '400',
   },
   caption: {

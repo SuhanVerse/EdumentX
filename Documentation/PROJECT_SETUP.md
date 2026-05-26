@@ -91,50 +91,27 @@ The project uses root-level folders. We are not putting everything inside `src/`
 app/
   _layout.tsx
   index.tsx
-  AppNavigator.tsx
-  navigationTypes.ts
-
-assets/
-
-components/
-  common/
-  forms/
-  map/
-  tutor/
-  student/
-  admin/
+  onboarding.tsx
 
 constants/
   colors.ts
   spacing.ts
   typography.ts
 
-hooks/
-
 screens/
-  auth/
-  student/
-  tutor/
-  admin/
-
-services/
-  firebase/
-  location/
-  notifications/
-  ai/
-
-store/
-types/
-utils/
+  onboarding/
+    SplashScreen.tsx
+    OnboardingScreen.tsx
 
 firebase/
   firestore.rules
   storage.rules
   indexes.json
 
-functions/
 Documentation/
 ```
+
+Future feature folders such as `components/`, `services/`, `store/`, `types/`, `utils/`, `functions/`, and role-specific screen folders should be created when the matching feature phase begins. See `Documentation/PROJECT_STRUCTURE_AND_FEATURE_WORKFLOW.md`.
 
 ## 5. Where to Put Code
 
@@ -142,34 +119,32 @@ Use these rules when creating new files:
 
 - Put route entry files in `app/`.
 - Put full screen components in `screens/`.
-- Put reusable UI pieces in `components/`.
+- Create `components/` only when UI becomes reused.
 - Put app-wide colors, spacing, and typography in `constants/`.
-- Put Firebase client setup in `services/firebase/`.
-- Put location helpers in `services/location/`.
-- Put notification helpers in `services/notifications/`.
-- Put AI and recommendation helpers in `services/ai/`.
-- Put shared TypeScript types in `types/`.
-- Put Zustand stores or other app state files in `store/`.
-- Put small shared helper functions in `utils/`.
+- Create `services/firebase/` when Firebase client code is implemented.
+- Create `services/location/` when map/location code is implemented.
+- Create `services/notifications/` when notifications are implemented.
+- Create `services/ai/` when AI recommendations are implemented.
+- Create `types/` when shared TypeScript data shapes are needed.
+- Create `store/` when shared app state is needed.
+- Create `utils/` when small shared helper functions are needed.
 - Put Firestore and Storage rules in `firebase/`.
-- Put backend Cloud Functions in `functions/` after Firebase Functions is initialized.
+- Create `functions/` after Firebase Functions is initialized.
 
 ## 6. Installed Core Packages
 
-Native Expo-compatible packages were installed with `npx expo install`:
+The current starter keeps dependencies minimal. It includes Expo, Expo Router, React Native, Expo vector icons, TypeScript, ESLint, and Prettier.
+
+Install new packages only when a feature phase needs them.
+
+Examples for later:
 
 ```bash
-npx expo install expo-location expo-notifications expo-image-picker expo-secure-store expo-device
-npx expo install react-native-maps react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-screens
-```
-
-JavaScript libraries were installed with `npm`:
-
-```bash
-npm install @react-navigation/native @react-navigation/bottom-tabs @react-navigation/native-stack
+npx expo install expo-location react-native-maps
+npx expo install expo-notifications expo-device
+npx expo install expo-secure-store expo-image-picker
 npm install firebase zustand react-hook-form zod @hookform/resolvers
 npm install @gorhom/bottom-sheet
-npm install -D eslint prettier typescript
 ```
 
 Do not run `npm audit fix --force` without team discussion because it can upgrade packages in a way that breaks Expo compatibility.
@@ -292,12 +267,7 @@ batches/{autoId}            later, after tutor batch creation
 reviews/{autoId}            later, after completed enrollment review
 ```
 
-The current starter app has a temporary **Firebase development signup** panel on the first screen. It uses Email/Password only for development:
-
-1. Enter name, email, password, phone, and role.
-2. Tap **Create test user**.
-3. Confirm Firebase Console shows a user in **Authentication > Users**.
-4. Confirm Firestore shows a matching document at `users/{same uid}`.
+The current starter app does not create Firebase users yet. Firebase client code should be added during the authentication phase. When that phase starts, the app should create `users/{uid}` after signup using the Firebase Auth UID.
 
 Phone OTP remains the production target, but it should be implemented in a later auth sprint after deciding the Expo Go vs EAS development build approach.
 
