@@ -10,9 +10,9 @@ EdumentX is a location-based tutor finding platform for students, parents, tutor
 
 - A basic Expo app that can run in Expo Go.
 - TypeScript project configuration.
-- Firebase client configuration placeholders.
+- Firebase environment placeholders.
 - Firestore, Storage, and Firebase project files.
-- A simple folder structure for future screens, services, constants, and types.
+- A minimal splash and onboarding app structure.
 - Team Git workflow rules for working from one GitHub repository.
 
 ## What Is Not Built Yet
@@ -377,7 +377,7 @@ In Firebase Console:
 4. Select region `asia-south1`.
 5. Create the database.
 
-Keep Firestore mostly empty initially. The app should create documents such as `users/{uid}` automatically after signup. Do not manually create random user document IDs in the Console.
+Keep Firestore mostly empty initially. App code should create documents such as `users/{uid}` automatically after signup when the authentication phase is implemented. Do not manually create random user document IDs in the Console.
 
 ## Firebase Files In This Repo
 
@@ -564,8 +564,9 @@ Do not run cleanup blindly after feature development has started. Check the file
 
 - `app/_layout.tsx`
 - `app/index.tsx`
-- `app/AppNavigator.tsx`
-- `app/navigationTypes.ts`
+- `app/onboarding.tsx`
+- `screens/onboarding/SplashScreen.tsx`
+- `screens/onboarding/OnboardingScreen.tsx`
 - `app.json`
 - `package.json`
 - `tsconfig.json`
