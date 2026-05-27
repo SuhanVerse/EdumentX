@@ -474,7 +474,7 @@ export default function StudentHomeRoute() {
 ```
 
 Screen file:
-
+  
 ```tsx
 export function StudentHomeScreen() {
   return null;
