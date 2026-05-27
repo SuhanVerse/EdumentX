@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -49,6 +49,7 @@ const slides: OnboardingSlide[] = [
 ];
 
 export function OnboardingScreen() {
+  const router = useRouter();
   const [activeSlide, setActiveSlide] = useState(0);
   const { width } = useWindowDimensions();
   const slide = slides[activeSlide];
@@ -60,11 +61,11 @@ export function OnboardingScreen() {
       return;
     }
 
-    Alert.alert('Next phase', 'Phone signup screens will be added in the authentication phase.');
+    router.replace('/phone-entry');
   }
 
   function handleSkip() {
-    Alert.alert('Next phase', 'This starter currently includes only splash and onboarding screens.');
+    router.replace('/phone-entry');
   }
 
   return (
