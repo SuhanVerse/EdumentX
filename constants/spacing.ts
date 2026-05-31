@@ -1,9 +1,11 @@
+import { theme } from './theme';
+
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  page: 16,
-  lg: 20,
-  xl: 24,
-  xxl: 32,
+  xs: theme.spacing.xs,
+  sm: theme.spacing.sm,
+  md: theme.spacing.lg,
+  page: theme.spacing.page,
+  lg: theme.spacing.screen,
+  xl: theme.spacing.xxxl,
+  xxl: theme.spacing.huge,
 } as const;
