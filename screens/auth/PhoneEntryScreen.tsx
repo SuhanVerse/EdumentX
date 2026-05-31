@@ -43,6 +43,7 @@ export function PhoneEntryScreen() {
 
     if (mode === 'signup') {
       router.push({ pathname: '/otpverify', params: { phone } });
+      router.replace('/role-selection')
       return;
     }
 
