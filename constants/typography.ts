@@ -1,48 +1,25 @@
+import { theme } from './theme';
+
 export const typography = {
-  heroTitle: {
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '500',
-  },
-  screenTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '500',
-  },
-  cardTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
-  },
+  heroTitle: theme.typography.heroTitle,
+  screenTitle: theme.typography.screenTitle,
+  sectionTitle: theme.typography.sectionTitle,
+  cardTitle: theme.typography.cardTitle,
   body: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
+    fontWeight: theme.typography.body.fontWeight,
   },
   onboardingBody: {
     fontSize: 15,
     lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: theme.typography.body.fontWeight,
   },
   caption: {
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '400',
+    fontWeight: theme.typography.bodySmall.fontWeight,
   },
-  overline: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-  },
-  button: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
+  overline: theme.typography.overline,
+  button: theme.typography.button,
 } as const;
