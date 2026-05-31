@@ -42,7 +42,7 @@ export function PhoneEntryScreen() {
     }
 
     if (mode === 'signup') {
-      Alert.alert('Next phase', 'OTP verification will be added in the authentication sprint.');
+      router.replace('/role-selection')
       return;
     }
 
