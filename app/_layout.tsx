@@ -12,6 +12,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="phone-entry" />
           <Stack.Screen name="role-selection"/>
+          <Stack.Screen name="otpverify" />
         </Stack>
         <StatusBar style="dark" />
       </SafeAreaProvider>
