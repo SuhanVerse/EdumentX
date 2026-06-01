@@ -18,22 +18,17 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
 type Role = "student" | "tutor" | null;
-type TutorType = "student-tutor" | "professional" | null;
 
 export function RoleSelectionScreen(){
     const router = useRouter();
     const [role, setRole] = useState<Role>(null);
-    const [tutorType, setTutorType] = useState<TutorType>(null);
-
-    const isValid = role === 'student' || (role === 'tutor' && tutorType !== null);
+    const isValid = (role === 'student') || (role === 'tutor')
 
     function handleContinue() {
         Alert.alert('Next Phase','Firebase login and role routing will be added in the authentication sprint.');
     }
     function handleRolePress(selected: Role){
         setRole(selected);
-        //for not tutor, no tutortype(student tutor, professional tutor) required
-        if (selected !=='tutor') setTutorType(null);
     }
     return(
         <SafeAreaView style={styles.safeArea}>
@@ -119,49 +114,8 @@ export function RoleSelectionScreen(){
                                  <Ionicons name="chevron-forward" size={20} color={colors.border.strong} />
                             )}
                         </Pressable>
-
-                        {role === 'tutor' &&(
-                            <View style={styles.subTypeBox}>
-                                <Text style={styles.subTypeLabel}>I am a ...</Text> 
-
-                                <View style={styles.pillRow}>
-                                    <Pressable
-                                        onPress = {() => setTutorType('student-tutor')}
-                                        style={[
-                                            styles.pill,
-                                            tutorType === 'student-tutor'
-                                            ? styles.pillActive: styles.pillInactive,
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            styles.pillText,
-                                            tutorType === 'student-tutor'
-                                            ? styles.pillTextActive: styles.pillTextInactive,
-                                        ]}>Student Tutor</Text>    
-                                    </Pressable>    
-
-                                    <Pressable
-                                        onPress = {() => setTutorType('professional')}
-                                        style={[
-                                            styles.pill,
-                                            tutorType === 'professional'
-                                            ? styles.pillActive: styles.pillInactive,
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            styles.pillText,
-                                            tutorType === 'professional'
-                                            ? styles.pillTextActive: styles.pillTextInactive,
-                                        ]}>Professional</Text>    
-                                    </Pressable>    
-                                </View>      
-                                <Text style={styles.subTypeHint}>
-                                    Student tutors get a green tick. Professional tutors qualify for the Blue Tick
-                                    Badge after document verification
-                                </Text>        
-                            </View>
-                        )}
                     </View>
+
                     {/*Warning*/}
 
                     <View style={styles.warningBanner}>
@@ -313,50 +267,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.brand.verification,
         alignItems: 'center',
         justifyContent: 'center',
-    },
- 
-    // Tutor sub-type box
-    subTypeBox: {
-        backgroundColor: colors.background.surface,
-        borderWidth: 0.5,
-        borderColor: colors.border.default,
-        borderRadius: 14,
-        padding: spacing.lg,
-        marginBottom: spacing.sm,
-        gap: spacing.sm,
-    },
-    subTypeLabel: {
-        ...typography.cardTitle,
-        color: colors.text.onboardingTitle,
-    },
-    pillRow: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-        flexWrap: 'wrap',
-    },
-    pill: {
-        borderRadius: 999,
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.lg,
-    },
-    pillActive: {
-        backgroundColor: colors.brand.verification,
-    },
-    pillInactive: {
-        backgroundColor: colors.onboarding.verifyBackground,
-    },
-    pillText: {
-        ...typography.button,
-    },
-    pillTextActive: {
-        color: '#FFFFFF',
-    },
-    pillTextInactive: {
-        color: colors.brand.verification,
-    },
-    subTypeHint: {
-        ...typography.caption,
-        color: colors.text.muted,
     },
  
     // Warning banner
