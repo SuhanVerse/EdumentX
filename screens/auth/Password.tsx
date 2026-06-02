@@ -164,7 +164,7 @@ export function CreatePassword() {
               </Pressable>
             </View>
             {passwordsMatch && (
-              <Text style={styles.errorText}>Passwords don't match</Text>
+              <Text style={styles.errorText}>Passwords do not match</Text>
             )}
           </View>
 
@@ -186,8 +186,7 @@ export function CreatePassword() {
             <Pressable
               accessibilityRole="button"
               disabled={!canSubmit}
-              // TODO: remove cast once /role-select route is created
-              onPress={() => router.replace("/role-select" as any)}
+              onPress={() => router.replace("/role-selection")}
               style={[
                 styles.primaryButton,
                 canSubmit ? null : styles.primaryButtonDisabled,

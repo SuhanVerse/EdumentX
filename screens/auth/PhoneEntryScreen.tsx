@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,28 +12,28 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
-import { typography } from '@/constants/typography';
+import { colors } from "@/constants/colors";
+import { spacing } from "@/constants/spacing";
+import { typography } from "@/constants/typography";
 
-type AuthMode = 'signup' | 'login';
+type AuthMode = "signup" | "login";
 
 export function PhoneEntryScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>('signup');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<AuthMode>("signup");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const isPhoneValid = phone.length === 10;
-  const isPasswordValid = mode === 'signup' || password.length >= 6;
+  const isPasswordValid = mode === "signup" || password.length >= 6;
   const canSubmit = isPhoneValid && isPasswordValid;
 
   function updatePhone(value: string) {
-    setPhone(value.replace(/\D/g, '').slice(0, 10));
+    setPhone(value.replace(/\D/g, "").slice(0, 10));
   }
 
   function handleSubmit() {
@@ -41,27 +41,46 @@ export function PhoneEntryScreen() {
       return;
     }
 
-    if (mode === 'signup') {
-      router.replace('/role-selection')
-      router.push({ pathname: '/otpverify', params: { phone } });
+    if (mode === "signup") {
+      router.push({ pathname: "/otpverify", params: { phone } });
       return;
     }
 
-    Alert.alert('Next phase', 'Firebase login and role routing will be added in the authentication sprint.');
+    Alert.alert(
+      "Next phase",
+      "Firebase login and role routing will be added in the authentication sprint.",
+    );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Pressable accessibilityRole="button" hitSlop={12} onPress={() => router.replace('/onboarding')} style={styles.backButton}>
-            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => router.replace("/onboarding")}
+            style={styles.backButton}
+          >
+            <Ionicons
+              color={colors.brand.primary}
+              name="chevron-back"
+              size={18}
+            />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
 
           <View style={styles.header}>
-            <Text style={styles.title}>{mode === 'signup' ? 'Create your account' : 'Welcome back'}</Text>
+            <Text style={styles.title}>
+              {mode === "signup" ? "Create your account" : "Welcome back"}
+            </Text>
             {/* <Text style={styles.subtitle}>
               {mode === 'signup'
                 ? 'Enter your phone number. OTP verification will be connected in the auth phase.'
@@ -70,7 +89,7 @@ export function PhoneEntryScreen() {
           </View>
 
           <View style={styles.segmentedControl}>
-            {(['signup', 'login'] as AuthMode[]).map((item) => {
+            {(["signup", "login"] as AuthMode[]).map((item) => {
               const active = item === mode;
 
               return (
@@ -78,10 +97,18 @@ export function PhoneEntryScreen() {
                   accessibilityRole="button"
                   key={item}
                   onPress={() => setMode(item)}
-                  style={[styles.segmentButton, active ? styles.segmentButtonActive : null]}
+                  style={[
+                    styles.segmentButton,
+                    active ? styles.segmentButtonActive : null,
+                  ]}
                 >
-                  <Text style={[styles.segmentText, active ? styles.segmentTextActive : null]}>
-                    {item === 'signup' ? 'Sign up' : 'Log in'}
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      active ? styles.segmentTextActive : null,
+                    ]}
+                  >
+                    {item === "signup" ? "Sign up" : "Log in"}
                   </Text>
                 </Pressable>
               );
@@ -95,7 +122,11 @@ export function PhoneEntryScreen() {
                 <View style={styles.countryBox}>
                   <Text style={styles.countryCode}>NP</Text>
                   <Text style={styles.countryCode}>+977</Text>
-                  <Ionicons color={colors.text.muted} name="chevron-down" size={14} />
+                  <Ionicons
+                    color={colors.text.muted}
+                    name="chevron-down"
+                    size={14}
+                  />
                 </View>
 
                 <TextInput
@@ -109,11 +140,13 @@ export function PhoneEntryScreen() {
                 />
               </View>
               <Text style={styles.helperText}>
-                {isPhoneValid || phone.length === 0 ? '' : 'Enter a 10 digit mobile number.'}
+                {isPhoneValid || phone.length === 0
+                  ? ""
+                  : "Enter a 10 digit mobile number."}
               </Text>
             </View>
 
-            {mode === 'login' ? (
+            {mode === "login" ? (
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.passwordRow}>
@@ -126,16 +159,25 @@ export function PhoneEntryScreen() {
                     value={password}
                   />
                   <Pressable
-                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    accessibilityLabel={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     accessibilityRole="button"
                     hitSlop={8}
                     onPress={() => setShowPassword((current) => !current)}
                     style={styles.passwordToggle}
                   >
-                    <Ionicons color={colors.text.muted} name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} />
+                    <Ionicons
+                      color={colors.text.muted}
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                    />
                   </Pressable>
                 </View>
-                <Pressable accessibilityRole="button" style={styles.forgotButton}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.forgotButton}
+                >
                   <Text style={styles.forgotText}>Forgot password?</Text>
                 </Pressable>
               </View>
@@ -147,15 +189,24 @@ export function PhoneEntryScreen() {
               accessibilityRole="button"
               disabled={!canSubmit}
               onPress={handleSubmit}
-              style={[styles.primaryButton, canSubmit ? null : styles.primaryButtonDisabled]}
+              style={[
+                styles.primaryButton,
+                canSubmit ? null : styles.primaryButtonDisabled,
+              ]}
             >
-              <Text style={[styles.primaryButtonText, canSubmit ? null : styles.primaryButtonTextDisabled]}>
-                {mode === 'signup' ? 'Send OTP' : 'Log in'}
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  canSubmit ? null : styles.primaryButtonTextDisabled,
+                ]}
+              >
+                {mode === "signup" ? "Send OTP" : "Log in"}
               </Text>
             </Pressable>
 
             <Text style={styles.termsText}>
-              By continuing, you agree to EdumentX&apos;s Terms and Privacy Policy.
+              By continuing, you agree to EdumentX&apos;s Terms and Privacy
+              Policy.
             </Text>
           </View>
         </ScrollView>
@@ -180,9 +231,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     minHeight: 44,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     marginBottom: spacing.md,
   },
@@ -203,7 +254,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   segmentedControl: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.xs,
     padding: spacing.xs,
     borderRadius: 10,
@@ -213,8 +264,8 @@ const styles = StyleSheet.create({
   segmentButton: {
     flex: 1,
     minHeight: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
   },
   segmentButtonActive: {
@@ -239,15 +290,15 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   phoneRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   countryBox: {
     minWidth: 92,
     minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
     borderWidth: 0.5,
     borderColor: colors.border.default,
@@ -274,8 +325,8 @@ const styles = StyleSheet.create({
   },
   passwordRow: {
     minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 0.5,
     borderColor: colors.border.default,
     borderRadius: 10,
@@ -292,13 +343,13 @@ const styles = StyleSheet.create({
   passwordToggle: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   forgotButton: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     minHeight: 36,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   forgotText: {
     ...typography.caption,
@@ -310,8 +361,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 12,
     backgroundColor: colors.brand.primary,
   },
@@ -327,7 +378,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     ...typography.caption,
-    textAlign: 'center',
+    textAlign: "center",
     color: colors.text.muted,
   },
 });
