@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -16,48 +17,47 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../../constants/colors";
-import { spacing } from "../../constants/spacing";
-import { theme } from "../../constants/theme";
-import { typography } from "../../constants/typography";
+import { colors } from "@/constants/colors";
+import { spacing } from "@/constants/spacing";
+import { theme } from "@/constants/theme";
+import { typography } from "@/constants/typography";
 
-const Subjects = ["Math", "Physics"] as const;
-type Subject = (typeof Subjects)[number];
-
-const Grades = ["9", "10", "11", "12"] as const;
-type Grade = (typeof Grades)[number];
-
-interface FormErrors {
-  fullName?: string;
-  email?: string;
-  grade?: string;
-  subjects?: string;
-}
+const SUBJECTS = ["Math", "Physics","Chemistry", "Computer Science","Biology","Nepali","English"] as const;
+const GRADES = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade XI (Science)", "Grade XI (Management)", "Grade XII (Science)", "Grade XII (Management)"] as const;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validate(
+type Subject = (typeof SUBJECTS)[number];
+type Grade = (typeof GRADES)[number];
+
+interface FormErrors {
+  email?: string;
+  fullName?: string;
+  grade?: string;
+  subject?: string;
+}
+
+function validateProfile(
   fullName: string,
   email: string,
   grade: Grade | null,
-  subjects: Subject[],
+  subject: Subject | null,
 ): FormErrors {
   const errors: FormErrors = {};
 
-  if (fullName.trim().length === 0) {
-    errors.fullName = "Enter your full name";
+  if (fullName.trim().length < 3) {
+    errors.fullName = "Enter your full name.";
   }
 
-  if (!EMAIL_REGEX.test(email)) {
-    errors.email = "Enter a valid email address";
+  if (!EMAIL_REGEX.test(email.trim())) {
+    errors.email = "Enter a valid email address.";
   }
 
   if (!grade) {
-    errors.grade = "Select your grade";
+    errors.grade = "Select your grade.";
   }
 
-  if (subjects.length === 0) {
-    errors.subjects = "Select atleast one subject";
+  if (!subject) {
+    errors.subject = "Select one subject.";
   }
 
   return errors;
@@ -65,139 +65,217 @@ function validate(
 
 export function ProfileScreen() {
   const router = useRouter();
-  const [profile, setProfile] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [subject, setSubject] = useState<Subject | null>(null);
   const [grade, setGrade] = useState<Grade | null>(null);
-
-  async function handlePickAvatar() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status! == "granted") {
-      Alert.alert("Permission Denied", "Allow access to photos");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-    if (!result.canceled) setProfile(result.assets[0].uri);
-  }
+  const [subject, setSubject] = useState<Subject | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const canSubmit =
-    name.trim().length >= 3 &&
+    fullName.trim().length >= 3 &&
     EMAIL_REGEX.test(email.trim()) &&
     grade !== null &&
     subject !== null;
 
-  function handleSubmit() {
-    const validationErrors = validate(
-      name,
-      email,
-      grade,
-      subject ? [subject] : [],
-    );
+  async function handlePickAvatar() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (Object.keys(validationErrors).length > 0) {
-      Alert.alert("Validation Error");
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Allow photo access to choose a profile image.",
+      );
       return;
     }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setAvatarUri(result.assets[0].uri);
+    }
   }
+
+  function handleSubmit() {
+    const validationErrors = validateProfile(fullName, email, grade, subject);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+
+    Alert.alert(
+      "Profile ready",
+      "Firebase profile saving will be connected in the auth sprint.",
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.keyboardView}
       >
-        <View style={styles.blueHeader}>
-          <Text style={styles.headerTitle}>Setup Your Profile</Text>
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => router.replace("/role-selection")}
+            style={styles.backButton}
+          >
+            <Ionicons
+              color={colors.text.inverse}
+              name="chevron-back"
+              size={18}
+            />
+            <Text style={styles.backText}>Back</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Set up your profile</Text>
           <Text style={styles.headerSubtitle}>
-            This helps tutor find and match with you
+            This helps tutors understand your learning needs.
           </Text>
         </View>
 
-        <ScrollView style={styles.scrollContent}>
-          <View>
-            <Pressable>
-              {profile ? (
-                <Image style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons
-                    name="person"
-                    size={44}
-                    color={colors.brand.primary}
-                  />
-                </View>
-              )}
-            </Pressable>
-          </View>
-          <View>
-            <text> FULL NAME</text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable
+            accessibilityRole="button"
+            onPress={handlePickAvatar}
+            style={styles.avatarButton}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons
+                  color={colors.brand.primary}
+                  name="person-outline"
+                  size={40}
+                />
+              </View>
+            )}
+            <Text style={styles.avatarText}>Upload photo</Text>
+          </Pressable>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardLabel}>Full name</Text>
             <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g., Arav Tamang"
+              autoCapitalize="words"
+              onChangeText={setFullName}
+              placeholder="e.g., Aarav Tamang"
+              placeholderTextColor={colors.text.muted}
+              style={[
+                styles.textInput,
+                errors.fullName ? styles.textInputError : null,
+              ]}
+              value={fullName}
             />
-          </View>
-          <View>
-            <text> EMAIL</text>
+            {errors.fullName ? (
+              <Text style={styles.errorText}>{errors.fullName}</Text>
+            ) : null}
+
+            <Text style={styles.cardLabel}>Email</Text>
             <TextInput
-              value={email}
+              autoCapitalize="none"
+              keyboardType="email-address"
               onChangeText={setEmail}
               placeholder="e.g., aarav@gmail.com"
-              keyboardType="email-address"
+              placeholderTextColor={colors.text.muted}
+              style={[
+                styles.textInput,
+                errors.email ? styles.textInputError : null,
+              ]}
+              value={email}
             />
+            {errors.email ? (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            ) : null}
           </View>
-          <View>
-            <View>
-              <Text style={styles.cardLabel}>GRADE / CLASS</Text>
-              <View style={styles.chipWrap}>
-                {Grades.map((g) => (
-                  <Pressable
-                    key={g}
-                    onPress={() => setGrade(g)}
-                    style={[styles.chip, grade === g && styles.chipSelected]}
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardLabel}>Grade / class</Text>
+            <View style={styles.chipWrap}>
+              {GRADES.map((item) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={item}
+                  onPress={() => setGrade(item)}
+                  style={[
+                    styles.chip,
+                    grade === item ? styles.chipSelected : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      grade === item ? styles.chipTextSelected : null,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        grade === g && styles.chipTextSelected,
-                      ]}
-                    >
-                      {g}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+            {errors.grade ? (
+              <Text style={styles.errorText}>{errors.grade}</Text>
+            ) : null}
           </View>
-          <View>
-            <View style={styles.sectionCard}>
-              <Text style={styles.cardLabel}>SUBJECTS NEEDED</Text>
-              <View style={styles.chipWrap}>
-                {Subjects.map((s) => (
-                  <Pressable
-                    key={s}
-                    onPress={() => setSubject(s)}
-                    style={[styles.chip, subject === s && styles.chipSelected]}
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardLabel}>Subject needed</Text>
+            <View style={styles.chipWrap}>
+              {SUBJECTS.map((item) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={item}
+                  onPress={() => setSubject(item)}
+                  style={[
+                    styles.chip,
+                    subject === item ? styles.chipSelected : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      subject === item ? styles.chipTextSelected : null,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        subject === s && styles.chipTextSelected,
-                      ]}
-                    >
-                      {s}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+            {errors.subject ? (
+              <Text style={styles.errorText}>{errors.subject}</Text>
+            ) : null}
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={!canSubmit}
+            onPress={handleSubmit}
+            style={[
+              styles.primaryButton,
+              canSubmit ? null : styles.primaryButtonDisabled,
+            ]}
+          >
+            <Text
+              style={[
+                styles.primaryButtonText,
+                canSubmit ? null : styles.primaryButtonTextDisabled,
+              ]}
+            >
+              Finish setup
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -205,82 +283,145 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.brand.primary,
   },
-  flex: {
+  keyboardView: {
     flex: 1,
   },
-
-  blueHeader: {
-    backgroundColor: colors.brand.primary,
-    paddingHorizontal: spacing.page,
-    paddingTop: spacing.md,
+  header: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
     paddingBottom: 52,
-    gap: 4,
+    backgroundColor: colors.brand.primary,
   },
-
+  backButton: {
+    minHeight: theme.sizes.touchTarget,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  backText: {
+    ...typography.body,
+    color: colors.text.inverse,
+  },
   headerTitle: {
     ...typography.screenTitle,
     color: colors.text.inverse,
   },
-
   headerSubtitle: {
     ...typography.body,
-    color: colors.text.inverse,
+    color: colors.brand.splashText,
   },
-
   scrollContent: {
     flexGrow: 1,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
     backgroundColor: colors.background.page,
   },
-
+  avatarButton: {
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: -52,
+    marginBottom: spacing.sm,
+  },
   avatarImage: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
+    borderWidth: 3,
+    borderColor: colors.background.surface,
     borderRadius: theme.radii.circle,
-    borderWidth: 2,
-    borderColor: colors.brand.primary,
   },
   avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.radii.circle,
-    backgroundColor: colors.brand.primaryLight,
+    width: 88,
+    height: 88,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: colors.brand.primary,
+    borderWidth: 3,
+    borderColor: colors.background.surface,
+    borderRadius: theme.radii.circle,
+    backgroundColor: colors.brand.primaryLight,
+  },
+  avatarText: {
+    ...typography.caption,
+    color: colors.brand.primary,
   },
   sectionCard: {
-    backgroundColor: colors.background.surface,
-    borderRadius: theme.radii.card,
-    padding: spacing.md,
-    marginBottom: spacing.page,
     gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: theme.borders.cardWidth,
     borderColor: colors.border.default,
-    borderWidth: 1,
+    borderRadius: theme.radii.card,
+    backgroundColor: colors.background.surface,
   },
   cardLabel: {
     ...typography.overline,
     color: colors.text.secondary,
   },
-  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  chip: {
-    borderRadius: theme.radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.strong,
+  textInput: {
+    minHeight: theme.sizes.inputHeightLarge,
+    paddingHorizontal: spacing.md,
+    borderWidth: theme.borders.inputWidth,
+    borderColor: colors.border.default,
+    borderRadius: theme.radii.md,
+    color: colors.text.primary,
     backgroundColor: colors.background.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    fontSize: 15,
+  },
+  textInputError: {
+    borderColor: colors.semantic.danger,
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.semantic.danger,
+  },
+  chipWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  chip: {
     minHeight: theme.sizes.touchTarget,
     justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: theme.borders.cardWidth,
+    borderColor: colors.border.strong,
+    borderRadius: theme.radii.sm,
+    backgroundColor: colors.background.surface,
   },
   chipSelected: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.brand.primary,
     backgroundColor: colors.brand.primaryLight,
   },
-  chipText: { ...typography.button, color: colors.text.secondary },
-  chipTextSelected: { color: colors.brand.primary },
+  chipText: {
+    ...typography.button,
+    color: colors.text.secondary,
+  },
+  chipTextSelected: {
+    color: colors.brand.primary,
+  },
+  primaryButton: {
+    minHeight: theme.sizes.primaryButtonHeight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.radii.card,
+    backgroundColor: colors.brand.primary,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: colors.border.strong,
+  },
+  primaryButtonText: {
+    ...typography.button,
+    color: colors.text.inverse,
+  },
+  primaryButtonTextDisabled: {
+    color: colors.text.muted,
+  },
 });

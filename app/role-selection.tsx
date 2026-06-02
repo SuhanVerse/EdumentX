@@ -1,4 +1,4 @@
-import { RoleSelectionScreen } from '@/screens/auth/RoleSelection';
+import { RoleSelectionScreen } from "@/screens/auth/RoleSelection";
 
 export default function RoleSelectionRoute() {
   return <RoleSelectionScreen />;
