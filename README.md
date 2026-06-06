@@ -1,36 +1,55 @@
 # EdumentX
 
-Location-based tutor finding app for students, parents, tutors, and admins.
+> **Location-based tutor finding app** — connecting students/parents with verified home tutors nearby. Built with React Native (Expo SDK 54) + Firebase.
+
+## 📚 Documentation
+
+**Start here**: [`Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md`](./Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md) — the definitive 15-section guide to the product, design, architecture, and roadmap.
+
+The full documentation structure is in [`Documentation/README.md`](./Documentation/README.md). Key files:
+
+- 🎯 **[Master Project Guide](./Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md)** — product, screens, tokens, improvements
+- 🗺️ **[Implementation Roadmap](./Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md)** — sprint-by-sprint build plan
+- 🎨 **[Figma Make Prompt](./Documentation/06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md)** — generate industry-grade designs
+- 💻 **[Claude Code Prompt](./Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md)** — refactor the codebase
 
 ## Tech Stack
 
-- React Native with Expo
-- TypeScript
-- Expo Router
-- Firebase
+- **React Native** with **Expo SDK 54** (TypeScript strict mode, New Architecture)
+- **Expo Router v6** for file-based navigation (typed routes)
+- **Firebase** for Auth, Firestore, Storage (not yet wired)
+- **Zustand** for state (planned)
+- **Tamagui** for UI (planned migration target)
 
 ## Quick Start
 
 ```bash
-nvm use
+nvm use                  # Node 20.19.4+
 npm ci
-cp .env.example .env
+cp .env.example .env     # Add your Firebase keys
 npx expo start --lan
 ```
 
-Expo Go tunnel:
+For physical device testing:
 
 ```bash
 npx expo start --tunnel --clear
 ```
 
-## Documentation
+## Project Status (June 2026)
 
-- [Initial Project Setup](Documentation/INITIAL_PROJECT_SETUP.md)
-- [Feature Implementation Guide](Documentation/FEATURE_IMPLEMENTATION_GUIDE.md)
-- [Project Structure And Feature Workflow](Documentation/PROJECT_STRUCTURE_AND_FEATURE_WORKFLOW.md)
-- [Dependency And Git Troubleshooting](Documentation/DEPENDENCY_AND_GIT_TROUBLESHOOTING.md)
-- [Current Setup Notes](Documentation/PROJECT_SETUP.md)
+| Phase | Status |
+|-------|--------|
+| 7 auth/onboarding screens | ✅ Complete |
+| Design system tokens | ✅ Complete |
+| Firebase security rules | ✅ Complete |
+| Firebase Auth + Firestore integration | ⏳ Pending |
+| Tamagui UI migration | ⏳ Pending |
+| Multi-role dashboards (Student, Tutor, Admin) | ⏳ Pending |
+| Map-based tutor discovery | ⏳ Pending |
+| Chat + enrollments | ⏳ Pending |
+
+See the [Implementation Roadmap](./Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md) for the full plan.
 
 ## Git Workflow
 
@@ -39,7 +58,10 @@ Work from `develop`, create `feature/*` or `fix/*` branches, and open pull reque
 ## Useful Scripts
 
 ```bash
-npm run start
-npm run lint
-npm run typecheck
+npm run start       # Start Expo dev server
+npm run android     # Open on Android emulator
+npm run ios         # Open on iOS simulator
+npm run web         # Open in browser
+npm run lint        # ESLint
+npm run typecheck   # TypeScript check
 ```

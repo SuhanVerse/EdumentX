@@ -71,6 +71,7 @@ export function ProfileScreen() {
   const [grade, setGrade] = useState<Grade | null>(null);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+  // const [role, setRole] = useState("");
 
   const canSubmit =
     fullName.trim().length >= 3 &&
@@ -93,7 +94,7 @@ export function ProfileScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
+      quality: 0.8,
     });
 
     if (!result.canceled) {
@@ -143,6 +144,7 @@ export function ProfileScreen() {
         </View>
 
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -285,16 +287,19 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.brand.primary,
+    backgroundColor: colors.brand.primary, // Night Slate
   },
   keyboardView: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   header: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: 52,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.page,
+    paddingTop: spacing.lg,
+    paddingBottom: 48,
     backgroundColor: colors.brand.primary,
   },
   backButton: {
@@ -303,72 +308,86 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+    marginLeft: -4,
   },
   backText: {
     ...typography.body,
     color: colors.text.inverse,
+    opacity: 0.8,
   },
   headerTitle: {
-    ...typography.screenTitle,
+    ...typography.heroTitle,
     color: colors.text.inverse,
+    fontSize: 26,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     ...typography.body,
-    color: colors.brand.splashText,
+    color: colors.text.inverse,
+    opacity: 0.7,
+    marginTop: 2,
   },
   scrollContent: {
     flexGrow: 1,
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    backgroundColor: colors.background.page,
+    gap: spacing.xl,
+    paddingHorizontal: spacing.page,
+    paddingTop: 32, // Increased padding to avoid collision with header
+    paddingBottom: 40,
+    backgroundColor: colors.background.page, // Sand
   },
   avatarButton: {
     alignItems: "center",
     gap: spacing.sm,
-    marginTop: -52,
-    marginBottom: spacing.sm,
+    marginTop: 0, // Removed negative margin to stop overlap
+    marginBottom: spacing.md,
   },
   avatarImage: {
-    width: 88,
-    height: 88,
-    borderWidth: 3,
+    width: 96,
+    height: 96,
+    borderWidth: 4,
     borderColor: colors.background.surface,
     borderRadius: theme.radii.circle,
   },
   avatarPlaceholder: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: colors.background.surface,
     borderRadius: theme.radii.circle,
-    backgroundColor: colors.brand.primaryLight,
+    backgroundColor: colors.border.default,
   },
   avatarText: {
     ...typography.caption,
-    color: colors.brand.primary,
+    color: colors.text.secondary,
+    fontWeight: "500",
   },
   sectionCard: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: theme.borders.cardWidth,
-    borderColor: colors.border.default,
-    borderRadius: theme.radii.card,
+    gap: spacing.md,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: 16,
     backgroundColor: colors.background.surface,
+    // Soft Depth Shadow
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   cardLabel: {
     ...typography.overline,
-    color: colors.text.secondary,
+    color: colors.text.muted,
+    marginBottom: -4,
   },
   textInput: {
-    minHeight: theme.sizes.inputHeightLarge,
-    paddingHorizontal: spacing.md,
-    borderWidth: theme.borders.inputWidth,
+    minHeight: 52,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
     borderColor: colors.border.default,
-    borderRadius: theme.radii.md,
+    borderRadius: 12,
     color: colors.text.primary,
     backgroundColor: colors.background.surface,
     fontSize: 15,
@@ -379,6 +398,7 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.caption,
     color: colors.semantic.danger,
+    marginTop: -4,
   },
   chipWrap: {
     flexDirection: "row",
@@ -386,40 +406,50 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   chip: {
-    minHeight: theme.sizes.touchTarget,
+    minHeight: 40,
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderWidth: theme.borders.cardWidth,
-    borderColor: colors.border.strong,
-    borderRadius: theme.radii.sm,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    borderRadius: 10,
     backgroundColor: colors.background.surface,
   },
   chipSelected: {
-    borderWidth: 1,
     borderColor: colors.brand.primary,
-    backgroundColor: colors.brand.primaryLight,
+    backgroundColor: colors.brand.primary,
   },
   chipText: {
-    ...typography.button,
+    ...typography.buttonSmall,
     color: colors.text.secondary,
   },
   chipTextSelected: {
-    color: colors.brand.primary,
+    color: colors.text.inverse,
   },
   primaryButton: {
-    minHeight: theme.sizes.primaryButtonHeight,
+    minHeight: 56,
+    marginTop: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.radii.card,
-    backgroundColor: colors.brand.primary,
+    borderRadius: 14,
+    backgroundColor: colors.brand.accent, // Copper Accent
+    // Soft Copper Glow
+    shadowColor: colors.brand.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   primaryButtonDisabled: {
     backgroundColor: colors.border.strong,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   primaryButtonText: {
     ...typography.button,
     color: colors.text.inverse,
+    fontSize: 16,
+    fontWeight: "600",
   },
   primaryButtonTextDisabled: {
     color: colors.text.muted,

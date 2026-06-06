@@ -15,7 +15,7 @@ function SplashProgressBar({ progress }: SplashProgressBarProps) {
   useEffect(() => {
     Animated.timing(animatedValue, {
       toValue: progress,
-      duration: 400,
+      duration: 1200,
       useNativeDriver: false,
     }).start();
   }, [animatedValue, progress]);
@@ -91,7 +91,7 @@ export function SplashScreen() {
       </View>
       <Text style={styles.title}>EdumentX</Text>
       <Text style={styles.subtitle}>Find your perfect tutor nearby</Text>
-      <SplashProgressBar progress={85} />
+      <SplashProgressBar progress={100} />
     </View>
   );
 }

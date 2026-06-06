@@ -168,7 +168,7 @@ export function CreatePassword() {
             )}
           </View>
 
-          {/* Info card */}
+          {/* Info card
           <View style={styles.infoCard}>
             <Ionicons
               color={colors.semantic.info}
@@ -179,7 +179,7 @@ export function CreatePassword() {
               This screen is ready for UI testing. Password will be saved to
               Firebase when the auth sprint starts.
             </Text>
-          </View>
+          </View> */}
 
           {/* Continue Button */}
           <View style={styles.footer}>
