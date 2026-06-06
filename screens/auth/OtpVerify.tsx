@@ -220,7 +220,7 @@ export function OtpVerify() {
             </Pressable>
           </View>
 
-          <View style={styles.infoCard}>
+          {/* <View style={styles.infoCard}>
             <Ionicons
               color={colors.semantic.info}
               name="information-circle-outline"
@@ -229,8 +229,8 @@ export function OtpVerify() {
             <Text style={styles.infoText}>
               This screen is ready for UI testing. Real SMS sending will be
               connected from Firebase Phone Auth later.
-            </Text>
-          </View>
+          </Text>
+          </View> */}
 
           <View style={styles.footer}>
             <Pressable

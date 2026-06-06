@@ -3,64 +3,65 @@ import { StyleSheet } from 'react-native';
 export const theme = {
   colors: {
     brand: {
-      primary: '#1A56DB',
-      primaryDark: '#0C3A7A',
-      primaryLight: '#E8F0FE',
-      admin: '#185FA5',
-      primaryBorder: '#BFDBFE',
-      verification: '#0D9E75',
-      verificationDark: '#0A7A59',
-      verificationLight: '#E0F5EE',
+      primary: '#0F172A', // Night Slate
+      primaryDark: '#020617',
+      primaryLight: '#F1F5F9', // Sand
+      accent: '#B45309', // Polished Copper
+      admin: '#0F172A',
+      primaryBorder: '#E2E8F0',
+      verification: '#059669', // Forest Emerald
+      verificationDark: '#065F46',
+      verificationLight: '#ECFDF5',
       ai: '#4F46E5',
       aiDark: '#312E81',
       aiLight: '#EEF2FF',
       aiBorder: '#C7D2FE',
-      splash: '#174780',
-      splashText: '#A8C6E8',
-      splashTrack: 'rgba(255, 255, 255, 0.24)',
+      splash: '#0F172A',
+      splashText: '#F1F5F9',
+      splashTrack: 'rgba(241, 245, 249, 0.12)',
     },
     semantic: {
-      success: '#1D9E75',
-      successText: '#14532D',
-      successBackground: '#D1FAE5',
+      success: '#059669',
+      successText: '#064E3B',
+      successBackground: '#DCFCE7',
       warning: '#D97706',
-      warningText: '#B45309',
+      warningText: '#92400E',
       warningBackground: '#FEF3C7',
       warningSubtle: '#FFFBEB',
-      danger: '#EF4444',
-      dangerDark: '#B91C1C',
-      dangerText: '#991B1B',
+      danger: '#DC2626',
+      dangerDark: '#991B1B',
+      dangerText: '#7F1D1D',
       dangerBackground: '#FEE2E2',
       dangerSubtle: '#FEF2F2',
       dangerBorder: '#FECACA',
-      info: '#1E40AF',
-      infoBackground: '#EFF6FF',
+      info: '#0F172A',
+      infoBackground: '#F1F5F9',
     },
     background: {
-      page: '#F9FAFB',
-      adminPage: '#F5F5F3',
+      page: '#F1F5F9', // Sand
+      adminPage: '#F8FAFC',
       surface: '#FFFFFF',
-      disabled: '#F3F4F6',
+      disabled: '#F1F5F9',
     },
     text: {
-      primary: '#111827',
-      secondary: '#4B5563',
-      tertiary: '#374151',
-      muted: '#9CA3AF',
-      disabled: '#D1D5DB',
+      primary: '#0F172A', // Night
+      secondary: '#475569',
+      tertiary: '#1E293B',
+      muted: '#94A3B8',
+      disabled: '#CBD5E1',
       inverse: '#FFFFFF',
-      link: '#1A56DB',
+      link: '#B45309', // Copper link for professional flair
     },
     border: {
-      default: '#E5E7EB',
-      strong: '#D1D5DB',
-      subtle: 'rgba(0, 0, 0, 0.06)',
-      card: 'rgba(0, 0, 0, 0.08)',
+      default: '#E2E8F0',
+      strong: '#94A3B8',
+      subtle: 'rgba(15, 23, 42, 0.04)',
+      card: 'rgba(15, 23, 42, 0.06)',
     },
     onboarding: {
-      mapBackground: '#E8F0FE',
-      aiBackground: '#EEF2FF',
-      verifyBackground: '#E0F5EE',
+      mapBackground: '#F1F5F9', // Sand
+      aiBackground: '#EEF2FF', // AI Purple tint
+      verifyBackground: '#ECFDF5', // Emerald tint
     },
   },
   spacing: {
@@ -192,53 +193,53 @@ export const theme = {
       paddingHorizontal: 12,
     },
     primaryButton: {
-      backgroundColor: '#1A56DB',
+      backgroundColor: '#0F172A',
       borderRadius: 12,
       minHeight: 52,
     },
     secondaryButton: {
-      backgroundColor: '#E8F0FE',
+      backgroundColor: '#F1F5F9',
       borderRadius: 10,
       minHeight: 44,
     },
     segmentedRail: {
-      backgroundColor: '#F3F4F6',
+      backgroundColor: '#F1F5F9',
       borderRadius: 999,
       padding: 4,
     },
   },
   badges: {
     active: {
-      backgroundColor: '#D1FAE5',
-      color: '#1D9E75',
+      backgroundColor: '#DCFCE7',
+      color: '#059669',
     },
     verified: {
-      backgroundColor: '#D1FAE5',
-      color: '#1D9E75',
+      backgroundColor: '#DCFCE7',
+      color: '#059669',
     },
     approved: {
-      backgroundColor: '#D1FAE5',
-      color: '#1D9E75',
+      backgroundColor: '#DCFCE7',
+      color: '#059669',
     },
     pending: {
       backgroundColor: '#FEF3C7',
       color: '#D97706',
     },
     past: {
-      backgroundColor: '#E6F1FB',
-      color: '#185FA5',
+      backgroundColor: '#F1F5F9',
+      color: '#475569',
     },
     info: {
-      backgroundColor: '#E6F1FB',
-      color: '#185FA5',
+      backgroundColor: '#F1F5F9',
+      color: '#0F172A',
     },
     suspended: {
       backgroundColor: '#FEE2E2',
-      color: '#EF4444',
+      color: '#DC2626',
     },
     rejected: {
       backgroundColor: '#FEE2E2',
-      color: '#EF4444',
+      color: '#DC2626',
     },
   },
 } as const;

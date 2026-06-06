@@ -4,6 +4,7 @@ export const colors = {
   brand: {
     primary: theme.colors.brand.primary,
     primaryLight: theme.colors.brand.primaryLight,
+    accent: theme.colors.brand.accent,
     verification: theme.colors.brand.verification,
     ai: theme.colors.brand.ai,
     splash: theme.colors.brand.splash,
@@ -30,6 +31,8 @@ export const colors = {
   border: {
     default: theme.colors.border.default,
     strong: theme.colors.border.strong,
+    subtle: theme.colors.border.subtle,
+    card: theme.colors.border.card,
   },
   onboarding: theme.colors.onboarding,
 } as const;
