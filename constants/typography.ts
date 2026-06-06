@@ -22,4 +22,5 @@ export const typography = {
   },
   overline: theme.typography.overline,
   button: theme.typography.button,
+  buttonSmall: theme.typography.buttonSmall,
 } as const;

@@ -96,7 +96,7 @@ export function RoleSelectionScreen() {
             />
           </View>
 
-          <View style={styles.warningBanner}>
+          {/* <View style={styles.warningBanner}>
             <Ionicons
               color={colors.semantic.warning}
               name="alert-circle-outline"
@@ -106,7 +106,7 @@ export function RoleSelectionScreen() {
               Choose carefully. Role changes should go through admin approval
               later.
             </Text>
-          </View>
+          </View> */}
         </ScrollView>
 
         <View style={styles.footer}>
