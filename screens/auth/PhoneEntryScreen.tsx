@@ -6,18 +6,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Button, Input, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
 import { typography } from "@/constants/typography";
+import { registration } from "@/lib/registration";
 
 type AuthMode = "signup" | "login";
 
@@ -42,6 +39,7 @@ export function PhoneEntryScreen() {
     }
 
     if (mode === "signup") {
+      registration.update({ phone });
       router.push({ pathname: "/otpverify", params: { phone } });
       return;
     }
@@ -53,332 +51,220 @@ export function PhoneEntryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.surface }}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboardView}
+        style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing.xl,
+            paddingBottom: spacing.xl,
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable
+          <XStack
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/onboarding")}
-            style={styles.backButton}
+            minHeight={44}
+            alignSelf="flex-start"
+            alignItems="center"
+            gap={spacing.xs}
+            marginBottom={spacing.md}
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text {...typography.body} color={colors.brand.primary}>
+              Back
+            </Text>
+          </XStack>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>
+          <YStack gap={spacing.sm} marginBottom={spacing.xl}>
+            <Text {...typography.heroTitle} color={colors.text.onboardingTitle}>
               {mode === "signup" ? "Create your account" : "Welcome back"}
             </Text>
-            {/* <Text style={styles.subtitle}>
-              {mode === 'signup'
-                ? 'Enter your phone number. OTP verification will be connected in the auth phase.'
-                : 'Log in with your phone number and password once Firebase auth is connected.'}
-            </Text> */}
-          </View>
+          </YStack>
 
-          <View style={styles.segmentedControl}>
+          <XStack
+            gap={spacing.xs}
+            padding={spacing.xs}
+            borderRadius={10}
+            backgroundColor={colors.background.page}
+            marginBottom={spacing.xl}
+          >
             {(["signup", "login"] as AuthMode[]).map((item) => {
               const active = item === mode;
-
               return (
-                <Pressable
-                  accessibilityRole="button"
+                <Button
                   key={item}
+                  accessibilityRole="button"
+                  flex={1}
+                  height={38}
+                  borderRadius={8}
+                  backgroundColor={active ? colors.background.surface : "transparent"}
                   onPress={() => setMode(item)}
-                  style={[
-                    styles.segmentButton,
-                    active ? styles.segmentButtonActive : null,
-                  ]}
+                  pressStyle={{ backgroundColor: active ? colors.background.surface : "transparent" }}
                 >
                   <Text
-                    style={[
-                      styles.segmentText,
-                      active ? styles.segmentTextActive : null,
-                    ]}
+                    {...typography.button}
+                    color={active ? colors.text.onboardingTitle : colors.text.secondary}
                   >
                     {item === "signup" ? "Sign up" : "Log in"}
                   </Text>
-                </Pressable>
+                </Button>
               );
             })}
-          </View>
+          </XStack>
 
-          <View style={styles.form}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Phone number</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.countryBox}>
-                  <Text style={styles.countryCode}>NP</Text>
-                  <Text style={styles.countryCode}>+977</Text>
-                  <Ionicons
-                    color={colors.text.muted}
-                    name="chevron-down"
-                    size={14}
-                  />
-                </View>
+          <YStack flex={1} gap={spacing.lg}>
+            <YStack gap={spacing.xs}>
+              <Text {...typography.overline} color={colors.text.secondary}>
+                Phone number
+              </Text>
+              <XStack flexDirection="row" gap={spacing.sm}>
+                <XStack
+                  minWidth={92}
+                  height={52}
+                  alignItems="center"
+                  justifyContent="center"
+                  gap={spacing.xs}
+                  borderWidth={0.5}
+                  borderColor={colors.border.default}
+                  borderRadius={10}
+                  style={{ backgroundColor: colors.background.surface }}
+                >
+                  <Text {...typography.button} color={colors.text.primary}>
+                    NP
+                  </Text>
+                  <Text {...typography.button} color={colors.text.primary}>
+                    +977
+                  </Text>
+                  <Ionicons color={colors.text.muted} name="chevron-down" size={14} />
+                </XStack>
 
-                <TextInput
+                <Input
+                  flex={1}
+                  height={52}
+                  borderWidth={0.5}
+                  borderColor={colors.border.default}
+                  borderRadius={10}
+                  paddingHorizontal={spacing.md}
+                  color={colors.text.primary}
+                  fontSize={16}
                   keyboardType="phone-pad"
                   maxLength={10}
                   onChangeText={updatePhone}
                   placeholder="97XXXXXXXX"
-                  placeholderTextColor={colors.text.muted}
-                  style={styles.phoneInput}
+                  placeholderTextColor="$textMuted"
                   value={phone}
                 />
-              </View>
-              <Text style={styles.helperText}>
+              </XStack>
+              <Text {...typography.caption} color={colors.text.muted}>
                 {isPhoneValid || phone.length === 0
                   ? ""
                   : "Enter a 10 digit mobile number."}
               </Text>
-            </View>
+            </YStack>
 
             {mode === "login" ? (
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Password</Text>
-                <View style={styles.passwordRow}>
-                  <TextInput
+              <YStack gap={spacing.xs}>
+                <Text {...typography.overline} color={colors.text.secondary}>
+                  Password
+                </Text>
+                <XStack
+                  height={52}
+                  alignItems="center"
+                  borderWidth={0.5}
+                  borderColor={colors.border.default}
+                  borderRadius={10}
+                  backgroundColor={colors.background.surface}
+                  paddingHorizontal={spacing.md}
+                >
+                  <Input
+                    flex={1}
+                    color={colors.text.primary}
+                    fontSize={15}
+                    borderWidth={0}
+                    backgroundColor="transparent"
                     onChangeText={setPassword}
                     placeholder="Enter your password"
-                    placeholderTextColor={colors.text.muted}
+                    placeholderTextColor="$textMuted"
                     secureTextEntry={!showPassword}
-                    style={styles.passwordInput}
                     value={password}
                   />
-                  <Pressable
-                    accessibilityLabel={
-                      showPassword ? "Hide password" : "Show password"
-                    }
+                  <Button
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     accessibilityRole="button"
-                    hitSlop={8}
+                    width={44}
+                    height={44}
+                    backgroundColor="transparent"
                     onPress={() => setShowPassword((current) => !current)}
-                    style={styles.passwordToggle}
+                    hitSlop={8}
+                    pressStyle={{ backgroundColor: "transparent" }}
                   >
                     <Ionicons
                       color={colors.text.muted}
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={20}
                     />
-                  </Pressable>
-                </View>
-                <Pressable
+                  </Button>
+                </XStack>
+                <Button
                   accessibilityRole="button"
-                  style={styles.forgotButton}
+                  alignSelf="flex-end"
+                  minHeight={36}
+                  backgroundColor="transparent"
+                  pressStyle={{ backgroundColor: "transparent" }}
                 >
-                  <Text style={styles.forgotText}>Forgot password?</Text>
-                </Pressable>
-              </View>
+                  <Text {...typography.caption} color={colors.brand.primary}>
+                    Forgot password?
+                  </Text>
+                </Button>
+              </YStack>
             ) : null}
-          </View>
+          </YStack>
 
-          <View style={styles.footer}>
-            <Pressable
+          <YStack gap={spacing.md} paddingTop={spacing.xl}>
+            <Button
               accessibilityRole="button"
               disabled={!canSubmit}
+              height={52}
+              borderRadius={12}
+              style={{
+                backgroundColor: canSubmit
+                  ? colors.brand.primary
+                  : colors.border.strong,
+              }}
+              alignItems="center"
+              justifyContent="center"
               onPress={handleSubmit}
-              style={[
-                styles.primaryButton,
-                canSubmit ? null : styles.primaryButtonDisabled,
-              ]}
+              pressStyle={{
+                backgroundColor: canSubmit
+                  ? colors.brand.primary
+                  : colors.border.strong,
+              }}
             >
               <Text
-                style={[
-                  styles.primaryButtonText,
-                  canSubmit ? null : styles.primaryButtonTextDisabled,
-                ]}
+                {...typography.button}
+                color={canSubmit ? colors.text.inverse : colors.text.muted}
               >
                 {mode === "signup" ? "Send OTP" : "Log in"}
               </Text>
-            </Pressable>
+            </Button>
 
-            <Text style={styles.termsText}>
-              By continuing, you agree to EdumentX&apos;s Terms and Privacy
-              Policy.
+            <Text
+              {...typography.caption}
+              textAlign="center"
+              color={colors.text.muted}
+            >
+              By continuing, you agree to EdumentX&apos;s Terms and Privacy Policy.
             </Text>
-          </View>
+          </YStack>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.surface,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  backButton: {
-    minHeight: 44,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  backText: {
-    ...typography.body,
-    color: colors.brand.primary,
-  },
-  header: {
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  title: {
-    ...typography.heroTitle,
-    color: colors.text.onboardingTitle,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  segmentedControl: {
-    flexDirection: "row",
-    gap: spacing.xs,
-    padding: spacing.xs,
-    borderRadius: 10,
-    backgroundColor: colors.background.page,
-    marginBottom: spacing.xl,
-  },
-  segmentButton: {
-    flex: 1,
-    minHeight: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  segmentButtonActive: {
-    backgroundColor: colors.background.surface,
-  },
-  segmentText: {
-    ...typography.button,
-    color: colors.text.secondary,
-  },
-  segmentTextActive: {
-    color: colors.text.onboardingTitle,
-  },
-  form: {
-    flex: 1,
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
-  },
-  label: {
-    ...typography.overline,
-    color: colors.text.secondary,
-  },
-  phoneRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  countryBox: {
-    minWidth: 92,
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    backgroundColor: colors.background.surface,
-  },
-  countryCode: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  phoneInput: {
-    flex: 1,
-    minHeight: 52,
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    color: colors.text.primary,
-    fontSize: 16,
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.text.muted,
-  },
-  passwordRow: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    backgroundColor: colors.background.surface,
-  },
-  passwordInput: {
-    flex: 1,
-    minHeight: 52,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
-    color: colors.text.primary,
-    fontSize: 15,
-  },
-  passwordToggle: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  forgotButton: {
-    alignSelf: "flex-end",
-    minHeight: 36,
-    justifyContent: "center",
-  },
-  forgotText: {
-    ...typography.caption,
-    color: colors.brand.primary,
-  },
-  footer: {
-    gap: spacing.md,
-    paddingTop: spacing.xl,
-  },
-  primaryButton: {
-    minHeight: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: colors.border.strong,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-  },
-  primaryButtonTextDisabled: {
-    color: colors.text.muted,
-  },
-  termsText: {
-    ...typography.caption,
-    textAlign: "center",
-    color: colors.text.muted,
-  },
-});

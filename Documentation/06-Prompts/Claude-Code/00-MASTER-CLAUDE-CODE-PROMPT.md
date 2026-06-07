@@ -827,7 +827,10 @@ You are refactoring the **EdumentX** codebase — a React Native (Expo SDK 54) t
 
 ### CURRENT STATE (Read First)
 
-- `app/_layout.tsx` — root Stack, no providers
+**As of June 6, 2026 — Phase 1 is in progress (3/7 screens migrated).**
+
+**App structure (unchanged):**
+- `app/_layout.tsx` — root Stack, now wrapped in `<TamaguiProvider config={tamaguiConfig} defaultTheme="light">`
 - `app/index.tsx` — splash + 1800ms auto-nav
 - `screens/onboarding/SplashScreen.tsx` — 98 lines
 - `screens/onboarding/OnboardingScreen.tsx` — 195 lines
@@ -837,8 +840,41 @@ You are refactoring the **EdumentX** codebase — a React Native (Expo SDK 54) t
 - `screens/auth/RoleSelection.tsx` — 323 lines, 2 roles
 - `screens/auth/ProfileScreen.tsx` — 458 lines, dark header + sand body
 - `constants/theme.ts` — master design tokens
+- `constants/tamagui.config.ts` — Tamagui config mirroring `theme.ts` (created)
+- `tamagui.config.ts` (root) — duplicate of the above, required by babel/metro plugins (created)
+- `babel.config.js`, `metro.config.js` — created and wired
 - `firebase/firestore.rules` + `storage.rules` — pre-emptive security rules
-- `package.json` — Expo SDK 54, React 19.1, RN 0.81.5
+- `package.json` — Expo SDK 54, React 19.1, RN 0.81.5, Tamagui 2.1.0
+
+**Migration status:**
+- ✅ `SplashScreen.tsx` migrated to Tamagui primitives
+- ✅ `OnboardingScreen.tsx` migrated to Tamagui primitives
+- ⚠️ `PhoneEntryScreen.tsx` migrated, **2 typecheck errors at lines 159 & 192** (`backgroundColor={colors.border.strong}` — Tamagui prop expects named tokens, not hex; wrap in `style={{ backgroundColor: ... }}`)
+- ⏳ `OtpVerify.tsx` — not migrated
+- ⏳ `Password.tsx` — not migrated
+- ⏳ `RoleSelection.tsx` — not migrated
+- ⏳ `ProfileScreen.tsx` — not migrated
+
+**Palette refinements (already applied to `theme.ts`):**
+- `semantic.success` `#059669` → `#047857` (5.48:1 contrast on white)
+- `semantic.warning` `#D97706` → `#B45309` (5.02:1 contrast on white)
+- `text.muted` `#94A3B8` → `#64748B` (4.76:1 contrast on white)
+- `border.strong` `#94A3B8` → `#64748B` (4.76:1 contrast on white)
+
+**Typecheck exclusions:**
+- `Documentation/98-Reference-BasoBas/**` is excluded (it's a Figma-Make web export reference, not our app).
+- `Documentation/99-Archive/**` is excluded.
+
+**Pending Phase 1 deliverables (you must complete these):**
+1. Fix the 2 typecheck errors in `PhoneEntryScreen.tsx`.
+2. Migrate the 4 unmigrated auth screens (`OtpVerify`, `Password`, `RoleSelection`, `ProfileScreen`) to Tamagui primitives.
+3. Build 3 onboarding illustration components: `components/illustrations/{DiscoverIllustration,AiMatchIllustration,VerifiedIllustration}.tsx` — pure shape composition, **no images**. Reference: `Documentation/gemini_chat_context.md` FeatureVisuals prompt.
+4. Wire the 3 illustrations into `OnboardingScreen.tsx` (replace the current `Ionicons` icons inside the slide's centered YStack).
+5. Run `npm run typecheck` — must return **0 errors**.
+
+**Reference docs you should skim:**
+- `CLAUDE.md` (project root) — system directives + current state
+- `Documentation/98-Reference-BasoBas/ANALYSIS.md` — per-file UX translation map for the friend project reference (BasoBas is a web app for room rentals in Nepal; do NOT copy its code, only translate its UX patterns)
 
 ### DESIGN TOKENS (Authoritative — Do Not Deviate)
 
@@ -1237,4 +1273,4 @@ npx expo install --check
 
 ---
 
-*Generated for EdumentX · June 2026 · v2.0 — supersedes all previous Claude Code prompts*
+*Generated for EdumentX · June 2026 · v2.1 — supersedes all previous Claude Code prompts. Last updated June 6, 2026 to reflect the Tamagui foundation work in progress (3/7 screens migrated).*

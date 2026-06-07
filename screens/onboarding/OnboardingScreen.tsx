@@ -1,27 +1,24 @@
 import { useState } from 'react';
-import type { ComponentProps } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Button, Text, useWindowDimensions, View, XStack, YStack } from 'tamagui';
 
+import { AiMatchIllustration } from '@/components/illustrations/AiMatchIllustration';
+import { DiscoverIllustration } from '@/components/illustrations/DiscoverIllustration';
+import { VerifiedIllustration } from '@/components/illustrations/VerifiedIllustration';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { typography } from '@/constants/typography';
+
+type IllustrationComponent = () => React.JSX.Element;
 
 type OnboardingSlide = {
   title: string;
   subtitle: string;
   backgroundColor: string;
   accentColor: string;
-  icon: ComponentProps<typeof Ionicons>['name'];
+  Illustration: IllustrationComponent;
 };
 
 const slides: OnboardingSlide[] = [
@@ -30,21 +27,21 @@ const slides: OnboardingSlide[] = [
     subtitle: 'See verified home tutors in your neighborhood - sorted by distance, subject, and rating.',
     backgroundColor: colors.onboarding.mapBackground,
     accentColor: colors.brand.primary,
-    icon: 'location-outline',
+    Illustration: DiscoverIllustration,
   },
   {
     title: 'Ask AI for the best match',
     subtitle: 'Tell our AI assistant what you need to learn. It recommends the right tutor in seconds.',
     backgroundColor: colors.onboarding.aiBackground,
     accentColor: colors.brand.ai,
-    icon: 'sparkles-outline',
+    Illustration: AiMatchIllustration,
   },
   {
     title: 'Verified, trusted tutors',
     subtitle: 'Every Blue Tick Pro tutor is document-verified by our team. Your safety, our priority.',
     backgroundColor: colors.onboarding.verifyBackground,
     accentColor: colors.brand.verification,
-    icon: 'shield-checkmark-outline',
+    Illustration: VerifiedIllustration,
   },
 ];
 
@@ -53,6 +50,7 @@ export function OnboardingScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const { width } = useWindowDimensions();
   const slide = slides[activeSlide];
+  const Illustration = slide.Illustration;
   const illustrationHeight = Math.min(280, Math.max(220, width * 0.72));
 
   function handleNext() {
@@ -69,126 +67,88 @@ export function OnboardingScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.surface }}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
-        <View style={styles.skipRow}>
-          <Pressable accessibilityRole="button" hitSlop={12} onPress={handleSkip} style={styles.skipButton}>
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        </View>
+      <YStack flex={1} paddingHorizontal={spacing.xl} paddingBottom={spacing.xl}>
+        <XStack justifyContent="flex-end" paddingTop={spacing.xl} marginBottom={spacing.lg}>
+          <Button
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={handleSkip}
+            backgroundColor="transparent"
+            borderWidth={0}
+            minHeight={44}
+          >
+            <Text {...typography.body} color={colors.text.secondary}>
+              Skip
+            </Text>
+          </Button>
+        </XStack>
 
-        <View style={[styles.illustrationPanel, { backgroundColor: slide.backgroundColor, height: illustrationHeight }]}>
-          <View style={styles.iconCircle}>
-            <Ionicons color={slide.accentColor} name={slide.icon} size={58} />
-          </View>
-        </View>
+        <YStack
+          alignItems="center"
+          justifyContent="center"
+          borderRadius={20}
+          marginBottom={spacing.xxl}
+          backgroundColor={slide.backgroundColor}
+          height={illustrationHeight}
+        >
+          <YStack
+            width="100%"
+            height="100%"
+            alignItems="center"
+            justifyContent="center"
+            paddingHorizontal={spacing.lg}
+          >
+            <Illustration />
+          </YStack>
+        </YStack>
 
-        <View style={styles.content}>
-          <Text style={styles.title}>{slide.title}</Text>
-          <Text style={styles.subtitle}>{slide.subtitle}</Text>
-        </View>
+        <YStack flex={1}>
+          <Text
+            {...typography.heroTitle}
+            color={colors.text.primary}
+            marginBottom={spacing.md}
+          >
+            {slide.title}
+          </Text>
+          <Text {...typography.body} color={colors.text.secondary}>
+            {slide.subtitle}
+          </Text>
+        </YStack>
 
-        <View style={styles.footer}>
-          <View style={styles.dots}>
+        <YStack gap={spacing.lg}>
+          <XStack height={12} alignItems="center" justifyContent="center" gap={spacing.sm}>
             {slides.map((item, index) => (
-              <Pressable
+              <View
+                key={item.title}
                 accessibilityLabel={`Show onboarding slide ${index + 1}`}
                 accessibilityRole="button"
-                key={item.title}
                 onPress={() => setActiveSlide(index)}
-                style={[styles.dot, index === activeSlide ? styles.dotActive : null]}
+                width={index === activeSlide ? 24 : 8}
+                height={8}
+                borderRadius={999}
+                backgroundColor={index === activeSlide ? colors.brand.primary : colors.border.strong}
               />
             ))}
-          </View>
+          </XStack>
 
-          <Pressable accessibilityRole="button" onPress={handleNext} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{activeSlide === slides.length - 1 ? 'Get started' : 'Next'}</Text>
-          </Pressable>
-        </View>
-      </View>
+          <Button
+            accessibilityRole="button"
+            onPress={handleNext}
+            height={52}
+            borderRadius={12}
+            backgroundColor={colors.brand.primary}
+            alignItems="center"
+            justifyContent="center"
+            pressStyle={{ backgroundColor: colors.brand.primary }}
+          >
+            <Text {...typography.button} color={colors.text.inverse}>
+              {activeSlide === slides.length - 1 ? 'Get started' : 'Next'}
+            </Text>
+          </Button>
+        </YStack>
+      </YStack>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.surface,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  skipRow: {
-    alignItems: 'flex-end',
-    paddingTop: spacing.xl,
-    marginBottom: spacing.lg,
-  },
-  skipButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  skipText: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  illustrationPanel: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    marginBottom: spacing.xxl,
-  },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    backgroundColor: colors.background.surface,
-  },
-  content: {
-    flex: 1,
-  },
-  title: {
-    ...typography.heroTitle,
-    color: colors.text.onboardingTitle,
-    marginBottom: spacing.md,
-  },
-  subtitle: {
-    ...typography.onboardingBody,
-    color: colors.text.secondary,
-  },
-  footer: {
-    gap: spacing.lg,
-  },
-  dots: {
-    height: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: colors.border.strong,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButton: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-  },
-});

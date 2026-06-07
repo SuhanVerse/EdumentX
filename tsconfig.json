@@ -13,5 +13,10 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "Documentation/98-Reference-BasoBas/**",
+    "Documentation/99-Archive/**"
   ]
 }

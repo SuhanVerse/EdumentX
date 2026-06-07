@@ -8,21 +8,16 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Button, Input, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
 import { spacing } from "@/constants/spacing";
-import { theme } from "@/constants/theme";
 import { typography } from "@/constants/typography";
 
-const SUBJECTS = ["Math", "Physics","Chemistry", "Computer Science","Biology","Nepali","English"] as const;
+const SUBJECTS = ["Math", "Physics", "Chemistry", "Computer Science", "Biology", "Nepali", "English"] as const;
 const GRADES = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade XI (Science)", "Grade XI (Management)", "Grade XII (Science)", "Grade XII (Management)"] as const;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,7 +66,6 @@ export function ProfileScreen() {
   const [grade, setGrade] = useState<Grade | null>(null);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
-  // const [role, setRole] = useState("");
 
   const canSubmit =
     fullName.trim().length >= 3 &&
@@ -117,341 +111,293 @@ export function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.brand.primary }}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboardView}
+        style={{ flex: 1 }}
       >
-        <View style={styles.header}>
-          <Pressable
+        <YStack
+          gap={spacing.xs}
+          paddingHorizontal={spacing.xl}
+          paddingTop={spacing.lg}
+          paddingBottom={48}
+          backgroundColor={colors.brand.primary}
+        >
+          <XStack
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/role-selection")}
-            style={styles.backButton}
+            minHeight={44}
+            alignSelf="flex-start"
+            alignItems="center"
+            gap={spacing.xs}
+            marginLeft={-4}
+            backgroundColor="transparent"
+            pressStyle={{ backgroundColor: "transparent" }}
           >
             <Ionicons
               color={colors.text.inverse}
               name="chevron-back"
               size={18}
             />
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>Set up your profile</Text>
-          <Text style={styles.headerSubtitle}>
+            <Text {...typography.body} color={colors.text.inverse} opacity={0.8}>
+              Back
+            </Text>
+          </XStack>
+          <Text
+            {...typography.heroTitle}
+            color={colors.text.inverse}
+            fontSize={26}
+          >
+            Set up your profile
+          </Text>
+          <Text {...typography.body} color={colors.text.inverse} opacity={0.7} marginTop={2}>
             This helps tutors understand your learning needs.
           </Text>
-        </View>
+        </YStack>
 
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            gap: spacing.xl,
+            paddingHorizontal: spacing.xl,
+            paddingTop: 32,
+            paddingBottom: 40,
+            backgroundColor: colors.background.page,
+          }}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={handlePickAvatar}
-            style={styles.avatarButton}
-          >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
+          <YStack alignItems="center" gap={spacing.sm} marginBottom={spacing.md}>
+            <Button
+              accessibilityRole="button"
+              onPress={handlePickAvatar}
+              width={96}
+              height={96}
+              padding={0}
+              borderRadius={9999}
+              borderWidth={4}
+              borderColor={colors.background.surface}
+              backgroundColor={colors.border.default}
+              pressStyle={{ backgroundColor: colors.border.default, opacity: 0.85 }}
+            >
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={{ width: 88, height: 88, borderRadius: 9999 }}
+                />
+              ) : (
                 <Ionicons
                   color={colors.brand.primary}
                   name="person-outline"
                   size={40}
                 />
-              </View>
-            )}
-            <Text style={styles.avatarText}>Upload photo</Text>
-          </Pressable>
+              )}
+            </Button>
+            <Text {...typography.caption} color={colors.text.secondary} fontWeight="500">
+              Upload photo
+            </Text>
+          </YStack>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardLabel}>Full name</Text>
-            <TextInput
+          <YStack
+            gap={spacing.md}
+            padding={spacing.xl}
+            borderWidth={1}
+            borderColor={colors.border.subtle}
+            borderRadius={16}
+            backgroundColor={colors.background.surface}
+            shadowColor={colors.brand.primary}
+            shadowOffset={{ width: 0, height: 4 }}
+            shadowOpacity={0.05}
+            shadowRadius={12}
+          >
+            <Text {...typography.overline} color={colors.text.muted}>
+              Full name
+            </Text>
+            <Input
               autoCapitalize="words"
               onChangeText={setFullName}
               placeholder="e.g., Aarav Tamang"
-              placeholderTextColor={colors.text.muted}
-              style={[
-                styles.textInput,
-                errors.fullName ? styles.textInputError : null,
-              ]}
+              placeholderTextColor="$textMuted"
+              minHeight={52}
+              paddingHorizontal={spacing.lg}
+              borderWidth={1.5}
+              borderColor={errors.fullName ? colors.semantic.danger : colors.border.default}
+              borderRadius={12}
+              backgroundColor={colors.background.surface}
+              color={colors.text.primary}
+              fontSize={15}
               value={fullName}
             />
             {errors.fullName ? (
-              <Text style={styles.errorText}>{errors.fullName}</Text>
+              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
+                {errors.fullName}
+              </Text>
             ) : null}
 
-            <Text style={styles.cardLabel}>Email</Text>
-            <TextInput
+            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
+              Email
+            </Text>
+            <Input
               autoCapitalize="none"
               keyboardType="email-address"
               onChangeText={setEmail}
               placeholder="e.g., aarav@gmail.com"
-              placeholderTextColor={colors.text.muted}
-              style={[
-                styles.textInput,
-                errors.email ? styles.textInputError : null,
-              ]}
+              placeholderTextColor="$textMuted"
+              minHeight={52}
+              paddingHorizontal={spacing.lg}
+              borderWidth={1.5}
+              borderColor={errors.email ? colors.semantic.danger : colors.border.default}
+              borderRadius={12}
+              backgroundColor={colors.background.surface}
+              color={colors.text.primary}
+              fontSize={15}
               value={email}
             />
             {errors.email ? (
-              <Text style={styles.errorText}>{errors.email}</Text>
+              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
+                {errors.email}
+              </Text>
             ) : null}
-          </View>
+          </YStack>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardLabel}>Grade / class</Text>
-            <View style={styles.chipWrap}>
-              {GRADES.map((item) => (
-                <Pressable
-                  accessibilityRole="button"
-                  key={item}
-                  onPress={() => setGrade(item)}
-                  style={[
-                    styles.chip,
-                    grade === item ? styles.chipSelected : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      grade === item ? styles.chipTextSelected : null,
-                    ]}
+          <YStack
+            gap={spacing.md}
+            padding={spacing.xl}
+            borderWidth={1}
+            borderColor={colors.border.subtle}
+            borderRadius={16}
+            backgroundColor={colors.background.surface}
+            shadowColor={colors.brand.primary}
+            shadowOffset={{ width: 0, height: 4 }}
+            shadowOpacity={0.05}
+            shadowRadius={12}
+          >
+            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
+              Grade / class
+            </Text>
+            <XStack flexWrap="wrap" gap={spacing.sm}>
+              {GRADES.map((item) => {
+                const active = grade === item;
+                return (
+                  <Button
+                    key={item}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setGrade(item)}
+                    minHeight={40}
+                    paddingHorizontal={spacing.lg}
+                    paddingVertical={spacing.sm}
+                    borderWidth={1.5}
+                    borderColor={active ? colors.brand.primary : colors.border.default}
+                    borderRadius={10}
+                    backgroundColor={active ? colors.brand.primary : colors.background.surface}
+                    pressStyle={{
+                      backgroundColor: active ? colors.brand.primary : colors.background.surface,
+                      opacity: 0.85,
+                    }}
                   >
-                    {item}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+                    <Text
+                      {...typography.buttonSmall}
+                      color={active ? colors.text.inverse : colors.text.secondary}
+                    >
+                      {item}
+                    </Text>
+                  </Button>
+                );
+              })}
+            </XStack>
             {errors.grade ? (
-              <Text style={styles.errorText}>{errors.grade}</Text>
+              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
+                {errors.grade}
+              </Text>
             ) : null}
-          </View>
+          </YStack>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardLabel}>Subject needed</Text>
-            <View style={styles.chipWrap}>
-              {SUBJECTS.map((item) => (
-                <Pressable
-                  accessibilityRole="button"
-                  key={item}
-                  onPress={() => setSubject(item)}
-                  style={[
-                    styles.chip,
-                    subject === item ? styles.chipSelected : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      subject === item ? styles.chipTextSelected : null,
-                    ]}
+          <YStack
+            gap={spacing.md}
+            padding={spacing.xl}
+            borderWidth={1}
+            borderColor={colors.border.subtle}
+            borderRadius={16}
+            backgroundColor={colors.background.surface}
+            shadowColor={colors.brand.primary}
+            shadowOffset={{ width: 0, height: 4 }}
+            shadowOpacity={0.05}
+            shadowRadius={12}
+          >
+            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
+              Subject needed
+            </Text>
+            <XStack flexWrap="wrap" gap={spacing.sm}>
+              {SUBJECTS.map((item) => {
+                const active = subject === item;
+                return (
+                  <Button
+                    key={item}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setSubject(item)}
+                    minHeight={40}
+                    paddingHorizontal={spacing.lg}
+                    paddingVertical={spacing.sm}
+                    borderWidth={1.5}
+                    borderColor={active ? colors.brand.primary : colors.border.default}
+                    borderRadius={10}
+                    backgroundColor={active ? colors.brand.primary : colors.background.surface}
+                    pressStyle={{
+                      backgroundColor: active ? colors.brand.primary : colors.background.surface,
+                      opacity: 0.85,
+                    }}
                   >
-                    {item}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+                    <Text
+                      {...typography.buttonSmall}
+                      color={active ? colors.text.inverse : colors.text.secondary}
+                    >
+                      {item}
+                    </Text>
+                  </Button>
+                );
+              })}
+            </XStack>
             {errors.subject ? (
-              <Text style={styles.errorText}>{errors.subject}</Text>
+              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
+                {errors.subject}
+              </Text>
             ) : null}
-          </View>
+          </YStack>
 
-          <Pressable
+          <Button
             accessibilityRole="button"
             disabled={!canSubmit}
+            minHeight={56}
+            marginTop={spacing.lg}
+            borderRadius={14}
+            style={{
+              backgroundColor: canSubmit ? colors.brand.accent : colors.border.strong,
+            }}
             onPress={handleSubmit}
-            style={[
-              styles.primaryButton,
-              canSubmit ? null : styles.primaryButtonDisabled,
-            ]}
+            pressStyle={{
+              backgroundColor: canSubmit ? colors.brand.accent : colors.border.strong,
+              opacity: 0.9,
+            }}
+            shadowColor={canSubmit ? colors.brand.accent : "transparent"}
+            shadowOffset={{ width: 0, height: 4 }}
+            shadowOpacity={canSubmit ? 0.2 : 0}
+            shadowRadius={8}
           >
             <Text
-              style={[
-                styles.primaryButtonText,
-                canSubmit ? null : styles.primaryButtonTextDisabled,
-              ]}
+              {...typography.button}
+              color={canSubmit ? colors.text.inverse : colors.text.muted}
+              fontSize={16}
+              fontWeight="600"
             >
               Finish setup
             </Text>
-          </Pressable>
+          </Button>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.brand.primary, // Night Slate
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    gap: spacing.xs,
-    paddingHorizontal: spacing.page,
-    paddingTop: spacing.lg,
-    paddingBottom: 48,
-    backgroundColor: colors.brand.primary,
-  },
-  backButton: {
-    minHeight: theme.sizes.touchTarget,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginLeft: -4,
-  },
-  backText: {
-    ...typography.body,
-    color: colors.text.inverse,
-    opacity: 0.8,
-  },
-  headerTitle: {
-    ...typography.heroTitle,
-    color: colors.text.inverse,
-    fontSize: 26,
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    ...typography.body,
-    color: colors.text.inverse,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    gap: spacing.xl,
-    paddingHorizontal: spacing.page,
-    paddingTop: 32, // Increased padding to avoid collision with header
-    paddingBottom: 40,
-    backgroundColor: colors.background.page, // Sand
-  },
-  avatarButton: {
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: 0, // Removed negative margin to stop overlap
-    marginBottom: spacing.md,
-  },
-  avatarImage: {
-    width: 96,
-    height: 96,
-    borderWidth: 4,
-    borderColor: colors.background.surface,
-    borderRadius: theme.radii.circle,
-  },
-  avatarPlaceholder: {
-    width: 96,
-    height: 96,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 4,
-    borderColor: colors.background.surface,
-    borderRadius: theme.radii.circle,
-    backgroundColor: colors.border.default,
-  },
-  avatarText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontWeight: "500",
-  },
-  sectionCard: {
-    gap: spacing.md,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: 16,
-    backgroundColor: colors.background.surface,
-    // Soft Depth Shadow
-    shadowColor: colors.brand.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  cardLabel: {
-    ...typography.overline,
-    color: colors.text.muted,
-    marginBottom: -4,
-  },
-  textInput: {
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border.default,
-    borderRadius: 12,
-    color: colors.text.primary,
-    backgroundColor: colors.background.surface,
-    fontSize: 15,
-  },
-  textInputError: {
-    borderColor: colors.semantic.danger,
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.semantic.danger,
-    marginTop: -4,
-  },
-  chipWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  chip: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    backgroundColor: colors.background.surface,
-  },
-  chipSelected: {
-    borderColor: colors.brand.primary,
-    backgroundColor: colors.brand.primary,
-  },
-  chipText: {
-    ...typography.buttonSmall,
-    color: colors.text.secondary,
-  },
-  chipTextSelected: {
-    color: colors.text.inverse,
-  },
-  primaryButton: {
-    minHeight: 56,
-    marginTop: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: colors.brand.accent, // Copper Accent
-    // Soft Copper Glow
-    shadowColor: colors.brand.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: colors.border.strong,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  primaryButtonTextDisabled: {
-    color: colors.text.muted,
-  },
-});
