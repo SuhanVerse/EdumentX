@@ -243,18 +243,18 @@ export function StudentProfileScreen() {
             minHeight={56}
             marginTop={spacing.lg}
             borderRadius={14}
-            backgroundColor={canSubmit ? colors.brand.accent : colors.border.strong}
+            backgroundColor={canSubmit ? "$brandAccent" : "$borderStrong"}
             onPress={handleSubmit}
             pressStyle={{
-              backgroundColor: canSubmit ? colors.brand.accent : colors.border.strong,
+              backgroundColor: canSubmit ? "$brandAccent" : "$borderStrong",
               opacity: 0.9,
             }}
-            shadowColor={canSubmit ? colors.brand.accent : "transparent"}
+            shadowColor={canSubmit ? "$brandAccent" : "transparent"}
             shadowOffset={{ width: 0, height: 4 }}
             shadowOpacity={canSubmit ? 0.2 : 0}
             shadowRadius={8}
           >
-            <Text {...typography.button} color={canSubmit ? colors.text.inverse : colors.text.muted} fontSize={16} fontWeight="600">
+            <Text {...typography.button} color={canSubmit ? "$textInverse" : "$textMuted"} fontSize={16} fontWeight="600">
               Finish setup
             </Text>
           </Button>

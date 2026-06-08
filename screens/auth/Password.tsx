@@ -229,24 +229,18 @@ export function CreatePassword() {
               accessibilityRole="button"
               disabled={!canSubmit}
               height={52}
-              borderRadius={12}
+              borderRadius="$card"
               alignItems="center"
               justifyContent="center"
-              style={{
-                backgroundColor: canSubmit
-                  ? colors.brand.primary
-                  : colors.border.strong,
-              }}
+              backgroundColor={canSubmit ? "$brandPrimary" : "$borderStrong"}
               onPress={() => router.replace("/role-selection")}
               pressStyle={{
-                backgroundColor: canSubmit
-                  ? colors.brand.primary
-                  : colors.border.strong,
+                backgroundColor: canSubmit ? "$brandPrimary" : "$borderStrong",
               }}
             >
               <Text
                 {...typography.button}
-                color={canSubmit ? colors.text.inverse : colors.text.muted}
+                color={canSubmit ? "$textInverse" : "$textMuted"}
               >
                 Continue
               </Text>

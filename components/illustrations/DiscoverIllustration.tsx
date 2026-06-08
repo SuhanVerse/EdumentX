@@ -5,15 +5,31 @@
  * three tutor pins, and a pulsing amber current-location dot in the
  * centre. Pure SVG composition — no images.
  *
- * Token map (Tamagui → theme.ts):
- *   $sand          → map fill
- *   $borderDefault → grid + pins
- *   $night         → pin outline
- *   $amber         → location pulse
- *   $surface       → pin disc + pulse ring
+ * NOTE: `react-native-svg` primitives do NOT resolve Tamagui token
+ * strings — they take raw color values. We import the hex values from
+ * `constants/theme` (the single source of truth) and pass them as
+ * plain strings, so the design system stays centralized without
+ * re-introducing hardcoded hex in the JSX body.
+ *
+ * Token map (theme.ts → hex):
+ *   sand          → map fill
+ *   borderDefault → grid + pins
+ *   night         → pin outline
+ *   amber         → location pulse
+ *   surface       → pin disc + pulse ring
  */
 import { YStack } from 'tamagui';
 import { Circle, G, Line, Path, Rect, Svg } from 'react-native-svg';
+
+import { theme } from '@/constants/theme';
+
+const COLORS = {
+  sand: theme.colors.background.page,
+  borderDefault: theme.colors.border.default,
+  night: theme.colors.brand.primary,
+  amber: theme.colors.brand.accent,
+  surface: theme.colors.background.surface,
+} as const;
 
 export function DiscoverIllustration() {
   return (
@@ -32,68 +48,66 @@ export function DiscoverIllustration() {
           height={220}
           rx={24}
           ry={24}
-          fill="$sand"
+          fill={COLORS.sand}
         />
 
-        {/* Clip the grid + roads to the rounded map background */}
+        {/* Hairline grid + roads */}
         <G>
-          {/* Hairline vertical grid */}
-          <Line x1={40} y1={16} x2={40} y2={204} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={80} y1={16} x2={80} y2={204} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={120} y1={16} x2={120} y2={204} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={160} y1={16} x2={160} y2={204} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={200} y1={16} x2={200} y2={204} stroke="$borderDefault" strokeWidth={1} />
+          <Line x1={40} y1={16} x2={40} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={80} y1={16} x2={80} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={120} y1={16} x2={120} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={160} y1={16} x2={160} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={200} y1={16} x2={200} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
 
-          {/* Hairline horizontal grid */}
-          <Line x1={16} y1={50} x2={204} y2={50} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={16} y1={90} x2={204} y2={90} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={16} y1={130} x2={204} y2={130} stroke="$borderDefault" strokeWidth={1} />
-          <Line x1={16} y1={170} x2={204} y2={170} stroke="$borderDefault" strokeWidth={1} />
+          <Line x1={16} y1={50} x2={204} y2={50} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={16} y1={90} x2={204} y2={90} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={16} y1={130} x2={204} y2={130} stroke={COLORS.borderDefault} strokeWidth={1} />
+          <Line x1={16} y1={170} x2={204} y2={170} stroke={COLORS.borderDefault} strokeWidth={1} />
 
           {/* Two thicker road lines */}
-          <Line x1={16} y1={70} x2={204} y2={70} stroke="$borderDefault" strokeWidth={1.6} />
-          <Line x1={16} y1={150} x2={204} y2={150} stroke="$borderDefault" strokeWidth={1.6} />
+          <Line x1={16} y1={70} x2={204} y2={70} stroke={COLORS.borderDefault} strokeWidth={1.6} />
+          <Line x1={16} y1={150} x2={204} y2={150} stroke={COLORS.borderDefault} strokeWidth={1.6} />
         </G>
 
         {/* Tutor pin — top-right (around x=150, y=55) */}
         <G>
           <Path
             d="M150 30 L162 30 A8 8 0 0 1 170 38 L170 56 A8 8 0 0 1 162 64 L150 64 A8 8 0 0 1 142 56 L142 38 A8 8 0 0 1 150 30 Z"
-            fill="$surface"
-            stroke="$night"
+            fill={COLORS.surface}
+            stroke={COLORS.night}
             strokeWidth={1.5}
           />
-          <Circle cx={156} cy={47} r={4} fill="$night" />
+          <Circle cx={156} cy={47} r={4} fill={COLORS.night} />
         </G>
 
         {/* Tutor pin — mid-left (around x=50, y=110) */}
         <G>
           <Path
             d="M50 92 L62 92 A8 8 0 0 1 70 100 L70 118 A8 8 0 0 1 62 126 L50 126 A8 8 0 0 1 42 118 L42 100 A8 8 0 0 1 50 92 Z"
-            fill="$surface"
-            stroke="$night"
+            fill={COLORS.surface}
+            stroke={COLORS.night}
             strokeWidth={1.5}
           />
-          <Circle cx={56} cy={109} r={4} fill="$night" />
+          <Circle cx={56} cy={109} r={4} fill={COLORS.night} />
         </G>
 
         {/* Tutor pin — bottom-right (around x=160, y=160) */}
         <G>
           <Path
             d="M160 142 L172 142 A8 8 0 0 1 180 150 L180 168 A8 8 0 0 1 172 176 L160 176 A8 8 0 0 1 152 168 L152 150 A8 8 0 0 1 160 142 Z"
-            fill="$surface"
-            stroke="$night"
+            fill={COLORS.surface}
+            stroke={COLORS.night}
             strokeWidth={1.5}
           />
-          <Circle cx={166} cy={159} r={4} fill="$night" />
+          <Circle cx={166} cy={159} r={4} fill={COLORS.night} />
         </G>
 
         {/* Current-location pulse — outer ring */}
-        <Circle cx={110} cy={120} r={24} fill="$amber" opacity={0.15} />
+        <Circle cx={110} cy={120} r={24} fill={COLORS.amber} opacity={0.15} />
         {/* Inner pulse */}
-        <Circle cx={110} cy={120} r={14} fill="$amber" opacity={0.3} />
+        <Circle cx={110} cy={120} r={14} fill={COLORS.amber} opacity={0.3} />
         {/* Solid dot with white ring */}
-        <Circle cx={110} cy={120} r={8} fill="$amber" stroke="$surface" strokeWidth={3} />
+        <Circle cx={110} cy={120} r={8} fill={COLORS.amber} stroke={COLORS.surface} strokeWidth={3} />
       </Svg>
     </YStack>
   );

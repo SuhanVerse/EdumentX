@@ -232,24 +232,18 @@ export function PhoneEntryScreen() {
               accessibilityRole="button"
               disabled={!canSubmit}
               height={52}
-              borderRadius={12}
-              style={{
-                backgroundColor: canSubmit
-                  ? colors.brand.primary
-                  : colors.border.strong,
-              }}
+              borderRadius="$card"
+              backgroundColor={canSubmit ? "$brandPrimary" : "$borderStrong"}
               alignItems="center"
               justifyContent="center"
               onPress={handleSubmit}
               pressStyle={{
-                backgroundColor: canSubmit
-                  ? colors.brand.primary
-                  : colors.border.strong,
+                backgroundColor: canSubmit ? "$brandPrimary" : "$borderStrong",
               }}
             >
               <Text
                 {...typography.button}
-                color={canSubmit ? colors.text.inverse : colors.text.muted}
+                color={canSubmit ? "$textInverse" : "$textMuted"}
               >
                 {mode === "signup" ? "Send OTP" : "Log in"}
               </Text>
@@ -258,7 +252,7 @@ export function PhoneEntryScreen() {
             <Text
               {...typography.caption}
               textAlign="center"
-              color={colors.text.muted}
+              color="$textMuted"
             >
               By continuing, you agree to EdumentX&apos;s Terms and Privacy Policy.
             </Text>

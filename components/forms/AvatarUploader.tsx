@@ -31,7 +31,7 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.8,
     });
 

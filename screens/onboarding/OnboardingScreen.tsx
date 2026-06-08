@@ -137,13 +137,13 @@ export function OnboardingScreen() {
             accessibilityRole="button"
             onPress={handleNext}
             height={52}
-            borderRadius={12}
-            backgroundColor={colors.brand.primary}
+            borderRadius="$card"
+            backgroundColor="$brandPrimary"
             alignItems="center"
             justifyContent="center"
-            pressStyle={{ backgroundColor: colors.brand.primary }}
+            pressStyle={{ backgroundColor: "$brandPrimary" }}
           >
-            <Text {...typography.button} color={colors.text.inverse}>
+            <Text {...typography.button} color="$textInverse">
               {activeSlide === slides.length - 1 ? 'Get started' : 'Next'}
             </Text>
           </Button>

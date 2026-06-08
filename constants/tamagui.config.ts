@@ -80,11 +80,7 @@ const tokens = createTokens({
     surface: masterTheme.colors.background.surface,
     ai: masterTheme.colors.brand.ai,
     aiLight: masterTheme.colors.brand.aiLight,
-    brandVerification: masterTheme.colors.brand.verification,
     verificationLight: masterTheme.colors.brand.verificationLight,
-    semDanger: masterTheme.colors.semantic.danger,
-    semWarning: masterTheme.colors.semantic.warning,
-    semSuccess: masterTheme.colors.semantic.success,
   },
   space: {
     true: 16,

@@ -25914,6 +25914,55 @@
           "name": "c-onbVerifyBackground",
           "val": "#ECFDF5",
           "variable": ""
+        },
+        "night": {
+          "isVar": true,
+          "key": "$night",
+          "name": "c-night",
+          "val": "#0F172A",
+          "variable": ""
+        },
+        "amber": {
+          "isVar": true,
+          "key": "$amber",
+          "name": "c-amber",
+          "val": "#B45309",
+          "variable": ""
+        },
+        "sand": {
+          "isVar": true,
+          "key": "$sand",
+          "name": "c-sand",
+          "val": "#F1F5F9",
+          "variable": ""
+        },
+        "surface": {
+          "isVar": true,
+          "key": "$surface",
+          "name": "c-surface",
+          "val": "#FFFFFF",
+          "variable": ""
+        },
+        "ai": {
+          "isVar": true,
+          "key": "$ai",
+          "name": "c-ai",
+          "val": "#4F46E5",
+          "variable": ""
+        },
+        "aiLight": {
+          "isVar": true,
+          "key": "$aiLight",
+          "name": "c-aiLight",
+          "val": "#EEF2FF",
+          "variable": ""
+        },
+        "verificationLight": {
+          "isVar": true,
+          "key": "$verificationLight",
+          "name": "c-verificationLight",
+          "val": "#ECFDF5",
+          "variable": ""
         }
       },
       "space": {
@@ -26380,6 +26429,13 @@
         "onbMapBackground": "#F1F5F9",
         "onbAiBackground": "#EEF2FF",
         "onbVerifyBackground": "#ECFDF5",
+        "night": "#0F172A",
+        "amber": "#B45309",
+        "sand": "#F1F5F9",
+        "surface": "#FFFFFF",
+        "ai": "#4F46E5",
+        "aiLight": "#EEF2FF",
+        "verificationLight": "#ECFDF5",
         "background": "#F1F5F9",
         "backgroundHover": "#F1F5F9",
         "backgroundPress": "#F1F5F9",
@@ -26463,6 +26519,27 @@
     "getNewCSS": "Function",
     "fontSizeTokens": {},
     "specificTokens": {
+      "$color.ai": {
+        "isVar": true,
+        "key": "$ai",
+        "name": "c-ai",
+        "val": "#4F46E5",
+        "variable": ""
+      },
+      "$color.aiLight": {
+        "isVar": true,
+        "key": "$aiLight",
+        "name": "c-aiLight",
+        "val": "#EEF2FF",
+        "variable": ""
+      },
+      "$color.amber": {
+        "isVar": true,
+        "key": "$amber",
+        "name": "c-amber",
+        "val": "#B45309",
+        "variable": ""
+      },
       "$color.bgAdminPage": {
         "isVar": true,
         "key": "$bgAdminPage",
@@ -26617,6 +26694,13 @@
         "val": "#ECFDF5",
         "variable": ""
       },
+      "$color.night": {
+        "isVar": true,
+        "key": "$night",
+        "name": "c-night",
+        "val": "#0F172A",
+        "variable": ""
+      },
       "$color.onbAiBackground": {
         "isVar": true,
         "key": "$onbAiBackground",
@@ -26636,6 +26720,13 @@
         "key": "$onbVerifyBackground",
         "name": "c-onbVerifyBackground",
         "val": "#ECFDF5",
+        "variable": ""
+      },
+      "$color.sand": {
+        "isVar": true,
+        "key": "$sand",
+        "name": "c-sand",
+        "val": "#F1F5F9",
         "variable": ""
       },
       "$color.semDanger": {
@@ -26743,6 +26834,13 @@
         "val": "#92400E",
         "variable": ""
       },
+      "$color.surface": {
+        "isVar": true,
+        "key": "$surface",
+        "name": "c-surface",
+        "val": "#FFFFFF",
+        "variable": ""
+      },
       "$color.textDisabled": {
         "isVar": true,
         "key": "$textDisabled",
@@ -26790,6 +26888,13 @@
         "key": "$textTertiary",
         "name": "c-textTertiary",
         "val": "#1E293B",
+        "variable": ""
+      },
+      "$color.verificationLight": {
+        "isVar": true,
+        "key": "$verificationLight",
+        "name": "c-verificationLight",
+        "val": "#ECFDF5",
         "variable": ""
       },
       "$radius.card": {

@@ -66,6 +66,14 @@ const tokens = createTokens({
     onbMapBackground: masterTheme.colors.onboarding.mapBackground,
     onbAiBackground: masterTheme.colors.onboarding.aiBackground,
     onbVerifyBackground: masterTheme.colors.onboarding.verifyBackground,
+    // Short aliases — preferred in components (Sophisticated Slate & Amber)
+    night: masterTheme.colors.brand.primary,
+    amber: masterTheme.colors.brand.accent,
+    sand: masterTheme.colors.background.page,
+    surface: masterTheme.colors.background.surface,
+    ai: masterTheme.colors.brand.ai,
+    aiLight: masterTheme.colors.brand.aiLight,
+    verificationLight: masterTheme.colors.brand.verificationLight,
   },
   space: {
     true: 16,

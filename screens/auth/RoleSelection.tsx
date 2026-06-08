@@ -141,21 +141,15 @@ export function RoleSelectionScreen() {
             alignItems="center"
             justifyContent="center"
             borderRadius={theme.radii.card}
-            style={{
-              backgroundColor: canContinue
-                ? colors.brand.primary
-                : colors.border.strong,
-            }}
+            backgroundColor={canContinue ? "$brandPrimary" : "$borderStrong"}
             onPress={handleContinue}
             pressStyle={{
-              backgroundColor: canContinue
-                ? colors.brand.primary
-                : colors.border.strong,
+              backgroundColor: canContinue ? "$brandPrimary" : "$borderStrong",
             }}
           >
             <Text
               {...typography.button}
-              color={canContinue ? colors.text.inverse : colors.text.muted}
+              color={canContinue ? "$textInverse" : "$textMuted"}
             >
               Continue
             </Text>

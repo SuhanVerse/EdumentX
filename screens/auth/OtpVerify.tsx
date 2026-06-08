@@ -290,22 +290,16 @@ export function OtpVerify() {
               minHeight={52}
               alignItems="center"
               justifyContent="center"
-              borderRadius={12}
-              style={{
-                backgroundColor: canVerify
-                  ? colors.brand.primary
-                  : colors.border.strong,
-              }}
+              borderRadius="$card"
+              backgroundColor={canVerify ? "$brandPrimary" : "$borderStrong"}
               onPress={handleVerify}
               pressStyle={{
-                backgroundColor: canVerify
-                  ? colors.brand.primary
-                  : colors.border.strong,
+                backgroundColor: canVerify ? "$brandPrimary" : "$borderStrong",
               }}
             >
               <Text
                 {...typography.button}
-                color={canVerify ? colors.text.inverse : colors.text.muted}
+                color={canVerify ? "$textInverse" : "$textMuted"}
               >
                 Verify OTP
               </Text>

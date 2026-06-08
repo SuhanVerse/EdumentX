@@ -5,15 +5,28 @@
  * holding suggestion dots, and four amber sparkles arranged around the orb.
  * Pure SVG composition — no images.
  *
- * Token map (Tamagui → theme.ts):
- *   $aiLight         → background
- *   $ai              → orb + chat bubble stroke
- *   $surface         → highlight + chat bubble fill + sparkle fill (using $amber)
- *   $amber           → sparkles
- *   $brandPrimary    → chat bubble suggestion dots
+ * NOTE: `react-native-svg` primitives do NOT resolve Tamagui token
+ * strings — they take raw color values. We import the hex values from
+ * `constants/theme` (the single source of truth) and pass them as
+ * plain strings.
+ *
+ * Token map (theme.ts → hex):
+ *   aiLight  → background
+ *   ai       → orb + chat bubble stroke + suggestion dots
+ *   surface  → highlight + chat bubble fill
+ *   amber    → sparkles
  */
 import { YStack } from 'tamagui';
 import { Circle, Ellipse, Path, Rect, Svg } from 'react-native-svg';
+
+import { theme } from '@/constants/theme';
+
+const COLORS = {
+  aiLight: theme.colors.brand.aiLight,
+  ai: theme.colors.brand.ai,
+  surface: theme.colors.background.surface,
+  amber: theme.colors.brand.accent,
+} as const;
 
 export function AiMatchIllustration() {
   return (
@@ -32,14 +45,14 @@ export function AiMatchIllustration() {
           height={220}
           rx={24}
           ry={24}
-          fill="$aiLight"
+          fill={COLORS.aiLight}
         />
 
         {/* Central orb */}
-        <Circle cx={110} cy={110} r={44} fill="$ai" />
+        <Circle cx={110} cy={110} r={44} fill={COLORS.ai} />
 
         {/* Soft white highlight on the orb */}
-        <Ellipse cx={98} cy={98} rx={12} ry={8} fill="$surface" opacity={0.35} />
+        <Ellipse cx={98} cy={98} rx={12} ry={8} fill={COLORS.surface} opacity={0.35} />
 
         {/* Top-left chat bubble */}
         <Rect
@@ -49,12 +62,12 @@ export function AiMatchIllustration() {
           height={28}
           rx={10}
           ry={10}
-          fill="$surface"
-          stroke="$ai"
+          fill={COLORS.surface}
+          stroke={COLORS.ai}
           strokeWidth={1.5}
         />
-        <Circle cx={46} cy={56} r={2.5} fill="$ai" />
-        <Circle cx={56} cy={56} r={2.5} fill="$ai" />
+        <Circle cx={46} cy={56} r={2.5} fill={COLORS.ai} />
+        <Circle cx={56} cy={56} r={2.5} fill={COLORS.ai} />
 
         {/* Bottom-right chat bubble */}
         <Rect
@@ -64,33 +77,29 @@ export function AiMatchIllustration() {
           height={28}
           rx={10}
           ry={10}
-          fill="$surface"
-          stroke="$ai"
+          fill={COLORS.surface}
+          stroke={COLORS.ai}
           strokeWidth={1.5}
         />
-        <Circle cx={160} cy={172} r={2.5} fill="$ai" />
-        <Circle cx={170} cy={172} r={2.5} fill="$ai" />
+        <Circle cx={160} cy={172} r={2.5} fill={COLORS.ai} />
+        <Circle cx={170} cy={172} r={2.5} fill={COLORS.ai} />
 
         {/* Sparkles — 4-pointed star (diamond) drawn with Path */}
-        {/* Top-right of orb */}
         <Path
           d="M 160 58 L 162 64 L 168 66 L 162 68 L 160 74 L 158 68 L 152 66 L 158 64 Z"
-          fill="$amber"
+          fill={COLORS.amber}
         />
-        {/* Top-left */}
         <Path
           d="M 44 70 L 46 76 L 52 78 L 46 80 L 44 86 L 42 80 L 36 78 L 42 76 Z"
-          fill="$amber"
+          fill={COLORS.amber}
         />
-        {/* Bottom-left of orb */}
         <Path
           d="M 58 170 L 60 176 L 66 178 L 60 180 L 58 186 L 56 180 L 50 178 L 56 176 Z"
-          fill="$amber"
+          fill={COLORS.amber}
         />
-        {/* Bottom-right */}
         <Path
           d="M 170 180 L 172 186 L 178 188 L 172 190 L 170 196 L 168 190 L 162 188 L 168 186 Z"
-          fill="$amber"
+          fill={COLORS.amber}
         />
       </Svg>
     </YStack>
