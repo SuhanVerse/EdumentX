@@ -6,18 +6,19 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Input, Text, XStack, YStack } from "tamagui";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 import { registration, useRegistration } from "@/lib/registration";
 
 const SUBJECTS = [
@@ -57,6 +58,9 @@ type FormErrors = {
   location?: string;
 };
 
+const inputBase =
+  "min-h-btn px-4 border-emphasis rounded-card bg-surface text-text-primary text-body-lg";
+
 export function TutorProfileScreen() {
   const router = useRouter();
   const phone = useRegistration((s) => s.phone);
@@ -85,7 +89,10 @@ export function TutorProfileScreen() {
   }
 
   const hourlyRateNumber = Number(hourlyRateNpr);
-  const isValidRate = hourlyRateNpr.trim().length > 0 && !Number.isNaN(hourlyRateNumber) && hourlyRateNumber >= 0;
+  const isValidRate =
+    hourlyRateNpr.trim().length > 0 &&
+    !Number.isNaN(hourlyRateNumber) &&
+    hourlyRateNumber >= 0;
 
   const canSubmit =
     fullName.trim().length >= 3 &&
@@ -99,29 +106,15 @@ export function TutorProfileScreen() {
 
   function handleSubmit() {
     const validationErrors: FormErrors = {};
-    if (fullName.trim().length < 3) {
-      validationErrors.fullName = "Enter your full name.";
-    }
-    if (!EMAIL_REGEX.test(email.trim())) {
-      validationErrors.email = "Enter a valid email address.";
-    }
-    if (headline.trim().length === 0) {
-      validationErrors.headline = "Add a one-line headline that parents will see.";
-    }
-    if (subjects.length < 1) {
-      validationErrors.subjects = "Select at least one subject you teach.";
-    }
-    if (gradesTeaching.length < 1) {
-      validationErrors.grades = "Select at least one grade level you teach.";
-    }
-    if (!isValidRate) {
-      validationErrors.hourlyRate = "Enter your hourly rate in NPR.";
-    }
+    if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
+    if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
+    if (headline.trim().length === 0) validationErrors.headline = "Add a one-line headline that parents will see.";
+    if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
+    if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";
+    if (!isValidRate) validationErrors.hourlyRate = "Enter your hourly rate in NPR.";
     setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length > 0) {
-      return;
-    }
+    if (Object.keys(validationErrors).length > 0) return;
 
     registration.updateProfile({
       fullName: fullName.trim(),
@@ -147,58 +140,33 @@ export function TutorProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.brand.primary }}>
+    <SafeAreaView className="flex-1 bg-night">
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
-        {/* Dark header */}
-        <YStack
-          gap={spacing.xs}
-          paddingHorizontal={spacing.xl}
-          paddingTop={spacing.lg}
-          paddingBottom={48}
-          backgroundColor={colors.brand.primary}
-        >
-          <XStack
+        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/role-selection")}
-            minHeight={44}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginLeft={-4}
+            className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
-            <Text {...typography.body} color={colors.text.inverse} opacity={0.8}>
-              Back
-            </Text>
-          </XStack>
-          <Text
-            {...typography.heroTitle}
-            color={colors.text.inverse}
-            fontSize={26}
-          >
+            <Text className="text-body text-white opacity-80">Back</Text>
+          </Pressable>
+          <Text className="text-header-title text-white">
             Set up your tutor profile
           </Text>
-          <Text {...typography.body} color={colors.text.inverse} opacity={0.7} marginTop={2}>
+          <Text className="text-body text-white opacity-70 mt-0.5">
             This is what parents will see on the map. You can update everything later.
           </Text>
-        </YStack>
+        </View>
 
-        {/* Sand body */}
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            gap: spacing.xl,
-            paddingHorizontal: spacing.xl,
-            paddingTop: 32,
-            paddingBottom: 40,
-            backgroundColor: colors.background.page,
-          }}
+          className="flex-1"
+          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
           <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
@@ -212,123 +180,64 @@ export function TutorProfileScreen() {
           />
 
           {/* Phone (read-only) */}
-          <YStack
-            gap={spacing.xs}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <Text {...typography.overline} color={colors.text.muted}>
+          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <Text className="text-overline text-text-muted uppercase">
               Phone (verified)
             </Text>
-            <XStack
-              alignItems="center"
-              gap={spacing.sm}
-              minHeight={52}
-              paddingHorizontal={spacing.md}
-              borderWidth={1.5}
-              borderColor={colors.border.default}
-              borderRadius={10}
-              backgroundColor={colors.background.page}
-            >
+            <View className="flex-row items-center gap-2 h-phone-row px-3 border-emphasis border-border rounded-md bg-background">
               <Ionicons color={colors.text.muted} name="lock-closed-outline" size={18} />
-              <Text {...typography.body} color={colors.text.primary} fontWeight="600">
+              <Text className="text-body text-text-primary font-semibold">
                 {phone ? `+977 ${phone}` : "+977 98XXXXXXXX"}
               </Text>
-            </XStack>
-            <Text {...typography.caption} color={colors.text.muted}>
+            </View>
+            <Text className="text-caption text-text-muted">
               Verified during signup. Parents can request to call you from inside the app.
             </Text>
-          </YStack>
+          </View>
 
           {/* Headline */}
-          <YStack
-            gap={spacing.xs}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <XStack alignItems="center" justifyContent="space-between">
-              <Text {...typography.overline} color={colors.text.muted}>
-                Headline
-              </Text>
-              <Text {...typography.caption} color={colors.text.muted}>
+          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-overline text-text-muted uppercase">Headline</Text>
+              <Text className="text-caption text-text-muted">
                 {headline.length}/{HEADLINE_MAX}
               </Text>
-            </XStack>
-            <Input
+            </View>
+            <TextInput
               value={headline}
               onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
               placeholder="e.g., Experienced Math & Physics tutor | SEE graduate"
-              placeholderTextColor="$textMuted"
-              minHeight={52}
-              paddingHorizontal={spacing.lg}
-              borderWidth={1.5}
-              borderColor={errors.headline ? colors.semantic.danger : colors.border.default}
-              borderRadius={12}
-              backgroundColor={colors.background.surface}
-              color={colors.text.primary}
-              fontSize={15}
+              placeholderTextColor={colors.text.muted}
+              className={`${inputBase} ${
+                errors.headline ? "border-danger" : "border-border"
+              }`}
             />
             {errors.headline ? (
-              <Text {...typography.caption} color={colors.semantic.danger}>
-                {errors.headline}
-              </Text>
+              <Text className="text-caption text-danger">{errors.headline}</Text>
             ) : null}
-          </YStack>
+          </View>
 
-          {/* Bio (optional) */}
-          <YStack
-            gap={spacing.xs}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <XStack alignItems="center" justifyContent="space-between">
-              <Text {...typography.overline} color={colors.text.muted}>
+          {/* Bio */}
+          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-overline text-text-muted uppercase">
                 About you (optional)
               </Text>
-              <Text {...typography.caption} color={colors.text.muted}>
+              <Text className="text-caption text-text-muted">
                 {bio.length}/{BIO_MAX}
               </Text>
-            </XStack>
-            <Input
+            </View>
+            <TextInput
               value={bio}
               onChangeText={(value) => setBio(value.slice(0, BIO_MAX))}
               placeholder="Tell parents about your teaching style, experience, and approach."
-              placeholderTextColor="$textMuted"
+              placeholderTextColor={colors.text.muted}
               multiline
               numberOfLines={4}
-              minHeight={120}
-              paddingHorizontal={spacing.lg}
-              paddingVertical={spacing.md}
-              borderWidth={1.5}
-              borderColor={colors.border.default}
-              borderRadius={12}
-              backgroundColor={colors.background.surface}
-              color={colors.text.primary}
-              fontSize={15}
-              textAlignVertical="top"
+              className="min-h-bio-area px-4 py-3 border-emphasis border-border rounded-card bg-surface text-text-primary text-body-lg"
+              style={{ textAlignVertical: "top" }}
             />
-          </YStack>
+          </View>
 
           <ChipGroup
             label="Subjects you teach"
@@ -346,130 +255,80 @@ export function TutorProfileScreen() {
             error={errors.grades}
           />
 
-          {/* Years of experience stepper + Hourly rate */}
-          <YStack
-            gap={spacing.lg}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <YStack gap={spacing.xs}>
-              <Text {...typography.overline} color={colors.text.muted}>
+          {/* Stepper + rate */}
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <View className="gap-1">
+              <Text className="text-overline text-text-muted uppercase">
                 Years of experience
               </Text>
-              <XStack alignItems="center" gap={spacing.md}>
-                <Button
+              <View className="flex-row items-center gap-3">
+                <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Decrease years of experience"
-                  width={44}
-                  height={44}
-                  borderRadius={9999}
-                  backgroundColor={colors.background.page}
-                  borderWidth={1.5}
-                  borderColor={colors.border.default}
                   onPress={() => adjustExperience(-1)}
-                  pressStyle={{ backgroundColor: colors.background.page, opacity: 0.7 }}
                   disabled={yearsExperience === 0}
+                  className="w-11 h-11 rounded-full bg-background border-emphasis border-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons color={colors.text.primary} name="remove" size={20} />
-                </Button>
-                <YStack flex={1} alignItems="center">
-                  <Text {...typography.heroTitle} color={colors.text.primary} fontSize={22}>
+                </Pressable>
+                <View className="flex-1 items-center">
+                  <Text className="text-stepper-value text-text-primary">
                     {yearsExperience}
                   </Text>
-                  <Text {...typography.caption} color={colors.text.muted}>
+                  <Text className="text-caption text-text-muted">
                     {yearsExperience === 1 ? "year" : "years"}
                   </Text>
-                </YStack>
-                <Button
+                </View>
+                <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Increase years of experience"
-                  width={44}
-                  height={44}
-                  borderRadius={9999}
-                  backgroundColor={colors.background.page}
-                  borderWidth={1.5}
-                  borderColor={colors.border.default}
                   onPress={() => adjustExperience(1)}
-                  pressStyle={{ backgroundColor: colors.background.page, opacity: 0.7 }}
                   disabled={yearsExperience === 50}
+                  className="w-11 h-11 rounded-full bg-background border-emphasis border-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons color={colors.text.primary} name="add" size={20} />
-                </Button>
-              </XStack>
-            </YStack>
+                </Pressable>
+              </View>
+            </View>
 
-            <YStack gap={spacing.xs}>
-              <Text {...typography.overline} color={colors.text.muted}>
+            <View className="gap-1">
+              <Text className="text-overline text-text-muted uppercase">
                 Hourly rate (NPR)
               </Text>
-              <XStack
-                alignItems="center"
-                minHeight={52}
-                paddingHorizontal={spacing.md}
-                borderWidth={1.5}
-                borderColor={errors.hourlyRate ? colors.semantic.danger : colors.border.default}
-                borderRadius={12}
-                backgroundColor={colors.background.surface}
-                gap={spacing.xs}
+              <View
+                className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-1 ${
+                  errors.hourlyRate ? "border-danger" : "border-border"
+                }`}
               >
-                <Text {...typography.body} color={colors.text.muted} fontWeight="600">
-                  Rs.
-                </Text>
-                <Input
+                <Text className="text-body text-text-muted font-semibold">Rs.</Text>
+                <TextInput
                   value={hourlyRateNpr}
                   onChangeText={setHourlyRateNpr}
                   placeholder="800"
-                  placeholderTextColor="$textMuted"
+                  placeholderTextColor={colors.text.muted}
                   keyboardType="numeric"
-                  flex={1}
-                  borderWidth={0}
-                  backgroundColor="transparent"
-                  color={colors.text.primary}
-                  fontSize={15}
-                  fontWeight="600"
+                  className="flex-1 text-text-primary text-body-lg font-semibold"
                 />
-                <Text {...typography.caption} color={colors.text.muted}>
-                  / hr
-                </Text>
-              </XStack>
+                <Text className="text-caption text-text-muted">/ hr</Text>
+              </View>
               {errors.hourlyRate ? (
-                <Text {...typography.caption} color={colors.semantic.danger}>
-                  {errors.hourlyRate}
-                </Text>
+                <Text className="text-caption text-danger">{errors.hourlyRate}</Text>
               ) : null}
-            </YStack>
-          </YStack>
+            </View>
+          </View>
 
           <LocationField value={location} onChange={setLocation} />
 
-          <Button
+          <Pressable
             accessibilityRole="button"
             disabled={!canSubmit}
-            minHeight={56}
-            marginTop={spacing.lg}
-            borderRadius={14}
-            backgroundColor={canSubmit ? "$brandAccent" : "$borderStrong"}
             onPress={handleSubmit}
-            pressStyle={{
-              backgroundColor: canSubmit ? "$brandAccent" : "$borderStrong",
-              opacity: 0.9,
-            }}
-            shadowColor={canSubmit ? "$brandAccent" : "transparent"}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={canSubmit ? 0.2 : 0}
-            shadowRadius={8}
+            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
-            <Text {...typography.button} color={canSubmit ? "$textInverse" : "$textMuted"} fontSize={16} fontWeight="600">
+            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               Finish setup
             </Text>
-          </Button>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

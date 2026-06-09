@@ -2,29 +2,47 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Input, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 
-type StrengthColor = "transparent" | "$semDanger" | "$semWarning" | "$semSuccess";
+type Strength = "transparent" | "danger" | "warning" | "success";
 
 function getStrength(password: string): {
   label: string;
-  color: StrengthColor;
+  color: Strength;
   width: "0%" | "33%" | "66%" | "100%";
 } {
   if (password.length === 0)
     return { label: "", color: "transparent", width: "0%" };
-  if (password.length < 6)
-    return { label: "Weak", color: "$semDanger", width: "33%" };
+  if (password.length < 6) return { label: "Weak", color: "danger", width: "33%" };
   if (password.length < 10)
-    return { label: "Fair", color: "$semWarning", width: "66%" };
-  return { label: "Strong", color: "$semSuccess", width: "100%" };
+    return { label: "Fair", color: "warning", width: "66%" };
+  return { label: "Strong", color: "success", width: "100%" };
 }
+
+const strengthBarColor: Record<Strength, string> = {
+  transparent: "bg-border",
+  danger: "bg-danger",
+  warning: "bg-warning",
+  success: "bg-success",
+};
+
+const strengthTextColor: Record<Strength, string> = {
+  transparent: "text-border",
+  danger: "text-danger",
+  warning: "text-warning",
+  success: "text-success",
+};
 
 export function CreatePassword() {
   const router = useRouter();
@@ -34,218 +52,142 @@ export function CreatePassword() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const strength = getStrength(password);
-  const passwordsMatch =
-    confirmPassword.length > 0 && password !== confirmPassword;
+  const passwordsMatch = confirmPassword.length > 0 && password !== confirmPassword;
   const canSubmit = password.length >= 6 && password === confirmPassword;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.surface }}>
+    <SafeAreaView className="flex-1 bg-surface">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: spacing.xl,
-            paddingTop: spacing.xl,
-            paddingBottom: spacing.xl,
-          }}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back */}
-          <XStack
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.back()}
-            minHeight={44}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginBottom={spacing.lg}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-4 active:opacity-70"
           >
             <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
-            <Text {...typography.body} color={colors.brand.primary}>
-              Back
-            </Text>
-          </XStack>
+            <Text className="text-body text-text-primary">Back</Text>
+          </Pressable>
 
-          {/* Header */}
-          <YStack alignItems="center" gap={spacing.sm} paddingTop={spacing.lg} marginBottom={spacing.xxl}>
-            <YStack
-              width={64}
-              height={64}
-              alignItems="center"
-              justifyContent="center"
-              borderRadius={9999}
-              backgroundColor={colors.brand.primaryLight}
-              marginBottom={spacing.sm}
-            >
-              <Ionicons
-                color={colors.brand.primary}
-                name="lock-closed-outline"
-                size={28}
-              />
-            </YStack>
-            <Text {...typography.heroTitle} textAlign="center" color={colors.text.onboardingTitle}>
+          <View className="items-center gap-2 pt-4 mb-7">
+            <View className="w-16 h-16 items-center justify-center rounded-pill bg-primary-light mb-2">
+              <Ionicons color={colors.brand.primary} name="lock-closed-outline" size={28} />
+            </View>
+            <Text className="text-hero text-text-primary text-center">
               Create a password
             </Text>
             <Text
-              {...typography.body}
-              maxWidth={288}
-              textAlign="center"
-              color={colors.text.secondary}
+              className="text-body text-text-secondary text-center"
+              style={{ maxWidth: 288 }}
             >
               Choose a strong password to secure your account.
             </Text>
-          </YStack>
+          </View>
 
           {/* Password */}
-          <YStack gap={spacing.xs} marginBottom={spacing.lg}>
-            <Text {...typography.button} color={colors.text.primary}>
-              Password
-            </Text>
-            <XStack
-              height={52}
-              alignItems="center"
-              borderWidth={1}
-              borderColor={colors.border.default}
-              borderRadius={10}
-              backgroundColor={colors.background.surface}
-              paddingHorizontal={spacing.md}
-            >
-              <Input
-                flex={1}
-                color={colors.text.primary}
-                fontSize={15}
-                borderWidth={0}
-                backgroundColor="transparent"
+          <View className="gap-1 mb-4">
+            <Text className="text-button text-text-primary">Password</Text>
+            <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3">
+              <TextInput
+                className="flex-1 text-text-primary text-body-lg"
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setPassword}
                 placeholder="Enter password"
-                placeholderTextColor="$textMuted"
+                placeholderTextColor={colors.text.muted}
                 secureTextEntry={!showPassword}
                 value={password}
               />
-              <Button
+              <Pressable
                 accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                 accessibilityRole="button"
-                width={44}
-                height={44}
-                backgroundColor="transparent"
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={8}
-                pressStyle={{ backgroundColor: "transparent" }}
+                className="w-11 h-11 items-center justify-center active:opacity-70"
               >
                 <Ionicons
                   color={colors.text.muted}
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
                 />
-              </Button>
-            </XStack>
+              </Pressable>
+            </View>
 
-            {/* Strength hint */}
             {password.length > 0 && (
-              <XStack alignItems="center" gap={spacing.sm} marginTop={spacing.xs}>
-                <YStack
-                  flex={1}
-                  height={4}
-                  backgroundColor={colors.border.default}
-                  borderRadius={2}
-                  overflow="hidden"
-                >
-                  <YStack
-                    height="100%"
-                    width={strength.width}
-                    backgroundColor={strength.color}
-                    borderRadius={2}
+              <View className="flex-row items-center gap-2 mt-1">
+                <View className="flex-1 h-1 bg-border rounded-sm overflow-hidden">
+                  <View
+                    className={`h-full rounded-sm ${strengthBarColor[strength.color]}`}
+                    style={{ width: strength.width as `${number}%` }}
                   />
-                </YStack>
-                <Text {...typography.caption} width={44} fontWeight="600" color={strength.color}>
+                </View>
+                <Text
+                  className={`text-caption w-11 font-semibold ${strengthTextColor[strength.color]}`}
+                >
                   {strength.label}
                 </Text>
-              </XStack>
+              </View>
             )}
-          </YStack>
+          </View>
 
           {/* Confirm Password */}
-          <YStack gap={spacing.xs} marginBottom={spacing.lg}>
-            <Text {...typography.button} color={colors.text.primary}>
-              Confirm Password
-            </Text>
-            <XStack
-              height={52}
-              alignItems="center"
-              borderWidth={1}
-              borderColor={passwordsMatch ? colors.semantic.danger : colors.border.default}
-              borderRadius={10}
-              backgroundColor={colors.background.surface}
-              paddingHorizontal={spacing.md}
+          <View className="gap-1 mb-4">
+            <Text className="text-button text-text-primary">Confirm Password</Text>
+            <View
+              className={`h-btn flex-row items-center border-emphasis rounded-md bg-surface px-3 ${
+                passwordsMatch ? "border-danger" : "border-border"
+              }`}
             >
-              <Input
-                flex={1}
-                color={colors.text.primary}
-                fontSize={15}
-                borderWidth={0}
-                backgroundColor="transparent"
+              <TextInput
+                className="flex-1 text-text-primary text-body-lg"
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setConfirmPassword}
                 placeholder="Repeat your password"
-                placeholderTextColor="$textMuted"
+                placeholderTextColor={colors.text.muted}
                 secureTextEntry={!showConfirm}
                 value={confirmPassword}
               />
-              <Button
+              <Pressable
                 accessibilityLabel={showConfirm ? "Hide password" : "Show password"}
                 accessibilityRole="button"
-                width={44}
-                height={44}
-                backgroundColor="transparent"
                 onPress={() => setShowConfirm(!showConfirm)}
                 hitSlop={8}
-                pressStyle={{ backgroundColor: "transparent" }}
+                className="w-11 h-11 items-center justify-center active:opacity-70"
               >
                 <Ionicons
                   color={colors.text.muted}
                   name={showConfirm ? "eye-off-outline" : "eye-outline"}
                   size={20}
                 />
-              </Button>
-            </XStack>
+              </Pressable>
+            </View>
             {passwordsMatch && (
-              <Text {...typography.caption} color={colors.semantic.danger} marginTop={spacing.xs}>
+              <Text className="text-caption text-danger mt-1">
                 Passwords do not match
               </Text>
             )}
-          </YStack>
+          </View>
 
-          {/* Continue Button */}
-          <YStack flex={1} justifyContent="flex-end" paddingTop={spacing.xxl}>
-            <Button
+          <View className="flex-1 justify-end pt-7">
+            <Pressable
               accessibilityRole="button"
               disabled={!canSubmit}
-              height={52}
-              borderRadius="$card"
-              alignItems="center"
-              justifyContent="center"
-              backgroundColor={canSubmit ? "$brandPrimary" : "$borderStrong"}
               onPress={() => router.replace("/role-selection")}
-              pressStyle={{
-                backgroundColor: canSubmit ? "$brandPrimary" : "$borderStrong",
-              }}
+              className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
-              <Text
-                {...typography.button}
-                color={canSubmit ? "$textInverse" : "$textMuted"}
-              >
+              <Text className="text-button text-white disabled:text-text-muted">
                 Continue
               </Text>
-            </Button>
-          </YStack>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

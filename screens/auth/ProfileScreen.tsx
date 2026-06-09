@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -8,14 +7,15 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Input, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 
 const SUBJECTS = ["Math", "Physics", "Chemistry", "Computer Science", "Biology", "Nepali", "English"] as const;
 const GRADES = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade XI (Science)", "Grade XI (Management)", "Grade XII (Science)", "Grade XII (Management)"] as const;
@@ -38,23 +38,10 @@ function validateProfile(
   subject: Subject | null,
 ): FormErrors {
   const errors: FormErrors = {};
-
-  if (fullName.trim().length < 3) {
-    errors.fullName = "Enter your full name.";
-  }
-
-  if (!EMAIL_REGEX.test(email.trim())) {
-    errors.email = "Enter a valid email address.";
-  }
-
-  if (!grade) {
-    errors.grade = "Select your grade.";
-  }
-
-  if (!subject) {
-    errors.subject = "Select one subject.";
-  }
-
+  if (fullName.trim().length < 3) errors.fullName = "Enter your full name.";
+  if (!EMAIL_REGEX.test(email.trim())) errors.email = "Enter a valid email address.";
+  if (!grade) errors.grade = "Select your grade.";
+  if (!subject) errors.subject = "Select one subject.";
   return errors;
 }
 
@@ -73,327 +60,195 @@ export function ProfileScreen() {
     grade !== null &&
     subject !== null;
 
-  async function handlePickAvatar() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "Allow photo access to choose a profile image.",
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri);
-    }
-  }
-
   function handleSubmit() {
     const validationErrors = validateProfile(fullName, email, grade, subject);
     setErrors(validationErrors);
-
-    if (Object.keys(validationErrors).length > 0) {
-      return;
-    }
-
+    if (Object.keys(validationErrors).length > 0) return;
     Alert.alert(
       "Profile ready",
       "Firebase profile saving will be connected in the auth sprint.",
     );
   }
 
+  const inputBase =
+    "min-h-btn px-4 border-emphasis rounded-card bg-surface text-text-primary text-body-lg";
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.brand.primary }}>
+    <SafeAreaView className="flex-1 bg-night">
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
-        <YStack
-          gap={spacing.xs}
-          paddingHorizontal={spacing.xl}
-          paddingTop={spacing.lg}
-          paddingBottom={48}
-          backgroundColor={colors.brand.primary}
-        >
-          <XStack
+        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/role-selection")}
-            minHeight={44}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginLeft={-4}
-            backgroundColor="transparent"
-            pressStyle={{ backgroundColor: "transparent" }}
+            className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
-            <Ionicons
-              color={colors.text.inverse}
-              name="chevron-back"
-              size={18}
-            />
-            <Text {...typography.body} color={colors.text.inverse} opacity={0.8}>
-              Back
-            </Text>
-          </XStack>
-          <Text
-            {...typography.heroTitle}
-            color={colors.text.inverse}
-            fontSize={26}
-          >
+            <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
+            <Text className="text-body text-white opacity-80">Back</Text>
+          </Pressable>
+          <Text className="text-header-title text-white">
             Set up your profile
           </Text>
-          <Text {...typography.body} color={colors.text.inverse} opacity={0.7} marginTop={2}>
+          <Text className="text-body text-white opacity-70 mt-0.5">
             This helps tutors understand your learning needs.
           </Text>
-        </YStack>
+        </View>
 
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            gap: spacing.xl,
-            paddingHorizontal: spacing.xl,
-            paddingTop: 32,
-            paddingBottom: 40,
-            backgroundColor: colors.background.page,
-          }}
+          className="flex-1"
+          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
-          <YStack alignItems="center" gap={spacing.sm} marginBottom={spacing.md}>
-            <Button
+          {/* Avatar uploader */}
+          <View className="items-center gap-2 mb-4">
+            <Pressable
               accessibilityRole="button"
-              onPress={handlePickAvatar}
-              width={96}
-              height={96}
-              padding={0}
-              borderRadius={9999}
-              borderWidth={4}
-              borderColor={colors.background.surface}
-              backgroundColor={colors.border.default}
-              pressStyle={{ backgroundColor: colors.border.default, opacity: 0.85 }}
+              className="w-24 h-24 rounded-full border-4 border-surface bg-border items-center justify-center active:opacity-85"
             >
               {avatarUri ? (
                 <Image
                   source={{ uri: avatarUri }}
-                  style={{ width: 88, height: 88, borderRadius: 9999 }}
+                  className="w-avatar-uploader h-avatar-uploader rounded-full"
                 />
               ) : (
-                <Ionicons
-                  color={colors.brand.primary}
-                  name="person-outline"
-                  size={40}
-                />
+                <Ionicons color={colors.brand.primary} name="person-outline" size={40} />
               )}
-            </Button>
-            <Text {...typography.caption} color={colors.text.secondary} fontWeight="500">
+            </Pressable>
+            <Text className="text-caption text-text-secondary font-medium">
               Upload photo
             </Text>
-          </YStack>
+          </View>
 
-          <YStack
-            gap={spacing.md}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <Text {...typography.overline} color={colors.text.muted}>
-              Full name
-            </Text>
-            <Input
-              autoCapitalize="words"
-              onChangeText={setFullName}
-              placeholder="e.g., Aarav Tamang"
-              placeholderTextColor="$textMuted"
-              minHeight={52}
-              paddingHorizontal={spacing.lg}
-              borderWidth={1.5}
-              borderColor={errors.fullName ? colors.semantic.danger : colors.border.default}
-              borderRadius={12}
-              backgroundColor={colors.background.surface}
-              color={colors.text.primary}
-              fontSize={15}
-              value={fullName}
-            />
-            {errors.fullName ? (
-              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
-                {errors.fullName}
+          {/* Name + email card */}
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <View className="gap-1">
+              <Text className="text-overline text-text-muted uppercase">
+                Full name
               </Text>
-            ) : null}
+              <TextInput
+                autoCapitalize="words"
+                onChangeText={setFullName}
+                placeholder="e.g., Aarav Tamang"
+                placeholderTextColor={colors.text.muted}
+                className={`${inputBase} ${
+                  errors.fullName ? "border-danger" : "border-border"
+                }`}
+                value={fullName}
+              />
+              {errors.fullName ? (
+                <Text className="text-caption text-danger -mt-1">
+                  {errors.fullName}
+                </Text>
+              ) : null}
+            </View>
 
-            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
-              Email
-            </Text>
-            <Input
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="e.g., aarav@gmail.com"
-              placeholderTextColor="$textMuted"
-              minHeight={52}
-              paddingHorizontal={spacing.lg}
-              borderWidth={1.5}
-              borderColor={errors.email ? colors.semantic.danger : colors.border.default}
-              borderRadius={12}
-              backgroundColor={colors.background.surface}
-              color={colors.text.primary}
-              fontSize={15}
-              value={email}
-            />
-            {errors.email ? (
-              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
-                {errors.email}
-              </Text>
-            ) : null}
-          </YStack>
+            <View className="gap-1">
+              <Text className="text-overline text-text-muted uppercase">Email</Text>
+              <TextInput
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onChangeText={setEmail}
+                placeholder="e.g., aarav@gmail.com"
+                placeholderTextColor={colors.text.muted}
+                className={`${inputBase} ${
+                  errors.email ? "border-danger" : "border-border"
+                }`}
+                value={email}
+              />
+              {errors.email ? (
+                <Text className="text-caption text-danger -mt-1">
+                  {errors.email}
+                </Text>
+              ) : null}
+            </View>
+          </View>
 
-          <YStack
-            gap={spacing.md}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
+          {/* Grade */}
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <Text className="text-overline text-text-muted uppercase">
               Grade / class
             </Text>
-            <XStack flexWrap="wrap" gap={spacing.sm}>
+            <View className="flex-row flex-wrap gap-2">
               {GRADES.map((item) => {
                 const active = grade === item;
                 return (
-                  <Button
+                  <Pressable
                     key={item}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setGrade(item)}
-                    minHeight={40}
-                    paddingHorizontal={spacing.lg}
-                    paddingVertical={spacing.sm}
-                    borderWidth={1.5}
-                    borderColor={active ? colors.brand.primary : colors.border.default}
-                    borderRadius={10}
-                    backgroundColor={active ? colors.brand.primary : colors.background.surface}
-                    pressStyle={{
-                      backgroundColor: active ? colors.brand.primary : colors.background.surface,
-                      opacity: 0.85,
-                    }}
+                    className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-85 ${
+                      active
+                        ? "bg-night border-night"
+                        : "bg-surface border-border"
+                    }`}
                   >
                     <Text
-                      {...typography.buttonSmall}
-                      color={active ? colors.text.inverse : colors.text.secondary}
+                      className={`text-button-sm ${
+                        active ? "text-white" : "text-text-secondary"
+                      }`}
                     >
                       {item}
                     </Text>
-                  </Button>
+                  </Pressable>
                 );
               })}
-            </XStack>
+            </View>
             {errors.grade ? (
-              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
-                {errors.grade}
-              </Text>
+              <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
             ) : null}
-          </YStack>
+          </View>
 
-          <YStack
-            gap={spacing.md}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <Text {...typography.overline} color={colors.text.muted} marginBottom={-4}>
+          {/* Subject */}
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <Text className="text-overline text-text-muted uppercase">
               Subject needed
             </Text>
-            <XStack flexWrap="wrap" gap={spacing.sm}>
+            <View className="flex-row flex-wrap gap-2">
               {SUBJECTS.map((item) => {
                 const active = subject === item;
                 return (
-                  <Button
+                  <Pressable
                     key={item}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setSubject(item)}
-                    minHeight={40}
-                    paddingHorizontal={spacing.lg}
-                    paddingVertical={spacing.sm}
-                    borderWidth={1.5}
-                    borderColor={active ? colors.brand.primary : colors.border.default}
-                    borderRadius={10}
-                    backgroundColor={active ? colors.brand.primary : colors.background.surface}
-                    pressStyle={{
-                      backgroundColor: active ? colors.brand.primary : colors.background.surface,
-                      opacity: 0.85,
-                    }}
+                    className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-85 ${
+                      active
+                        ? "bg-night border-night"
+                        : "bg-surface border-border"
+                    }`}
                   >
                     <Text
-                      {...typography.buttonSmall}
-                      color={active ? colors.text.inverse : colors.text.secondary}
+                      className={`text-button-sm ${
+                        active ? "text-white" : "text-text-secondary"
+                      }`}
                     >
                       {item}
                     </Text>
-                  </Button>
+                  </Pressable>
                 );
               })}
-            </XStack>
+            </View>
             {errors.subject ? (
-              <Text {...typography.caption} color={colors.semantic.danger} marginTop={-4}>
-                {errors.subject}
-              </Text>
+              <Text className="text-caption text-danger -mt-1">{errors.subject}</Text>
             ) : null}
-          </YStack>
+          </View>
 
-          <Button
+          <Pressable
             accessibilityRole="button"
             disabled={!canSubmit}
-            minHeight={56}
-            marginTop={spacing.lg}
-            borderRadius={14}
-            backgroundColor={canSubmit ? "$brandAccent" : "$borderStrong"}
             onPress={handleSubmit}
-            pressStyle={{
-              backgroundColor: canSubmit ? "$brandAccent" : "$borderStrong",
-              opacity: 0.9,
-            }}
-            shadowColor={canSubmit ? "$brandAccent" : "transparent"}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={canSubmit ? 0.2 : 0}
-            shadowRadius={8}
+            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
-            <Text
-              {...typography.button}
-              color={canSubmit ? "$textInverse" : "$textMuted"}
-              fontSize={16}
-              fontWeight="600"
-            >
+            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               Finish setup
             </Text>
-          </Button>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

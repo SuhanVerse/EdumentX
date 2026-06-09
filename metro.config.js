@@ -1,17 +1,13 @@
 /**
- * EdumentX Metro configuration
+ * EdumentX Metro configuration (post-NativeWind migration).
  *
- * - `@tamagui/metro-plugin` v2.x exports `withTamagui` (a wrapper, not a
- *   plugin factory). It mutates the resolver to add `css` to sourceExts and
- *   wires the static extractor into the transformer.
- * - `react-native-reanimated/metro-config` wraps the config so the worklets
- *   runtime is configured correctly. It must be the outermost wrapper.
+ * - Tailwind/NativeWind needs only the default Expo Metro config.
+ * - The Documentation/98-Reference-BasoBas/ folder is a Figma-Make web
+ *   export and is excluded from the bundle.
  */
 
 const { getDefaultConfig } = require('expo/metro-config');
 const exclusionList = require('metro-config/private/defaults/exclusionList').default;
-const { wrapWithReanimatedMetroConfig } = require('react-native-reanimated/metro-config');
-const { withTamagui } = require('@tamagui/metro-plugin');
 
 const config = getDefaultConfig(__dirname, { isCSSEnabled: true });
 
@@ -24,9 +20,4 @@ config.resolver.blockList = exclusionList([
   new RegExp(`${projectRoot}[/\\\\]firebase-export-[^/\\\\]+[/\\\\].*`),
 ]);
 
-module.exports = wrapWithReanimatedMetroConfig(
-  withTamagui(config, {
-    components: ['tamagui'],
-    config: './tamagui.config.ts',
-  }),
-);
+module.exports = config;

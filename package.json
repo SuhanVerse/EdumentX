@@ -16,10 +16,6 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@tamagui/animations-moti": "^2.1.0",
-    "@tamagui/animations-react-native": "^2.1.0",
-    "@tamagui/config": "^2.1.0",
-    "@tamagui/font-inter": "^2.1.0",
     "expo": "~54.0.35",
     "expo-dev-client": "~6.0.21",
     "expo-image-picker": "~17.0.11",
@@ -27,7 +23,7 @@
     "expo-router": "~6.0.24",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
-    "moti": "^0.30.0",
+    "nativewind": "^4.2.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -37,11 +33,9 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
-    "tamagui": "^2.1.0"
+    "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
-    "@tamagui/babel-plugin": "^2.1.0",
-    "@tamagui/metro-plugin": "^2.1.0",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.11",
     "eslint": "^9.25.0",

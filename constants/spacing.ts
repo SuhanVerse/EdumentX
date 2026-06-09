@@ -1,11 +1,16 @@
-import { theme } from './theme';
-
+/**
+ * Tailwind/NativeWind migration note:
+ *
+ * Spacing now lives in `tailwind.config.js` (`theme.extend.spacing`).
+ * Use Tailwind utility classes (`p-4`, `gap-2`, `mt-3`) instead of
+ * importing from this file. This file is kept only for the few SVG
+ * illustration paths that need raw pixel values.
+ */
 export const spacing = {
-  xs: theme.spacing.xs,
-  sm: theme.spacing.sm,
-  md: theme.spacing.lg,
-  page: theme.spacing.page,
-  lg: theme.spacing.screen,
-  xl: theme.spacing.xxxl,
-  xxl: theme.spacing.huge,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
 } as const;

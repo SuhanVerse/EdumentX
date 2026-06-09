@@ -1,8 +1,4 @@
-import { Button, Text, XStack, YStack } from "tamagui";
-
-import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
+import { Pressable, Text, View } from "react-native";
 
 type ChipGroupProps = {
   label: string;
@@ -13,9 +9,9 @@ type ChipGroupProps = {
 };
 
 /**
- * Multi-select chip row. Renders the existing chip style (border 1.5,
- * `$night` filled when selected) and is used for both subjects and grades
- * in the profile forms. Single-select is the multi-select case of 0/1.
+ * Multi-select chip row. Tailwind-driven: the `bg-night` / `bg-surface`
+ * pair flips on the `active` state. `active:opacity-80` provides press
+ * feedback in place of Tamagui's `pressStyle`.
  */
 export function ChipGroup({
   label,
@@ -25,57 +21,39 @@ export function ChipGroup({
   error,
 }: ChipGroupProps) {
   return (
-    <YStack
-      gap={spacing.md}
-      padding={spacing.xl}
-      borderWidth={1}
-      borderColor={colors.border.subtle}
-      borderRadius={16}
-      backgroundColor={colors.background.surface}
-      shadowColor={colors.brand.primary}
-      shadowOffset={{ width: 0, height: 4 }}
-      shadowOpacity={0.05}
-      shadowRadius={12}
-    >
-      <Text {...typography.overline} color={colors.text.muted}>
+    <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+      <Text className="text-overline text-text-muted uppercase">
         {label}
       </Text>
-      <XStack flexWrap="wrap" gap={spacing.sm}>
+      <View className="flex-row flex-wrap gap-2">
         {options.map((option) => {
           const active = selected.includes(option);
           return (
-            <Button
+            <Pressable
               key={option}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              minHeight={40}
-              paddingHorizontal={spacing.lg}
-              paddingVertical={spacing.sm}
-              borderWidth={1.5}
-              borderColor={active ? colors.brand.primary : colors.border.default}
-              borderRadius={10}
-              backgroundColor={active ? colors.brand.primary : colors.background.surface}
               onPress={() => onToggle(option)}
-              pressStyle={{
-                backgroundColor: active ? colors.brand.primary : colors.background.surface,
-                opacity: 0.85,
-              }}
+              className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-80 ${
+                active
+                  ? "bg-night border-night"
+                  : "bg-surface border-border"
+              }`}
             >
               <Text
-                {...typography.buttonSmall}
-                color={active ? colors.text.inverse : colors.text.secondary}
+                className={`text-button-sm ${
+                  active ? "text-white" : "text-text-secondary"
+                }`}
               >
                 {option}
               </Text>
-            </Button>
+            </Pressable>
           );
         })}
-      </XStack>
+      </View>
       {error ? (
-        <Text {...typography.caption} color={colors.semantic.danger}>
-          {error}
-        </Text>
+        <Text className="text-caption text-danger">{error}</Text>
       ) : null}
-    </YStack>
+    </View>
   );
 }

@@ -1,36 +1,24 @@
 /**
  * AiMatchIllustration — Onboarding slide 2 of 3.
  *
- * A glowing indigo AI orb with a soft highlight, two floating chat bubbles
- * holding suggestion dots, and four amber sparkles arranged around the orb.
- * Pure SVG composition — no images.
- *
- * NOTE: `react-native-svg` primitives do NOT resolve Tamagui token
- * strings — they take raw color values. We import the hex values from
- * `constants/theme` (the single source of truth) and pass them as
- * plain strings.
- *
- * Token map (theme.ts → hex):
- *   aiLight  → background
- *   ai       → orb + chat bubble stroke + suggestion dots
- *   surface  → highlight + chat bubble fill
- *   amber    → sparkles
+ * NativeWind migration: SVG primitives need raw hex; Tailwind classes
+ * apply to the outer wrapper.
  */
-import { YStack } from 'tamagui';
+import { View } from 'react-native';
 import { Circle, Ellipse, Path, Rect, Svg } from 'react-native-svg';
 
-import { theme } from '@/constants/theme';
+import { colors } from '@/constants/colors';
 
 const COLORS = {
-  aiLight: theme.colors.brand.aiLight,
-  ai: theme.colors.brand.ai,
-  surface: theme.colors.background.surface,
-  amber: theme.colors.brand.accent,
+  aiLight: colors.onboarding.aiBackground,
+  ai: colors.brand.ai,
+  surface: colors.background.surface,
+  amber: colors.brand.accent,
 } as const;
 
 export function AiMatchIllustration() {
   return (
-    <YStack width="100%" height="100%" alignItems="center" justifyContent="center">
+    <View className="w-full h-full items-center justify-center">
       <Svg
         viewBox="0 0 220 220"
         width="100%"
@@ -102,7 +90,7 @@ export function AiMatchIllustration() {
           fill={COLORS.amber}
         />
       </Svg>
-    </YStack>
+    </View>
   );
 }
 

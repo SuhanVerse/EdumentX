@@ -1,39 +1,26 @@
 /**
  * VerifiedIllustration — Onboarding slide 3 of 3.
  *
- * A document/card with content lines, stat bars, and an emerald check
- * seal overlapping the bottom-right corner. Pure SVG — no images.
- *
- * NOTE: `react-native-svg` primitives do NOT resolve Tamagui token
- * strings — they take raw color values. We import the hex values from
- * `constants/theme` (the single source of truth) and pass them as
- * plain strings.
- *
- * Token map (theme.ts → hex):
- *   verificationLight  → background
- *   surface            → card + seal check
- *   borderDefault      → card stroke + content lines
- *   night              → accent content bar
- *   amber              → accent content bar
- *   brandVerification  → seal disc (emerald)
+ * NativeWind migration: SVG primitives need raw hex; Tailwind classes
+ * apply to the outer wrapper.
  */
-import { YStack } from 'tamagui';
+import { View } from 'react-native';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
 
-import { theme } from '@/constants/theme';
+import { colors } from '@/constants/colors';
 
 const COLORS = {
-  verificationLight: theme.colors.brand.verificationLight,
-  surface: theme.colors.background.surface,
-  borderDefault: theme.colors.border.default,
-  night: theme.colors.brand.primary,
-  amber: theme.colors.brand.accent,
-  brandVerification: theme.colors.brand.verification,
+  verificationLight: colors.onboarding.verifyBackground,
+  surface: colors.background.surface,
+  borderDefault: colors.border.default,
+  night: colors.brand.primary,
+  amber: colors.brand.accent,
+  brandVerification: colors.brand.verification,
 } as const;
 
 export function VerifiedIllustration() {
   return (
-    <YStack width="100%" height="100%" alignItems="center" justifyContent="center">
+    <View className="w-full h-full items-center justify-center">
       <Svg
         viewBox="0 0 220 220"
         width="100%"
@@ -88,7 +75,7 @@ export function VerifiedIllustration() {
           fill="none"
         />
       </Svg>
-    </YStack>
+    </View>
   );
 }
 

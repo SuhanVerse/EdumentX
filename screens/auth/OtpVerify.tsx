@@ -7,15 +7,15 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  Text,
   TextInput as RNTextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -30,9 +30,7 @@ export function OtpVerify() {
   const [timer, setTimer] = useState(RESEND_SECONDS);
 
   const phone = useMemo(() => {
-    const rawPhone = Array.isArray(params.phone)
-      ? params.phone[0]
-      : params.phone;
+    const rawPhone = Array.isArray(params.phone) ? params.phone[0] : params.phone;
     return rawPhone?.replace(/\D/g, "").slice(0, 10) ?? "";
   }, [params.phone]);
 
@@ -45,11 +43,9 @@ export function OtpVerify() {
     if (timer <= 0) {
       return;
     }
-
     const intervalId = setInterval(() => {
       setTimer((current) => Math.max(current - 1, 0));
     }, 1000);
-
     return () => clearInterval(intervalId);
   }, [timer]);
 
@@ -97,7 +93,6 @@ export function OtpVerify() {
     if (otp[index] || index === 0) {
       return;
     }
-
     setOtp((current) => {
       const next = [...current];
       next[index - 1] = "";
@@ -110,7 +105,6 @@ export function OtpVerify() {
     if (timer > 0) {
       return;
     }
-
     clearOtp();
     setTimer(RESEND_SECONDS);
     Alert.alert(
@@ -123,98 +117,61 @@ export function OtpVerify() {
     if (!canVerify) {
       return;
     }
-
     router.push("/create_password");
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.surface }}>
+    <SafeAreaView className="flex-1 bg-surface">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: spacing.xl,
-            paddingTop: spacing.xl,
-            paddingBottom: spacing.xl,
-          }}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
-          <XStack
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/phone-entry")}
-            minHeight={44}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginBottom={spacing.lg}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-4 active:opacity-70"
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text {...typography.body} color={colors.brand.primary}>
-              Back
-            </Text>
-          </XStack>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text className="text-body text-text-primary">Back</Text>
+          </Pressable>
 
-          <YStack
-            alignItems="center"
-            gap={spacing.sm}
-            paddingTop={spacing.lg}
-            marginBottom={spacing.xxl}
-          >
-            <YStack
-              width={64}
-              height={64}
-              alignItems="center"
-              justifyContent="center"
-              borderRadius={999}
-              backgroundColor={colors.brand.primaryLight}
-              marginBottom={spacing.sm}
-            >
+          <View className="items-center gap-2 pt-4 mb-7">
+            <View className="w-16 h-16 items-center justify-center rounded-pill bg-primary-light mb-2">
               <Ionicons
                 color={colors.brand.primary}
                 name="shield-checkmark-outline"
                 size={28}
               />
-            </YStack>
-            <Text {...typography.heroTitle} textAlign="center" color={colors.text.primary}>
+            </View>
+            <Text className="text-hero text-text-primary text-center">
               Verify your number
             </Text>
             <Text
-              {...typography.body}
-              maxWidth={288}
-              textAlign="center"
-              color={colors.text.secondary}
+              className="text-body text-text-secondary text-center"
+              style={{ maxWidth: 288 }}
             >
               Enter the 6 digit code sent to{" "}
-              <Text {...typography.button} color={colors.text.primary}>
-                {displayPhone}
-              </Text>
-              .
+              <Text className="text-button text-text-primary">{displayPhone}</Text>.
             </Text>
-          </YStack>
+          </View>
 
-          <XStack justifyContent="center" gap={spacing.sm} marginBottom={spacing.md}>
+          <View className="flex-row justify-center gap-2 mb-3">
             {otp.map((digit, index) => {
               const isFilled = digit.length > 0;
               return (
-                <YStack
+                <View
                   key={index}
-                  width={44}
-                  height={52}
-                  borderWidth={1}
-                  borderColor={isFilled ? colors.brand.primary : colors.border.default}
-                  borderRadius={10}
-                  backgroundColor={isFilled ? colors.brand.primaryLight : colors.background.surface}
-                  alignItems="center"
-                  justifyContent="center"
+                  className={`w-11 h-otp-box-h border rounded-md items-center justify-center ${
+                    isFilled
+                      ? "border-night bg-primary-light"
+                      : "border-border bg-surface"
+                  }`}
                 >
                   <RNTextInput
                     accessibilityLabel={`OTP digit ${index + 1}`}
@@ -244,67 +201,49 @@ export function OtpVerify() {
                     textContentType="oneTimeCode"
                     value={digit}
                   />
-                </YStack>
+                </View>
               );
             })}
-          </XStack>
+          </View>
 
-          <XStack
-            minHeight={44}
-            alignItems="center"
-            justifyContent="center"
-            gap={spacing.sm}
-            marginBottom={spacing.lg}
-          >
+          <View className="min-h-touch flex-row items-center justify-center gap-2 mb-4">
             <Text
-              {...typography.caption}
-              color={colors.text.secondary}
+              className="text-caption text-text-secondary"
               style={{ fontVariant: ["tabular-nums"] }}
             >
               {timer > 0
                 ? `Resend in ${formattedTimer}`
                 : "Did not receive the code?"}
             </Text>
-            <Button
+            <Pressable
               accessibilityRole="button"
               disabled={timer > 0}
               hitSlop={8}
               onPress={handleResend}
-              backgroundColor="transparent"
-              pressStyle={{ backgroundColor: "transparent" }}
-              disabledStyle={{ opacity: 1 }}
+              className="active:opacity-70"
             >
               <Text
-                {...typography.button}
-                color={timer > 0 ? colors.text.muted : colors.brand.primary}
+                className={`text-button ${
+                  timer > 0 ? "text-text-muted" : "text-night"
+                }`}
               >
                 Resend
               </Text>
-            </Button>
-          </XStack>
+            </Pressable>
+          </View>
 
-          <YStack flex={1} justifyContent="flex-end" paddingTop={spacing.xxl}>
-            <Button
+          <View className="flex-1 justify-end pt-7">
+            <Pressable
               accessibilityRole="button"
               disabled={!canVerify}
-              minHeight={52}
-              alignItems="center"
-              justifyContent="center"
-              borderRadius="$card"
-              backgroundColor={canVerify ? "$brandPrimary" : "$borderStrong"}
               onPress={handleVerify}
-              pressStyle={{
-                backgroundColor: canVerify ? "$brandPrimary" : "$borderStrong",
-              }}
+              className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
-              <Text
-                {...typography.button}
-                color={canVerify ? "$textInverse" : "$textMuted"}
-              >
+              <Text className="text-button text-white disabled:text-text-muted">
                 Verify OTP
               </Text>
-            </Button>
-          </YStack>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

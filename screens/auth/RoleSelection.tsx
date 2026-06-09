@@ -2,14 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Text, XStack, YStack } from "tamagui";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { theme } from "@/constants/theme";
-import { typography } from "@/constants/typography";
 
 type Role = "student" | "tutor";
 
@@ -27,63 +30,44 @@ export function RoleSelectionScreen() {
     if (!canContinue) {
       return;
     }
-
     router.push(role === "tutor" ? "/profile-tutor" : "/profile-student");
   }
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colors.background.page }}
-    >
+    <SafeAreaView className="flex-1 bg-background">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: spacing.xl,
-            paddingTop: spacing.xl,
-            paddingBottom: spacing.xl,
-          }}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
-          <XStack
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
-            minHeight={theme.sizes.touchTarget}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginBottom={spacing.md}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
             onPress={() => router.replace("/create_password")}
-            pressStyle={{ opacity: 0.7 }}
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text {...typography.body} color={colors.brand.primary}>
-              Back
-            </Text>
-          </XStack>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text className="text-body text-text-primary">Back</Text>
+          </Pressable>
 
-          <YStack gap={spacing.sm} marginBottom={spacing.xl}>
-            <Text {...typography.overline} color={colors.brand.primary}>
+          <View className="gap-2 mb-6">
+            <Text className="text-overline text-text-primary uppercase">
               Step 3 of 4
             </Text>
-            <Text {...typography.heroTitle} color={colors.text.onboardingTitle}>
+            <Text className="text-hero text-text-primary">
               How will you use EdumentX?
             </Text>
-            <Text {...typography.body} color={colors.text.secondary}>
+            <Text className="text-body text-text-secondary">
               Select your role once during signup. Admin approval is required to
               change it later.
             </Text>
-          </YStack>
+          </View>
 
-          <YStack gap={spacing.md}>
+          <View className="gap-4">
             <RoleCard
               active={role === "student"}
               iconColor={colors.brand.primary}
@@ -105,56 +89,22 @@ export function RoleSelectionScreen() {
               subtitle="List your teaching services and receive enrollment requests."
               title="Tutor"
             />
-          </YStack>
-
-          {/* <XStack
-            alignItems="flex-start"
-            gap={spacing.sm}
-            marginTop={spacing.lg}
-            padding={spacing.md}
-            borderRadius={theme.radii.card}
-            backgroundColor={theme.colors.semantic.warningBackground}
-          >
-            <Ionicons
-              color={colors.semantic.warning}
-              name="alert-circle-outline"
-              size={18}
-            />
-            <Text {...typography.caption} flex={1} color={theme.colors.semantic.warningText}>
-              Choose carefully. Role changes should go through admin approval
-              later.
-            </Text>
-          </XStack> */}
+          </View>
         </ScrollView>
 
-        <YStack
-          paddingHorizontal={spacing.xl}
-          paddingTop={spacing.md}
-          paddingBottom={spacing.xxl}
-          backgroundColor={colors.background.page}
-        >
-          <Button
+        <View className="px-5 pt-3 pb-8 bg-background">
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue"
             disabled={!canContinue}
-            minHeight={theme.sizes.primaryButtonHeight}
-            alignItems="center"
-            justifyContent="center"
-            borderRadius={theme.radii.card}
-            backgroundColor={canContinue ? "$brandPrimary" : "$borderStrong"}
             onPress={handleContinue}
-            pressStyle={{
-              backgroundColor: canContinue ? "$brandPrimary" : "$borderStrong",
-            }}
+            className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
-            <Text
-              {...typography.button}
-              color={canContinue ? "$textInverse" : "$textMuted"}
-            >
+            <Text className="text-button text-white disabled:text-text-muted">
               Continue
             </Text>
-          </Button>
-        </YStack>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -182,60 +132,39 @@ function RoleCard({
   title,
 }: RoleCardProps) {
   return (
-    <Button
+    <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      minHeight={92}
-      flexDirection="row"
-      alignItems="center"
-      gap={spacing.md}
-      padding={spacing.lg}
-      borderWidth={active ? 1 : 0.5}
-      borderColor={active ? activeBorder : colors.border.default}
-      borderRadius={theme.radii.lg}
-      backgroundColor={colors.background.surface}
-      pressStyle={{ opacity: 0.85 }}
+      className={`min-h-role-card flex-row items-center gap-4 p-4 rounded-lg bg-surface active:opacity-85 ${
+        active ? "border border-night" : "border border-border"
+      }`}
+      style={active ? { borderColor: activeBorder } : undefined}
     >
-      <YStack
-        width={52}
-        height={52}
-        flexShrink={0}
-        alignItems="center"
-        justifyContent="center"
-        borderRadius={theme.radii.card}
-        backgroundColor={iconBg}
+      <View
+        className="w-role-icon h-role-icon shrink-0 items-center justify-center rounded-card"
+        style={{ backgroundColor: iconBg }}
       >
         <Ionicons color={iconColor} name={iconName} size={26} />
-      </YStack>
+      </View>
 
-      <YStack flex={1} gap={spacing.xs}>
-        <Text {...typography.cardTitle} color={colors.text.onboardingTitle}>
+      <View className="flex-1 gap-1">
+        <Text className="text-card-title text-text-primary font-medium">
           {title}
         </Text>
-        <Text {...typography.body} color={colors.text.secondary}>
-          {subtitle}
-        </Text>
-      </YStack>
+        <Text className="text-body text-text-secondary">{subtitle}</Text>
+      </View>
 
       {active ? (
-        <YStack
-          width={22}
-          height={22}
-          alignItems="center"
-          justifyContent="center"
-          borderRadius={theme.radii.circle}
+        <View
+          className="w-role-check h-role-check items-center justify-center rounded-pill"
           style={{ backgroundColor: iconColor }}
         >
-          <Ionicons color={colors.text.inverse} name="checkmark" size={14} />
-        </YStack>
+          <Ionicons color="white" name="checkmark" size={14} />
+        </View>
       ) : (
-        <Ionicons
-          color={colors.border.strong}
-          name="chevron-forward"
-          size={20}
-        />
+        <Ionicons color={colors.border.strong} name="chevron-forward" size={20} />
       )}
-    </Button>
+    </Pressable>
   );
 }

@@ -6,18 +6,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Text, XStack, YStack } from "tamagui";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 import { registration } from "@/lib/registration";
 
 const GRADES = [
@@ -76,23 +76,13 @@ export function StudentProfileScreen() {
 
   function handleSubmit() {
     const validationErrors: FormErrors = {};
-    if (fullName.trim().length < 3) {
-      validationErrors.fullName = "Enter your full name.";
-    }
-    if (!EMAIL_REGEX.test(email.trim())) {
-      validationErrors.email = "Enter a valid email address.";
-    }
-    if (!grade) {
-      validationErrors.grade = "Select your grade.";
-    }
-    if (subjects.length < 1) {
-      validationErrors.subjects = "Select at least one subject.";
-    }
+    if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
+    if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
+    if (!grade) validationErrors.grade = "Select your grade.";
+    if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
     setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length > 0) {
-      return;
-    }
+    if (Object.keys(validationErrors).length > 0) return;
 
     registration.updateProfile({
       fullName: fullName.trim(),
@@ -109,58 +99,33 @@ export function StudentProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.brand.primary }}>
+    <SafeAreaView className="flex-1 bg-night">
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
-        {/* Dark header */}
-        <YStack
-          gap={spacing.xs}
-          paddingHorizontal={spacing.xl}
-          paddingTop={spacing.lg}
-          paddingBottom={48}
-          backgroundColor={colors.brand.primary}
-        >
-          <XStack
+        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+          <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/role-selection")}
-            minHeight={44}
-            alignSelf="flex-start"
-            alignItems="center"
-            gap={spacing.xs}
-            marginLeft={-4}
+            className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
-            <Text {...typography.body} color={colors.text.inverse} opacity={0.8}>
-              Back
-            </Text>
-          </XStack>
-          <Text
-            {...typography.heroTitle}
-            color={colors.text.inverse}
-            fontSize={26}
-          >
+            <Text className="text-body text-white opacity-80">Back</Text>
+          </Pressable>
+          <Text className="text-header-title text-white">
             Set up your profile
           </Text>
-          <Text {...typography.body} color={colors.text.inverse} opacity={0.7} marginTop={2}>
+          <Text className="text-body text-white opacity-70 mt-0.5">
             This helps tutors understand your learning needs.
           </Text>
-        </YStack>
+        </View>
 
-        {/* Sand body */}
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            gap: spacing.xl,
-            paddingHorizontal: spacing.xl,
-            paddingTop: 32,
-            paddingBottom: 40,
-            backgroundColor: colors.background.page,
-          }}
+          className="flex-1"
+          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
           <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
@@ -173,59 +138,38 @@ export function StudentProfileScreen() {
             onChangeEmail={setEmail}
           />
 
-          {/* Single-select grade (student only) */}
-          <YStack
-            gap={spacing.md}
-            padding={spacing.xl}
-            borderWidth={1}
-            borderColor={colors.border.subtle}
-            borderRadius={16}
-            backgroundColor={colors.background.surface}
-            shadowColor={colors.brand.primary}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.05}
-            shadowRadius={12}
-          >
-            <Text {...typography.overline} color={colors.text.muted}>
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <Text className="text-overline text-text-muted uppercase">
               Grade / class
             </Text>
-            <XStack flexWrap="wrap" gap={spacing.sm}>
+            <View className="flex-row flex-wrap gap-2">
               {GRADES.map((item) => {
                 const active = grade === item;
                 return (
-                  <Button
+                  <Pressable
                     key={item}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    minHeight={40}
-                    paddingHorizontal={spacing.lg}
-                    paddingVertical={spacing.sm}
-                    borderWidth={1.5}
-                    borderColor={active ? colors.brand.primary : colors.border.default}
-                    borderRadius={10}
-                    backgroundColor={active ? colors.brand.primary : colors.background.surface}
                     onPress={() => setGrade(item)}
-                    pressStyle={{
-                      backgroundColor: active ? colors.brand.primary : colors.background.surface,
-                      opacity: 0.85,
-                    }}
+                    className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-85 ${
+                      active ? "bg-night border-night" : "bg-surface border-border"
+                    }`}
                   >
                     <Text
-                      {...typography.buttonSmall}
-                      color={active ? colors.text.inverse : colors.text.secondary}
+                      className={`text-button-sm ${
+                        active ? "text-white" : "text-text-secondary"
+                      }`}
                     >
                       {item}
                     </Text>
-                  </Button>
+                  </Pressable>
                 );
               })}
-            </XStack>
+            </View>
             {errors.grade ? (
-              <Text {...typography.caption} color={colors.semantic.danger}>
-                {errors.grade}
-              </Text>
+              <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
             ) : null}
-          </YStack>
+          </View>
 
           <ChipGroup
             label="Subjects needed"
@@ -237,27 +181,16 @@ export function StudentProfileScreen() {
 
           <LocationField value={location} onChange={setLocation} />
 
-          <Button
+          <Pressable
             accessibilityRole="button"
             disabled={!canSubmit}
-            minHeight={56}
-            marginTop={spacing.lg}
-            borderRadius={14}
-            backgroundColor={canSubmit ? "$brandAccent" : "$borderStrong"}
             onPress={handleSubmit}
-            pressStyle={{
-              backgroundColor: canSubmit ? "$brandAccent" : "$borderStrong",
-              opacity: 0.9,
-            }}
-            shadowColor={canSubmit ? "$brandAccent" : "transparent"}
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={canSubmit ? 0.2 : 0}
-            shadowRadius={8}
+            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
-            <Text {...typography.button} color={canSubmit ? "$textInverse" : "$textMuted"} fontSize={16} fontWeight="600">
+            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               Finish setup
             </Text>
-          </Button>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

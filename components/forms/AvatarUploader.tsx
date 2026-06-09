@@ -1,11 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { Alert, Image } from "react-native";
-import { Button, Text, YStack } from "tamagui";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
 
 type AvatarUploaderProps = {
   value: string | null;
@@ -14,8 +11,10 @@ type AvatarUploaderProps = {
 
 /**
  * 96×96 circular avatar + "Upload photo" / "Change photo" label.
- * Used by both the student and tutor profile forms. Wraps the existing
- * `expo-image-picker` flow. No new deps.
+ * Used by both the student and tutor profile forms.
+ *
+ * NativeWind migration: uses `Pressable` + `className` instead of
+ * Tamagui `Button`. The press feedback is achieved with `active:opacity-80`.
  */
 export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
   async function handlePick() {
@@ -41,28 +40,17 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
   }
 
   return (
-    <YStack alignItems="center" gap={spacing.sm} marginBottom={spacing.md}>
-      <Button
+    <View className="items-center gap-2 mb-4">
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel={value ? "Change profile photo" : "Upload profile photo"}
-        width={96}
-        height={96}
-        padding={0}
-        borderRadius={9999}
-        borderWidth={4}
-        borderColor={colors.background.surface}
-        backgroundColor={colors.border.default}
         onPress={handlePick}
-        pressStyle={{ backgroundColor: colors.border.default, opacity: 0.85 }}
+        className="w-24 h-24 rounded-full border-4 border-surface bg-border items-center justify-center active:opacity-80"
       >
         {value ? (
           <Image
             source={{ uri: value }}
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 9999,
-            }}
+            className="w-avatar-uploader h-avatar-uploader rounded-full"
           />
         ) : (
           <Ionicons
@@ -71,10 +59,10 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
             size={40}
           />
         )}
-      </Button>
-      <Text {...typography.caption} color={colors.text.secondary} fontWeight="500">
+      </Pressable>
+      <Text className="text-caption text-text-secondary font-medium">
         {value ? "Change photo" : "Upload photo"}
       </Text>
-    </YStack>
+    </View>
   );
 }

@@ -5,35 +5,27 @@
  * three tutor pins, and a pulsing amber current-location dot in the
  * centre. Pure SVG composition — no images.
  *
- * NOTE: `react-native-svg` primitives do NOT resolve Tamagui token
- * strings — they take raw color values. We import the hex values from
- * `constants/theme` (the single source of truth) and pass them as
- * plain strings, so the design system stays centralized without
- * re-introducing hardcoded hex in the JSX body.
- *
- * Token map (theme.ts → hex):
- *   sand          → map fill
- *   borderDefault → grid + pins
- *   night         → pin outline
- *   amber         → location pulse
- *   surface       → pin disc + pulse ring
+ * NativeWind migration: SVG primitives (`Rect`, `Line`, `Circle`) don't
+ * resolve `className`; they need raw hex values for `fill` and `stroke`.
+ * Hex values come from `constants/colors` (the local fallback). Tailwind
+ * classes are applied to the outer wrapper only.
  */
-import { YStack } from 'tamagui';
+import { View } from 'react-native';
 import { Circle, G, Line, Path, Rect, Svg } from 'react-native-svg';
 
-import { theme } from '@/constants/theme';
+import { colors } from '@/constants/colors';
 
 const COLORS = {
-  sand: theme.colors.background.page,
-  borderDefault: theme.colors.border.default,
-  night: theme.colors.brand.primary,
-  amber: theme.colors.brand.accent,
-  surface: theme.colors.background.surface,
+  sand: colors.background.page,
+  borderDefault: colors.border.default,
+  night: colors.brand.primary,
+  amber: colors.brand.accent,
+  surface: colors.background.surface,
 } as const;
 
 export function DiscoverIllustration() {
   return (
-    <YStack width="100%" height="100%" alignItems="center" justifyContent="center">
+    <View className="w-full h-full items-center justify-center">
       <Svg
         viewBox="0 0 220 220"
         width="100%"
@@ -69,7 +61,7 @@ export function DiscoverIllustration() {
           <Line x1={16} y1={150} x2={204} y2={150} stroke={COLORS.borderDefault} strokeWidth={1.6} />
         </G>
 
-        {/* Tutor pin — top-right (around x=150, y=55) */}
+        {/* Tutor pin — top-right */}
         <G>
           <Path
             d="M150 30 L162 30 A8 8 0 0 1 170 38 L170 56 A8 8 0 0 1 162 64 L150 64 A8 8 0 0 1 142 56 L142 38 A8 8 0 0 1 150 30 Z"
@@ -80,7 +72,7 @@ export function DiscoverIllustration() {
           <Circle cx={156} cy={47} r={4} fill={COLORS.night} />
         </G>
 
-        {/* Tutor pin — mid-left (around x=50, y=110) */}
+        {/* Tutor pin — mid-left */}
         <G>
           <Path
             d="M50 92 L62 92 A8 8 0 0 1 70 100 L70 118 A8 8 0 0 1 62 126 L50 126 A8 8 0 0 1 42 118 L42 100 A8 8 0 0 1 50 92 Z"
@@ -91,7 +83,7 @@ export function DiscoverIllustration() {
           <Circle cx={56} cy={109} r={4} fill={COLORS.night} />
         </G>
 
-        {/* Tutor pin — bottom-right (around x=160, y=160) */}
+        {/* Tutor pin — bottom-right */}
         <G>
           <Path
             d="M160 142 L172 142 A8 8 0 0 1 180 150 L180 168 A8 8 0 0 1 172 176 L160 176 A8 8 0 0 1 152 168 L152 150 A8 8 0 0 1 160 142 Z"
@@ -109,7 +101,7 @@ export function DiscoverIllustration() {
         {/* Solid dot with white ring */}
         <Circle cx={110} cy={120} r={8} fill={COLORS.amber} stroke={COLORS.surface} strokeWidth={3} />
       </Svg>
-    </YStack>
+    </View>
   );
 }
 

@@ -1,42 +1,48 @@
 # EdumentX System Directives
 
-You are an expert React Native and Tamagui engineer building EdumentX.
+You are an expert React Native + NativeWind engineer building EdumentX.
 
 ## Architectural Rules
 
-1. **Never use standard React Native Views or inline styles.** Always use Tamagui structural primitives (`YStack`, `XStack`, `ZStack`).
-2. **Never use Tailwind or NativeWind.** We rely exclusively on Tamagui props.
-3. **Never hardcode hex colors.** Always use our Tamagui design tokens (e.g., `bg="$night"`, `color="$amber"`, `bg="$sand"`).
-4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure Tamagui/React Native code before writing anything to our `app/` or `components/` directories.
+1. **Use standard React Native primitives** (`View`, `Text`, `Pressable`, `TextInput`, `ScrollView`) for layout — apply styling through NativeWind `className` props, not inline `style={{}}` objects.
+2. **Never use Tamagui.** All `@tamagui/*` packages and `tamagui.config.ts` have been removed. Do not reintroduce them.
+3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `constants/colors.ts`.
+4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure React Native + NativeWind code before writing anything to our `app/` or `components/` directories.
 
 ## Translation Protocol
 
 When referencing the BasoBas project (found in `Documentation/98-Reference-BasoBas/`):
 
-* DO NOT copy BasoBas CSS, Tailwind, or standard React Native components.
+* DO NOT copy BasoBas CSS, Tailwind classes, or standard React Native components wholesale — study the *ideas*, not the markup.
 * ONLY study their UX flow, navigation logic, and layout composition.
-* ALWAYS rewrite their UI logic into our EdumentX design system using Tamagui components (`XStack`, `YStack`, `Button`, `Sheet`) and our `$night`, `$amber`, `$sand` tokens.
+* ALWAYS rewrite their UI logic into our EdumentX design system using React Native primitives + NativeWind classes (`bg-night`, `text-amber`, `rounded-card`, `p-4`).
 * Read `Documentation/98-Reference-BasoBas/ANALYSIS.md` first for the per-file translation map.
 
-## Current State (June 6, 2026)
+## Current State (June 8, 2026)
 
-**Phase 1 (Tamagui Foundation) — In Progress**
+**Phase 1.5 (NativeWind Migration) — Complete**
 
 Installed and working:
-* Tamagui 2.1.0 + `@tamagui/config/reanimated` driver
-* 7 production deps: `tamagui`, `@tamagui/config`, `@tamagui/animations-react-native`, `@tamagui/font-inter`, `react-native-svg`, `react-native-reanimated`, `@react-native-async-storage/async-storage`
-* 2 dev deps: `@tamagui/babel-plugin`, `@tamagui/metro-plugin`
-* Babel: `@tamagui/babel-plugin` + `react-native-reanimated/plugin` (must be last)
-* Metro: `TamaguiMetroPlugin` + `wrapWithReanimatedMetroConfig`
-* `app/_layout.tsx` wrapped in `<TamaguiProvider config={tamaguiConfig} defaultTheme="light">`
+* NativeWind 4.2.x + Tailwind CSS 3.4.x
+* `babel-preset-expo` with `jsxImportSource: 'nativewind'` + `nativewind/babel` preset
+* Metro: default `getDefaultConfig(__dirname, { isCSSEnabled: true })` (no Tamagui or reanimated wrappers)
+* `app/_layout.tsx` imports `../global.css` (Tailwind base/components/utilities)
+* 5 production deps: `nativewind`, `tailwindcss`, `react-native-svg`, `react-native-reanimated`, `react-native-gesture-handler`
+* 0 dev deps for styling (Tailwind + PostCSS are runtime/preset only)
 
-Palette refined for WCAG AA on white:
-* `semantic.success` `#059669` → `#047857` (3.77 → 5.48 contrast)
-* `semantic.warning` `#D97706` → `#B45309` (3.19 → 5.02 contrast)
-* `text.muted` `#94A3B8` → `#64748B` (2.56 → 4.76 contrast)
-* `border.strong` `#94A3B8` → `#64748B`
+Removed:
+* All `@tamagui/*` packages, `tamagui`, `moti`
+* `constants/tamagui.config.ts`, root `tamagui.config.ts`, `.tamagui/` cache
+* `@tamagui/babel-plugin`, `@tamagui/metro-plugin`, `wrapWithReanimatedMetroConfig`
+* `TamaguiProvider` from `app/_layout.tsx`
 
-Screens migrated to Tamagui primitives (7/7):
+Palette refined for WCAG AA on white (unchanged):
+* `semantic.success` `#047857` (5.48 contrast)
+* `semantic.warning` `#B45309` (5.02 contrast)
+* `text.muted` `#64748B` (4.76 contrast)
+* `border.strong` `#64748B`
+
+Screens migrated to NativeWind classes (9/9):
 * ✅ `screens/onboarding/SplashScreen.tsx`
 * ✅ `screens/onboarding/OnboardingScreen.tsx` (wired to 3 SVG illustrations)
 * ✅ `screens/auth/PhoneEntryScreen.tsx`
@@ -44,30 +50,26 @@ Screens migrated to Tamagui primitives (7/7):
 * ✅ `screens/auth/Password.tsx`
 * ✅ `screens/auth/RoleSelection.tsx`
 * ✅ `screens/auth/ProfileScreen.tsx`
-* ✅ `screens/auth/StudentProfileScreen.tsx` (migrated previously)
-* ✅ `screens/auth/TutorProfileScreen.tsx` (migrated previously)
+* ✅ `screens/auth/StudentProfileScreen.tsx`
+* ✅ `screens/auth/TutorProfileScreen.tsx`
 
-Onboarding illustrations (3/3 — shape compositions, no images):
+Shared components migrated (4/4 forms + 3/3 illustrations):
+* ✅ `components/forms/AvatarUploader.tsx`
+* ✅ `components/forms/ChipGroup.tsx`
+* ✅ `components/forms/LocationField.tsx`
+* ✅ `components/forms/NameEmailFields.tsx`
 * ✅ `components/illustrations/DiscoverIllustration.tsx`
 * ✅ `components/illustrations/AiMatchIllustration.tsx`
 * ✅ `components/illustrations/VerifiedIllustration.tsx`
 
-Known typecheck noise: (none — `npm run typecheck` is clean as of June 6, 2026)
-* `Documentation/98-Reference-BasoBas/**` is excluded from typecheck via `tsconfig.json` — it is a Figma-Make web export, not our app.
+Build pipeline (expo SDK 54, NativeWind 4.2.x):
+* `babel.config.js` uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` + `nativewind/babel`. No reanimated/Tamagui plugins.
+* `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })` only. The Documentation/98-Reference-BasoBas/ folder is excluded via `blockList`.
+* `RoleSelection` routes to `/profile-student` or `/profile-tutor` based on the chosen role.
+* `global.css` and `nativewind-env.d.ts` live at the project root and are imported by `app/_layout.tsx`.
+* `tailwind.config.js` is the design-token source of truth. `constants/colors.ts` is a narrow fallback consumed only by SVG primitives.
 
-Build pipeline (expo SDK 54, Tamagui 2.1.0):
-* `babel.config.js` uses `babel-preset-expo` (default JSX runtime) + `@tamagui/babel-plugin` (transforms `<YStack>` to `createTamaguiElement`) + `react-native-reanimated/plugin` (must be last). Do NOT set `jsxImportSource: 'tamagui'` — that subpath is not exported in v2.x.
-* `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })` + `withTamagui(config, {...})` (v2.x export — not the old `TamaguiMetroPlugin` factory) + `wrapWithReanimatedMetroConfig` (outermost).
-* `@tamagui/animations-moti` and `moti` are required runtime deps (peer of the reanimated animation driver). Install both before bundling.
-* `RoleSelection` routes to `/profile-student` or `/profile-tutor` based on the chosen role (the old `/profile` route was deleted).
-
-Pending Phase 1 deliverables:
-* Fix the 2 PhoneEntryScreen typecheck errors.
-* Migrate the 4 unmigrated auth screens to Tamagui.
-* Build 3 onboarding illustration components (`components/illustrations/{DiscoverIllustration,AiMatchIllustration,VerifiedIllustration}.tsx`) — shape compositions, no images, per `Documentation/gemini_chat_context.md` FeatureVisuals prompt.
-* Wire illustrations into `OnboardingScreen.tsx` (replace the current `Ionicons` icons).
-* Final `npm run typecheck` must be clean.
-
-Reference: see `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md` Phase B and `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md` for the long-form plan.
-
-Context: Before making structural changes, refer to Documentation/gemini_chat_context_v2.md to understand the transition from Expo Go to the EAS Dev Client, and our Tamagui token rules.
+Pending deliverables (post-migration):
+* Run `npm run typecheck` to verify zero regressions.
+* Rebuild the EAS dev client (one-time, after native deps changed).
+* Connect Firebase auth in the auth sprint.
