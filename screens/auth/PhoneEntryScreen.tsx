@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -16,8 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { typography } from "@/constants/typography";
+import { registration } from "@/lib/registration";
 
 type AuthMode = "signup" | "login";
 
@@ -40,12 +38,11 @@ export function PhoneEntryScreen() {
     if (!canSubmit) {
       return;
     }
-
     if (mode === "signup") {
+      registration.update({ phone });
       router.push({ pathname: "/otpverify", params: { phone } });
       return;
     }
-
     Alert.alert(
       "Next phase",
       "Firebase login and role routing will be added in the authentication sprint.",
@@ -53,60 +50,48 @@ export function PhoneEntryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-surface">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboardView}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/onboarding")}
-            style={styles.backButton}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text style={styles.backText}>Back</Text>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text className="text-body text-text-primary">Back</Text>
           </Pressable>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>
+          <View className="gap-2 mb-6">
+            <Text className="text-hero text-text-primary">
               {mode === "signup" ? "Create your account" : "Welcome back"}
             </Text>
-            {/* <Text style={styles.subtitle}>
-              {mode === 'signup'
-                ? 'Enter your phone number. OTP verification will be connected in the auth phase.'
-                : 'Log in with your phone number and password once Firebase auth is connected.'}
-            </Text> */}
           </View>
 
-          <View style={styles.segmentedControl}>
+          <View className="gap-1 p-1 rounded-md bg-background mb-6 flex-row">
             {(["signup", "login"] as AuthMode[]).map((item) => {
               const active = item === mode;
-
               return (
                 <Pressable
-                  accessibilityRole="button"
                   key={item}
+                  accessibilityRole="button"
                   onPress={() => setMode(item)}
-                  style={[
-                    styles.segmentButton,
-                    active ? styles.segmentButtonActive : null,
-                  ]}
+                  className={`flex-1 h-chip-sm rounded-sm items-center justify-center active:opacity-80 ${
+                    active ? "bg-surface" : "bg-transparent"
+                  }`}
                 >
                   <Text
-                    style={[
-                      styles.segmentText,
-                      active ? styles.segmentTextActive : null,
-                    ]}
+                    className={`text-button ${
+                      active ? "text-text-primary" : "text-text-secondary"
+                    }`}
                   >
                     {item === "signup" ? "Sign up" : "Log in"}
                   </Text>
@@ -115,31 +100,31 @@ export function PhoneEntryScreen() {
             })}
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Phone number</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.countryBox}>
-                  <Text style={styles.countryCode}>NP</Text>
-                  <Text style={styles.countryCode}>+977</Text>
-                  <Ionicons
-                    color={colors.text.muted}
-                    name="chevron-down"
-                    size={14}
-                  />
+          <View className="flex-1 gap-4">
+            <View className="gap-1">
+              <Text className="text-overline text-text-secondary uppercase">
+                Phone number
+              </Text>
+              <View className="flex-row gap-2">
+                <View
+                  className="min-w-country-code h-btn flex-row items-center justify-center gap-1 border border-border rounded-md bg-surface"
+                >
+                  <Text className="text-button text-text-primary">NP</Text>
+                  <Text className="text-button text-text-primary">+977</Text>
+                  <Ionicons color={colors.text.muted} name="chevron-down" size={14} />
                 </View>
 
                 <TextInput
+                  className="flex-1 h-btn border border-border rounded-md px-3 text-text-primary text-base"
                   keyboardType="phone-pad"
                   maxLength={10}
                   onChangeText={updatePhone}
                   placeholder="97XXXXXXXX"
                   placeholderTextColor={colors.text.muted}
-                  style={styles.phoneInput}
                   value={phone}
                 />
               </View>
-              <Text style={styles.helperText}>
+              <Text className="text-caption text-text-muted">
                 {isPhoneValid || phone.length === 0
                   ? ""
                   : "Enter a 10 digit mobile number."}
@@ -147,25 +132,25 @@ export function PhoneEntryScreen() {
             </View>
 
             {mode === "login" ? (
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Password</Text>
-                <View style={styles.passwordRow}>
+              <View className="gap-1">
+                <Text className="text-overline text-text-secondary uppercase">
+                  Password
+                </Text>
+                <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3">
                   <TextInput
+                    className="flex-1 text-text-primary text-body-lg"
                     onChangeText={setPassword}
                     placeholder="Enter your password"
                     placeholderTextColor={colors.text.muted}
                     secureTextEntry={!showPassword}
-                    style={styles.passwordInput}
                     value={password}
                   />
                   <Pressable
-                    accessibilityLabel={
-                      showPassword ? "Hide password" : "Show password"
-                    }
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     accessibilityRole="button"
-                    hitSlop={8}
                     onPress={() => setShowPassword((current) => !current)}
-                    style={styles.passwordToggle}
+                    hitSlop={8}
+                    className="w-11 h-11 items-center justify-center active:opacity-70"
                   >
                     <Ionicons
                       color={colors.text.muted}
@@ -176,37 +161,28 @@ export function PhoneEntryScreen() {
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  style={styles.forgotButton}
+                  className="self-end min-h-pill-sm items-center justify-center active:opacity-70"
                 >
-                  <Text style={styles.forgotText}>Forgot password?</Text>
+                  <Text className="text-caption text-text-primary">Forgot password?</Text>
                 </Pressable>
               </View>
             ) : null}
           </View>
 
-          <View style={styles.footer}>
+          <View className="gap-3 pt-6">
             <Pressable
               accessibilityRole="button"
               disabled={!canSubmit}
               onPress={handleSubmit}
-              style={[
-                styles.primaryButton,
-                canSubmit ? null : styles.primaryButtonDisabled,
-              ]}
+              className="min-h-btn rounded-card items-center justify-center bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
-              <Text
-                style={[
-                  styles.primaryButtonText,
-                  canSubmit ? null : styles.primaryButtonTextDisabled,
-                ]}
-              >
+              <Text className="text-button text-white disabled:text-text-muted">
                 {mode === "signup" ? "Send OTP" : "Log in"}
               </Text>
             </Pressable>
 
-            <Text style={styles.termsText}>
-              By continuing, you agree to EdumentX&apos;s Terms and Privacy
-              Policy.
+            <Text className="text-caption text-text-muted text-center">
+              By continuing, you agree to EdumentX&apos;s Terms and Privacy Policy.
             </Text>
           </View>
         </ScrollView>
@@ -214,171 +190,3 @@ export function PhoneEntryScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.surface,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  backButton: {
-    minHeight: 44,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  backText: {
-    ...typography.body,
-    color: colors.brand.primary,
-  },
-  header: {
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  title: {
-    ...typography.heroTitle,
-    color: colors.text.onboardingTitle,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.text.secondary,
-  },
-  segmentedControl: {
-    flexDirection: "row",
-    gap: spacing.xs,
-    padding: spacing.xs,
-    borderRadius: 10,
-    backgroundColor: colors.background.page,
-    marginBottom: spacing.xl,
-  },
-  segmentButton: {
-    flex: 1,
-    minHeight: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  segmentButtonActive: {
-    backgroundColor: colors.background.surface,
-  },
-  segmentText: {
-    ...typography.button,
-    color: colors.text.secondary,
-  },
-  segmentTextActive: {
-    color: colors.text.onboardingTitle,
-  },
-  form: {
-    flex: 1,
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
-  },
-  label: {
-    ...typography.overline,
-    color: colors.text.secondary,
-  },
-  phoneRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  countryBox: {
-    minWidth: 92,
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    backgroundColor: colors.background.surface,
-  },
-  countryCode: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  phoneInput: {
-    flex: 1,
-    minHeight: 52,
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    color: colors.text.primary,
-    fontSize: 16,
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.text.muted,
-  },
-  passwordRow: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 0.5,
-    borderColor: colors.border.default,
-    borderRadius: 10,
-    backgroundColor: colors.background.surface,
-  },
-  passwordInput: {
-    flex: 1,
-    minHeight: 52,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
-    color: colors.text.primary,
-    fontSize: 15,
-  },
-  passwordToggle: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  forgotButton: {
-    alignSelf: "flex-end",
-    minHeight: 36,
-    justifyContent: "center",
-  },
-  forgotText: {
-    ...typography.caption,
-    color: colors.brand.primary,
-  },
-  footer: {
-    gap: spacing.md,
-    paddingTop: spacing.xl,
-  },
-  primaryButton: {
-    minHeight: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: colors.border.strong,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-  },
-  primaryButtonTextDisabled: {
-    color: colors.text.muted,
-  },
-  termsText: {
-    ...typography.caption,
-    textAlign: "center",
-    color: colors.text.muted,
-  },
-});

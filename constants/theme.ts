@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+const hairlineWidth = 1;
 
 export const theme = {
   colors: {
@@ -21,10 +21,10 @@ export const theme = {
       splashTrack: 'rgba(241, 245, 249, 0.12)',
     },
     semantic: {
-      success: '#059669',
+      success: '#047857',
       successText: '#064E3B',
       successBackground: '#DCFCE7',
-      warning: '#D97706',
+      warning: '#B45309',
       warningText: '#92400E',
       warningBackground: '#FEF3C7',
       warningSubtle: '#FFFBEB',
@@ -47,14 +47,14 @@ export const theme = {
       primary: '#0F172A', // Night
       secondary: '#475569',
       tertiary: '#1E293B',
-      muted: '#94A3B8',
+      muted: '#64748B',
       disabled: '#CBD5E1',
       inverse: '#FFFFFF',
       link: '#B45309', // Copper link for professional flair
     },
     border: {
       default: '#E2E8F0',
-      strong: '#94A3B8',
+      strong: '#64748B',
       subtle: 'rgba(15, 23, 42, 0.04)',
       card: 'rgba(15, 23, 42, 0.06)',
     },
@@ -159,9 +159,9 @@ export const theme = {
     },
   },
   borders: {
-    hairlineWidth: StyleSheet.hairlineWidth,
-    cardWidth: StyleSheet.hairlineWidth,
-    inputWidth: StyleSheet.hairlineWidth,
+    hairlineWidth,
+    cardWidth: hairlineWidth,
+    inputWidth: hairlineWidth,
     dashedWidth: 1,
   },
   sizes: {
@@ -181,14 +181,14 @@ export const theme = {
       backgroundColor: '#FFFFFF',
       borderColor: '#E5E7EB',
       borderRadius: 12,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: hairlineWidth,
       padding: 16,
     },
     input: {
       backgroundColor: '#FFFFFF',
       borderColor: '#E5E7EB',
       borderRadius: 10,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: hairlineWidth,
       minHeight: 48,
       paddingHorizontal: 12,
     },

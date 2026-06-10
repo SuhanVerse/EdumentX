@@ -9,17 +9,13 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
-  TextInput,
+  TextInput as RNTextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { theme } from "@/constants/theme";
-import { typography } from "@/constants/typography";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -29,14 +25,12 @@ type OtpDigit = string;
 export function OtpVerify() {
   const router = useRouter();
   const params = useLocalSearchParams<{ phone?: string }>();
-  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const inputRefs = useRef<(RNTextInput | null)[]>([]);
   const [otp, setOtp] = useState<OtpDigit[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
 
   const phone = useMemo(() => {
-    const rawPhone = Array.isArray(params.phone)
-      ? params.phone[0]
-      : params.phone;
+    const rawPhone = Array.isArray(params.phone) ? params.phone[0] : params.phone;
     return rawPhone?.replace(/\D/g, "").slice(0, 10) ?? "";
   }, [params.phone]);
 
@@ -49,11 +43,9 @@ export function OtpVerify() {
     if (timer <= 0) {
       return;
     }
-
     const intervalId = setInterval(() => {
       setTimer((current) => Math.max(current - 1, 0));
     }, 1000);
-
     return () => clearInterval(intervalId);
   }, [timer]);
 
@@ -101,7 +93,6 @@ export function OtpVerify() {
     if (otp[index] || index === 0) {
       return;
     }
-
     setOtp((current) => {
       const next = [...current];
       next[index - 1] = "";
@@ -114,7 +105,6 @@ export function OtpVerify() {
     if (timer > 0) {
       return;
     }
-
     clearOtp();
     setTimer(RESEND_SECONDS);
     Alert.alert(
@@ -127,78 +117,100 @@ export function OtpVerify() {
     if (!canVerify) {
       return;
     }
-
     router.push("/create_password");
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-surface">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboardView}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.replace("/phone-entry")}
-            style={styles.backButton}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-4 active:opacity-70"
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text style={styles.backText}>Back</Text>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text className="text-body text-text-primary">Back</Text>
           </Pressable>
 
-          <View style={styles.header}>
-            <View style={styles.iconCircle}>
+          <View className="items-center gap-2 pt-4 mb-7">
+            <View className="w-16 h-16 items-center justify-center rounded-pill bg-primary-light mb-2">
               <Ionicons
                 color={colors.brand.primary}
                 name="shield-checkmark-outline"
                 size={28}
               />
             </View>
-            <Text style={styles.title}>Verify your number</Text>
-            <Text style={styles.subtitle}>
+            <Text className="text-hero text-text-primary text-center">
+              Verify your number
+            </Text>
+            <Text
+              className="text-body text-text-secondary text-center"
+              style={{ maxWidth: 288 }}
+            >
               Enter the 6 digit code sent to{" "}
-              <Text style={styles.phoneText}>{displayPhone}</Text>.
+              <Text className="text-button text-text-primary">{displayPhone}</Text>.
             </Text>
           </View>
 
-          <View style={styles.otpRow}>
-            {otp.map((digit, index) => (
-              <TextInput
-                accessibilityLabel={`OTP digit ${index + 1}`}
-                autoComplete={index === 0 ? "sms-otp" : "off"}
-                inputMode="numeric"
-                key={index}
-                keyboardType="number-pad"
-                maxLength={OTP_LENGTH}
-                onChangeText={(value) => handleDigitChange(index, value)}
-                onKeyPress={({ nativeEvent }) => {
-                  if (nativeEvent.key === "Backspace") {
-                    handleBackspace(index);
-                  }
-                }}
-                ref={(ref) => {
-                  inputRefs.current[index] = ref;
-                }}
-                selectTextOnFocus
-                style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
-                textContentType="oneTimeCode"
-                value={digit}
-              />
-            ))}
+          <View className="flex-row justify-center gap-2 mb-3">
+            {otp.map((digit, index) => {
+              const isFilled = digit.length > 0;
+              return (
+                <View
+                  key={index}
+                  className={`w-11 h-otp-box-h border rounded-md items-center justify-center ${
+                    isFilled
+                      ? "border-night bg-primary-light"
+                      : "border-border bg-surface"
+                  }`}
+                >
+                  <RNTextInput
+                    accessibilityLabel={`OTP digit ${index + 1}`}
+                    autoComplete={index === 0 ? "sms-otp" : "off"}
+                    inputMode="numeric"
+                    keyboardType="number-pad"
+                    maxLength={OTP_LENGTH - index}
+                    onChangeText={(value) => handleDigitChange(index, value)}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === "Backspace") {
+                        handleBackspace(index);
+                      }
+                    }}
+                    ref={(ref) => {
+                      inputRefs.current[index] = ref;
+                    }}
+                    selectTextOnFocus
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      textAlign: "center",
+                      fontSize: 20,
+                      fontWeight: "500",
+                      color: colors.text.primary,
+                      padding: 0,
+                    }}
+                    textContentType="oneTimeCode"
+                    value={digit}
+                  />
+                </View>
+              );
+            })}
           </View>
 
-          <View style={styles.resendRow}>
-            <Text style={styles.timerText}>
+          <View className="min-h-touch flex-row items-center justify-center gap-2 mb-4">
+            <Text
+              className="text-caption text-text-secondary"
+              style={{ fontVariant: ["tabular-nums"] }}
+            >
               {timer > 0
                 ? `Resend in ${formattedTimer}`
                 : "Did not receive the code?"}
@@ -208,46 +220,26 @@ export function OtpVerify() {
               disabled={timer > 0}
               hitSlop={8}
               onPress={handleResend}
+              className="active:opacity-70"
             >
               <Text
-                style={[
-                  styles.resendText,
-                  timer > 0 ? styles.resendTextDisabled : null,
-                ]}
+                className={`text-button ${
+                  timer > 0 ? "text-text-muted" : "text-night"
+                }`}
               >
                 Resend
               </Text>
             </Pressable>
           </View>
 
-          {/* <View style={styles.infoCard}>
-            <Ionicons
-              color={colors.semantic.info}
-              name="information-circle-outline"
-              size={18}
-            />
-            <Text style={styles.infoText}>
-              This screen is ready for UI testing. Real SMS sending will be
-              connected from Firebase Phone Auth later.
-          </Text>
-          </View> */}
-
-          <View style={styles.footer}>
+          <View className="flex-1 justify-end pt-7">
             <Pressable
               accessibilityRole="button"
               disabled={!canVerify}
               onPress={handleVerify}
-              style={[
-                styles.primaryButton,
-                canVerify ? null : styles.primaryButtonDisabled,
-              ]}
+              className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
-              <Text
-                style={[
-                  styles.primaryButtonText,
-                  canVerify ? null : styles.primaryButtonTextDisabled,
-                ]}
-              >
+              <Text className="text-button text-white disabled:text-text-muted">
                 Verify OTP
               </Text>
             </Pressable>
@@ -257,140 +249,3 @@ export function OtpVerify() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.surface,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  backButton: {
-    minHeight: theme.sizes.touchTarget,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  backText: {
-    ...typography.body,
-    color: colors.brand.primary,
-  },
-  header: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.lg,
-    marginBottom: spacing.xxl,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.radii.circle,
-    backgroundColor: colors.brand.primaryLight,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    ...typography.heroTitle,
-    textAlign: "center",
-    color: colors.text.onboardingTitle,
-  },
-  subtitle: {
-    ...typography.body,
-    maxWidth: 288,
-    textAlign: "center",
-    color: colors.text.secondary,
-  },
-  phoneText: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  otpRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  otpInput: {
-    width: theme.sizes.otpBoxWidth,
-    height: theme.sizes.otpBoxHeight,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: theme.radii.md,
-    backgroundColor: colors.background.surface,
-    color: colors.text.primary,
-    fontSize: 20,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  otpInputFilled: {
-    borderColor: colors.brand.primary,
-    backgroundColor: colors.brand.primaryLight,
-  },
-  resendRow: {
-    minHeight: theme.sizes.touchTarget,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  timerText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontVariant: ["tabular-nums"],
-  },
-  resendText: {
-    ...typography.button,
-    color: colors.brand.primary,
-  },
-  resendTextDisabled: {
-    color: colors.text.muted,
-  },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: theme.borders.cardWidth,
-    borderColor: colors.brand.primaryLight,
-    borderRadius: theme.radii.card,
-    backgroundColor: colors.brand.primaryLight,
-  },
-  infoText: {
-    ...typography.caption,
-    flex: 1,
-    color: colors.text.secondary,
-  },
-  footer: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingTop: spacing.xxl,
-  },
-  primaryButton: {
-    minHeight: theme.sizes.primaryButtonHeight,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.radii.card,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: colors.border.strong,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-  },
-  primaryButtonTextDisabled: {
-    color: colors.text.muted,
-  },
-});

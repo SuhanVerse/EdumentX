@@ -1,0 +1,1877 @@
+ ▐▛███▜▌   Claude Code v2.1.168
+▝▜█████▛▘  minimax-m3 · API Usage Billing
+  ▘▘ ▝▝    /media/xlegion/Win/PROJECTS/EdumentX
+
+  Read 6 files (ctrl+o to expand)
+  ⎿  Read babel.config.js (17 lines)
+  ⎿  Read metro.config.js (33 lines)
+  ⎿  Read app/_layout.tsx (32 lines)
+  ⎿  Read screens/auth/RoleSelection.tsx (248 lines)
+  ⎿  Read screens/auth/ProfileScreen.tsx (404 lines)
+
+● Let me also look at the auth and onboarding screens to audit Button
+  inconsistencies, plus the theme.ts to understand what tokens exist.
+
+  Read 3 files (ctrl+o to expand)
+
+● Now let me look at the rest of the screens — OtpVerify, Password,
+  RoleSelection, StudentProfileScreen, TutorProfileScreen, ProfileScreen, and
+  SplashScreen.
+
+  Read 5 files (ctrl+o to expand)
+
+● Now I have a complete picture. Let me also check the form components and the
+  colors, spacing, typography constants to understand the full pattern:
+
+  Read 4 files (ctrl+o to expand)
+
+● Now I have full context. Let me also check the ProfileScreen.tsx (the orphan
+  one in app/profile.tsx was deleted) and the app/_layout.tsx to make sure no
+  stray references.
+
+  Searched for 1 pattern, read 1 file, listed 1 directory (ctrl+o to expand)
+
+● The Bash output for hardcoded borderRadius returned empty. Let me try without
+  the 2>/dev/null:
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+● Now I have a complete picture. Let me also check if there's a
+  screens/auth/ProfileScreen.tsx still being referenced anywhere (since the
+  route was removed):
+
+  Searched for 1 pattern, listed 2 directories (ctrl+o to expand)
+
+● MediaType exists. The MediaType is a string union type ('images' | 'videos' |
+  'livePhotos'), but the mediaTypes prop accepts MediaType | MediaType[] (the
+  array version). However, ImagePicker.MediaType itself is a TS type — to use as
+  a runtime value, the existing ImagePicker.MediaTypeOptions.Images should be
+  replaced. Let me look at the types more carefully:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Important — MediaType is a TS string-union type, not a runtime enum. So
+  ImagePicker.MediaType.Images doesn't exist as a runtime value. The correct
+  replacement is mediaTypes: ['images'] (using the string literal directly). Now
+  I have everything I need to plan the fix.
+
+  I have a clear understanding now. Let me enter plan mode to design the
+  implementation:
+
+● Entered plan mode
+  Claude is now exploring and designing an implementation approach.
+
+  Listed 1 directory, recalled 1 memory (ctrl+o to expand)
+
+● Now I have enough context. Let me draft the plan file.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/sorted-singing-boole.md · /plan to edit
+     Plan — Sync Tamagui Tokens, Fix Illustrations, Audit Button Tokens, and 
+     Resolve ImagePicker Deprecation
+
+     Context
+
+     The app is running on a custom EAS dev client and screens are already
+     migrated to Tamagui primitives. However, several token names referenced
+     across components/illustrations/*.tsx and the auth/onboarding screens
+     ($sand, $borderDefault, $night, $amber, $surface, $ai,
+     $aiLight, $brandVerification, $verificationLight, $semDanger,
+     $semWarning, $semSuccess) are not registered in
+     constants/tamagui.config.ts (or its root copy at tamagui.config.ts).
+
+     Consequences:
+     - The onboarding illustrations render as black boxes because Tamagui
+     falls back to transparent (and SVG fill="transparent" paints black
+     in dark/inverted contexts) when an unknown token is referenced.
+     - The primary buttons across auth screens use a mix of colors.brand.*
+     constants and style={{ backgroundColor }}, which makes them bypass
+     the Tamagui token system. The user wants these normalized so all
+     backgrounds and radii use centralized Tamagui tokens (e.g.
+     bg="$amber", br="$3").
+     - components/forms/AvatarUploader.tsx uses the deprecated
+     ImagePicker.MediaTypeOptions.Images enum and surfaces a deprecation
+     warning on every Metro reload (Expo SDK 54 deprecation).
+
+     This plan adds the missing tokens, rewrites illustrations to use
+     already-defined equivalents (so they stop being black), normalizes the
+     primary buttons to use $-token props, and switches the image picker
+     to the new array-of-MediaType API.
+
+     Architectural Rules (must follow)
+
+     From CLAUDE.md:
+     1. Never use standard React Native View / inline styles for structure.
+     Use YStack/XStack/ZStack and Tamagui props.
+     2. Never use Tailwind / NativeWind. Tamagui props only.
+     3. Never hardcode hex in components. Use Tamagui design tokens
+     (e.g. bg="$night", color="$amber").
+     4. Both constants/tamagui.config.ts and root tamagui.config.ts must
+     stay byte-equivalent at the token level (the babel/metro plugins
+     resolve from project root, the app imports from constants/).
+
+     Critical Files
+
+     - constants/tamagui.config.ts (canonical, used by app/_layout.tsx)
+     - tamagui.config.ts (root copy, used by babel/metro plugin
+     withTamagui/@tamagui/babel-plugin)
+     - components/illustrations/DiscoverIllustration.tsx
+     - components/illustrations/AiMatchIllustration.tsx
+     - components/illustrations/VerifiedIllustration.tsx
+     - components/forms/AvatarUploader.tsx
+     - screens/auth/RoleSelection.tsx (primary Continue button)
+     - screens/auth/PhoneEntryScreen.tsx (primary Send OTP / Log in)
+     - screens/auth/OtpVerify.tsx (primary Verify OTP)
+     - screens/auth/Password.tsx (primary Continue)
+     - screens/auth/ProfileScreen.tsx (primary Finish setup — kept in
+     sync with StudentProfileScreen/TutorProfileScreen for now)
+     - screens/auth/StudentProfileScreen.tsx (primary Finish setup)
+     - screens/auth/TutorProfileScreen.tsx (primary Finish setup)
+     - screens/onboarding/OnboardingScreen.tsx (primary Next / Get started)
+
+     Approach
+
+     Step 1 — Add missing color tokens to both config files
+
+     Add the following short-alias tokens to createTokens({ color: {...} })
+     in both constants/tamagui.config.ts and tamagui.config.ts. Each
+     token maps to an existing color in constants/theme.ts (single source
+     of truth — no hex duplication).
+
+     New token: night
+     Value source: theme.colors.brand.primary
+     Hex: #0F172A
+     Rationale: Sophisticated Slate (matches $night naming)
+     ────────────────────────────────────────
+     New token: amber
+     Value source: theme.colors.brand.accent
+     Hex: #B45309
+     Rationale: Polished Copper (matches $amber naming)
+     ────────────────────────────────────────
+     New token: sand
+     Value source: theme.colors.background.page
+     Hex: #F1F5F9
+     Rationale: Sand page background
+     ────────────────────────────────────────
+     New token: surface
+     Value source: theme.colors.background.surface
+     Hex: #FFFFFF
+     Rationale: Card / surface white
+     ────────────────────────────────────────
+     New token: borderDefault
+     Value source: theme.colors.border.default
+     Hex: #E2E8F0
+     Rationale: Hairline border
+     ────────────────────────────────────────
+     New token: ai
+     Value source: theme.colors.brand.ai
+     Hex: #4F46E5
+     Rationale: AI indigo (deeper than the slate/amber palette — used for the AI
+
+       orb)
+     ────────────────────────────────────────
+     New token: aiLight
+     Value source: theme.colors.brand.aiLight
+     Hex: #EEF2FF
+     Rationale: AI light tint
+     ────────────────────────────────────────
+     New token: brandVerification
+     Value source: theme.colors.brand.verification
+     Hex: #047857
+     Rationale: Forest Emerald (already in theme)
+     ────────────────────────────────────────
+     New token: verificationLight
+     Value source: theme.colors.brand.verificationLight
+     Hex: #ECFDF5
+     Rationale: Emerald tint
+     ────────────────────────────────────────
+     New token: semDanger
+     Value source: theme.colors.semantic.danger
+     Hex: #DC2626
+     Rationale: (already named with sem prefix in config)
+     ────────────────────────────────────────
+     New token: semWarning
+     Value source: theme.colors.semantic.warning
+     Hex: #B45309
+     Rationale: (already named with sem prefix)
+     ────────────────────────────────────────
+     New token: semSuccess
+     Value source: theme.colors.semantic.success
+     Hex: #047857
+     Rationale: (already named with sem prefix)
+
+     All other $sem* tokens (semSuccessText, semSuccessBackground,
+     semWarningText, etc.) already exist in the config — only the
+     short-alias triples are missing. The first five rows are exact
+     duplicates of the long-form names that already exist (brandPrimary,
+     brandAccent, bgPage, bgSurface, borderDefault); adding the
+     short aliases lets us reference $night/$amber/etc. without
+     re-mapping the design system.
+
+     In constants/tamagui.config.ts (and the root copy), insert the new
+     keys after the existing long-form names so the diff is minimal and
+     the alphabetical-ish ordering of the long-form block is preserved.
+
+     Step 2 — Rewrite illustrations to use only valid token names
+
+     Each of the three illustration files is already structurally correct
+     (YStack + react-native-svg primitives), but the file-header
+     docstring comments in AiMatchIllustration.tsx and
+     VerifiedIllustration.tsx reference $aiLight and
+     $verificationLight as if they were defined — they are now defined
+     in Step 1, so no renaming is needed; we only need to verify.
+
+     The actual black-box issue comes from one token: VerifiedIllustration
+     uses fill="$verificationLight" (line 35). With Step 1 added, this
+     resolves correctly. No code change in illustration files is required
+     as long as Step 1 is applied.
+
+     If after Step 1 the illustrations still misbehave, the fallback is to
+     use the long-form equivalents that are already defined (e.g.
+     $bgPage, $bgSurface, $borderDefault, $brandAi,
+     $brandAiLight, $brandVerification, $brandVerificationLight) — but
+     the goal of Step 1 is to add the short aliases so the SVG code can
+     keep using the readable token names.
+
+     Step 3 — Normalize primary buttons across auth/onboarding screens
+
+     The seven primary buttons (one per screen listed above) all currently
+     use the pattern:
+
+     <Button
+       style={{ backgroundColor: canSubmit ? colors.brand.primary :
+     colors.border.strong }}
+       pressStyle={{ backgroundColor: canSubmit ? colors.brand.primary :
+     colors.border.strong }}
+       borderRadius={12}
+       ...
+     >
+
+     Replace with centralized Tamagui tokens (per CLAUDE.md rule 3):
+
+     <Button
+       bg={canSubmit ? "$brandPrimary" : "$borderStrong"}
+       pressStyle={{ bg: canSubmit ? "$brandPrimary" : "$borderStrong" }}
+       borderRadius="$3"   // = 12px, from the existing radius token map
+       ...
+     >
+
+     Radius-token mapping (already in constants/tamagui.config.ts):
+     - borderRadius={10}  → borderRadius="$md" (or numeric 10)
+     - borderRadius={12}  → borderRadius="$card" (or numeric 12 / $3)
+     - borderRadius={14}  → borderRadius="$lg" (or numeric 14)
+     - borderRadius={16}  → borderRadius="$4" (or numeric 16)
+     - borderRadius={999} → borderRadius="$full" (or numeric 999 / $full)
+     - borderRadius={9999}→ borderRadius="$full"
+     - borderRadius={20}  → numeric 20 (no token for 20 yet — keep numeric
+     to avoid adding a new token just for the onboarding slide frame)
+
+     For consistency with the existing size/radius token table, the
+     preferred mapping is the existing named tokens (e.g. $card for 12,
+     $lg for 14, $full for 999). Buttons that use borderRadius={14} or
+     borderRadius={20} (the slide frame and Finish setup) will keep
+     their numeric value if no token exists at that exact size — this is
+     the only exception to the token rule, and it's intentional (we
+     don't want to inflate the radius scale with one-off values).
+
+     For screens where the button color is the accent copper
+     (colors.brand.accent) rather than primary night (the three profile
+     "Finish setup" buttons: ProfileScreen, StudentProfileScreen,
+     TutorProfileScreen), use bg="$brandAccent" / bg="$borderStrong".
+
+     For the Send OTP / Log in button in PhoneEntryScreen.tsx (line
+     232) and the Verify OTP button in OtpVerify.tsx (line 287), use
+     bg="$brandPrimary" / bg="$borderStrong".
+
+     For the Continue button in Password.tsx (line 228) and
+     RoleSelection.tsx (line 136), use bg="$brandPrimary" /
+     bg="$borderStrong".
+
+     For the Next / Get started button in OnboardingScreen.tsx (line
+     136), use bg="$brandPrimary".
+
+     The "Change" / "Forgot password" / "Show password" / skip / tab-toggle
+     buttons are all secondary and use backgroundColor="transparent"; they
+     already use a string literal ("transparent") and don't need
+     tokenization — leave them as-is.
+
+     Step 4 — Fix expo-image-picker deprecation in AvatarUploader.tsx
+
+     Replace:
+
+     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+
+     with the new array-of-MediaType API (per the deprecation note in
+     node_modules/expo-image-picker/build/ImagePicker.types.d.ts):
+
+     mediaTypes: ['images'],
+
+     MediaType is a TypeScript string-union type ('images' | 'videos' | 
+     'livePhotos'), not a runtime enum, so the runtime value is the string
+     literal 'images'. This matches the SDK 54 migration guide.
+
+     Step 5 — Verify
+
+     1. npm run typecheck → expect clean.
+     2. grep -rn "MediaTypeOptions" components screens app → expect zero
+     matches outside of comments.
+     3. grep -rn "backgroundColor={colors\." screens components app →
+     expect only the form borderColor / backgroundColor props on
+     Input/YStack containers to remain (those are styling the form
+     chrome, not the primary CTA buttons).
+     4. Run npx expo start (or check Metro logs) → expect no "Token
+     $X is not a valid color" warnings.
+     5. Manually verify in the dev client: onboarding illustrations render
+     the sand-map / indigo-AI / emerald-verified cards (not black).
+
+     Out of scope (carried forward, not part of this fix)
+
+     - TurboModule installTurboModule runtime error from
+     react-native-gesture-handler 2.28.0 vs RN 0.81.5. This is a
+     separate runtime problem and requires either a version downgrade or
+     a patch — not part of the token-sync task.
+     - "Missing tamagui config" runtime error. The TamaguiProvider in
+     app/_layout.tsx already receives tamaguiConfig from
+     @/constants/tamagui.config, so once both config files have all the
+     tokens, this should clear.
+
+     Verification recap
+
+     - npm run typecheck clean.
+     - No MediaTypeOptions references in source.
+     - No "Token not found" warnings from Metro.
+     - Illustrations render with sand / indigo / emerald backgrounds, not
+     black.
+     - Primary CTA buttons look identical to before (Night on Sand, with
+     disabled state = $borderStrong).
+
+● Now let me create a task list and execute the plan.
+● Step 1 — Add missing color tokens to constants/tamagui.config.ts
+
+● Update(constants/tamagui.config.ts)
+  ⎿  File must be read first
+
+● I read the file earlier in this conversation but the harness wants me to
+  re-read. Let me re-read just the section I need to edit:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(constants/tamagui.config.ts)
+  ⎿  Added 12 lines
+      73      onbMapBackground: masterTheme.colors.onboarding.mapBackgrou
+          nd,
+      74      onbAiBackground: masterTheme.colors.onboarding.aiBackground
+          ,
+      75      onbVerifyBackground: masterTheme.colors.onboarding.verifyBa
+          ckground,
+      76 +    // Short aliases — preferred in components (Sophisticated S
+         +late & Amber)                                                  
+      77 +    night: masterTheme.colors.brand.primary,                   
+      78 +    amber: masterTheme.colors.brand.accent,                    
+      79 +    sand: masterTheme.colors.background.page,                  
+      80 +    surface: masterTheme.colors.background.surface,            
+      81 +    ai: masterTheme.colors.brand.ai,                           
+      82 +    aiLight: masterTheme.colors.brand.aiLight,                 
+      83 +    brandVerification: masterTheme.colors.brand.verification,  
+      84 +    verificationLight: masterTheme.colors.brand.verificationLig
+         +ht,                                                            
+      85 +    semDanger: masterTheme.colors.semantic.danger,             
+      86 +    semWarning: masterTheme.colors.semantic.warning,           
+      87 +    semSuccess: masterTheme.colors.semantic.success,           
+      88    },
+      89    space: {
+      90      true: 16,
+
+● API Error: Request rejected (429) · you (khadkashanti37) have reached 
+  your session usage limit, upgrade for higher limits: 
+  https://ollama.com/upgrade (ref: cacb70c2-1518-4d56-a386-9c212236f42d)
+
+✻ Cooked for 9m 30s
+
+❯ continue from the interrupted part                                            
+
+  Thought for 10s (ctrl+o to expand)
+
+● Step 2 — Mirror the same tokens into root tamagui.config.ts
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tamagui.config.ts)
+  ⎿  Added 12 lines
+      66      onbMapBackground: masterTheme.colors.onboarding.mapBackgrou
+          nd,
+      67      onbAiBackground: masterTheme.colors.onboarding.aiBackground
+          ,
+      68      onbVerifyBackground: masterTheme.colors.onboarding.verifyBa
+          ckground,
+      69 +    // Short aliases — preferred in components (Sophisticated S
+         +late & Amber)                                                  
+      70 +    night: masterTheme.colors.brand.primary,                   
+      71 +    amber: masterTheme.colors.brand.accent,                    
+      72 +    sand: masterTheme.colors.background.page,                  
+      73 +    surface: masterTheme.colors.background.surface,            
+      74 +    ai: masterTheme.colors.brand.ai,                           
+      75 +    aiLight: masterTheme.colors.brand.aiLight,                 
+      76 +    brandVerification: masterTheme.colors.brand.verification,  
+      77 +    verificationLight: masterTheme.colors.brand.verificationLig
+         +ht,                                                            
+      78 +    semDanger: masterTheme.colors.semantic.danger,             
+      79 +    semWarning: masterTheme.colors.semantic.warning,           
+      80 +    semSuccess: masterTheme.colors.semantic.success,           
+      81    },
+      82    space: {
+      83      true: 16,
+
+● Step 3 — Fix expo-image-picker deprecation in AvatarUploader.tsx
+
+● Update(components/forms/AvatarUploader.tsx)
+  ⎿  Error editing file
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(components/forms/AvatarUploader.tsx)
+  ⎿  Added 1 line, removed 1 line
+      31      const result = await ImagePicker.launchImageLibraryAsync({
+      32        allowsEditing: true,
+      33        aspect: [1, 1],
+      34 -      mediaTypes: ImagePicker.MediaTypeOptions.Images,         
+      34 +      mediaTypes: ["images"],                                  
+      35        quality: 0.8,
+      36      });
+      37  
+
+● Step 4 — Normalize primary CTA buttons across auth/onboarding screens
+
+  I'll process the 7 primary CTA buttons in order. Each gets bg="$brandPrimary"
+  (or $brandAccent for the profile "Finish setup" CTAs) with pressStyle={{ bg: 
+  ... }} and a tokenized borderRadius.
+
+  4a. OnboardingScreen.tsx — Next / Get started
+
+● Update(screens/onboarding/OnboardingScreen.tsx)  ⎿  Error editing file
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/onboarding/OnboardingScreen.tsx)
+  ⎿  Added 4 lines, removed 4 lines
+      137              accessibilityRole="button"
+      138              onPress={handleNext}
+      139              height={52}
+      140 -            borderRadius={12}                                 
+      141 -            backgroundColor={colors.brand.primary}            
+      140 +            borderRadius="$3"                                 
+      141 +            bg="$brandPrimary"                                
+      142              alignItems="center"
+      143              justifyContent="center"
+      144 -            pressStyle={{ backgroundColor: colors.brand.primar
+          -y }}                                                          
+      144 +            pressStyle={{ bg: "$brandPrimary" }}              
+      145            >
+      146 -            <Text {...typography.button} color={colors.text.in
+          -verse}>                                                       
+      146 +            <Text {...typography.button} color="$textInverse">
+      147                {activeSlide === slides.length - 1 ? 'Get starte
+           d' : 'Next'}
+      148              </Text>
+      149            </Button>
+
+● 4b. PhoneEntryScreen.tsx — Send OTP / Log in
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/PhoneEntryScreen.tsx)
+  ⎿  Added 5 lines, removed 11 lines
+      232                accessibilityRole="button"
+      233                disabled={!canSubmit}
+      234                height={52}
+      235 -              borderRadius={12}                               
+      236 -              style={{                                        
+      237 -                backgroundColor: canSubmit                    
+      238 -                  ? colors.brand.primary                      
+      239 -                  : colors.border.strong,                     
+      240 -              }}                                              
+      235 +              borderRadius="$3"                               
+      236 +              bg={canSubmit ? "$brandPrimary" : "$borderStrong
+          +"}                                                            
+      237                alignItems="center"
+      238                justifyContent="center"
+      239                onPress={handleSubmit}
+      240                pressStyle={{
+      245 -                backgroundColor: canSubmit                    
+      246 -                  ? colors.brand.primary                      
+      247 -                  : colors.border.strong,                     
+      241 +                bg: canSubmit ? "$brandPrimary" : "$borderStro
+          +ng",                                                          
+      242                }}
+      243              >
+      244                <Text
+      245                  {...typography.button}
+      252 -                color={canSubmit ? colors.text.inverse : color
+          -s.text.muted}                                                 
+      246 +                color={canSubmit ? "$textInverse" : "$textMute
+          +d"}                                                           
+      247                >
+      248                  {mode === "signup" ? "Send OTP" : "Log in"}
+      249                </Text>
+     ...
+      252              <Text
+      253                {...typography.caption}
+      254                textAlign="center"
+      261 -              color={colors.text.muted}                       
+      255 +              color="$textMuted"                              
+      256              >
+      257                By continuing, you agree to EdumentX&apos;s Term
+           s and Privacy Policy.
+      258              </Text>
+
+● 4c. OtpVerify.tsx — Verify OTP
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/OtpVerify.tsx)
+  ⎿  Added 4 lines, removed 10 lines
+      290                minHeight={52}
+      291                alignItems="center"
+      292                justifyContent="center"
+      293 -              borderRadius={12}                               
+      294 -              style={{                                        
+      295 -                backgroundColor: canVerify                    
+      296 -                  ? colors.brand.primary                      
+      297 -                  : colors.border.strong,                     
+      298 -              }}                                              
+      293 +              borderRadius="$3"                               
+      294 +              bg={canVerify ? "$brandPrimary" : "$borderStrong
+          +"}                                                            
+      295                onPress={handleVerify}
+      296                pressStyle={{
+      301 -                backgroundColor: canVerify                    
+      302 -                  ? colors.brand.primary                      
+      303 -                  : colors.border.strong,                     
+      297 +                bg: canVerify ? "$brandPrimary" : "$borderStro
+          +ng",                                                          
+      298                }}
+      299              >
+      300                <Text
+      301                  {...typography.button}
+      308 -                color={canVerify ? colors.text.inverse : color
+          -s.text.muted}                                                 
+      302 +                color={canVerify ? "$textInverse" : "$textMute
+          +d"}                                                           
+      303                >
+      304                  Verify OTP
+      305                </Text>
+
+● 4d. Password.tsx — Continue
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/Password.tsx)
+  ⎿  Added 4 lines, removed 10 lines
+      229                accessibilityRole="button"
+      230                disabled={!canSubmit}
+      231                height={52}
+      232 -              borderRadius={12}                               
+      232 +              borderRadius="$3"                               
+      233                alignItems="center"
+      234                justifyContent="center"
+      235 -              style={{                                        
+      236 -                backgroundColor: canSubmit                    
+      237 -                  ? colors.brand.primary                      
+      238 -                  : colors.border.strong,                     
+      239 -              }}                                              
+      235 +              bg={canSubmit ? "$brandPrimary" : "$borderStrong
+          +"}                                                            
+      236                onPress={() => router.replace("/role-selection")
+           }
+      237                pressStyle={{
+      242 -                backgroundColor: canSubmit                    
+      243 -                  ? colors.brand.primary                      
+      244 -                  : colors.border.strong,                     
+      238 +                bg: canSubmit ? "$brandPrimary" : "$borderStro
+          +ng",                                                          
+      239                }}
+      240              >
+      241                <Text
+      242                  {...typography.button}
+      249 -                color={canSubmit ? colors.text.inverse : color
+          -s.text.muted}                                                 
+      243 +                color={canSubmit ? "$textInverse" : "$textMute
+          +d"}                                                           
+      244                >
+      245                  Continue
+      246                </Text>
+
+● 4e. RoleSelection.tsx — Continue
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/RoleSelection.tsx)
+  ⎿  Added 3 lines, removed 9 lines
+      141              alignItems="center"
+      142              justifyContent="center"
+      143              borderRadius={theme.radii.card}
+      144 -            style={{                                          
+      145 -              backgroundColor: canContinue                    
+      146 -                ? colors.brand.primary                        
+      147 -                : colors.border.strong,                       
+      148 -            }}                                                
+      144 +            bg={canContinue ? "$brandPrimary" : "$borderStrong
+          +"}                                                            
+      145              onPress={handleContinue}
+      146              pressStyle={{
+      151 -              backgroundColor: canContinue                    
+      152 -                ? colors.brand.primary                        
+      153 -                : colors.border.strong,                       
+      147 +              bg: canContinue ? "$brandPrimary" : "$borderStro
+          +ng",                                                          
+      148              }}
+      149            >
+      150              <Text
+      151                {...typography.button}
+      158 -              color={canContinue ? colors.text.inverse : color
+          -s.text.muted}                                                 
+      152 +              color={canContinue ? "$textInverse" : "$textMute
+          +d"}                                                           
+      153              >
+      154                Continue
+      155              </Text>
+
+● 4f. ProfileScreen.tsx — Finish setup (accent copper)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/ProfileScreen.tsx)
+  ⎿  Added 4 lines, removed 6 lines
+      374              minHeight={56}
+      375              marginTop={spacing.lg}
+      376              borderRadius={14}
+      377 -            style={{                                          
+      378 -              backgroundColor: canSubmit ? colors.brand.accent
+          - : colors.border.strong,                                      
+      379 -            }}                                                
+      377 +            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      378              onPress={handleSubmit}
+      379              pressStyle={{
+      382 -              backgroundColor: canSubmit ? colors.brand.accent
+          - : colors.border.strong,                                      
+      380 +              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          +,                                                             
+      381                opacity: 0.9,
+      382              }}
+      385 -            shadowColor={canSubmit ? colors.brand.accent : "tr
+          -ansparent"}                                                   
+      383 +            shadowColor={canSubmit ? "$brandAccent" : "transpa
+          +rent"}                                                        
+      384              shadowOffset={{ width: 0, height: 4 }}
+      385              shadowOpacity={canSubmit ? 0.2 : 0}
+      386              shadowRadius={8}
+      387            >
+      388              <Text
+      389                {...typography.button}
+      392 -              color={canSubmit ? colors.text.inverse : colors.
+          -text.muted}                                                   
+      390 +              color={canSubmit ? "$textInverse" : "$textMuted"
+          +}                                                             
+      391                fontSize={16}
+      392                fontWeight="600"
+      393              >
+
+● 4g. StudentProfileScreen.tsx — Finish setup (accent)
+
+  Read 1 file (ctrl+o to expand)
+
+● API Error: Request rejected (429) · you (khadkashanti37) have reached 
+  your session usage limit, upgrade for higher limits: 
+  https://ollama.com/upgrade (ref: c310b15a-b9a1-4523-abdc-eb5569447fbb)
+
+✻ Sautéed for 6m 32s
+
+❯ continue from the interrupted part                                            
+
+● Update(screens/auth/StudentProfileScreen.tsx)
+  ⎿  Error editing file
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/StudentProfileScreen.tsx)
+  ⎿  Added 4 lines, removed 4 lines
+      243              minHeight={56}
+      244              marginTop={spacing.lg}
+      245              borderRadius={14}
+      246 -            backgroundColor={canSubmit ? colors.brand.accent :
+          - colors.border.strong}                                        
+      246 +            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      247              onPress={handleSubmit}
+      248              pressStyle={{
+      249 -              backgroundColor: canSubmit ? colors.brand.accent
+          - : colors.border.strong,                                      
+      249 +              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          +,                                                             
+      250                opacity: 0.9,
+      251              }}
+      252 -            shadowColor={canSubmit ? colors.brand.accent : "tr
+          -ansparent"}                                                   
+      252 +            shadowColor={canSubmit ? "$brandAccent" : "transpa
+          +rent"}                                                        
+      253              shadowOffset={{ width: 0, height: 4 }}
+      254              shadowOpacity={canSubmit ? 0.2 : 0}
+      255              shadowRadius={8}
+      256            >
+      257 -            <Text {...typography.button} color={canSubmit ? co
+          -lors.text.inverse : colors.text.muted} fontSize={16} fontWeigh
+          -t="600">                                                      
+      257 +            <Text {...typography.button} color={canSubmit ? "$
+          +textInverse" : "$textMuted"} fontSize={16} fontWeight="600">  
+      258                Finish setup
+      259              </Text>
+      260            </Button>
+
+● 4h. TutorProfileScreen.tsx — Finish setup (accent)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/TutorProfileScreen.tsx)
+  ⎿  Added 4 lines, removed 4 lines
+      455              minHeight={56}
+      456              marginTop={spacing.lg}
+      457              borderRadius={14}
+      458 -            backgroundColor={canSubmit ? colors.brand.accent :
+          - colors.border.strong}                                        
+      458 +            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      459              onPress={handleSubmit}
+      460              pressStyle={{
+      461 -              backgroundColor: canSubmit ? colors.brand.accent
+          - : colors.border.strong,                                      
+      461 +              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          +,                                                             
+      462                opacity: 0.9,
+      463              }}
+      464 -            shadowColor={canSubmit ? colors.brand.accent : "tr
+          -ansparent"}                                                   
+      464 +            shadowColor={canSubmit ? "$brandAccent" : "transpa
+          +rent"}                                                        
+      465              shadowOffset={{ width: 0, height: 4 }}
+      466              shadowOpacity={canSubmit ? 0.2 : 0}
+      467              shadowRadius={8}
+      468            >
+      469 -            <Text {...typography.button} color={canSubmit ? co
+          -lors.text.inverse : colors.text.muted} fontSize={16} fontWeigh
+          -t="600">                                                      
+      469 +            <Text {...typography.button} color={canSubmit ? "$
+          +textInverse" : "$textMuted"} fontSize={16} fontWeight="600">  
+      470                Finish setup
+      471              </Text>
+      472            </Button>
+● All 7 primary buttons have been normalized. Now let me mark this complete and
+  run the typecheck.
+
+● Step 5 — Verify
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Two issues to fix:
+
+  1. Duplicate property errors in both config files — my new night, amber,
+  surface, borderDefault keys collide with the existing long-form ones because
+  they map to the same hex. TS rejects them. I need to either rename the new
+  aliases or remove the duplicate ones. Since the user asked for $night, $amber,
+  $sand, $surface, $borderDefault as new short aliases, the cleanest path is to
+  remove the now-duplicate long-form ones (they're only kept for backward
+  compat, and nothing in app//screens//components/ references them — only the
+  new short aliases are used by illustrations).
+  2. bg is not a valid Button prop — the Tamagui 2.x Button has a typed
+  Pressable interface that doesn't accept bg directly on pressStyle. The correct
+  Tamagui Button props for color are backgroundColor (snake-case) and on
+  pressStyle the prop is backgroundColor too, not bg. The numeric 12 works for
+  borderRadius but I used the wrong token name ($3 is a space token, not a
+  radius token). I need $card (12) for radius.
+
+  Let me fix the config files first:
+
+  Read 1 file (ctrl+o to expand)
+
+● Looking at the collisions: my new night, amber, surface, borderDefault collide
+  with existing long-form brandPrimary, brandAccent, bgSurface, borderDefault.
+  And semDanger/semWarning/semSuccess collide with existing
+  semDanger/semWarning/semSuccess (these are duplicates too).
+
+  The right fix: drop the redundant short aliases that already have a long-form
+  name with the same value, and keep only the new short aliases that don't yet
+  exist as long-form. Let me revise:
+
+  - night (new — short alias for brandPrimary) ✓ keep
+  - amber (new — short alias for brandAccent) ✓ keep
+  - sand (new — short alias for bgPage) ✓ keep
+  - surface — collides with bgSurface (different name) — wait, actually surface
+  isn't in the long-form. Let me re-check. The long-form has bgSurface, not
+  surface. So surface is fine.
+  - borderDefault — collides with existing borderDefault ✗
+  - ai — short alias for brandAi ✓ keep
+  - aiLight — short alias for brandAiLight ✓ keep
+  - brandVerification — collides with existing brandVerification ✗
+  - verificationLight — short alias for brandVerificationLight ✓ keep
+  - semDanger, semWarning, semSuccess — all collide with existing entries ✗
+
+  So I need to remove only the 5 colliding duplicates: borderDefault,
+  brandVerification, semDanger, semWarning, semSuccess. Let me also check: are
+  the existing semDanger/semWarning/semSuccess/semSuccessText/etc. entries used
+  anywhere in the codebase? If yes, keep both; if not, remove the short alias.
+  Let me grep:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Good — $sem* tokens are referenced in Password.tsx via the strength.color
+  string-union. So the existing semDanger, semWarning, semSuccess (defined in
+  the config on lines 46, 42, 39) are already used and I must NOT collide with
+  them. I just need to drop the duplicate entries I added. Let me fix the
+  config:
+
+● Update(constants/tamagui.config.ts)
+  ⎿  Removed 4 lines
+      80      surface: masterTheme.colors.background.surface,
+      81      ai: masterTheme.colors.brand.ai,
+      82      aiLight: masterTheme.colors.brand.aiLight,
+      83 -    brandVerification: masterTheme.colors.brand.verification,  
+      83      verificationLight: masterTheme.colors.brand.verificationLig
+          ht,
+      85 -    semDanger: masterTheme.colors.semantic.danger,             
+      86 -    semWarning: masterTheme.colors.semantic.warning,           
+      87 -    semSuccess: masterTheme.colors.semantic.success,           
+      84    },
+      85    space: {
+      86      true: 16,
+
+● Update(tamagui.config.ts)
+  ⎿  Removed 4 lines
+      73      surface: masterTheme.colors.background.surface,
+      74      ai: masterTheme.colors.brand.ai,
+      75      aiLight: masterTheme.colors.brand.aiLight,
+      76 -    brandVerification: masterTheme.colors.brand.verification,  
+      76      verificationLight: masterTheme.colors.brand.verificationLig
+          ht,
+      78 -    semDanger: masterTheme.colors.semantic.danger,             
+      79 -    semWarning: masterTheme.colors.semantic.warning,           
+      80 -    semSuccess: masterTheme.colors.semantic.success,           
+      77    },
+      78    space: {
+      79      true: 16,
+
+● Now the second issue: bg is not a valid pressStyle prop on Tamagui's Button,
+  and $3 is a space token (12px), not a radius token. I need to use
+  backgroundColor (the canonical React Native prop, which Tamagui accepts on
+  pressStyle) and borderRadius="$card" (12px) for the radius. Let me re-read one
+  of the affected files to see the current state:
+
+  Read 1 file (ctrl+o to expand)
+
+● I need to change:
+  - borderRadius="$3" → borderRadius="$card" (12 = $card in the radius scale)
+  - bg="$brandPrimary" → backgroundColor="$brandPrimary"
+  - pressStyle={{ bg: ... }} → pressStyle={{ backgroundColor: ... }}
+
+  Let me also verify the radius scale. The config has:
+  radius: { ..., card: 12, lg: 14, ...}
+  Good — $card = 12. Let me fix all 7 screens. I'll start with
+  OnboardingScreen.tsx:
+
+● Update(screens/onboarding/OnboardingScreen.tsx)
+  ⎿  Added 3 lines, removed 3 lines
+      137              accessibilityRole="button"
+      138              onPress={handleNext}
+      139              height={52}
+      140 -            borderRadius="$3"                                 
+      141 -            bg="$brandPrimary"                                
+      140 +            borderRadius="$card"                              
+      141 +            backgroundColor="$brandPrimary"                   
+      142              alignItems="center"
+      143              justifyContent="center"
+      144 -            pressStyle={{ bg: "$brandPrimary" }}              
+      144 +            pressStyle={{ backgroundColor: "$brandPrimary" }} 
+      145            >
+      146              <Text {...typography.button} color="$textInverse">
+      147                {activeSlide === slides.length - 1 ? 'Get starte
+           d' : 'Next'}
+
+● Now PhoneEntryScreen.tsx:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/PhoneEntryScreen.tsx)
+  ⎿  Added 3 lines, removed 3 lines
+      232                accessibilityRole="button"
+      233                disabled={!canSubmit}
+      234                height={52}
+      235 -              borderRadius="$3"                               
+      236 -              bg={canSubmit ? "$brandPrimary" : "$borderStrong
+          -"}                                                            
+      235 +              borderRadius="$card"                            
+      236 +              backgroundColor={canSubmit ? "$brandPrimary" : "
+          +$borderStrong"}                                               
+      237                alignItems="center"
+      238                justifyContent="center"
+      239                onPress={handleSubmit}
+      240                pressStyle={{
+      241 -                bg: canSubmit ? "$brandPrimary" : "$borderStro
+          -ng",                                                          
+      241 +                backgroundColor: canSubmit ? "$brandPrimary" :
+          + "$borderStrong",                                             
+      242                }}
+      243              >
+      244                <Text
+
+● Now OtpVerify.tsx:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/OtpVerify.tsx)
+  ⎿  Added 3 lines, removed 3 lines
+      290                minHeight={52}
+      291                alignItems="center"
+      292                justifyContent="center"
+      293 -              borderRadius="$3"                               
+      294 -              bg={canVerify ? "$brandPrimary" : "$borderStrong
+          -"}                                                            
+      293 +              borderRadius="$card"                            
+      294 +              backgroundColor={canVerify ? "$brandPrimary" : "
+          +$borderStrong"}                                               
+      295                onPress={handleVerify}
+      296                pressStyle={{
+      297 -                bg: canVerify ? "$brandPrimary" : "$borderStro
+          -ng",                                                          
+      297 +                backgroundColor: canVerify ? "$brandPrimary" :
+          + "$borderStrong",                                             
+      298                }}
+      299              >
+      300                <Text
+
+● Now Password.tsx:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(screens/auth/Password.tsx)
+  ⎿  Added 3 lines, removed 3 lines
+      229                accessibilityRole="button"
+      230                disabled={!canSubmit}
+      231                height={52}
+      232 -              borderRadius="$3"                               
+      232 +              borderRadius="$card"                            
+      233                alignItems="center"
+      234                justifyContent="center"
+      235 -              bg={canSubmit ? "$brandPrimary" : "$borderStrong
+          -"}                                                            
+      235 +              backgroundColor={canSubmit ? "$brandPrimary" : "
+          +$borderStrong"}                                               
+      236                onPress={() => router.replace("/role-selection")
+           }
+      237                pressStyle={{
+      238 -                bg: canSubmit ? "$brandPrimary" : "$borderStro
+          -ng",                                                          
+      238 +                backgroundColor: canSubmit ? "$brandPrimary" :
+          + "$borderStrong",                                             
+      239                }}
+      240              >
+      241                <Text
+
+● API Error: Request rejected (429) · you (megakh21) have reached your 
+  session usage limit, upgrade for higher limits: 
+  https://ollama.com/upgrade (ref: cc1aa7e6-7a13-413b-ae12-7a1b688fc219)
+
+✻ Baked for 6m 34s
+
+❯ continue from the interrupted part                                            
+
+✻ Cogitated for 7s
+※ recap: Synced Tamagui tokens, fixed the image picker deprecation, and normalized 7 primary CTA buttons to use $brandPrimary/$brandAccent token props. Next: run npm run typecheck to confirm the remaining edits (RoleSelection, ProfileScreen, StudentProfileScreen, TutorProfileScreen) are clean. (disable recaps in /config)
+
+❯ xlegion@xlegion-Legion-Pro-5-16IRX8:/media/xlegion/Win/PROJECTS/EdumentX$ npx 
+  expo start                                                                    
+  env: load .env                                                                
+  env: export EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN     
+  EXPO_PUBLIC_FIREBASE_PROJECT_ID EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET           
+  EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID EXPO_PUBLIC_FIREBASE_APP_ID          
+  EXPO_PUBLIC_APP_ENV                                                           
+  Starting project at /media/xlegion/Win/PROJECTS/EdumentX                      
+  React Compiler enabled                                                        
+  Starting Metro Bundler                                                        
+  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄                                           
+  █ ▄▄▄▄▄ █▀▄▄▀      ▀▄▄ ▄ ██ ▄▄▄▄▄ █                                           
+  █ █   █ █▄    ██▀ ▄▀█▄█▀  █ █   █ █                                           
+  █ █▄▄▄█ █ ▀█▄▄ ▀ ▀▄▄▀▀▀▀▄▀█ █▄▄▄█ █                                           
+  █▄▄▄▄▄▄▄█ ▀▄▀▄█ ▀ ▀▄▀▄▀▄█ █▄▄▄▄▄▄▄█                                           
+  █▄▄▀ ▀█▄ ██ ██ ▀██▀▀█ ▄██ ▀ ▄▄█▄ ▀█                                           
+  █▄█  █ ▄██▄▄█▄  █▀██ █ ▄█ █ ▄  ▄█▄█                                           
+  █▄▀▀▀█▀▄█ █▀██ ▄▀▄ ▀▀▀ █▄   ▀▀███▀█                                           
+  █▀▀▀   ▄  ▀█ ▄ ▄█▄ ██ ▀█ ▀▀▄▄▀▄▄▀██                                           
+  █▀▀▄▀█▄▄▀█▄█ ██▄█▄▄▀█▀▄█▀ █▄▀▄ █▄▄█                                           
+  █▄▄▀ █▄▄▀▄▀ ▀██▄▀█▀▄▀▀▀██ █▄▀█▄▄▄▄█                                           
+  █▄▄▀ █ ▄▀▄ ▄  ▄██▄▀▄▄█ █▄▀ ▀ █▄▀█ █                                           
+  █▄ ▄▀█▀▄█▄▀▄▀█▀▀█▀█▀ ▄ ▀█▀██▀▀ ▄█ █                                           
+  █▄████▄▄▄▀ ▀██▄ ▀▄  ▀▀▄▀▀ ▄▄▄ ██▄ █                                           
+  █ ▄▄▄▄▄ █▄▄▄ ▀▀▀█▄▀ █▀▀██ █▄█ █▄▄▀█                                           
+  █ █   █ █▀ ▄▀▄▀▄█▄███▄▄▄█▄  ▄ ▀▀ ▀█                                           
+  █ █▄▄▄█ █▀ █▀▄██▀█▀ █▀▀▄  ▀▀  ██▄▄█                                           
+  █▄▄▄▄▄▄▄█▄▄▄▄█▄██▄█▄██▄██▄▄█▄▄██▄██                                           
+                                                                                
+  › Metro waiting on                                                            
+  exp+edumentx://expo-development-client/?url=http%3A%2F%2F10.10.8.140%3A8081   
+  › Scan the QR code above to open the project in a development build. Learn    
+  more                                                                          
+                                                                                
+  › Web is waiting on http://localhost:8081                                     
+                                                                                
+  › Using development build                                                     
+  › Press s │ switch to Expo Go                                                 
+                                                                                
+  › Press a │ open Android                                                      
+  › Press w │ open web                                                          
+                                                                                
+  › Press j │ open debugger                                                     
+  › Press r │ reload app                                                        
+  › Press m │ toggle menu                                                       
+  › shift+m │ more tools                                                        
+  › Press o │ open project code in your editor                                  
+                                                                                
+  › Press ? │ show all commands                                                 
+                                                                                
+  Logs for your project will appear below. Press Ctrl+C to exit.                
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  |   [tamagui] skipped loading 1 module, see:                                  
+  https://tamagui.dev/docs/intro/errors#warning-001                             
+  ──── (130 lines hidden) ───────────────────────────────────────────────────── 
+                                                                                
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$aiLight" is not a valid color or brush                               
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$ai" is not a valid color or brush                                    
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$verificationLight" is not a valid color or brush                     
+   WARN  "$surface" is not a valid color or brush                               
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$borderDefault" is not a valid color or brush                         
+   WARN  "$night" is not a valid color or brush                                 
+   WARN  "$amber" is not a valid color or brush                                 
+   WARN  "$brandVerification" is not a valid color or brush                     
+   WARN  "$brandVerification" is not a valid color or brush                     
+   WARN  "$surface" is not a valid color or brush                               
+  " solve the logic and constants , ui logic , why this build is not working    
+  with expo development app build and still the illustrations are black scrrens 
+
+● The Metro logs are clear: the SVG illustration tokens are still being
+  rejected. The issue is that react-native-svg primitives (Rect, Circle, Path,
+  Line, G, Ellipse, Svg) do NOT go through Tamagui's token resolver — they're
+  raw react-native-svg components that take raw color strings, not Tamagui token
+  names. So fill="$sand" is being interpreted as the literal string "$sand",
+  not a token reference.
+
+  Let me also note: the warnings show $brandVerification and $verificationLight
+  — those token names are now defined in the config (after Step 1) but only as
+  Tamagui color tokens. react-native-svg can't read them either; the SVG <Rect 
+  fill="$sand"> never reaches Tamagui's resolver.
+
+  I need to import the hex values from theme.ts and pass them as plain strings
+  to react-native-svg. This is the only correct approach — Tamagui tokens only
+  resolve inside Tamagui components, not third-party SVG primitives.
+
+  Let me first stop the running dev server, then fix the illustrations:
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Good — no expo running. Now let me also check the screens for
+  $brandVerification and $verificationLight references:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● All SVG token usage is in the three illustration files. The fix is to use
+  react-native-svg's use mode via Tamagui — or more simply, import the resolved
+  hex values from theme.ts and pass them as raw strings. Since react-native-svg
+  has no Tamagui integration, the cleanest approach is to define the token 
+  values as hex constants at the top of each illustration file (or import from
+  theme.ts).
+
+  But wait — the components/README.md line 27 is a guideline <YStack p="$4" 
+  bg="$surface" rounded="$card"> showing $surface as a Tamagui prop — that's the
+  intended pattern inside Tamagui components. The illustration files use
+  react-native-svg components, not Tamagui, so they need hex strings.
+
+  Best fix: import the hex values from constants/theme.ts (no rule violation —
+  that's the single source of truth and we still avoid hardcoded hex in the
+  illustration body). Update all three illustration files.
+
+  I'll also fix the Password.tsx strength.color prop — those are also
+  react-native-svg-less but they go through Tamagui YStack/Text which DOES
+  support token strings. Those references are fine and untouched.
+
+  Let me also check the auth/onboarding screens for any new bg= or
+  pressStyle={{bg}} errors I might have missed in the typecheck:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 4 screens still have bg: in pressStyle (ProfileScreen, RoleSelection,
+  StudentProfileScreen, TutorProfileScreen). I need to convert these to
+  backgroundColor:. Let me also check RoleSelection.tsx line 147 — looking at
+  the file, this is the role card Button (line 191) where I only changed the
+  outer Continue button. Let me re-look:
+
+  Read 1 file (ctrl+o to expand)
+
+● I see — line 144 is the outer Continue button I just changed but I left both
+  bg and the original... wait, I just changed this. Let me look at the typecheck
+  line 147: this is the pressStyle={{ bg: ... }} on the outer Continue button.
+  The previous edit I did was: bg={canContinue ? "$brandPrimary" : 
+  "$borderStrong"} for the bg prop and pressStyle={{ bg: ... }} for the press.
+  But bg is not a valid Tamagui prop. I need to change both to backgroundColor.
+  Let me re-check:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● These 4 files still have bg= (top-level prop) AND bg: (inside pressStyle). I
+  need to convert all to backgroundColor. Let me also confirm my earlier 3 fixes
+  worked. The 4 remaining files are ProfileScreen, RoleSelection,
+  StudentProfileScreen, TutorProfileScreen. The other 3 (OnboardingScreen,
+  PhoneEntryScreen, OtpVerify, Password) are clean — they were fixed to use
+  backgroundColor already. Wait, but typecheck only reports 4 errors — good,
+  that means those 3 are good.
+
+  Let me fix the 4 remaining files now. The pattern: replace bg={...} →
+  backgroundColor={...} and bg: ... → backgroundColor: ....
+
+● Update(screens/auth/RoleSelection.tsx)
+  ⎿  Error editing file
+
+● Update(screens/auth/StudentProfileScreen.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      243              minHeight={56}
+      244              marginTop={spacing.lg}
+      245              borderRadius={14}
+      246 -            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      246 +            backgroundColor={canSubmit ? "$brandAccent" : "$bo
+          +rderStrong"}                                                  
+      247              onPress={handleSubmit}
+      248              pressStyle={{
+      249 -              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          -,                                                             
+      249 +              backgroundColor: canSubmit ? "$brandAccent" : "$
+          +borderStrong",                                                
+      250                opacity: 0.9,
+      251              }}
+      252              shadowColor={canSubmit ? "$brandAccent" : "transpa
+           rent"}
+
+● Update(screens/auth/TutorProfileScreen.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      455              minHeight={56}
+      456              marginTop={spacing.lg}
+      457              borderRadius={14}
+      458 -            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      458 +            backgroundColor={canSubmit ? "$brandAccent" : "$bo
+          +rderStrong"}                                                  
+      459              onPress={handleSubmit}
+      460              pressStyle={{
+      461 -              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          -,                                                             
+      461 +              backgroundColor: canSubmit ? "$brandAccent" : "$
+          +borderStrong",                                                
+      462                opacity: 0.9,
+      463              }}
+      464              shadowColor={canSubmit ? "$brandAccent" : "transpa
+           rent"}
+
+● Update(screens/auth/RoleSelection.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      141              alignItems="center"
+      142              justifyContent="center"
+      143              borderRadius={theme.radii.card}
+      144 -            bg={canContinue ? "$brandPrimary" : "$borderStrong
+          -"}                                                            
+      144 +            backgroundColor={canContinue ? "$brandPrimary" : "
+          +$borderStrong"}                                               
+      145              onPress={handleContinue}
+      146              pressStyle={{
+      147 -              bg: canContinue ? "$brandPrimary" : "$borderStro
+          -ng",                                                          
+      147 +              backgroundColor: canContinue ? "$brandPrimary" :
+          + "$borderStrong",                                             
+      148              }}
+      149            >
+      150              <Text
+
+● Update(screens/auth/ProfileScreen.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      374              minHeight={56}
+      375              marginTop={spacing.lg}
+      376              borderRadius={14}
+      377 -            bg={canSubmit ? "$brandAccent" : "$borderStrong"} 
+      377 +            backgroundColor={canSubmit ? "$brandAccent" : "$bo
+          +rderStrong"}                                                  
+      378              onPress={handleSubmit}
+      379              pressStyle={{
+      380 -              bg: canSubmit ? "$brandAccent" : "$borderStrong"
+          -,                                                             
+      380 +              backgroundColor: canSubmit ? "$brandAccent" : "$
+          +borderStrong",                                                
+      381                opacity: 0.9,
+      382              }}
+      383              shadowColor={canSubmit ? "$brandAccent" : "transpa
+           rent"}
+
+● Now let me confirm there are no more bg= props in any screen, then run
+  typecheck:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● The only remaining bg= references are in the README — they're documentation
+  showing the intended Tamagui prop API (the README pattern is bg= on a YStack,
+  not a Button, and YStack does support bg). But the user's instruction was to
+  use bg="$amber"-style tokens. The README is technically wrong about that —
+  Tamagui's YStack/XStack actually do accept bg (and so does Button's top-level
+  for some setups), but the typecheck error from earlier was specifically about
+  Button.pressStyle.bg, not the top-level.
+
+  Actually, re-reading the typecheck errors — the issue was only on Button's 
+  pressStyle. The top-level bg and backgroundColor on Button should both work.
+  Let me confirm the top-level bg is valid by trying both — but for consistency
+  with the rest of the codebase, I'll keep my fix as backgroundColor which we
+  know works. The README is a doc, not source, so I'll leave it.
+
+  Now let me run typecheck again:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Typecheck is clean. Now I need to fix the illustration black-box issue. The
+  SVG components in the illustrations need hex strings, not Tamagui tokens. Let
+  me fix all three illustrations:
+
+  Read 1 file (ctrl+o to expand)
+
+● I'll rewrite each illustration to import hex values from theme.ts. This keeps
+  the single source of truth intact (no hardcoded hex in the file body — only at
+  the import + destructure). Let me do this efficiently:
+
+● Write(components/illustrations/DiscoverIllustration.tsx)
+  ⎿  Added 47 lines, removed 33 lines
+       5   * three tutor pins, and a pulsing amber current-location dot i
+          n the
+       6   * centre. Pure SVG composition — no images.
+       7   *
+       8 - * Token map (Tamagui → theme.ts):                             
+       9 - *   $sand          → map fill                                 
+      10 - *   $borderDefault → grid + pins                              
+      11 - *   $night         → pin outline                              
+      12 - *   $amber         → location pulse                           
+      13 - *   $surface       → pin disc + pulse ring                    
+       8 + * NOTE: `react-native-svg` primitives do NOT resolve Tamagui t
+         +oken                                                           
+       9 + * strings — they take raw color values. We import the hex valu
+         +es from                                                        
+      10 + * `constants/theme` (the single source of truth) and pass them
+         + as                                                            
+      11 + * plain strings, so the design system stays centralized withou
+         +t                                                              
+      12 + * re-introducing hardcoded hex in the JSX body.               
+      13 + *                                                             
+      14 + * Token map (theme.ts → hex):                                 
+      15 + *   sand          → map fill                                  
+      16 + *   borderDefault → grid + pins                               
+      17 + *   night         → pin outline                               
+      18 + *   amber         → location pulse                            
+      19 + *   surface       → pin disc + pulse ring                     
+      20   */
+      21  import { YStack } from 'tamagui';
+      22  import { Circle, G, Line, Path, Rect, Svg } from 'react-native-
+          svg';
+      23  
+      24 +import { theme } from '@/constants/theme';                     
+      25 +                                                               
+      26 +const COLORS = {                                               
+      27 +  sand: theme.colors.background.page,                          
+      28 +  borderDefault: theme.colors.border.default,                  
+      29 +  night: theme.colors.brand.primary,                           
+      30 +  amber: theme.colors.brand.accent,                            
+      31 +  surface: theme.colors.background.surface,                    
+      32 +} as const;                                                    
+      33 +                                                               
+      34  export function DiscoverIllustration() {
+      35    return (
+      36      <YStack width="100%" height="100%" alignItems="center" just
+          ifyContent="center">
+     ...
+       48            height={220}
+       49            rx={24}
+       50            ry={24}
+       35 -          fill="$sand"                                        
+       51 +          fill={COLORS.sand}                                  
+       52          />
+       53  
+       38 -        {/* Clip the grid + roads to the rounded map backgroun
+          -d */}                                                         
+       54 +        {/* Hairline grid + roads */}                         
+       55          <G>
+       40 -          {/* Hairline vertical grid */}                      
+       41 -          <Line x1={40} y1={16} x2={40} y2={204} stroke="$bord
+          -erDefault" strokeWidth={1} />                                 
+       42 -          <Line x1={80} y1={16} x2={80} y2={204} stroke="$bord
+          -erDefault" strokeWidth={1} />                                 
+       43 -          <Line x1={120} y1={16} x2={120} y2={204} stroke="$bo
+          -rderDefault" strokeWidth={1} />                               
+       44 -          <Line x1={160} y1={16} x2={160} y2={204} stroke="$bo
+          -rderDefault" strokeWidth={1} />                               
+       45 -          <Line x1={200} y1={16} x2={200} y2={204} stroke="$bo
+          -rderDefault" strokeWidth={1} />                               
+       56 +          <Line x1={40} y1={16} x2={40} y2={204} stroke={COLOR
+          +S.borderDefault} strokeWidth={1} />                           
+       57 +          <Line x1={80} y1={16} x2={80} y2={204} stroke={COLOR
+          +S.borderDefault} strokeWidth={1} />                           
+       58 +          <Line x1={120} y1={16} x2={120} y2={204} stroke={COL
+          +ORS.borderDefault} strokeWidth={1} />                         
+       59 +          <Line x1={160} y1={16} x2={160} y2={204} stroke={COL
+          +ORS.borderDefault} strokeWidth={1} />                         
+       60 +          <Line x1={200} y1={16} x2={200} y2={204} stroke={COL
+          +ORS.borderDefault} strokeWidth={1} />                         
+       61  
+       47 -          {/* Hairline horizontal grid */}                    
+       48 -          <Line x1={16} y1={50} x2={204} y2={50} stroke="$bord
+          -erDefault" strokeWidth={1} />                                 
+       49 -          <Line x1={16} y1={90} x2={204} y2={90} stroke="$bord
+          -erDefault" strokeWidth={1} />                                 
+       50 -          <Line x1={16} y1={130} x2={204} y2={130} stroke="$bo
+          -rderDefault" strokeWidth={1} />                               
+       51 -          <Line x1={16} y1={170} x2={204} y2={170} stroke="$bo
+          -rderDefault" strokeWidth={1} />                               
+       62 +          <Line x1={16} y1={50} x2={204} y2={50} stroke={COLOR
+          +S.borderDefault} strokeWidth={1} />                           
+       63 +          <Line x1={16} y1={90} x2={204} y2={90} stroke={COLOR
+          +S.borderDefault} strokeWidth={1} />                           
+       64 +          <Line x1={16} y1={130} x2={204} y2={130} stroke={COL
+          +ORS.borderDefault} strokeWidth={1} />                         
+       65 +          <Line x1={16} y1={170} x2={204} y2={170} stroke={COL
+          +ORS.borderDefault} strokeWidth={1} />                         
+       66  
+       67            {/* Two thicker road lines */}
+       54 -          <Line x1={16} y1={70} x2={204} y2={70} stroke="$bord
+          -erDefault" strokeWidth={1.6} />                               
+       55 -          <Line x1={16} y1={150} x2={204} y2={150} stroke="$bo
+          -rderDefault" strokeWidth={1.6} />                             
+       68 +          <Line x1={16} y1={70} x2={204} y2={70} stroke={COLOR
+          +S.borderDefault} strokeWidth={1.6} />                         
+       69 +          <Line x1={16} y1={150} x2={204} y2={150} stroke={COL
+          +ORS.borderDefault} strokeWidth={1.6} />                       
+       70          </G>
+       71  
+       72          {/* Tutor pin — top-right (around x=150, y=55) */}
+       73          <G>
+       74            <Path
+       75              d="M150 30 L162 30 A8 8 0 0 1 170 38 L170 56 A8 8 
+           0 0 1 162 64 L150 64 A8 8 0 0 1 142 56 L142 38 A8 8 0 0 1 150 
+           30 Z"
+       62 -            fill="$surface"                                   
+       63 -            stroke="$night"                                   
+       76 +            fill={COLORS.surface}                             
+       77 +            stroke={COLORS.night}                             
+       78              strokeWidth={1.5}
+       79            />
+       66 -          <Circle cx={156} cy={47} r={4} fill="$night" />     
+       80 +          <Circle cx={156} cy={47} r={4} fill={COLORS.night} /
+          +>                                                             
+       81          </G>
+       82  
+       83          {/* Tutor pin — mid-left (around x=50, y=110) */}
+       84          <G>
+       85            <Path
+       86              d="M50 92 L62 92 A8 8 0 0 1 70 100 L70 118 A8 8 0 
+           0 1 62 126 L50 126 A8 8 0 0 1 42 118 L42 100 A8 8 0 0 1 50 92 
+           Z"
+       73 -            fill="$surface"                                   
+       74 -            stroke="$night"                                   
+       87 +            fill={COLORS.surface}                             
+       88 +            stroke={COLORS.night}                             
+       89              strokeWidth={1.5}
+       90            />
+       77 -          <Circle cx={56} cy={109} r={4} fill="$night" />     
+       91 +          <Circle cx={56} cy={109} r={4} fill={COLORS.night} /
+          +>                                                             
+       92          </G>
+       93  
+       94          {/* Tutor pin — bottom-right (around x=160, y=160) */}
+       95          <G>
+       96            <Path
+       97              d="M160 142 L172 142 A8 8 0 0 1 180 150 L180 168 A
+           8 8 0 0 1 172 176 L160 176 A8 8 0 0 1 152 168 L152 150 A8 8 0 
+           0 1 160 142 Z"
+       84 -            fill="$surface"                                   
+       85 -            stroke="$night"                                   
+       98 +            fill={COLORS.surface}                             
+       99 +            stroke={COLORS.night}                             
+      100              strokeWidth={1.5}
+      101            />
+       88 -          <Circle cx={166} cy={159} r={4} fill="$night" />    
+      102 +          <Circle cx={166} cy={159} r={4} fill={COLORS.night} 
+          +/>                                                            
+      103          </G>
+      104  
+      105          {/* Current-location pulse — outer ring */}
+       92 -        <Circle cx={110} cy={120} r={24} fill="$amber" opacity
+          -={0.15} />                                                    
+      106 +        <Circle cx={110} cy={120} r={24} fill={COLORS.amber} o
+          +pacity={0.15} />                                              
+      107          {/* Inner pulse */}
+       94 -        <Circle cx={110} cy={120} r={14} fill="$amber" opacity
+          -={0.3} />                                                     
+      108 +        <Circle cx={110} cy={120} r={14} fill={COLORS.amber} o
+          +pacity={0.3} />                                               
+      109          {/* Solid dot with white ring */}
+       96 -        <Circle cx={110} cy={120} r={8} fill="$amber" stroke="
+          -$surface" strokeWidth={3} />                                  
+      110 +        <Circle cx={110} cy={120} r={8} fill={COLORS.amber} st
+          +roke={COLORS.surface} strokeWidth={3} />                      
+      111        </Svg>
+      112      </YStack>
+      113    );
+
+● Write(components/illustrations/AiMatchIllustration.tsx)
+  ⎿  Error writing file
+
+● Write(components/illustrations/VerifiedIllustration.tsx)
+  ⎿  Error writing file
+
+  Read 2 files (ctrl+o to expand)
+
+● Write(components/illustrations/AiMatchIllustration.tsx)
+  ⎿  Added 34 lines, removed 25 lines
+       5   * holding suggestion dots, and four amber sparkles arranged ar
+          ound the orb.
+       6   * Pure SVG composition — no images.
+       7   *
+       8 - * Token map (Tamagui → theme.ts):                             
+       9 - *   $aiLight         → background                             
+      10 - *   $ai              → orb + chat bubble stroke               
+      11 - *   $surface         → highlight + chat bubble fill + sparkle 
+         -fill (using $amber)                                            
+      12 - *   $amber           → sparkles                               
+      13 - *   $brandPrimary    → chat bubble suggestion dots            
+       8 + * NOTE: `react-native-svg` primitives do NOT resolve Tamagui t
+         +oken                                                           
+       9 + * strings — they take raw color values. We import the hex valu
+         +es from                                                        
+      10 + * `constants/theme` (the single source of truth) and pass them
+         + as                                                            
+      11 + * plain strings.                                              
+      12 + *                                                             
+      13 + * Token map (theme.ts → hex):                                 
+      14 + *   aiLight  → background                                     
+      15 + *   ai       → orb + chat bubble stroke + suggestion dots     
+      16 + *   surface  → highlight + chat bubble fill                   
+      17 + *   amber    → sparkles                                       
+      18   */
+      19  import { YStack } from 'tamagui';
+      20  import { Circle, Ellipse, Path, Rect, Svg } from 'react-native-
+          svg';
+      21  
+      22 +import { theme } from '@/constants/theme';                     
+      23 +                                                               
+      24 +const COLORS = {                                               
+      25 +  aiLight: theme.colors.brand.aiLight,                         
+      26 +  ai: theme.colors.brand.ai,                                   
+      27 +  surface: theme.colors.background.surface,                    
+      28 +  amber: theme.colors.brand.accent,                            
+      29 +} as const;                                                    
+      30 +                                                               
+      31  export function AiMatchIllustration() {
+      32    return (
+      33      <YStack width="100%" height="100%" alignItems="center" just
+          ifyContent="center">
+     ...
+      45            height={220}
+      46            rx={24}
+      47            ry={24}
+      35 -          fill="$aiLight"                                      
+      48 +          fill={COLORS.aiLight}                                
+      49          />
+      50  
+      51          {/* Central orb */}
+      39 -        <Circle cx={110} cy={110} r={44} fill="$ai" />         
+      52 +        <Circle cx={110} cy={110} r={44} fill={COLORS.ai} />   
+      53  
+      54          {/* Soft white highlight on the orb */}
+      42 -        <Ellipse cx={98} cy={98} rx={12} ry={8} fill="$surface"
+         - opacity={0.35} />                                             
+      55 +        <Ellipse cx={98} cy={98} rx={12} ry={8} fill={COLORS.su
+         +rface} opacity={0.35} />                                       
+      56  
+      57          {/* Top-left chat bubble */}
+      58          <Rect
+     ...
+      62            height={28}
+      63            rx={10}
+      64            ry={10}
+      52 -          fill="$surface"                                      
+      53 -          stroke="$ai"                                         
+      65 +          fill={COLORS.surface}                                
+      66 +          stroke={COLORS.ai}                                   
+      67            strokeWidth={1.5}
+      68          />
+      56 -        <Circle cx={46} cy={56} r={2.5} fill="$ai" />          
+      57 -        <Circle cx={56} cy={56} r={2.5} fill="$ai" />          
+      69 +        <Circle cx={46} cy={56} r={2.5} fill={COLORS.ai} />    
+      70 +        <Circle cx={56} cy={56} r={2.5} fill={COLORS.ai} />    
+      71  
+      72          {/* Bottom-right chat bubble */}
+      73          <Rect
+     ...
+       77            height={28}
+       78            rx={10}
+       79            ry={10}
+       67 -          fill="$surface"                                     
+       68 -          stroke="$ai"                                        
+       80 +          fill={COLORS.surface}                               
+       81 +          stroke={COLORS.ai}                                  
+       82            strokeWidth={1.5}
+       83          />
+       71 -        <Circle cx={160} cy={172} r={2.5} fill="$ai" />       
+       72 -        <Circle cx={170} cy={172} r={2.5} fill="$ai" />       
+       84 +        <Circle cx={160} cy={172} r={2.5} fill={COLORS.ai} /> 
+       85 +        <Circle cx={170} cy={172} r={2.5} fill={COLORS.ai} /> 
+       86  
+       87          {/* Sparkles — 4-pointed star (diamond) drawn with Pat
+           h */}
+       75 -        {/* Top-right of orb */}                              
+       88          <Path
+       89            d="M 160 58 L 162 64 L 168 66 L 162 68 L 160 74 L 15
+           8 68 L 152 66 L 158 64 Z"
+       78 -          fill="$amber"                                       
+       90 +          fill={COLORS.amber}                                 
+       91          />
+       80 -        {/* Top-left */}                                      
+       92          <Path
+       93            d="M 44 70 L 46 76 L 52 78 L 46 80 L 44 86 L 42 80 L
+            36 78 L 42 76 Z"
+       83 -          fill="$amber"                                       
+       94 +          fill={COLORS.amber}                                 
+       95          />
+       85 -        {/* Bottom-left of orb */}                            
+       96          <Path
+       97            d="M 58 170 L 60 176 L 66 178 L 60 180 L 58 186 L 56
+            180 L 50 178 L 56 176 Z"
+       88 -          fill="$amber"                                       
+       98 +          fill={COLORS.amber}                                 
+       99          />
+       90 -        {/* Bottom-right */}                                  
+      100          <Path
+      101            d="M 170 180 L 172 186 L 178 188 L 172 190 L 170 196
+            L 168 190 L 162 188 L 168 186 Z"
+       93 -          fill="$amber"                                       
+      102 +          fill={COLORS.amber}                                 
+      103          />
+      104        </Svg>
+      105      </YStack>
+● Write(components/illustrations/VerifiedIllustration.tsx)
+  ⎿  Added 35 lines, removed 19 lines
+       4   * A document/card with content lines, stat bars, and an emeral
+          d check
+       5   * seal overlapping the bottom-right corner. Pure SVG — no imag
+          es.
+       6   *
+       7 - * Token map (Tamagui → theme.ts):                             
+       8 - *   $verificationLight    → background                        
+       9 - *   $surface              → card + seal check                 
+      10 - *   $borderDefault        → card stroke + content lines       
+      11 - *   $night                → accent content bar                
+      12 - *   $amber                → accent content bar                
+      13 - *   $brandVerification    → seal disc (emerald)               
+       7 + * NOTE: `react-native-svg` primitives do NOT resolve Tamagui t
+         +oken                                                           
+       8 + * strings — they take raw color values. We import the hex valu
+         +es from                                                        
+       9 + * `constants/theme` (the single source of truth) and pass them
+         + as                                                            
+      10 + * plain strings.                                              
+      11 + *                                                             
+      12 + * Token map (theme.ts → hex):                                 
+      13 + *   verificationLight  → background                           
+      14 + *   surface            → card + seal check                    
+      15 + *   borderDefault      → card stroke + content lines          
+      16 + *   night              → accent content bar                   
+      17 + *   amber              → accent content bar                   
+      18 + *   brandVerification  → seal disc (emerald)                  
+      19   */
+      20  import { YStack } from 'tamagui';
+      21  import { Circle, Path, Rect, Svg } from 'react-native-svg';
+      22  
+      23 +import { theme } from '@/constants/theme';                     
+      24 +                                                               
+      25 +const COLORS = {                                               
+      26 +  verificationLight: theme.colors.brand.verificationLight,     
+      27 +  surface: theme.colors.background.surface,                    
+      28 +  borderDefault: theme.colors.border.default,                  
+      29 +  night: theme.colors.brand.primary,                           
+      30 +  amber: theme.colors.brand.accent,                            
+      31 +  brandVerification: theme.colors.brand.verification,          
+      32 +} as const;                                                    
+      33 +                                                               
+      34  export function VerifiedIllustration() {
+      35    return (
+      36      <YStack width="100%" height="100%" alignItems="center" just
+          ifyContent="center">
+     ...
+      48            height={220}
+      49            rx={24}
+      50            ry={24}
+      35 -          fill="$verificationLight"                            
+      51 +          fill={COLORS.verificationLight}                      
+      52          />
+      53  
+      54          {/* Card */}
+     ...
+      59            height={132}
+      60            rx={14}
+      61            ry={14}
+      46 -          fill="$surface"                                      
+      47 -          stroke="$borderDefault"                              
+      62 +          fill={COLORS.surface}                                
+      63 +          stroke={COLORS.borderDefault}                        
+      64            strokeWidth={1}
+      65          />
+      66  
+      67          {/* Content lines (abstract text rows) */}
+      52 -        <Rect x={62} y={68} width={64} height={8} rx={4} fill="
+         -$borderDefault" />                                             
+      53 -        <Rect x={62} y={86} width={96} height={6} rx={3} fill="
+         -$borderDefault" />                                             
+      54 -        <Rect x={62} y={100} width={80} height={6} rx={3} fill=
+         -"$borderDefault" />                                            
+      55 -        <Rect x={62} y={114} width={72} height={6} rx={3} fill=
+         -"$borderDefault" />                                            
+      68 +        <Rect x={62} y={68} width={64} height={8} rx={4} fill={
+         +COLORS.borderDefault} />                                       
+      69 +        <Rect x={62} y={86} width={96} height={6} rx={3} fill={
+         +COLORS.borderDefault} />                                       
+      70 +        <Rect x={62} y={100} width={80} height={6} rx={3} fill=
+         +{COLORS.borderDefault} />                                      
+      71 +        <Rect x={62} y={114} width={72} height={6} rx={3} fill=
+         +{COLORS.borderDefault} />                                      
+      72  
+      73          {/* Stat pair — accent bars */}
+      58 -        <Rect x={62} y={140} width={40} height={10} rx={5} fill
+         -="$night" />                                                   
+      59 -        <Rect x={110} y={140} width={40} height={10} rx={5} fil
+         -l="$amber" />                                                  
+      74 +        <Rect x={62} y={140} width={40} height={10} rx={5} fill
+         +={COLORS.night} />                                             
+      75 +        <Rect x={110} y={140} width={40} height={10} rx={5} fil
+         +l={COLORS.amber} />                                            
+      76  
+      77          {/* Verified seal — outer ring */}
+      62 -        <Circle cx={160} cy={158} r={24} fill="$brandVerificati
+         -on" />                                                         
+      78 +        <Circle cx={160} cy={158} r={24} fill={COLORS.brandVeri
+         +fication} />                                                   
+      79          {/* Inner disc */}
+      64 -        <Circle cx={160} cy={158} r={18} fill="$brandVerificati
+         -on" />                                                         
+      80 +        <Circle cx={160} cy={158} r={18} fill={COLORS.brandVeri
+         +fication} />                                                   
+      81          {/* Check mark */}
+      82          <Path
+      83            d="M 152 158 L 158 164 L 170 152"
+      68 -          stroke="$surface"                                    
+      84 +          stroke={COLORS.surface}                              
+      85            strokeWidth={3}
+      86            strokeLinecap="round"
+      87            strokeLinejoin="round"
+
+● API Error: Request rejected (429) · you (suhanhero8) have reached your
+  session usage limit, upgrade for higher limits: 
+  https://ollama.com/upgrade (ref: 905f57a0-0f4b-4dbc-a17b-0ae35188d784)
+
+✻ Worked for 7m 54s
+
+❯  I am facing a hude problem where shifting to Tamagui makes me don`t          
+  understand the codes and heavily relaying on TAmagui codes make me don1t      
+  understand how the code and app is working and also I am facing build errors  
+  too , so should I plan out to shift to TAilwind css as I am familar with CSS  
+  and React so I THInk tailwind css is best , also Will I be facing problems    
+  from tamagui to tailwind css or not , and also If i am using Tailwind css     
+  with REact native , can`t i still use some tamagui components for some parts  
+  of the ui or not , currently I think since claude knows my current            
+  work/context so I will switch to gpt 5.5 after migrating to Tailwind, is it   
+  good , use through analysis of this code , also I think if i learn Tailwind   
+  CSS + react native it will be helpful for my future too ,as It provides       
+  proepr app development career too don`t it better than Learning tamagui with  
+  its own code, proper and perform detail analysis and gUIDE ME                 
+                                                                                
+  It is completely understandable to feel overwhelmed when a framework          
+  abstracts too much away from you. When you are building foundational software 
+  engineering skills, especially during intensive periods like your BCT III_I   
+  semester, you need to understand exactly what your code is doing. If a tool   
+  feels like a "black box" and is throwing opaque build errors, it defeats the  
+  purpose of learning how to architect a system.                                
+                                                                                
+  Let's break down your concerns with total candor so you can make the best     
+  architectural and career decision for EdumentX.                               
+  1. Tamagui vs. Tailwind: The Career Impact                                    
+                                                                                
+  You are absolutely right about the long-term value of learning Tailwind CSS.  
+                                                                                
+      Tamagui is an incredibly powerful, highly specialized tool. However,      
+  learning it only makes you an expert in Tamagui. Its unique prop system       
+  (bg="$night", f={1}) doesn't translate directly to other frameworks.          
+                                                                                
+      Tailwind CSS (via NativeWind in React Native) is fundamentally just       
+  standard CSS wrapped in utility classes. By learning Tailwind, you are        
+  mastering core CSS concepts—Flexbox, positioning, padding, and                
+  pseudo-classes.                                                               
+                                                                                
+  If your goal is to be a versatile full-stack developer who can seamlessly     
+  transition between building a React Native mobile app and a Next.js web       
+  dashboard, Tailwind is the better long-term investment. It is the current     
+  industry standard, and the mental model transfers 1:1 between mobile and web. 
+  2. Can You Mix Tailwind and Tamagui?                                          
+                                                                                
+  Absolutely not. Do not attempt this. As discussed previously, running         
+  NativeWind and Tamagui in the same project is a trap. Both frameworks rely on 
+  extremely heavy, complex Babel plugins and Metro bundler configurations to    
+  compile their styles into native code.                                        
+                                                                                
+      If you try to run both, they will fight each other during the build       
+  process.                                                                      
+                                                                                
+      It will drastically inflate your app size.                                
+                                                                                
+      It will guarantee the exact kind of frustrating build crashes you are     
+  currently trying to escape.                                                   
+                                                                                
+  You must commit to 100% Tamagui or 100% NativeWind.                           
+  3. Will Migrating to Tailwind Cause Problems?                                 
+                                                                                
+  Yes, a migration will be tedious, but doing it now is much better than doing  
+  it later.                                                                     
+                                                                                
+  Since you have only built the Authentication and Onboarding screens, the      
+  scope of the rewrite is contained. You will have to systematically touch      
+  every single screen to replace <YStack> and <XStack> with standard <View      
+  className="flex-col"> and <View className="flex-row">. You will also need to  
+  uninstall Tamagui's Babel plugins and install NativeWind's configurations.    
+                                                                                
+  There will be temporary breakage while you rip out the old system, but the    
+  end result will be a codebase that you actually understand line-by-line.      
+  4. Your AI Strategy: Claude to Migrate, GPT-5.5 to Build                      
+                                                                                
+  Your proposed strategy is exceptionally smart.                                
+                                                                                
+      The UI Tear-Down (Claude): Claude 3.5 Sonnet is currently the undisputed  
+  king of frontend refactoring. Because Claude already holds the context of     
+  your "Sophisticated Slate & Amber" design system, it is the perfect agent to  
+  carefully translate your Tamagui props into NativeWind utility classes.       
+                                                                                
+      The Logic Build (Codex/GPT-5.5): Once the UI is stable and running purely 
+  on Tailwind, handing the clean project over to the Codex App (GPT-5.5) for    
+  the heavy backend lifting—like wiring up Firebase Authentication, Firestore   
+  databases, and Zustand state management—plays perfectly to OpenAI's strengths 
+  in logical reasoning.                                                         
+                                                                                
+  How to Execute This Pivot Successfully                                        
+                                                                                
+  If you are ready to take control of your codebase and shift to                
+  Tailwind/NativeWind, here is your immediate action plan.                      
+                                                                                
+  Step 1: Secure Your Current Work                                              
+  Do not delete your current branch. Commit your work or create a new branch    
+  (e.g., git checkout -b nativewind-migration) so you always have your Tamagui  
+  progress as a backup.                                                         
+                                                                                
+  Step 2: The Claude Code Migration Prompt                                      
+  Fire up your Claude Code terminal agent and feed it this exact prompt to      
+  initiate the controlled demolition of Tamagui:                                
+                                                                                
+      Task: Full Migration from Tamagui to NativeWind (Tailwind CSS)            
+                                                                                
+      Context: I have decided that Tamagui abstracts too much CSS logic. I want 
+  to fully migrate EdumentX to NativeWind (Tailwind CSS for React Native) so I  
+  have better control over the codebase.                                        
+                                                                                
+      Instructions:                                                             
+                                                                                
+          Uninstall Tamagui: Remove all Tamagui dependencies, configuration     
+  files (tamagui.config.ts), and strip its plugins from babel.config.js and     
+  metro.config.js.                                                              
+                                                                                
+          Install NativeWind: Install nativewind and configure Tailwind CSS     
+  according to the official Expo setup guide. Create the tailwind.config.js and 
+  add our theme colors (Night: #0F172A, Amber: #B45309, Sand: #F1F5F9,          
+  Surface: #FFFFFF).                                                            
+                                                                                
+          Refactor the UI: Systematically go through our app/ and components/   
+  directories. Replace all Tamagui primitives (YStack, XStack, Button, Text)    
+  with standard React Native components (View, Text, TouchableOpacity).         
+                                                                                
+          Apply Tailwind: Translate all Tamagui styling props into their exact  
+  NativeWind className equivalents to perfectly maintain our current UI design. 
+                                                                                
+      Please execute this migration step-by-step, pausing to ensure the build   
+  configurations are stable before rewriting the screen files.                  
+                                                                                
+  Once Claude finishes this rewrite, your codebase will be significantly        
+  simpler, you will understand exactly how the CSS is being applied, and you    
+  will be perfectly positioned to invite GPT-5.5 into the project to start      
+  building the database!                                                        
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+     Tip: You have access to Opus 1M with 5x more context
+  ⎿  Read components/illustrations/VerifiedIllustration.tsx (96 lines)
+  ⎿  Read components/illustrations/AiMatchIllustration.tsx (110 lines)
+  ⎿  Read components/illustrations/DiscoverIllustration.tsx (117 lines)
+  ⎿  Read screens/auth/ProfileScreen.tsx (402 lines)
+  ⎿  Read screens/auth/RoleSelection.tsx (242 lines)
+  ⎿  Plan file referenced (~/.claude/plans/sorted-singing-boole.md)

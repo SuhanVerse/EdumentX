@@ -1,38 +1,59 @@
-import { theme } from './theme';
-
+/**
+ * EdumentX — Tailwind/NativeWind migration note:
+ *
+ * With NativeWind, colors are no longer consumed as JS string constants
+ * (no more `colors.brand.primary` -> `'#0F172A'`). They live in
+ * `tailwind.config.js` under `theme.extend.colors` and are referenced
+ * via Tailwind classes (`bg-night`, `text-amber`, etc.).
+ *
+ * This file is kept only for two narrow consumers that need raw hex
+ * strings:
+ *
+ *   1. `components/illustrations/*.tsx` — `react-native-svg` primitives
+ *      do not resolve `className`; they need literal hex values for
+ *      `fill` and `stroke` props.
+ *
+ *   2. Anywhere a single hex value is interpolated into a style prop
+ *      that Tailwind classes can't reach (e.g. `shadowColor`).
+ *
+ * If you're building a new component, prefer Tailwind classes over
+ * importing from this file.
+ */
 export const colors = {
   brand: {
-    primary: theme.colors.brand.primary,
-    primaryLight: theme.colors.brand.primaryLight,
-    accent: theme.colors.brand.accent,
-    verification: theme.colors.brand.verification,
-    ai: theme.colors.brand.ai,
-    splash: theme.colors.brand.splash,
-    splashText: theme.colors.brand.splashText,
-    splashTrack: theme.colors.brand.splashTrack,
+    primary: '#0F172A',
+    primaryLight: '#F1F5F9',
+    accent: '#B45309',
+    verification: '#047857',
+    verificationLight: '#ECFDF5',
+    ai: '#4F46E5',
+    splash: '#0F172A',
+    splashText: '#F1F5F9',
+    splashTrack: 'rgba(241, 245, 249, 0.12)',
   },
   semantic: {
-    success: theme.colors.semantic.success,
-    warning: theme.colors.semantic.warning,
-    danger: theme.colors.semantic.danger,
-    info: theme.colors.brand.admin,
+    success: '#047857',
+    warning: '#B45309',
+    danger: '#DC2626',
   },
   background: {
-    page: theme.colors.background.page,
-    surface: theme.colors.background.surface,
+    page: '#F1F5F9',
+    surface: '#FFFFFF',
   },
   text: {
-    primary: theme.colors.text.primary,
-    onboardingTitle: theme.colors.text.primary,
-    secondary: theme.colors.text.secondary,
-    muted: theme.colors.text.muted,
-    inverse: theme.colors.text.inverse,
+    primary: '#0F172A',
+    secondary: '#475569',
+    muted: '#64748B',
+    inverse: '#FFFFFF',
   },
   border: {
-    default: theme.colors.border.default,
-    strong: theme.colors.border.strong,
-    subtle: theme.colors.border.subtle,
-    card: theme.colors.border.card,
+    default: '#E2E8F0',
+    strong: '#64748B',
+    subtle: 'rgba(15, 23, 42, 0.04)',
   },
-  onboarding: theme.colors.onboarding,
+  onboarding: {
+    mapBackground: '#F1F5F9',
+    aiBackground: '#EEF2FF',
+    verifyBackground: '#ECFDF5',
+  },
 } as const;
