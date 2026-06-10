@@ -3,12 +3,10 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-  DimensionValue,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -16,23 +14,35 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
-import { spacing } from "@/constants/spacing";
-import { theme } from "@/constants/theme";
-import { typography } from "@/constants/typography";
+
+type Strength = "transparent" | "danger" | "warning" | "success";
 
 function getStrength(password: string): {
   label: string;
-  color: string;
-  width: DimensionValue;
+  color: Strength;
+  width: "0%" | "33%" | "66%" | "100%";
 } {
   if (password.length === 0)
     return { label: "", color: "transparent", width: "0%" };
-  if (password.length < 6)
-    return { label: "Weak", color: colors.semantic.danger, width: "33%" };
+  if (password.length < 6) return { label: "Weak", color: "danger", width: "33%" };
   if (password.length < 10)
-    return { label: "Fair", color: colors.semantic.warning, width: "66%" };
-  return { label: "Strong", color: colors.semantic.success, width: "100%" };
+    return { label: "Fair", color: "warning", width: "66%" };
+  return { label: "Strong", color: "success", width: "100%" };
 }
+
+const strengthBarColor: Record<Strength, string> = {
+  transparent: "bg-border",
+  danger: "bg-danger",
+  warning: "bg-warning",
+  success: "bg-success",
+};
+
+const strengthTextColor: Record<Strength, string> = {
+  transparent: "text-border",
+  danger: "text-danger",
+  warning: "text-warning",
+  success: "text-success",
+};
 
 export function CreatePassword() {
   const router = useRouter();
@@ -42,93 +52,85 @@ export function CreatePassword() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const strength = getStrength(password);
-  const passwordsMatch =
-    confirmPassword.length > 0 && password !== confirmPassword;
+  const passwordsMatch = confirmPassword.length > 0 && password !== confirmPassword;
   const canSubmit = password.length >= 6 && password === confirmPassword;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-surface">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboardView}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back */}
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.back()}
-            style={styles.backButton}
+            className="min-h-touch self-start flex-row items-center gap-1 mb-4 active:opacity-70"
           >
-            <Ionicons
-              color={colors.brand.primary}
-              name="chevron-back"
-              size={18}
-            />
-            <Text style={styles.backText}>Back</Text>
+            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+            <Text className="text-body text-text-primary">Back</Text>
           </Pressable>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.iconCircle}>
-              <Ionicons
-                color={colors.brand.primary}
-                name="lock-closed-outline"
-                size={28}
-              />
+          <View className="items-center gap-2 pt-4 mb-7">
+            <View className="w-16 h-16 items-center justify-center rounded-pill bg-primary-light mb-2">
+              <Ionicons color={colors.brand.primary} name="lock-closed-outline" size={28} />
             </View>
-            <Text style={styles.title}>Create a password</Text>
-            <Text style={styles.subtitle}>
+            <Text className="text-hero text-text-primary text-center">
+              Create a password
+            </Text>
+            <Text
+              className="text-body text-text-secondary text-center"
+              style={{ maxWidth: 288 }}
+            >
               Choose a strong password to secure your account.
             </Text>
           </View>
 
           {/* Password */}
-          <View style={styles.fieldWrapper}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputRow}>
+          <View className="gap-1 mb-4">
+            <Text className="text-button text-text-primary">Password</Text>
+            <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3">
               <TextInput
+                className="flex-1 text-text-primary text-body-lg"
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setPassword}
                 placeholder="Enter password"
                 placeholderTextColor={colors.text.muted}
                 secureTextEntry={!showPassword}
-                style={styles.textInput}
                 value={password}
               />
               <Pressable
-                hitSlop={8}
+                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                accessibilityRole="button"
                 onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
+                hitSlop={8}
+                className="w-11 h-11 items-center justify-center active:opacity-70"
               >
                 <Ionicons
-                  color={colors.text.secondary}
+                  color={colors.text.muted}
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
                 />
               </Pressable>
             </View>
 
-            {/* Strength hint */}
             {password.length > 0 && (
-              <View style={styles.strengthRow}>
-                <View style={styles.strengthTrack}>
+              <View className="flex-row items-center gap-2 mt-1">
+                <View className="flex-1 h-1 bg-border rounded-sm overflow-hidden">
                   <View
-                    style={[
-                      styles.strengthFill,
-                      {
-                        width: strength.width,
-                        backgroundColor: strength.color,
-                      },
-                    ]}
+                    className={`h-full rounded-sm ${strengthBarColor[strength.color]}`}
+                    style={{ width: strength.width as `${number}%` }}
                   />
                 </View>
-                <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                <Text
+                  className={`text-caption w-11 font-semibold ${strengthTextColor[strength.color]}`}
+                >
                   {strength.label}
                 </Text>
               </View>
@@ -136,68 +138,52 @@ export function CreatePassword() {
           </View>
 
           {/* Confirm Password */}
-          <View style={styles.fieldWrapper}>
-            <Text style={styles.label}>Confirm Password</Text>
+          <View className="gap-1 mb-4">
+            <Text className="text-button text-text-primary">Confirm Password</Text>
             <View
-              style={[styles.inputRow, passwordsMatch && styles.inputRowError]}
+              className={`h-btn flex-row items-center border-emphasis rounded-md bg-surface px-3 ${
+                passwordsMatch ? "border-danger" : "border-border"
+              }`}
             >
               <TextInput
+                className="flex-1 text-text-primary text-body-lg"
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setConfirmPassword}
                 placeholder="Repeat your password"
                 placeholderTextColor={colors.text.muted}
                 secureTextEntry={!showConfirm}
-                style={styles.textInput}
                 value={confirmPassword}
               />
               <Pressable
-                hitSlop={8}
+                accessibilityLabel={showConfirm ? "Hide password" : "Show password"}
+                accessibilityRole="button"
                 onPress={() => setShowConfirm(!showConfirm)}
-                style={styles.eyeButton}
+                hitSlop={8}
+                className="w-11 h-11 items-center justify-center active:opacity-70"
               >
                 <Ionicons
-                  color={colors.text.secondary}
+                  color={colors.text.muted}
                   name={showConfirm ? "eye-off-outline" : "eye-outline"}
                   size={20}
                 />
               </Pressable>
             </View>
             {passwordsMatch && (
-              <Text style={styles.errorText}>Passwords do not match</Text>
+              <Text className="text-caption text-danger mt-1">
+                Passwords do not match
+              </Text>
             )}
           </View>
 
-          {/* Info card
-          <View style={styles.infoCard}>
-            <Ionicons
-              color={colors.semantic.info}
-              name="information-circle-outline"
-              size={18}
-            />
-            <Text style={styles.infoText}>
-              This screen is ready for UI testing. Password will be saved to
-              Firebase when the auth sprint starts.
-            </Text>
-          </View> */}
-
-          {/* Continue Button */}
-          <View style={styles.footer}>
+          <View className="flex-1 justify-end pt-7">
             <Pressable
               accessibilityRole="button"
               disabled={!canSubmit}
               onPress={() => router.replace("/role-selection")}
-              style={[
-                styles.primaryButton,
-                canSubmit ? null : styles.primaryButtonDisabled,
-              ]}
+              className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
-              <Text
-                style={[
-                  styles.primaryButtonText,
-                  canSubmit ? null : styles.primaryButtonTextDisabled,
-                ]}
-              >
+              <Text className="text-button text-white disabled:text-text-muted">
                 Continue
               </Text>
             </Pressable>
@@ -207,150 +193,3 @@ export function CreatePassword() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background.surface,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  backButton: {
-    minHeight: theme.sizes.touchTarget,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  backText: {
-    ...typography.body,
-    color: colors.brand.primary,
-  },
-  header: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.lg,
-    marginBottom: spacing.xxl,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.radii.circle,
-    backgroundColor: colors.brand.primaryLight,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    ...typography.heroTitle,
-    textAlign: "center",
-    color: colors.text.onboardingTitle,
-  },
-  subtitle: {
-    ...typography.body,
-    maxWidth: 288,
-    textAlign: "center",
-    color: colors.text.secondary,
-  },
-  fieldWrapper: {
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.button,
-    color: colors.text.primary,
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: theme.radii.md,
-    backgroundColor: colors.background.surface,
-    paddingHorizontal: spacing.md,
-    height: theme.sizes.primaryButtonHeight,
-  },
-  inputRowError: {
-    borderColor: colors.semantic.danger,
-  },
-  textInput: {
-    flex: 1,
-    ...typography.body,
-    color: colors.text.primary,
-  },
-  eyeButton: {
-    paddingLeft: spacing.sm,
-  },
-  strengthRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  strengthTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.border.default,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  strengthFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  strengthLabel: {
-    ...typography.caption,
-    width: 44,
-    fontWeight: "600",
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.semantic.danger,
-    marginTop: spacing.xs,
-  },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: theme.borders.cardWidth,
-    borderColor: colors.brand.primaryLight,
-    borderRadius: theme.radii.card,
-    backgroundColor: colors.brand.primaryLight,
-  },
-  infoText: {
-    ...typography.caption,
-    flex: 1,
-    color: colors.text.secondary,
-  },
-  footer: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingTop: spacing.xxl,
-  },
-  primaryButton: {
-    minHeight: theme.sizes.primaryButtonHeight,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.radii.card,
-    backgroundColor: colors.brand.primary,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: colors.border.strong,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.text.inverse,
-  },
-  primaryButtonTextDisabled: {
-    color: colors.text.muted,
-  },
-});

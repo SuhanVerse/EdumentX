@@ -19,6 +19,8 @@ Phase E: Verification + Chat   — 1 sprint
 Phase F: Polish + Beta launch  — 1 sprint
 ```
 
+**Last updated**: June 6, 2026 — Phase B.2 is **in progress** (3/7 screens migrated, palette tuned, 2 typecheck errors remain). See "Phase 1 — Current State" below.
+
 ---
 
 ## Phase A — Design Refresh (1-2 weeks, in parallel with code work)
@@ -91,6 +93,30 @@ npx expo start -c
 # All 7 screens should look IDENTICAL to before
 npm run typecheck
 ```
+
+#### B.2.a — Phase 1 Current State (June 6, 2026)
+
+**Done**:
+- Tamagui 2.1.0 + driver + babel + metro plugins + reanimated + svg + async-storage installed.
+- `constants/tamagui.config.ts` and `tamagui.config.ts` (root) created. Both import from `constants/theme.ts`. Animation driver: `@tamagui/config/reanimated` (NOT `@tamagui/animations-react-native`).
+- `babel.config.js` with `babel-preset-expo` (`jsxImportSource: 'tamagui'`) + `@tamagui/babel-plugin` + `react-native-reanimated/plugin` (last).
+- `metro.config.js` with `wrapWithReanimatedMetroConfig` + `TamaguiMetroPlugin`.
+- `app/_layout.tsx` wrapped in `<TamaguiProvider config={tamaguiConfig} defaultTheme="light">`.
+- 4 palette hex values tightened for WCAG AA on white: `semantic.success` `#047857`, `semantic.warning` `#B45309`, `text.muted` `#64748B`, `border.strong` `#64748B`.
+- `tsconfig.json` excludes `Documentation/98-Reference-BasoBas/**` and `Documentation/99-Archive/**` from typecheck.
+- 3 screens migrated to Tamagui primitives: `SplashScreen`, `OnboardingScreen`, `PhoneEntryScreen`.
+
+**In progress / pending**:
+- 2 typecheck errors in `PhoneEntryScreen.tsx` lines 159 & 192 — `backgroundColor={colors.border.strong}` props. Fix by wrapping with `style={{ backgroundColor: ... }}`.
+- 4 screens still on React Native StyleSheet: `OtpVerify.tsx`, `Password.tsx`, `RoleSelection.tsx`, `ProfileScreen.tsx`.
+- 3 illustration components not yet built: `components/illustrations/{DiscoverIllustration,AiMatchIllustration,VerifiedIllustration}.tsx` (no images, pure shape composition per the Figma Make FeatureVisuals prompt in `Documentation/gemini_chat_context.md`).
+- Illustrations not yet wired into `OnboardingScreen.tsx`.
+
+**B.2 acceptance gate (must pass before B.3)**:
+- `npm run typecheck` returns 0 errors.
+- `npx expo start -c` boots without a Tamagui config error.
+- All 7 screens render with the same visual output as before the migration.
+- 3 illustration components are imported and rendered inside `OnboardingScreen` instead of the `Ionicons` icons.
 
 ### B.3 — Execute Phase 2 of the Claude Code prompt
 
@@ -491,4 +517,4 @@ Create:
 
 ---
 
-*Generated for EdumentX · June 2026 · v2.0*
+*Generated for EdumentX · June 2026 · v2.0 · Last updated June 6, 2026 (Phase 1 in progress)*

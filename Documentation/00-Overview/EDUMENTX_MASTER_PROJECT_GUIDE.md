@@ -3,7 +3,8 @@
 > **Purpose**: This is the single source of truth for the EdumentX project — a **location-based home tutor marketplace** built with React Native (Expo) + Firebase. It contains the complete project overview, every screen's exact layout, design tokens, architecture, and a concrete roadmap for improvements.
 >
 > **Generated**: June 5, 2026  
-> **Project Phase**: Early Development — Authentication & Onboarding UI complete, Firebase backend pending  
+> **Last Updated**: June 6, 2026 (Tamagui foundation in progress — see Section 16)  
+> **Project Phase**: Phase 1 (Tamagui Foundation) — 3/7 screens migrated, palette tuned, 4 screens + 3 illustrations pending  
 > **Verified Against**: Actual codebase (`screens/`, `app/`, `constants/`)
 
 ---
@@ -1519,6 +1520,87 @@ export function ScreenName() {
 
 ---
 
+## 16. Current State (June 6, 2026)
+
+This section is the **live status snapshot**. Pair it with the appendix-inventory line counts which are the most recent.
+
+### 16.1 Tamagui Foundation — Status
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| `tamagui`, `@tamagui/config`, `@tamagui/animations-react-native` | ✅ Installed | v2.1.0 |
+| `@tamagui/babel-plugin`, `@tamagui/metro-plugin` | ✅ Installed (dev) | |
+| `@tamagui/font-inter` (Inter for body) | ✅ Installed | Plus Jakarta Sans still pending |
+| `react-native-reanimated` 3.x | ✅ Installed | Required for animations |
+| `react-native-svg` | ✅ Installed | Required for illustration components |
+| `@react-native-async-storage/async-storage` | ✅ Installed | Needed for Zustand persist in Phase 3 |
+| `constants/tamagui.config.ts` | ✅ Created | Mirrors `theme.ts`; uses `@tamagui/config/reanimated` driver |
+| `tamagui.config.ts` (root) | ✅ Created | Required by babel/metro plugins to resolve from root |
+| `babel.config.js` | ✅ Created | babel-preset-expo (jsxImportSource: tamagui) + Tamagui plugin + reanimated/plugin last |
+| `metro.config.js` | ✅ Created | wrapWithReanimatedMetroConfig + TamaguiMetroPlugin |
+| `app/_layout.tsx` wrapped in `<TamaguiProvider>` | ✅ Done | defaultTheme="light" |
+| `tsconfig.json` excludes `Documentation/98-Reference-BasoBas/**` | ✅ Done | Web-app noise gone from typecheck |
+
+### 16.2 Palette Refinements (WCAG AA on white)
+
+Four hex values were tightened in `constants/theme.ts` to clear WCAG AA contrast on the `$surface` (white) background:
+
+| Token | Before | After | Before contrast | After contrast |
+| --- | --- | --- | --- | --- |
+| `semantic.success` | `#059669` | `#047857` | 3.77 | 5.48 |
+| `semantic.warning` | `#D97706` | `#B45309` | 3.19 | 5.02 |
+| `text.muted` | `#94A3B8` | `#64748B` | 2.56 | 4.76 |
+| `border.strong` | `#94A3B8` | `#64748B` | 2.56 | 4.76 |
+
+All other tokens remain unchanged.
+
+### 16.3 Screen Migration Progress (3/7)
+
+| Screen | Status | Notes |
+| --- | --- | --- |
+| `screens/onboarding/SplashScreen.tsx` | ✅ Migrated | Pure YStack + Animated.View; typecheck clean |
+| `screens/onboarding/OnboardingScreen.tsx` | ✅ Migrated | 3 slides, pagination dots, skip/next; typecheck clean |
+| `screens/auth/PhoneEntryScreen.tsx` | ⚠️ Migrated, 2 typecheck errors | Lines 159 & 192 use `backgroundColor={colors.border.strong}` — Tamagui expects named tokens. Wrap in `style={{ backgroundColor: ... }}`. |
+| `screens/auth/OtpVerify.tsx` | ⏳ Not migrated | 397 lines; OTP boxes + caret + resend timer |
+| `screens/auth/Password.tsx` | ⏳ Not migrated | 357 lines; strength bar |
+| `screens/auth/RoleSelection.tsx` | ⏳ Not migrated | 323 lines; card-based role picker |
+| `screens/auth/ProfileScreen.tsx` | ⏳ Not migrated | 458 lines; avatar + form + subject chips |
+
+### 16.4 Pending Phase 1 Deliverables
+
+1. **Fix 2 typecheck errors** in `PhoneEntryScreen.tsx` (lines 159, 192) — replace `backgroundColor={hex}` with `style={{ backgroundColor: hex }}`.
+2. **Migrate 4 auth screens** to Tamagui primitives — OtpVerify, Password, RoleSelection, ProfileScreen.
+3. **Build 3 illustration components** as pure code (no images):
+   - `components/illustrations/DiscoverIllustration.tsx` — map grid + pin + locate FAB
+   - `components/illustrations/AiMatchIllustration.tsx` — chat-bubble stack + sparkle
+   - `components/illustrations/VerifiedIllustration.tsx` — tutor card stack + verified seal
+4. **Wire illustrations into `OnboardingScreen.tsx`** — replace the current `Ionicons` icons with the new components.
+5. **Final `npm run typecheck`** — must be clean (0 errors).
+
+### 16.5 New Reference Assets
+
+| Asset | Purpose |
+| --- | --- |
+| `Documentation/98-Reference-BasoBas/ANALYSIS.md` | Per-file UX translation guide for the friend-project reference |
+| `Documentation/gemini_chat_context.md` | Full chat transcript with friend who designed the BasoBas Figma Make export |
+| `CLAUDE.md` (project root) | System directives + Current State section, picked up by Claude Code automatically |
+
+### 16.6 What Does NOT Belong in Phase 1
+
+Per the user's explicit sequencing ("phase by phase, ask me to continue"), these are deferred to later phases:
+
+- ❌ Zustand stores (Phase 3)
+- ❌ Service layer (`services/firebase/`, `services/auth/`) (Phase 3)
+- ❌ Firebase Auth integration (Phase 4)
+- ❌ Role-based dashboards (Phase 5)
+- ❌ Map screen + tutor discovery (Phase 5)
+- ❌ Bottom nav, sheets, modals (Phase 2)
+- ❌ Dark mode, i18n, Storybook (P3)
+
+Stay focused on Phase 1 until the typecheck is clean and the 3 onboarding illustrations are wired in.
+
+---
+
 ## 15. Appendix
 
 ### Appendix A: Full File Inventory
@@ -1609,4 +1691,4 @@ Total source lines (screens + app + constants): ~2300
 
 ---
 
-*This document was generated by analyzing the actual codebase as of June 5, 2026. Update it whenever significant features are added or design tokens change.*
+*This document was generated by analyzing the actual codebase as of June 5, 2026. Last updated June 6, 2026 to add Section 16 (Current State) after the Tamagui foundation work.*
