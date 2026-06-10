@@ -7,11 +7,12 @@
  */
 
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require("nativewind/metro");
 const exclusionList = require('metro-config/private/defaults/exclusionList').default;
 
 const config = getDefaultConfig(__dirname, { isCSSEnabled: true });
 
-const escapePathForRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapePathForRegex = (value) => value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
 const projectRoot = escapePathForRegex(__dirname);
 
 config.resolver.blockList = exclusionList([
@@ -20,4 +21,4 @@ config.resolver.blockList = exclusionList([
   new RegExp(`${projectRoot}[/\\\\]firebase-export-[^/\\\\]+[/\\\\].*`),
 ]);
 
-module.exports = config;
+module.exports = withNativeWind(config, { input: "./global.css" });

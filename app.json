@@ -20,7 +20,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-dev-client"
+      "expo-dev-client",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
