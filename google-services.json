@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "343719549266",
+    "project_id": "edumentx-dev",
+    "storage_bucket": "edumentx-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343719549266:android:ed66da3a318c96333a828b",
+        "android_client_info": {
+          "package_name": "com.anonymous.edumentx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcV7TtQh2gQHEr4qiyAm_aPJQH2ONAFIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
