@@ -1,7 +1,7 @@
 
-  # Room rental mobile app
+  # Rajesh Make
 
-  This is a code bundle for Room rental mobile app. The original project is available at https://www.figma.com/design/Q32Kb48DU0uvo1XXvUE1l4/Room-rental-mobile-app.
+  This is a code bundle for Rajesh Make. The original project is available at https://www.figma.com/design/khNq4ZARHT5AHSZ9hzaLOy/Rajesh-Make.
 
   ## Running the code
 

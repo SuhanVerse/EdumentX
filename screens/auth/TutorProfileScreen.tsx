@@ -18,6 +18,11 @@ import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
+import {
+  INPUT_BASE,
+  INPUT_BORDER_ERROR,
+  INPUT_BORDER_OK,
+} from "@/components/forms/inputs";
 import { colors } from "@/constants/colors";
 import { registration, useRegistration } from "@/lib/registration";
 
@@ -54,7 +59,7 @@ type FormErrors = {
   subjects?: string;
   grades?: string;
   experience?: string;
-  hourlyRate?: string;
+  monthlyRate?: string;
   location?: string;
 };
 
@@ -72,7 +77,7 @@ export function TutorProfileScreen() {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [gradesTeaching, setGradesTeaching] = useState<string[]>([]);
   const [yearsExperience, setYearsExperience] = useState(0);
-  const [hourlyRateNpr, setHourlyRateNpr] = useState("");
+  const [monthlyRateNpr, setMonthlyRateNpr] = useState("");
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -88,11 +93,11 @@ export function TutorProfileScreen() {
     );
   }
 
-  const hourlyRateNumber = Number(hourlyRateNpr);
+  const monthlyRateNumber = Number(monthlyRateNpr);
   const isValidRate =
-    hourlyRateNpr.trim().length > 0 &&
-    !Number.isNaN(hourlyRateNumber) &&
-    hourlyRateNumber >= 0;
+    monthlyRateNpr.trim().length > 0 &&
+    !Number.isNaN(monthlyRateNumber) &&
+    monthlyRateNumber >= 0;
 
   const canSubmit =
     fullName.trim().length >= 3 &&
@@ -111,7 +116,7 @@ export function TutorProfileScreen() {
     if (headline.trim().length === 0) validationErrors.headline = "Add a one-line headline that parents will see.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
     if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";
-    if (!isValidRate) validationErrors.hourlyRate = "Enter your hourly rate in NPR.";
+    if (!isValidRate) validationErrors.monthlyRate = "Enter your monthly rate in NPR.";
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) return;
@@ -126,7 +131,7 @@ export function TutorProfileScreen() {
       bio: bio.trim(),
       gradesTeaching,
       yearsExperience,
-      hourlyRateNpr: hourlyRateNumber,
+      monthlyRateNpr: monthlyRateNumber,
     });
 
     Alert.alert(
@@ -293,17 +298,17 @@ export function TutorProfileScreen() {
 
             <View className="gap-1">
               <Text className="text-overline text-text-muted uppercase">
-                Hourly rate (NPR)
+                Monthly rate (NPR)
               </Text>
               <View
                 className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-1 ${
-                  errors.hourlyRate ? "border-danger" : "border-border"
+                  errors.monthlyRate ? "border-danger" : "border-border"
                 }`}
               >
                 <Text className="text-body text-text-muted font-semibold">Rs.</Text>
                 <TextInput
-                  value={hourlyRateNpr}
-                  onChangeText={setHourlyRateNpr}
+                  value={monthlyRateNpr}
+                  onChangeText={setMonthlyRateNpr}
                   placeholder="800"
                   placeholderTextColor={colors.text.muted}
                   keyboardType="numeric"
@@ -311,8 +316,8 @@ export function TutorProfileScreen() {
                 />
                 <Text className="text-caption text-text-muted">/ hr</Text>
               </View>
-              {errors.hourlyRate ? (
-                <Text className="text-caption text-danger">{errors.hourlyRate}</Text>
+              {errors.monthlyRate ? (
+                <Text className="text-caption text-danger">{errors.monthlyRate}</Text>
               ) : null}
             </View>
           </View>

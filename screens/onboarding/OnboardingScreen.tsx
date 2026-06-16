@@ -1,8 +1,8 @@
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 
 import { AiMatchIllustration } from '@/components/illustrations/AiMatchIllustration';
 import { DiscoverIllustration } from '@/components/illustrations/DiscoverIllustration';

@@ -17,9 +17,34 @@ type LocationFieldProps = {
  *  - set: a check disc, neighborhood + city text, "Change" link
  */
 export function LocationField({ value, onChange }: LocationFieldProps) {
-  const currentLocation: LocationValue = value ?? { neighborhood: "", city: "" };
+  // Local draft — what the user is currently typing. Initialized from
+  // `value` if we already have a committed location; otherwise empty.
+  // Keeping keystrokes in local state means a single character does NOT
+  // flip the parent into the "Set" state; the draft is only committed
+  // (via `onChange`) once it looks like a real location.
+  const [draft, setDraft] = useState<LocationValue>(
+    value ?? { neighborhood: "", city: "" },
+  );
+
   const hasValue = value !== null;
   const [showFallback, setShowFallback] = useState(!hasValue);
+
+  /**
+   * Push the local draft up to the parent, but only when it's a real
+   * location (city has at least `MIN_CITY_LENGTH` non-whitespace chars).
+   * Until then we call `onChange(null)` so the parent stays in the
+   * "unset" state and the "Set" badge / "Change" link stay dormant.
+   */
+  const MIN_CITY_LENGTH = 2;
+  function commit(next: LocationValue) {
+    const neighborhood = next.neighborhood.trim();
+    const city = next.city.trim();
+    if (city.length < MIN_CITY_LENGTH) {
+      onChange(null);
+      return;
+    }
+    onChange({ neighborhood, city });
+  }
 
   function handleGpsTap() {
     Alert.alert(
@@ -112,19 +137,23 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
       ) : (
         <View className="gap-2">
           <TextInput
-            value={currentLocation.neighborhood}
-            onChangeText={(neighborhood) =>
-              onChange({ neighborhood, city: currentLocation.city })
-            }
+            value={draft.neighborhood}
+            onChangeText={(neighborhood) => {
+              const next = { neighborhood, city: draft.city };
+              setDraft(next);
+              commit(next);
+            }}
             placeholder="Neighborhood (e.g., Patan)"
             placeholderTextColor={colors.text.muted}
             className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"
           />
           <TextInput
-            value={currentLocation.city}
-            onChangeText={(city) =>
-              onChange({ city, neighborhood: currentLocation.neighborhood })
-            }
+            value={draft.city}
+            onChangeText={(city) => {
+              const next = { neighborhood: draft.neighborhood, city };
+              setDraft(next);
+              commit(next);
+            }}
             placeholder="City (e.g., Lalitpur)"
             placeholderTextColor={colors.text.muted}
             className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"

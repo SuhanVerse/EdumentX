@@ -1,6 +1,11 @@
 import { Text, TextInput, View } from "react-native";
 
 import { colors } from "@/constants/colors";
+import {
+  INPUT_BASE,
+  INPUT_BORDER_ERROR,
+  INPUT_BORDER_OK,
+} from "@/components/forms/inputs";
 
 type NameEmailFieldsProps = {
   fullName: string;
@@ -12,9 +17,6 @@ type NameEmailFieldsProps = {
   onChangeFullName: (value: string) => void;
   onChangeEmail: (value: string) => void;
 };
-
-const inputBase =
-  "min-h-btn px-4 border-emphasis rounded-card bg-surface text-body-lg text-text-primary";
 
 export function NameEmailFields({
   fullName,
@@ -33,8 +35,10 @@ export function NameEmailFields({
           placeholder="e.g., Aarav Tamang"
           placeholderTextColor={colors.text.muted}
           autoCapitalize="words"
-          className={`${inputBase} ${
-            errors?.fullName ? "border-danger" : "border-border"
+          autoComplete="name"
+          textContentType="name"
+          className={`${INPUT_BASE} ${
+            errors?.fullName ? INPUT_BORDER_ERROR : INPUT_BORDER_OK
           }`}
         />
         {errors?.fullName ? (
@@ -50,9 +54,11 @@ export function NameEmailFields({
           placeholder="e.g., aarav@gmail.com"
           placeholderTextColor={colors.text.muted}
           autoCapitalize="none"
+          autoComplete="email"
           keyboardType="email-address"
-          className={`${inputBase} ${
-            errors?.email ? "border-danger" : "border-border"
+          textContentType="emailAddress"
+          className={`${INPUT_BASE} ${
+            errors?.email ? INPUT_BORDER_ERROR : INPUT_BORDER_OK
           }`}
         />
         {errors?.email ? (

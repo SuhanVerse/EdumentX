@@ -41,7 +41,7 @@ export type RegistrationState = {
     bio: string;
     gradesTeaching: string[];
     yearsExperience: number;
-    hourlyRateNpr: number;
+    monthlyRateNpr: number;
   };
 };
 
@@ -61,7 +61,7 @@ const initialState: RegistrationState = {
     bio: "",
     gradesTeaching: [],
     yearsExperience: 0,
-    hourlyRateNpr: 0,
+    monthlyRateNpr: 0,
   },
 };
 
