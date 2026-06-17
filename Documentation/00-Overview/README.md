@@ -13,7 +13,7 @@ This folder contains high-level, project-wide documents. Read these first.
 
 **EdumentX** is a **location-based home tutor marketplace** built with React Native (Expo SDK 54) and Firebase. It connects **Students/Parents** with **verified home Tutors** nearby, with AI-powered matching and a trust system ("Blue Tick Pro" verified tutors).
 
-**Status (June 2026)**: Authentication and onboarding UI complete. Firebase backend pending. Multi-role dashboards not yet built.
+**Status (June 12, 2026)**: NativeWind migration complete (Phase 1.5). Phase 2 (babel + webview) is next; Phase 3 (Firebase Auth + dashboards) plan is written and audited. Multi-role dashboards not yet built.
 
 **Target market**: Nepal (initial), international-ready architecture.
 
@@ -43,9 +43,11 @@ The master guide has 15 sections. You don't need to read all of them — here's 
 
 ## Other Places to Look
 
-- **Implementation guides**: [`../03-Implementation-Guides/`](../03-Implementation-Guides/)
-- **AI prompts**: [`../06-Prompts/`](../06-Prompts/)
-- **Code reference**: `app/`, `screens/`, `constants/`, `firebase/` (in project root)
+- **Implementation guides**: [`../03-Implementation-Guides/`](../03-Implementation-Guides/) — `IMPLEMENTATION_ROADMAP.md` is the v3.0 current-state guide
+- **Firebase**: [`../04-Firebase/phase-3-notes.md`](../04-Firebase/phase-3-notes.md) — Phase 3 operations doc
+- **Build & deploy**: [`../05-Build-and-Deploy/firebase-auth-plan.md`](../05-Build-and-Deploy/firebase-auth-plan.md) + `firebase-auth-plan-audit.md`
+- **AI prompts**: [`../06-Prompts/`](../06-Prompts/) — including the Antigravity + Claude integration guide
+- **Code reference**: `app/`, `screens/`, `components/`, `lib/`, `tailwind.config.js` (in project root)
 - **Old docs**: [`../99-Archive/`](../99-Archive/)
 
 ## Maintaining This Folder

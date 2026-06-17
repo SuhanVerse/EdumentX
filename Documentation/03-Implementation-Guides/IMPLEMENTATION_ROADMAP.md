@@ -8,162 +8,185 @@
 
 ---
 
-## TL;DR — The 3-Phase Path
+## TL;DR — The Path
 
 ```
-Phase A: Design (Figma)        — 1-2 weeks parallel
-Phase B: Foundation (Tamagui)  — 1 sprint
-Phase C: Backend (Firebase)    — 1 sprint
-Phase D: Dashboards + Map      — 2 sprints
-Phase E: Verification + Chat   — 1 sprint
-Phase F: Polish + Beta launch  — 1 sprint
+Phase 1.5: Foundation (NativeWind)    ✅ COMPLETE (June 8, 2026)
+Phase 2:   Babel fix + RNFirebase     ⏳ NEXT — see Phase B
+Phase 3:   Backend (Firebase Auth)     ⏳ see Phase C
+Phase 4:   Dashboards (role landing)  ⏳ see Phase D
+Phase 5:   Map + Search + Bookings    ⏳ see Phase E
+Phase 6:   Admin + Verification       ⏳ see Phase F
+Phase 7:   Polish + Beta launch       ⏳ see Phase G
 ```
 
-**Last updated**: June 6, 2026 — Phase B.2 is **in progress** (3/7 screens migrated, palette tuned, 2 typecheck errors remain). See "Phase 1 — Current State" below.
+**Last updated**: June 12, 2026 — Phase 1.5 (NativeWind) is **complete**, Phase 2 (babel + RNFirebase native deps) is **next** and unblocks Phase 3 (Firebase). The plan in `05-Build-and-Deploy/firebase-auth-plan.md` has been audited, corrected, and rewritten to use `@react-native-firebase/*` (the native SDK) — see `05-Build-and-Deploy/firebase-auth-plan-audit.md` for the full diff, in particular **finding #14** which describes the SDK override.
+
+> **Architectural correction (June 12, 2026)**: the original roadmap described Phase B as a "Tamagui foundation" sprint. That work was started, then **reverted on June 8, 2026 in favor of NativeWind 4.2 + Tailwind CSS 3.4**. All Tamagui packages and config files have been removed. If you see `@tamagui/*` references anywhere in the docs, they are stale. The only token source of truth is now `tailwind.config.js`.
 
 ---
 
-## Phase A — Design Refresh (1-2 weeks, in parallel with code work)
-
-**Owner**: You + Figma Make
-**Goal**: Get an industry-grade multi-role design with sidebar
-
-### A.1 — Generate the design
-
-1. Open your Figma AI tool (Figma Make, Musho, Relume, or Galileo)
-2. Paste the **Phase 1** section of `00-MASTER-FIGMA-MAKE-PROMPT.md` — generates the design system tokens page
-3. Paste **Phase 2** — generates the sidebar + bottom tab + role switcher
-4. Paste **Phase 3** — generates all 9 onboarding/auth screens
-5. Paste **Phase 4** — generates all 10 student screens
-6. Paste **Phase 5** — generates all 8 tutor screens
-7. Paste **Phase 6** — generates all 6 admin screens
-8. Paste **Phase 7** — generates 12 edge-case states
-9. Paste **Phase 8** — generates the component library
-
-### A.2 — Extract the design system
-
-Run the prompt in §8 of the Figma brief against the generated file. Save the output as `02-Design-System/EDUMENTX_DESIGN_SYSTEM_V2.md` for Claude Code to reference.
-
-### A.3 — Quality gate
-
-Verify against the checklist in §9 of the Figma brief before exporting. If anything fails, re-paste the relevant phase with clarifications.
-
-**Deliverable**: A Figma file with **40+ screens** across 3 roles + design system page.
-
----
-
-## Phase B — Foundation (Sprint 1: 1-2 weeks)
+## Phase 1.5 — Foundation (NativeWind) ✅ COMPLETE (June 8, 2026)
 
 **Owner**: Claude Code (you drive it)
-**Goal**: Tamagui + tokens + component library + Zustand
+**Goal**: Production-grade design tokens + component-ready screens
 
-### B.1 — Pre-flight
+**What was done**:
+
+- Reverted the partial Tamagui migration and started over with **NativeWind 4.2.5 + Tailwind CSS 3.4.19**.
+- `babel.config.js` now uses `babel-preset-expo` (`jsxImportSource: 'nativewind'`) + `nativewind/babel`. No reanimated or Tamagui plugins.
+- `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })` wrapped with `withNativeWind`. `Documentation/98-Reference-BasoBas/` is excluded via `blockList`.
+- `tailwind.config.js` is the **single source of truth** for design tokens. `constants/colors.ts` is a narrow fallback consumed only by SVG primitives.
+- 9/9 screens migrated to NativeWind: `SplashScreen`, `OnboardingScreen`, `PhoneEntryScreen`, `OtpVerify`, `Password`, `RoleSelection`, `ProfileScreen`, `StudentProfileScreen`, `TutorProfileScreen`.
+- 4/4 form components + 3/3 illustration components migrated.
+- Palette tuned for WCAG AA on white: `semantic.success` `#047857`, `semantic.warning` `#B45309`, `text.muted` `#64748B`, `border.strong` `#64748B`.
+
+**What is still open in Phase 1.5**:
+
+- `screens/auth/ProfileScreen.tsx` is dead code and gets deleted as part of Phase 3 (Step 3.b of the Firebase plan).
+- `RoleSelection` doesn't write `role` to the registration shim — fixed as part of Phase 3 Step 3.b.
+- `screens/auth/PhoneEntryScreen.tsx` still has an `Alert.alert` placeholder at submit; replaced as part of Phase 3.
+
+**Verify the current state**:
 
 ```bash
-# 1. Verify Node version
-node -v   # must be ≥ 20.19.4
-
-# 2. Update npm to latest
-npm install -g npm@latest
-
-# 3. Clean install
 cd /media/xlegion/Win/PROJECTS/EdumentX
-rm -rf node_modules package-lock.json
-npm install
-npx expo install --check
-
-# 4. Set Claude Code to Custom Sonnet
-/model
-# Pick "Custom Sonnet model" (Option 3 in Ollama menu)
+grep -rn "@tamagui" . --include="*.ts" --include="*.tsx" --include="*.json" 2>/dev/null
+# expect: 0 matches
+grep -rn "tamagui.config" . --include="*.ts" --include="*.tsx" 2>/dev/null
+# expect: 0 matches
+npm run typecheck
+# expect: 0 errors
 ```
 
-### B.2 — Execute Phase 1 of the Claude Code prompt
+---
 
-Paste the master prompt. Claude will:
-1. Read all 7 screen files
-2. Install Tamagui + dependencies
-3. Create `constants/tamagui.config.ts` mirroring `theme.ts`
-4. Create `babel.config.js` + `metro.config.js`
-5. Wrap `app/_layout.tsx` in `TamaguiProvider`
-6. Migrate all 7 screens to use `YStack`/`XStack`/`Button`/`Input`/`Text`
+## Phase B — Babel fix + Webview (Sprint 2.0: ~1 day)
 
-**Verify**:
-```bash
-npx expo start -c
-# All 7 screens should look IDENTICAL to before
-npm run typecheck
+**Owner**: You (manual edits) + Claude Code (verification)
+**Goal**: Unblock Phase 3 by fixing the `installTurboModule` crash and installing the native deps Firebase needs.
+
+### B.1 — Add the worklets babel plugin
+
+The dev client crashes with `TurboModule method "installTurboModule" called with 0 arguments` because `react-native-reanimated@~4.1.1` requires the `react-native-worklets/plugin` babel transform to register its TurboModule on the new architecture. This is **independent of Firebase** but blocks everything.
+
+Edit `babel.config.js`:
+
+```js
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: [
+      ["babel-preset-expo", { jsxImportSource: "nativewind" }],
+      "nativewind/babel",
+      "react-native-worklets/plugin", // MUST be last
+    ],
+  };
+};
 ```
 
-#### B.2.a — Phase 1 Current State (June 6, 2026)
-
-**Done**:
-- Tamagui 2.1.0 + driver + babel + metro plugins + reanimated + svg + async-storage installed.
-- `constants/tamagui.config.ts` and `tamagui.config.ts` (root) created. Both import from `constants/theme.ts`. Animation driver: `@tamagui/config/reanimated` (NOT `@tamagui/animations-react-native`).
-- `babel.config.js` with `babel-preset-expo` (`jsxImportSource: 'tamagui'`) + `@tamagui/babel-plugin` + `react-native-reanimated/plugin` (last).
-- `metro.config.js` with `wrapWithReanimatedMetroConfig` + `TamaguiMetroPlugin`.
-- `app/_layout.tsx` wrapped in `<TamaguiProvider config={tamaguiConfig} defaultTheme="light">`.
-- 4 palette hex values tightened for WCAG AA on white: `semantic.success` `#047857`, `semantic.warning` `#B45309`, `text.muted` `#64748B`, `border.strong` `#64748B`.
-- `tsconfig.json` excludes `Documentation/98-Reference-BasoBas/**` and `Documentation/99-Archive/**` from typecheck.
-- 3 screens migrated to Tamagui primitives: `SplashScreen`, `OnboardingScreen`, `PhoneEntryScreen`.
-
-**In progress / pending**:
-- 2 typecheck errors in `PhoneEntryScreen.tsx` lines 159 & 192 — `backgroundColor={colors.border.strong}` props. Fix by wrapping with `style={{ backgroundColor: ... }}`.
-- 4 screens still on React Native StyleSheet: `OtpVerify.tsx`, `Password.tsx`, `RoleSelection.tsx`, `ProfileScreen.tsx`.
-- 3 illustration components not yet built: `components/illustrations/{DiscoverIllustration,AiMatchIllustration,VerifiedIllustration}.tsx` (no images, pure shape composition per the Figma Make FeatureVisuals prompt in `Documentation/gemini_chat_context.md`).
-- Illustrations not yet wired into `OnboardingScreen.tsx`.
-
-**B.2 acceptance gate (must pass before B.3)**:
-- `npm run typecheck` returns 0 errors.
-- `npx expo start -c` boots without a Tamagui config error.
-- All 7 screens render with the same visual output as before the migration.
-- 3 illustration components are imported and rendered inside `OnboardingScreen` instead of the `Ionicons` icons.
-
-### B.3 — Execute Phase 2 of the Claude Code prompt
-
-Claude will:
-1. Create 15 reusable components in `components/ui/` and `components/layout/`
-2. Refactor all 7 screens to use the components
-3. Behavior should remain identical
-
 **Verify**:
+
 ```bash
-npm run typecheck
 npx expo start -c
-# All flows should work exactly as before
+# expect: no "installTurboModule" error, no gesture-handler crash
 ```
 
-### B.4 — Execute Phase 3 of the Claude Code prompt
+### B.2 — Install Native React Native Firebase (RNFirebase) + `expo-build-properties`
 
-Claude will:
-1. Create `lib/env.ts` (typed env reader)
-2. Create `services/validation/` (phone, password, email, profile)
-3. Create `store/registrationStore.ts` (Zustand + persistence)
-4. Create `store/authStore.ts` + `store/uiStore.ts`
-5. Create 5 custom hooks
-6. Refactor screens to use store instead of `useState`
+> **Why RNFirebase, not the JS SDK**: see `05-Build-and-Deploy/firebase-auth-plan-audit.md` finding #14. The JS SDK would force us to ship `react-native-webview` for invisible reCAPTCHA, which (a) is a hacky workaround, (b) costs us a network round-trip per send, and (c) isn't the industry standard. RNFirebase hooks into Google Play Integrity on Android and APNs on iOS for native, first-party device verification — no webview, no reCAPTCHA, no iframe.
+
+```bash
+# Add RNFirebase modules (native code, REBUILD dev client after)
+npx expo install @react-native-firebase/app \
+                 @react-native-firebase/auth \
+                 @react-native-firebase/firestore
+
+# Required for RNFirebase 21.x on Expo SDK 54 / new architecture
+npx expo install expo-build-properties
+
+# Drop anything JS-SDK-era we no longer need
+npm uninstall firebase react-native-webview
+```
+
+After install, **rebuild the dev client** (RNFirebase ships native code):
+
+```bash
+eas build --profile development --platform android --clear-cache
+# install the new APK on your Realme
+```
 
 **Verify**:
+
 ```bash
-npm run typecheck
-npx expo start -c
-# Try this: enter phone → kill app → reopen → phone number should still be there
+grep -E '"@react-native-firebase/(app|auth|firestore)"' package.json
+# expect: all three listed in dependencies
+grep -E '"(firebase|react-native-webview)"' package.json
+# expect: NOT in dependencies (the uninstall step actually removed them)
+```
+
+### B.3 — Drop `google-services.json` at the project root
+
+1. Open the Firebase Console → Project Settings → Your apps → Android app (`com.anonymous.edumentx`).
+2. If the Android app isn't registered yet, click **Add app** → Android → use package name `com.anonymous.edumentx` → register.
+3. **Add both fingerprints** under "SHA certificate fingerprints" — paste the SHA-1 and SHA-256 values from your `eas credentials` output. (The Firebase Console's "Display Fingerprint" section is the source of truth; if those don't match what `eas credentials` shows, re-paste from the CLI.)
+4. Click **Download google-services.json** and save the file to the **project root** (same level as `app.json` and `package.json`).
+5. Do **not** add `@react-native-firebase/app` as a config plugin in `app.json` — RNFB 21.x auto-initializes from `google-services.json` at native build time. Adding it will throw "plugin not found" on `expo prebuild`.
+
+**Verify**:
+
+```bash
+ls -lh google-services.json
+# expect: file present, ~1-2 KB
+cat google-services.json | head -3
+# expect: JSON opening with "project_info", "client": [...]
+```
+
+### B.4 — `app.json` `expo-build-properties` block
+
+Add the `expo-build-properties` plugin entry to `app.json` (required for RNFirebase 21.x on Expo SDK 54):
+
+```json
+{
+  "expo": {
+    "plugins": [
+      "expo-router",
+      ["expo-build-properties", {
+        "android": {
+          "compileSdkVersion": 35,
+          "targetSdkVersion": 35,
+          "minSdkVersion": 24
+        }
+      }]
+    ]
+  }
+}
+```
+
+**Verify**:
+
+```bash
+grep -A 6 'expo-build-properties' app.json
+# expect: the plugin block from above
 ```
 
 ### B.5 — Commit
 
 ```bash
-git add .
-git commit -m "feat: tamagui foundation + component library + zustand state"
+git add babel.config.js app.json package.json package-lock.json google-services.json
+git commit -m "feat: switch to @react-native-firebase/* + expo-build-properties"
 git push
 ```
 
-**Deliverable**: Tamagui-powered app, all 7 screens migrated, reusable components, persistent state.
+**Deliverable**: dev client boots cleanly; RNFirebase installed; `google-services.json` at root; `expo-build-properties` configured; ready for Phase 3.
 
 ---
 
-## Phase C — Backend (Sprint 2: 1-2 weeks)
+## Phase C — Backend (Sprint 2.1: 1-2 weeks)
 
-**Owner**: You (manual Firebase setup) + Claude Code (wiring)
+**Owner**: You (manual Firebase setup) + Claude Code (wiring) + **Antigravity** (optional, for Firebase console ops — see `06-Prompts/antigravity-integration.md`)
+**Implementation plan**: `05-Build-and-Deploy/firebase-auth-plan.md` (audited June 12, 2026)
+**Operations doc**: `04-Firebase/phase-3-notes.md`
 
 ### C.1 — Firebase project setup (DO THIS MANUALLY)
 
@@ -178,14 +201,13 @@ git push
 1. In Firebase Console → **Authentication** → Get started
 2. **Sign-in method** tab → enable:
    - ✅ **Phone** (primary for students/parents)
-   - ✅ **Email/Password** (fallback + admin)
-   - ✅ **Google** (optional, for social login)
 3. For Phone auth: add test phone number `+9779800000000` with code `123456` for local testing
+4. **Do NOT enable Email/Password or Google yet** — the v1 admin flow uses Firestore lookup, not Firebase Auth (see `04-Firebase/phase-3-notes.md §4`)
 
 ### C.3 — Create Firestore database
 
 1. **Firestore Database** → Create database
-2. Start in **production mode** (we have rules ready)
+2. Start in **production mode** (we have rules ready in `firebase/firestore.rules`)
 3. Region: **asia-south1** (Mumbai)
 
 ### C.4 — Create Storage bucket
@@ -194,108 +216,104 @@ git push
 2. Start in **production mode**
 3. Use default bucket
 
-### C.5 — Register Android app
+### C.5 — Android app registration (DO THIS — RNFirebase needs it)
 
-1. Project Settings (⚙️) → General → Your apps → **Add app** → Android
-2. Package name: `com.suhanverse.edumentx`
-3. App nickname: `EdumentX`
-4. **SHA-1**: Run this in your terminal:
-   ```bash
-   cd /media/xlegion/Win/PROJECTS/EdumentX
-   npx expo credentials:manager
-   # → Android
-   # → Keystore
-   # → Display Fingerprint
-   # Copy the SHA-1
-   ```
-5. Paste SHA-1 in the Firebase form
-6. Download `google-services.json` → place in project root
-7. Update `app.json`:
-   ```json
-   "android": {
-     "package": "com.suhanverse.edumentx",
-     "googleServicesFile": "./google-services.json"
-   }
-   ```
+> **Required because**: RNFirebase reads `google-services.json` at native build time. Without the file, every `import auth from '@react-native-firebase/auth'` call returns an uninitialized auth instance, and the app crashes on first `signInWithPhoneNumber`.
 
-### C.6 — Populate `.env`
+1. Firebase Console → Project Settings → Your apps
+2. Click **Add app** → choose the **Android** icon
+3. **Android package name**: `com.anonymous.edumentx` (must match `app.json` exactly)
+4. **App nickname**: `EdumentX Android`
+5. **Debug signing certificate SHA-1**: paste the SHA-1 from your `eas credentials` → Display Fingerprint output
+6. **Debug signing certificate SHA-256**: paste the SHA-256 from the same output
+7. Click **Register app** → **Download google-services.json** → save to the **project root** (same level as `app.json` and `package.json`)
+8. **Do not** add `@react-native-firebase/app` as a config plugin in `app.json` — RNFB 21.x auto-initializes. Adding it will throw "plugin not found" on `expo prebuild`.
+
+If you change the Android package name in `app.json` or rotate the keystore (`eas credentials` → Keystore → Reset), the SHA-1/SHA-256 change and you must re-register the app in the Firebase Console and re-download `google-services.json`. The old one will silently break auth.
+
+### C.6 — Verify `google-services.json` and `.env`
 
 ```bash
 cd /media/xlegion/Win/PROJECTS/EdumentX
-cat > .env <<'EOF'
-EXPO_PUBLIC_FIREBASE_API_KEY=AIza...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=edumentx-dev.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=edumentx-dev
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=edumentx-dev.appspot.com
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-EXPO_PUBLIC_FIREBASE_APP_ID=1:123:web:abc
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
-EXPO_PUBLIC_APP_ENV=development
-EOF
+ls -lh google-services.json
+# expect: file present at project root
+
+cat .env
+# expect: EXPO_PUBLIC_FIREBASE_USE_EMULATOR present (set to "false" by default)
 ```
 
-Also update `app.json` to expose these via `extra`:
-```json
-{
-  "expo": {
-    "extra": {
-      "firebaseApiKey":            "...",
-      "firebaseAuthDomain":        "...",
-      "firebaseProjectId":         "...",
-      "firebaseStorageBucket":     "...",
-      "firebaseMessagingSenderId": "...",
-      "firebaseAppId":             "..."
-    }
-  }
-}
-```
+**Important**: with RNFirebase, `.env` only carries `EXPO_PUBLIC_FIREBASE_USE_EMULATOR`. The `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`, etc. values are no longer read at runtime — RNFirebase reads them from `google-services.json` at **native build time**, not from `process.env`. The Firebase JS-SDK-era env-vars in `.env` are harmless if still present (unused) but should be cleaned up. The runtime config is one source of truth now: `google-services.json`.
 
-### C.7 — Start emulators
+### C.7 — Start emulators (optional, for offline dev)
 
 ```bash
-cd /media/xlegion/Win/PROJECTS/EdumentX
 firebase emulators:start
-# Open http://localhost:4000 to see the emulator UI
+# → Firestore at 127.0.0.1:8080
+# → Auth at 127.0.0.1:9099 (auto-detected by RNFirebase when env-flag is set)
+# → Emulator UI at http://localhost:4000
+
+# In another terminal, tell the app to use them:
+echo 'EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true' >> .env
 ```
 
-In another terminal:
-```bash
-# Add to .env so the app connects to emulators
-echo 'EXPO_PUBLIC_USE_FIREBASE_EMULATOR=true' >> .env
-```
+The Auth emulator is auto-wired by RNFirebase when `EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true` is set — no separate `connectAuthEmulator` call needed (the native SDK detects it). For SMS-free local testing, you can also add a test phone number in the Firebase Console (Auth → Sign-in method → Phone → "Phone numbers for testing" → `+9779800000000` → code `123456`).
 
-### C.8 — Execute Phase 4 of the Claude Code prompt
+### C.8 — Execute the Firebase auth plan
+
+Paste this into Claude Code:
+
+```
+Implement the Firebase Auth + dashboards plan in 
+Documentation/05-Build-and-Deploy/firebase-auth-plan.md (13 steps, audited 
+June 12 — see firebase-auth-plan-audit.md for the 14 corrections, in 
+particular finding #14 about the @react-native-firebase/* SDK). Read the 
+plan first, then the operations doc in 04-Firebase/phase-3-notes.md, then 
+execute Steps 0–13 in order. After each step, run `npm run typecheck` to 
+catch regressions. Stop and ask if any step contradicts the actual code 
+(screens, lib/registration.ts, tailwind.config.js, package.json) — do not 
+silently invent paths.
+```
 
 Claude will:
-1. Create `services/firebase/{config,auth,firestore,storage,errors}.ts`
-2. Create `types/user.ts`
-3. Create `hooks/useAuth.ts`
-4. Refactor all auth screens to call real Firebase functions
-5. Update Firestore + Storage security rules
+1. Verify `google-services.json` is at the project root (Step 1.b)
+2. Add `expo-build-properties` plugin to `app.json` (Step 1.c)
+3. Create `services/firebase/{authService,firestoreService,errors,emulator}.ts` (Steps 3, 5, 6) — no `config.ts` (RNFirebase auto-initializes)
+4. Create `store/authStore.ts` + `hooks/useAuth.ts` + `hooks/useRedirectAfterAuth.ts` (Step 4)
+5. Refactor `PhoneEntryScreen`, `OtpVerify`, `Password`, `RoleSelection` (Step 3.b + Step 8)
+6. Create 3 dashboards in `screens/dashboards/` + 3 routes in `app/(app)/` (Step 9)
+7. Update `firebase/firestore.rules` to allow the subcollections and the public-read admins (Step 10)
+8. Add validation pure-functions in `services/validation/` (Step 11)
+9. Delete `screens/auth/ProfileScreen.tsx` (dead code)
+10. Move existing auth routes from `app/*.tsx` into `app/(auth)/*.tsx`
 
 **Verify**:
+
 ```bash
-# Test full signup flow:
-# 1. Enter +977 9800000000 (test number)
-# 2. Enter 123456 (test OTP)
-# 3. Set password "TestPass123"
-# 4. Select "Student" role
-# 5. Fill profile
-# 6. Click "Finish setup"
-# → Should create user in Firebase Auth
-# → Should create user document in Firestore (check emulator UI)
-# → Should navigate to dashboard
+# Typecheck
+npm run typecheck
+# expect: 0 errors
+
+# Boot
+npx expo start -c
+# expect: no installTurboModule error, no auth/argument-error from reCAPTCHA
+# expect: no "Firebase not initialized" warnings from RNFirebase
+
+# Run the 3 e2e paths from plan Step 13:
+# 1. Student: phone → OTP → password → role=Student → profile → dashboard
+# 2. Tutor: phone → OTP → password → role=Tutor → profile → dashboard
+# 3. Admin: phone-entry → Log in tab → admin@edumentx.dev / Admin@123 → admin dashboard
+# (Run the seedAdmins script once to create the admin doc: `node scripts/seedAdmins.ts`)
 ```
 
 ### C.9 — Commit
 
 ```bash
 git add .
-git commit -m "feat: firebase auth + firestore + storage integration"
+git commit -m "feat: firebase auth + firestore + role dashboards (phase 3)"
 git push
 ```
 
-**Deliverable**: Working signup/login with real Firebase backend, user data persisted, secure rules in place.
+**Deliverable**: end-to-end auth that works (student/tutor OTP signup, admin email login) with v1 security caveats documented in `04-Firebase/phase-3-notes.md`.
 
 ---
 
@@ -339,7 +357,7 @@ It should show:
 - "Recommended for you" section
 - "Nearby tutors" preview
 
-Use the Tamagui design tokens. No inline styles. Follow the Figma brief in 
+Use the NativeWind design tokens (see `tailwind.config.js`). No inline styles. Follow the Figma brief in 
 Documentation/06-Prompts/Figma-Make/ for visual specs.
 ```
 
@@ -517,4 +535,4 @@ Create:
 
 ---
 
-*Generated for EdumentX · June 2026 · v2.0 · Last updated June 6, 2026 (Phase 1 in progress)*
+*Generated for EdumentX · June 2026 · v3.1 · Last updated June 12, 2026 (Phase 1.5 complete, Phase 2 next with RNFirebase override, Phase 3 plan audited + SDK rewritten to @react-native-firebase/*)*
