@@ -25,16 +25,26 @@ Generates a complete, industry-grade, multi-role UI design for EdumentX with:
 **File**: [`Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md`](./Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md)
 
 Refactors the EdumentX codebase to:
-- Adopt Tamagui as the UI compiler
-- Centralize design tokens in a Tamagui config matching `constants/theme.ts`
-- Establish a Firebase service layer (auth, firestore, storage)
-- Add Zustand for global state with persistence
-- Use lucide-react-native for icons
-- Set up multi-role navigation (Student/Tutor/Admin)
+- Use **NativeWind 4.2 + Tailwind 3.4** as the styling layer (Tamagui is no longer in the stack — see `00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md §16.1`)
+- Establish a Firebase service layer (`auth`, `firestore`, `errors`) using the **Firebase JS SDK**, not `@react-native-firebase/*`
+- Add Zustand for global state with persistence (Phase 4)
+- Set up multi-role navigation (Student/Tutor/Admin) via `app/(auth)/` and `app/(app)/` route groups
 
 **When to use**: When you want to migrate the codebase to a production-ready architecture, or when adding major new features.
 
 **Compatible tools**: Claude Code (VS Code), Cursor (with Claude model), Anthropic API directly.
+
+> **Note**: the master prompt itself was last updated for the Tamagui world. As of June 12, 2026 the active plan is `05-Build-and-Deploy/firebase-auth-plan.md` (audited). If you re-paste the master prompt, you will get suggestions that contradict the current NativeWind + Firebase-JS-SDK state — always reference the plan + operations doc instead.
+
+### 🛰️ Gemini Antigravity + Claude (Firebase Sprint)
+
+**File**: [`antigravity-integration.md`](./antigravity-integration.md)
+
+Explains how to pair **Antigravity** (the Google AI Pro / Firebase console agent) with **Claude Code** to cover the full Firebase sprint. Antigravity handles the console-side ops (project creation, provider enable, rules review, doc inspection); Claude handles the code-side (plan execution, debug, refactor). Includes a 3-day sprint workflow and a rules-review feedback loop.
+
+**When to use**: During Phase C (Backend / Firebase) of the implementation roadmap.
+
+**Compatible tools**: Antigravity (Firebase Console) + Claude Code.
 
 ## How to Use These Prompts
 

@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
+import { sendOTP, verifyOTP } from "@/services/firebase/authService";
+import { useAuthStore } from "@/store/authStore";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -28,6 +30,12 @@ export function OtpVerify() {
   const inputRefs = useRef<(RNTextInput | null)[]>([]);
   const [otp, setOtp] = useState<OtpDigit[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const confirmationResult = useAuthStore((state) => state.confirmationResult);
+  const setConfirmationResult = useAuthStore((state) => state.setConfirmationResult);
+  const setUser = useAuthStore((state) => state.setUser);
 
   const phone = useMemo(() => {
     const rawPhone = Array.isArray(params.phone) ? params.phone[0] : params.phone;
@@ -101,23 +109,42 @@ export function OtpVerify() {
     requestAnimationFrame(() => focusInput(index - 1));
   }
 
-  function handleResend() {
-    if (timer > 0) {
+  async function handleResend() {
+    if (timer > 0 || isResending) {
       return;
     }
-    clearOtp();
-    setTimer(RESEND_SECONDS);
-    Alert.alert(
-      "OTP resent",
-      "Firebase phone verification will send the real SMS when auth is connected.",
-    );
+    setIsResending(true);
+    try {
+      const fullPhone = phone.startsWith("+977") ? phone : `+977${phone}`;
+      const newConfirmation = await sendOTP(fullPhone);
+      setConfirmationResult(newConfirmation);
+      clearOtp();
+      setTimer(RESEND_SECONDS);
+    } catch (error: any) {
+      Alert.alert("Error resending OTP", error.message || "Something went wrong.");
+    } finally {
+      setIsResending(false);
+    }
   }
 
-  function handleVerify() {
-    if (!canVerify) {
+  async function handleVerify() {
+    if (!canVerify || isVerifying) {
       return;
     }
-    router.push("/create_password");
+    if (!confirmationResult) {
+      Alert.alert("Session Error", "No active verification session. Please go back and resend.");
+      return;
+    }
+    setIsVerifying(true);
+    try {
+      const credential = await verifyOTP(confirmationResult, code);
+      setUser(credential.user);
+      router.push("/create_password");
+    } catch (error: any) {
+      Alert.alert("Verification failed", "The code you entered is incorrect or expired.");
+    } finally {
+      setIsVerifying(false);
+    }
   }
 
   return (
@@ -217,7 +244,7 @@ export function OtpVerify() {
             </Text>
             <Pressable
               accessibilityRole="button"
-              disabled={timer > 0}
+              disabled={timer > 0 || isResending}
               hitSlop={8}
               onPress={handleResend}
               className="active:opacity-70"
@@ -227,7 +254,7 @@ export function OtpVerify() {
                   timer > 0 ? "text-text-muted" : "text-night"
                 }`}
               >
-                Resend
+                {isResending ? "..." : "Resend"}
               </Text>
             </Pressable>
           </View>
@@ -235,12 +262,12 @@ export function OtpVerify() {
           <View className="flex-1 justify-end pt-7">
             <Pressable
               accessibilityRole="button"
-              disabled={!canVerify}
+              disabled={!canVerify || isVerifying}
               onPress={handleVerify}
               className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
               <Text className="text-button text-white disabled:text-text-muted">
-                Verify OTP
+                {isVerifying ? "Verifying..." : "Verify OTP"}
               </Text>
             </Pressable>
           </View>

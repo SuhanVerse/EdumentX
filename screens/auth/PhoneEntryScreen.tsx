@@ -16,6 +16,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
+import { sendOTP, signInWithGoogle } from "@/services/firebase/authService";
+import { useAuthStore } from "@/store/authStore";
 
 type AuthMode = "signup" | "login";
 
@@ -25,6 +27,8 @@ export function PhoneEntryScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const setConfirmationResult = useAuthStore((state) => state.setConfirmationResult);
 
   const isPhoneValid = phone.length === 10;
   const isPasswordValid = mode === "signup" || password.length >= 6;
@@ -34,13 +38,23 @@ export function PhoneEntryScreen() {
     setPhone(value.replace(/\D/g, "").slice(0, 10));
   }
 
-  function handleSubmit() {
-    if (!canSubmit) {
+  async function handleSubmit() {
+    if (!canSubmit || isSending) {
       return;
     }
     if (mode === "signup") {
-      registration.update({ phone });
-      router.push({ pathname: "/otpverify", params: { phone } });
+      setIsSending(true);
+      try {
+        const fullPhone = `+977${phone}`;
+        const confirmation = await sendOTP(fullPhone);
+        setConfirmationResult(confirmation);
+        registration.update({ phone: fullPhone });
+        router.push({ pathname: "/otpverify", params: { phone: fullPhone } });
+      } catch (error: any) {
+        Alert.alert("Error sending OTP", error.message || "Something went wrong.");
+      } finally {
+        setIsSending(false);
+      }
       return;
     }
     Alert.alert(
@@ -48,6 +62,17 @@ export function PhoneEntryScreen() {
       "Firebase login and role routing will be added in the authentication sprint.",
     );
   }
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const userCredential = await signInWithGoogle();
+      useAuthStore.getState().setUser(userCredential.user);
+      router.push("/role-selection");
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Sign-In Failed", "Could not connect to Google. Please try again.");
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
@@ -172,16 +197,32 @@ export function PhoneEntryScreen() {
           <View className="gap-3 pt-6">
             <Pressable
               accessibilityRole="button"
-              disabled={!canSubmit}
+              disabled={!canSubmit || isSending}
               onPress={handleSubmit}
               className="min-h-btn rounded-card items-center justify-center bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
               <Text className="text-button text-white disabled:text-text-muted">
-                {mode === "signup" ? "Send OTP" : "Log in"}
+                {isSending ? "Sending..." : mode === "signup" ? "Send OTP" : "Log in"}
               </Text>
             </Pressable>
 
-            <Text className="text-caption text-text-muted text-center">
+            <View className="flex-row items-center my-4">
+              <View className="flex-1 h-[1px] bg-border" />
+              <Text className="mx-4 text-text-muted font-medium">OR</Text>
+              <View className="flex-1 h-[1px] bg-border" />
+            </View>
+
+            <Pressable 
+              onPress={handleGoogleSignIn}
+              className="min-h-btn bg-surface border border-border rounded-card flex-row justify-center items-center active:opacity-70"
+            >
+              <Ionicons name="logo-google" size={20} color={colors.text.primary} />
+              <Text className="text-text-primary font-semibold text-button ml-2">
+                Continue with Google
+              </Text>
+            </Pressable>
+
+            <Text className="text-caption text-text-muted text-center mt-3">
               By continuing, you agree to EdumentX&apos;s Terms and Privacy Policy.
             </Text>
           </View>

@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,26 +12,82 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getFirestore,
+  doc,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 
 import { colors } from "@/constants/colors";
+import { useAuthStore, type UserRole } from "@/store/authStore";
 
-type Role = "student" | "tutor";
+// Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
+// values that live in the `role` field on `users/{uid}`. The Zustand store
+// uses the same lowercase values (see `UserRole` in store/authStore.ts) so
+// they stay in lock-step.
+type Role = Exclude<UserRole, "admin" | null>;
 
 export function RoleSelectionScreen() {
   const router = useRouter();
-  const [role, setRole] = useState<Role | null>(null);
+  const user = useAuthStore((state) => state.user);
+  const setRole = useAuthStore((state) => state.setRole);
+  const [role, setLocalRole] = useState<Role | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const canContinue = role !== null;
+  const canContinue = role !== null && !isSaving;
 
   function handleRolePress(selectedRole: Role) {
-    setRole(selectedRole);
+    setLocalRole(selectedRole);
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!canContinue) {
       return;
     }
-    router.push(role === "tutor" ? "/profile-tutor" : "/profile-student");
+    if (!user) {
+      Alert.alert(
+        "Not signed in",
+        "Please sign in (phone OTP or Google) before picking a role.",
+      );
+      router.replace("/phone-entry");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // Modular RNFirebase v22+ API: getFirestore + doc + setDoc, not
+      // firestore().collection().doc().set(). The namespaced form logs a
+      // deprecation warning on every call.
+      const db = getFirestore(getApp());
+      const userRef = doc(db, "users", user.uid);
+      const now = serverTimestamp();
+      await setDoc(
+        userRef,
+        {
+          uid: user.uid,
+          email: user.email ?? null,
+          displayName: user.displayName ?? null,
+          phone: user.phoneNumber ?? null,
+          role,
+          createdAt: now,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+      // Commit to local store so the root layout guard sees the role
+      // immediately on the next render and stops redirecting back here.
+      setRole(role);
+      router.replace(role === "tutor" ? "/profile-tutor" : "/profile-student");
+    } catch (error: any) {
+      console.error("RoleSelection: failed to write role to Firestore", error);
+      Alert.alert(
+        "Could not save role",
+        error?.message ?? "Please check your connection and try again.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -101,7 +158,7 @@ export function RoleSelectionScreen() {
             className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
             <Text className="text-button text-white disabled:text-text-muted">
-              Continue
+              {isSaving ? "Saving..." : "Continue"}
             </Text>
           </Pressable>
         </View>
