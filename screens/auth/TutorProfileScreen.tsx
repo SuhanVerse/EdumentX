@@ -133,7 +133,7 @@ export function TutorProfileScreen() {
     //   "Firebase profile saving will be connected in the auth sprint.",
     // );
 
-    router.push("/student-home")
+    router.push("/tutor-home")
   }
 
   function adjustExperience(delta: number) {
