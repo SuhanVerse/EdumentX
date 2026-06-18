@@ -91,11 +91,12 @@ export function StudentProfileScreen() {
       subjects,
       location,
     });
-
-    Alert.alert(
-      "Profile ready",
-      "Firebase profile saving will be connected in the auth sprint.",
-    );
+    
+    // Alert.alert(
+    //   "Profile ready",
+    //   "Firebase profile saving will be connected in the auth sprint.",
+    // );
+    router.push("/student-home")
   }
 
   return (
