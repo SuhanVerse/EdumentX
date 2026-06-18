@@ -3,14 +3,13 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -18,11 +17,6 @@ import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
-import {
-  INPUT_BASE,
-  INPUT_BORDER_ERROR,
-  INPUT_BORDER_OK,
-} from "@/components/forms/inputs";
 import { colors } from "@/constants/colors";
 import { registration, useRegistration } from "@/lib/registration";
 
@@ -134,10 +128,12 @@ export function TutorProfileScreen() {
       monthlyRateNpr: monthlyRateNumber,
     });
 
-    Alert.alert(
-      "Tutor profile ready",
-      "Firebase profile saving will be connected in the auth sprint.",
-    );
+    // Alert.alert(
+    //   "Tutor profile ready",
+    //   "Firebase profile saving will be connected in the auth sprint.",
+    // );
+
+    router.push("/student-home")
   }
 
   function adjustExperience(delta: number) {
@@ -328,9 +324,9 @@ export function TutorProfileScreen() {
             accessibilityRole="button"
             disabled={!canSubmit}
             onPress={handleSubmit}
-            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
+            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90"
           >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
+            <Text className="text-button text-base font-semibold text-white">
               Finish setup
             </Text>
           </Pressable>

@@ -34,6 +34,7 @@ export default function RootLayout() {
           <Stack.Screen name="role-selection" />
           <Stack.Screen name="profile-student" />
           <Stack.Screen name="profile-tutor" />
+          <Stack.Screen name="student-home" />
         </Stack>
         <StatusBar style="dark" />
       </SafeAreaProvider>
