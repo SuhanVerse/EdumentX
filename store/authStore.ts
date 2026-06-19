@@ -16,7 +16,23 @@ interface AuthState {
   setRole: (role: UserRole) => void;
   setLoading: (isLoading: boolean) => void;
   setConfirmationResult: (result: FirebaseAuthTypes.ConfirmationResult | null) => void;
+  /**
+   * Clear the cached user / role / pending OTP confirmation. Called by
+   * the dashboards' "Log out" buttons and by the `onAuthStateChanged`
+   * callback in `app/_layout.tsx` when the native auth session ends.
+   * Note: this does NOT actually sign the user out of Firebase — call
+   * `auth().signOut()` (or `authService.logout()`) first.
+   */
+  reset: () => void;
 }
+
+// Initial state used by `reset()`. Kept module-local so the store and
+// the reset path stay in lock-step.
+const initialState: Pick<AuthState, 'user' | 'role' | 'confirmationResult'> = {
+  user: null,
+  role: null,
+  confirmationResult: null,
+};
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -27,4 +43,5 @@ export const useAuthStore = create<AuthState>((set) => ({
   setRole: (role) => set({ role }),
   setLoading: (isLoading) => set({ isLoading }),
   setConfirmationResult: (confirmationResult) => set({ confirmationResult }),
+  reset: () => set({ ...initialState, isLoading: false }),
 }));

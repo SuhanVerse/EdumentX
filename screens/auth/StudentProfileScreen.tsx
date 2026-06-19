@@ -12,6 +12,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
@@ -19,6 +26,7 @@ import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
+import { useAuthStore } from "@/store/authStore";
 
 const GRADES = [
   "Grade 7",
@@ -52,6 +60,7 @@ type FormErrors = {
 
 export function StudentProfileScreen() {
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -59,6 +68,7 @@ export function StudentProfileScreen() {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   function toggleSubject(option: string) {
     setSubjects((prev) =>
@@ -74,7 +84,7 @@ export function StudentProfileScreen() {
     location !== null &&
     location.city.trim().length > 0;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const validationErrors: FormErrors = {};
     if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
     if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
@@ -84,6 +94,9 @@ export function StudentProfileScreen() {
 
     if (Object.keys(validationErrors).length > 0) return;
 
+    // Cache the draft in the registration shim so the in-flight navigation
+    // can read it before Firestore round-trip completes. The shim will be
+    // removed once Zustand + AsyncStorage persist lands in Phase 4.
     registration.updateProfile({
       fullName: fullName.trim(),
       email: email.trim(),
@@ -91,12 +104,49 @@ export function StudentProfileScreen() {
       subjects,
       location,
     });
-    
-    // Alert.alert(
-    //   "Profile ready",
-    //   "Firebase profile saving will be connected in the auth sprint.",
-    // );
-    router.push("/student-home")
+
+    if (!user) {
+      Alert.alert(
+        "Not signed in",
+        "Please sign in (phone OTP or Google) before completing your profile.",
+      );
+      router.replace("/phone-entry");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Modular RNFirebase v22+ API: getFirestore + doc + setDoc, not
+      // firestore().collection().doc().set(). The namespaced form logs a
+      // deprecation warning on every call.
+      const db = getFirestore(getApp());
+      // Per Documentation/04-Firebase/phase-3-notes.md §3, the student
+      // profile lives at `users/{uid}/studentProfile/default` (not on the
+      // user doc itself, so it can be re-written cheaply on every "Edit
+      // profile" save without touching auth metadata).
+      const profileRef = doc(db, "users", user.uid, "studentProfile", "default");
+      await setDoc(
+        profileRef,
+        {
+          grade,
+          subjects,
+          location,
+          fullName: fullName.trim(),
+          email: email.trim(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      router.replace("/student-home");
+    } catch (error: any) {
+      console.error("StudentProfileScreen: failed to save profile", error);
+      Alert.alert(
+        "Could not save profile",
+        error?.message ?? "Please check your connection and try again.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -184,12 +234,12 @@ export function StudentProfileScreen() {
 
           <Pressable
             accessibilityRole="button"
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSaving}
             onPress={handleSubmit}
             className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
           >
             <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              Finish setup
+              {isSaving ? "Saving..." : "Finish setup"}
             </Text>
           </Pressable>
         </ScrollView>

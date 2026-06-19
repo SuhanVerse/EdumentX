@@ -150,9 +150,10 @@ EdumentX/
 │   ├── _layout.tsx                 # Root: GestureHandler → SafeArea → Stack
 │   ├── index.tsx                   # "/" → SplashScreen + 1800ms auto-nav
 │   ├── onboarding.tsx              # /onboarding
-│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle)
+│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle + "Continue with email" link)
 │   ├── otpverify.tsx               # /otpverify
 │   ├── create_password.tsx         # /create_password
+│   ├── email-signup.tsx            # /email-signup (email + password + Email Verification)
 │   ├── role-selection.tsx          # /role-selection
 │   └── profile.tsx                 # /profile
 │
@@ -161,6 +162,7 @@ EdumentX/
 │   │   ├── PhoneEntryScreen.tsx    # 385 lines
 │   │   ├── OtpVerify.tsx           # 397 lines
 │   │   ├── Password.tsx            # 357 lines
+│   │   ├── EmailSignUp.tsx         # email + password sign-in/up with pending verification state
 │   │   ├── RoleSelection.tsx       # 323 lines
 │   │   └── ProfileScreen.tsx       # 458 lines
 │   └── onboarding/
@@ -229,6 +231,7 @@ EdumentX/
       <Stack.Screen name="phone-entry" />
       <Stack.Screen name="otpverify" />
       <Stack.Screen name="create_password" />
+      <Stack.Screen name="email-signup" />
       <Stack.Screen name="role-selection" />
       <Stack.Screen name="profile" />
     </Stack>
@@ -448,11 +451,23 @@ theme.components = {
 └──────┬───────────────┘
        ↓
 ┌──────────────────────┐
-│ ProfileSetup         │  Dark header + sand body
-│ /profile             │  Avatar, name, email, grade, subject
+│ ProfileSetup (first  │  Dark header + sand body
+│ time only)           │  Avatar, name, email, grade, subject
+│ /profile-student     │  → after submit, lands on /student-home
+│ /profile-tutor       │  → after submit, lands on /tutor-home
 └──────┬───────────────┘
        ↓
-   [Dashboard]  ⏳ Not yet implemented
+┌──────────────────────┐
+│ StudentHome          │  Dark hero + sand body
+│ /student-home        │  Search, nearby tutors, verified tutors,
+│                      │  quick actions (all mock data for now)
+└──────────────────────┘
+
+┌──────────────────────┐
+│ TutorDashboard       │  4 stat cards + today's sessions
+│ /tutor-home          │  + pending requests + batch requests
+│                      │  + availability slots (all mock for now)
+└──────────────────────┘
 ```
 
 ### Route-to-Screen Mapping
@@ -464,10 +479,12 @@ theme.components = {
 | `/phone-entry` | `PhoneEntryScreen` | ✅ |
 | `/otpverify` | `OtpVerify` | ✅ |
 | `/create_password` | `CreatePassword` (Password.tsx) | ✅ |
+| `/email-signup` | `EmailSignUp` (email + password + Email Verification) | ✅ |
 | `/role-selection` | `RoleSelectionScreen` | ✅ |
-| `/profile` | `ProfileScreen` | ✅ |
-| `/student/dashboard` | — | ⏳ TODO |
-| `/tutor/dashboard` | — | ⏳ TODO |
+| `/profile-student` | `StudentProfileScreen` (first-time profile only) | ✅ |
+| `/profile-tutor` | `TutorProfileScreen` (first-time profile only) | ✅ |
+| `/student-home` | `StudentHome` | ✅ (mock data — wire to Firestore next) |
+| `/tutor-home` | `TutorDashboard` | ✅ (mock data — wire to Firestore next) |
 | `/discover` (map) | — | ⏳ TODO |
 | `/tutor/:id` | — | ⏳ TODO |
 | `/chat/:id` | — | ⏳ TODO |
@@ -1631,25 +1648,28 @@ Stay focused on Phase 2 (babel + webview) and Phase 3 (auth + dashboards) until 
 ### Appendix A: Full File Inventory
 
 ```
-app/_layout.tsx                          24 lines   Root Stack
+app/_layout.tsx                          191 lines  Root Stack + auth guard
 app/index.tsx                            20 lines   Entry + splash timer
 app/onboarding.tsx                       ~5 lines   Route wrapper
 app/phone-entry.tsx                      ~5 lines
 app/otpverify.tsx                        ~5 lines
 app/create_password.tsx                  ~5 lines
 app/role-selection.tsx                   ~5 lines
-app/profile-student.tsx                  ~5 lines
-app/profile-tutor.tsx                    ~5 lines
+app/profile-student.tsx                  ~5 lines   First-time profile only
+app/profile-tutor.tsx                    ~5 lines   First-time profile only
+app/student-home.tsx                     ~5 lines   Wraps screens/student/student_home.tsx
+app/tutor-home.tsx                       ~5 lines   Wraps screens/tutor/tutor_home.tsx
 
 screens/onboarding/SplashScreen.tsx      98 lines
 screens/onboarding/OnboardingScreen.tsx  195 lines
 screens/auth/PhoneEntryScreen.tsx        ~190 lines
 screens/auth/OtpVerify.tsx               ~210 lines
 screens/auth/Password.tsx                ~195 lines
-screens/auth/RoleSelection.tsx           ~170 lines
-screens/auth/ProfileScreen.tsx           🟡 DEAD — to be deleted in Phase 3
+screens/auth/RoleSelection.tsx           ~190 lines   Now writes role to Firestore
 screens/auth/StudentProfileScreen.tsx    ~200 lines
 screens/auth/TutorProfileScreen.tsx      ~230 lines
+screens/student/student_home.tsx         311 lines   Mock-data student dashboard
+screens/tutor/tutor_home.tsx             740 lines   Mock-data tutor dashboard
 
 components/forms/AvatarUploader.tsx      ~110 lines
 components/forms/ChipGroup.tsx           ~80 lines
@@ -1715,9 +1735,9 @@ Total source lines (screens + app + components + lib): ~2200
 
 | Sprint | Duration | Goals |
 |--------|----------|-------|
-| **Sprint 1: Auth Foundation** | 1 week | Firebase Auth, registration store, persist data, country picker |
-| **Sprint 2: Component Library** | 1 week | Extract `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` |
-| **Sprint 3: Dashboards** | 2 weeks | Student/Tutor dashboards with role-based routing, navigation tabs |
+| **Sprint 1: Auth Foundation** | 1 week | ✅ Done — Firebase Auth (RNFirebase), registration store, country picker |
+| **Sprint 2: Component Library** | 1 week | ✅ Mostly done — `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` extracted |
+| **Sprint 3: Dashboards** | 2 weeks | ✅ UI shipped with mock data (`/student-home`, `/tutor-home`); ⏳ next: wire to Firestore `tutors`, `enrollmentRequests`, `sessions` collections |
 | **Sprint 4: Map & Discovery** | 2 weeks | Google Maps, tutor list, filters, tutor detail screen |
 | **Sprint 5: Enrollments & Chat** | 2 weeks | Request flow, in-app messaging, notifications |
 | **Sprint 6: Polish & Beta** | 1 week | Onboarding polish, animations, accessibility audit, EAS build |

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
@@ -10,6 +11,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useAuthStore } from "@/store/authStore";
+import { logout } from "@/services/firebase/authService";
 
 /**
  * EdumentX — Student Home (UI-only milestone)
@@ -74,7 +78,32 @@ function showComingSoon(feature: string) {
   );
 }
 
+/**
+ * Sign the user out, clear the local auth store, and route back to the
+ * login screen. Uses the existing `authService.logout()` helper (modular
+ * RNFirebase v22+ API) and Zustand `useAuthStore.reset()` to drop the
+ * cached `user` / `role`. Without the `reset()` call, the next sign-in
+ * would briefly flash the previous role's dashboard before the new role
+ * doc is fetched.
+ */
+async function handleSignOut(router: ReturnType<typeof useRouter>) {
+  try {
+    await logout();
+    useAuthStore.getState().reset?.();
+  } catch (err) {
+    console.error("StudentHome: logout failed", err);
+    Alert.alert("Could not sign out", "Please try again.");
+    return;
+  }
+  // Replace the dashboard in the history stack so the user can't
+  // swipe-back into it. `replace` is mandatory — `push` would leave the
+  // dashboard mounted under /phone-entry and the layout guard would
+  // bounce back to the dashboard on the next render.
+  router.replace("/phone-entry");
+}
+
 export function StudentHome() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -229,6 +258,35 @@ export function StudentHome() {
               </Pressable>
             ))}
           </View>
+        </View>
+
+        {/* Sign out — required because there's no other way to clear the
+            native Firebase Auth session from inside a flat-route app
+            with no tab navigator. Confirms before destroying the
+            session so an accidental tap doesn't log the user out. */}
+        <View className="px-5 pt-4 pb-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            onPress={() => {
+              Alert.alert(
+                "Log out?",
+                "You'll need to verify your phone again next time you sign in.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Log out",
+                    style: "destructive",
+                    onPress: () => handleSignOut(router),
+                  },
+                ],
+              );
+            }}
+            className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-danger/10 active:opacity-80"
+          >
+            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            <Text className="text-button font-semibold text-danger">Log out</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -1,5 +1,10 @@
 import "@/global.css";
-import { Stack, useRouter, useSegments } from "expo-router";
+import {
+  Stack,
+  useRouter,
+  useSegments,
+  useRootNavigationState,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
@@ -24,14 +29,24 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 // Map from a raw Firestore `role` string to the route we want to land on
 // after a successful sign-in. We do the role→route mapping in one place so
 // the layout guard, dashboards, and tests all agree.
-function dashboardPathForRole(role: UserRole): "/profile-tutor" | "/profile-student" {
-  if (role === "tutor") return "/profile-tutor";
-  return "/profile-student";
+//
+// Note: the dashboards live at `/student-home` and `/tutor-home`. The
+// `/profile-student` and `/profile-tutor` routes still exist as the
+// first-time profile-completion flows and are NOT the dashboard entry.
+function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
+  if (role === "tutor") return "/tutor-home";
+  return "/student-home";
 }
 
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
+  // True once the root navigator has mounted. We must NOT call
+  // `router.replace(...)` before this is true — expo-router will throw
+  // "Attempted to navigate before mounting the Root Layout component".
+  // See https://docs.expo.dev/router/advanced/root-layout/#navigation-lifecycle
+  const navState = useRootNavigationState();
+  const isNavigatorReady = navState?.key != null;
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.role);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -104,19 +119,40 @@ export default function RootLayout() {
     return subscriber;
   }, [setUser, setRole, setLoading]);
 
+  // Email + password accounts must click the verification link in their
+  // inbox before they can reach the role selection / dashboard. Phone OTP
+  // and Google Sign-In are auto-verified, so we only check the flag when
+  // the user signed up via `createUserWithEmailAndPassword` (i.e. the
+  // `password` provider is present in `providerData`).
+  //
+  // Note: this is a "best effort" client-side check. The Firestore
+  // security rules in `firebase/firestore.rules` are the real source of
+  // truth — they only allow writes to `users/{uid}` once a `profileComplete`
+  // flag is set in a later sprint. Until then, the only damage an
+  // unverified user can do is read public docs.
+  const isEmailPasswordUser = !!user?.providerData.some(
+    (p) => p.providerId === "password",
+  );
+  const emailVerified = user?.emailVerified ?? true;
+
   // Redirect logic — runs on every render where `user` / `role` / segments
   // change. The order matters:
+  //   0. Wait for the root navigator to mount (otherwise expo-router throws
+  //      "Attempted to navigate before mounting the Root Layout component").
   //   1. While we're still loading the auth state, do nothing.
   //   2. If signed out, force onto an auth screen.
   //   3. If signed in but no role doc, force onto /role-selection.
-  //   4. If signed in + has role, force onto the right profile route.
+  //   4. If signed in via email/password but `emailVerified === false`,
+  //      force onto /email-signup (the "check your inbox" pending state).
+  //   5. If signed in + has role, force onto the right dashboard route.
   useEffect(() => {
+    if (!isNavigatorReady) return;
     if (isLoading) return;
     const currentRoute = segments.join("/");
     if (!user) {
       // Signed out — only the onboarding / phone-entry / otpverify /
-      // create_password screens are allowed. We treat /index and /onboarding
-      // as "always allowed".
+      // create_password / email-signup screens are allowed. We treat
+      // /index and /onboarding as "always allowed".
       const allowedForSignedOut = new Set([
         "",
         "index",
@@ -124,9 +160,25 @@ export default function RootLayout() {
         "phone-entry",
         "otpverify",
         "create_password",
+        "email-signup",
       ]);
       if (!allowedForSignedOut.has(currentRoute)) {
         router.replace("/phone-entry");
+      }
+      return;
+    }
+    // Signed in via email/password but unverified — bounce to the
+    // email-signup "pending" state until they click the link. We allow
+    // them to also sit on /email-signup (so the pending screen can do
+    // the reload + re-check) and on /phone-entry (in case they want to
+    // back out and use a different method).
+    if (isEmailPasswordUser && !emailVerified) {
+      const allowedWhileUnverified = new Set([
+        "email-signup",
+        "phone-entry",
+      ]);
+      if (!allowedWhileUnverified.has(currentRoute)) {
+        router.replace("/email-signup");
       }
       return;
     }
@@ -148,12 +200,13 @@ export default function RootLayout() {
       "phone-entry",
       "otpverify",
       "create_password",
+      "email-signup",
     ]);
     // Force them off the auth screens once they have a role.
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
     }
-  }, [user, role, isLoading, segments, router]);
+  }, [user, role, isLoading, isNavigatorReady, segments, router, isEmailPasswordUser, emailVerified]);
 
   // CRITICAL: always render the Stack, even while loading. Conditionally
   // returning a different tree from the same component (the loading View
@@ -170,6 +223,7 @@ export default function RootLayout() {
           <Stack.Screen name="phone-entry" />
           <Stack.Screen name="otpverify" />
           <Stack.Screen name="create_password" />
+          <Stack.Screen name="email-signup" />
           <Stack.Screen name="role-selection" />
           <Stack.Screen name="profile-student" />
           <Stack.Screen name="profile-tutor" />

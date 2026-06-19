@@ -14,7 +14,7 @@
 Phase 1.5: Foundation (NativeWind)    ✅ COMPLETE (June 8, 2026)
 Phase 2:   Babel fix + RNFirebase     ⏳ NEXT — see Phase B
 Phase 3:   Backend (Firebase Auth)     ⏳ see Phase C
-Phase 4:   Dashboards (role landing)  ⏳ see Phase D
+Phase 4:   Dashboards (role landing)  ✅ UI shipped (mock data) — wire to Firestore in Phase D
 Phase 5:   Map + Search + Bookings    ⏳ see Phase E
 Phase 6:   Admin + Verification       ⏳ see Phase F
 Phase 7:   Polish + Beta launch       ⏳ see Phase G
@@ -535,4 +535,22 @@ Create:
 
 ---
 
-*Generated for EdumentX · June 2026 · v3.1 · Last updated June 12, 2026 (Phase 1.5 complete, Phase 2 next with RNFirebase override, Phase 3 plan audited + SDK rewritten to @react-native-firebase/*)*
+## Recent Updates (June 19, 2026)
+
+**Auth sprint v2 — completed in this session.** Five follow-ups to the original Phase 3 plan, all wired and typechecked:
+
+- **Dashboards with mock data** — `/student-home` and `/tutor-home` shipped as UI-only milestones (PRs #28, #30). The `_layout.tsx` redirect guard now gates on `useRootNavigationState()` to prevent the "Attempted to navigate before mounting the Root Layout component" crash, and routes the signed-in user straight to the right dashboard after picking a role.
+- **Logout from dashboards** — added a "Log out" Pressable at the bottom of both `student_home.tsx` and `tutor_home.tsx`. The button calls `authService.logout()` (modular RNFirebase v22+ API), clears the local Zustand auth store via the new `useAuthStore.reset()` action, and `router.replace('/phone-entry')`. Confirmation dialog included so an accidental tap doesn't destroy the session.
+- **Profile screens wired to Firestore** — `StudentProfileScreen.tsx` and `TutorProfileScreen.tsx` now write to `users/{uid}/studentProfile/default` and `users/{uid}/tutorProfile/default` respectively (per `Documentation/04-Firebase/phase-3-notes.md` §3). Submit button shows "Saving…" and is disabled during the write. Falls back to `/phone-entry` if there's no signed-in user. The `registration` shim is still updated first so the in-flight navigation reads the cached draft.
+- **100%-free Email Verification** — new route `/email-signup` (file `screens/auth/EmailSignUp.tsx`) handles both signup and login via email + password. On signup, `authService.signUpWithEmail()` calls `createUserWithEmailAndPassword` and immediately `sendEmailVerification`. The screen flips to a "check your inbox" pending state with a "Resend verification email" link and an "I've verified — continue" button that calls `currentUser.reload()` to re-read the server-side `emailVerified` claim. The `_layout.tsx` redirect guard also enforces this: any user whose `providerData` includes `"password"` but whose `user.emailVerified` is `false` is routed to `/email-signup` until they verify.
+- **`LocationField` city input documented** — the `MIN_CITY_LENGTH = 2` threshold in `components/forms/LocationField.tsx` only gates the "Set" badge (not the `TextInput` itself). The `TextInput` has no `maxLength` prop; the user can type any number of characters into the local `draft` state. An explanatory comment was added so this isn't mistaken for a `maxLength={2}` bug again.
+
+**Files added**: `screens/auth/EmailSignUp.tsx`, `app/email-signup.tsx`.
+
+**Files modified**: `app/_layout.tsx` (redirect guard + emailVerified check + new Stack screen), `services/firebase/authService.ts` (3 new helpers: `signUpWithEmail`, `loginWithEmail`, `sendVerificationAgain`), `store/authStore.ts` (new `reset()` action), `components/forms/LocationField.tsx` (clarifying comment), `screens/auth/StudentProfileScreen.tsx` (Firestore write), `screens/auth/TutorProfileScreen.tsx` (Firestore write), `screens/auth/PhoneEntryScreen.tsx` ("Continue with email" entry point), `screens/student/student_home.tsx` (logout button), `screens/tutor/tutor_home.tsx` (logout button), `.expo/types/router.d.ts` (add `/email-signup` to the typed-routes union).
+
+**Verification**: `npm run typecheck` → 0 errors.
+
+---
+
+*Generated for EdumentX · June 2026 · v3.1 · Last updated June 19, 2026 (Dashboards merged, profiles wired to Firestore, logout added, free Email Verification live).*

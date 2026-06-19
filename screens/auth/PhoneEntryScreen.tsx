@@ -212,13 +212,31 @@ export function PhoneEntryScreen() {
               <View className="flex-1 h-[1px] bg-border" />
             </View>
 
-            <Pressable 
+            <Pressable
               onPress={handleGoogleSignIn}
               className="min-h-btn bg-surface border border-border rounded-card flex-row justify-center items-center active:opacity-70"
             >
               <Ionicons name="logo-google" size={20} color={colors.text.primary} />
               <Text className="text-text-primary font-semibold text-button ml-2">
                 Continue with Google
+              </Text>
+            </Pressable>
+
+            {/* Free email + password alternative. Routes to
+                /email-signup which handles both signup and login (with
+                Firebase Email Verification for the signup side). */}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/email-signup")}
+              className="min-h-pill-sm items-center justify-center flex-row gap-1.5 active:opacity-70"
+            >
+              <Ionicons
+                name="mail-outline"
+                size={16}
+                color={colors.brand.primary}
+              />
+              <Text className="text-button-sm font-medium text-text-primary">
+                Continue with email
               </Text>
             </Pressable>
 

@@ -254,4 +254,79 @@ Surfaced via `services/firebase/errors.ts → formatFirebaseError(code)`:
 
 ---
 
-*Maintained by SuhanVerse · June 12, 2026 (rewritten for `@react-native-firebase/*`)*
+## 12. Email + password sign-in (100% free, added June 19, 2026)
+
+A third sign-in path alongside phone OTP and Google Sign-In. The phone OTP path stays as the primary flow for users who don't have or don't want to share an email; Google Sign-In is the fast path for users with a Google account. **Email + password** is the free fallback that doesn't burn SMS quota — useful for desktop test users, for users in regions where Google Sign-In is unavailable, and as a recovery path if the phone provider is temporarily down.
+
+### Flow
+
+1. From `/phone-entry` the user taps **"Continue with email"** → routes to `/email-signup` (`screens/auth/EmailSignUp.tsx`).
+2. The screen has a `signup` / `login` toggle (matches the visual pattern of `/phone-entry`). In signup mode:
+   - `authService.signUpWithEmail(email, password)` calls `createUserWithEmailAndPassword` and immediately `sendEmailVerification` on the new user.
+   - The screen flips to the **"Check your inbox"** pending state — shows the email address the link was sent to, a "Resend verification email" link, and an "I've verified — continue" button.
+   - **Don't route them to `/role-selection` yet.** The pending screen's job is to keep them on this screen until `emailVerified === true`.
+3. The user taps the link in their email → Firebase Auth server flips the `emailVerified` flag on their user.
+4. When they tap **"I've verified — continue"**, the screen calls `getAuth(getApp()).currentUser.reload()` to re-read the server-side claims. If `emailVerified` is now `true`, sync the local Zustand store and `router.replace("/role-selection")`.
+5. In login mode (existing verified user): `authService.loginWithEmail(email, password)` → `signInWithEmailAndPassword`. If `emailVerified === false` (they signed up but never tapped the link), show the same pending screen. If `true`, route to `/role-selection` directly.
+
+### Client-side guard
+
+The `_layout.tsx` redirect effect has a **new step** between the signed-out and signed-in branches:
+
+```ts
+// Signed in via email/password but unverified — bounce to /email-signup.
+if (isEmailPasswordUser && !emailVerified) {
+  const allowedWhileUnverified = new Set(["email-signup", "phone-entry"]);
+  if (!allowedWhileUnverified.has(currentRoute)) {
+    router.replace("/email-signup");
+  }
+  return;
+}
+```
+
+`isEmailPasswordUser` is `user.providerData.some(p => p.providerId === "password")`. Phone OTP users and Google Sign-In users return `false` for that predicate (their `providerData` is `["phone"]` or `["google.com"]`), so they bypass this check entirely.
+
+### Why the client-side check is "best effort"
+
+This is a UI guard, not a security boundary. A malicious user can patch the JS bundle to skip the check. The **real** authorization layer is in `firestore.rules` (which we extend in a v2 sprint to check `request.auth.token.email_verified === true` on writes to `users/{uid}/studentProfile` and `users/{uid}/tutorProfile`). For v1 the only data an unverified user can read is the public docs, so the risk is low.
+
+### Quota + cost
+
+`sendEmailVerification` has no per-message cost — it's counted against the project's Auth quota, which defaults to a few hundred sends/day. Plenty for a single-country beta. **No billing setup is required.** If we ever blow past the default, raise the quota in Firebase Console → Authentication → Sign-in method → Email/Password → "Email link quota".
+
+---
+
+## 13. Logout from dashboards (added June 19, 2026)
+
+Before this change, there was no way to clear the Firebase Auth session once signed in — the dashboards had no logout button, and there was no profile/settings screen. The fix:
+
+- `store/authStore.ts` gained a `reset()` action that clears `user`, `role`, `confirmationResult`, and flips `isLoading` to `false`.
+- `services/firebase/authService.ts` already had `logout()` (the modular `auth.signOut()`). No changes there.
+- Both dashboards (`screens/student/student_home.tsx`, `screens/tutor/tutor_home.tsx`) now have a destructive-styled **"Log out"** `Pressable` at the bottom of the ScrollView, with a confirmation dialog so an accidental tap doesn't destroy the session. The handler:
+  1. Calls `await logout()`.
+  2. Calls `useAuthStore.getState().reset()` to drop the cached `user` and `role`.
+  3. `router.replace("/phone-entry")` — `replace`, not `push`, so the dashboard isn't left under the auth screen in the navigation stack.
+- The `_layout.tsx` guard's `onAuthStateChanged` callback also resets the store when Firebase Auth fires its `null` user event, so even if the dashboard's `reset()` call were skipped, the layout guard would catch it on the next render.
+
+The new `reset()` action is also useful for tests that need to reset state between cases.
+
+---
+
+*Maintained by SuhanVerse · June 19, 2026 (added email verification §12, logout from dashboards §13; dashboard mock-data milestone)*
+
+---
+
+## 11. Dashboards — current state
+
+The student and tutor dashboards were implemented on June 17, 2026 (PRs #28 and #30) as **UI-only milestones with mock-data arrays**. They render correctly and the auth-guard correctly routes `student` → `/student-home` and `tutor` → `/tutor-home`. The next sprint (Sprint 4 — Map & Discovery) replaces the mocks with live Firestore queries.
+
+| Route | File | Mock data sources (to be replaced) | Real Firestore source |
+|---|---|---|---|
+| `/student-home` | `screens/student/student_home.tsx` | `MOCK_TUTORS`, `PROFILE` | `tutors/{uid}` for self, `tutors` collection (geo + subject filter) for the rest |
+| `/tutor-home` | `screens/tutor/tutor_home.tsx` | `TUTOR_PROFILE`, `TODAY_SESSIONS`, `PENDING_REQUESTS`, `BATCH_REQUESTS`, `SESSION_SLOTS` | `tutors/{uid}` (self profile), `sessions` (today filter), `enrollmentRequests` (tutorId + status==pending), `batchRequests` (tutorId + status==pending) |
+
+The TODO markers in those files name the exact Firestore collection + filter for each mock block.
+
+---
+
+*Maintained by SuhanVerse · June 19, 2026 (dashboards merged into main; mock-data milestone)*

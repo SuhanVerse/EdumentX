@@ -41,13 +41,11 @@ The READMEs in `lib/`, `hooks/`, `store/`, `services/`, `types/` describe a futu
 - `hooks/useAuth.ts` — subscribes to `authStore` and wires `onAuthStateChanged` to keep it in sync
 - `hooks/useRedirectAfterAuth.ts` — picks the right landing route for the current user/role
 - `types/user.ts` — `Role`, `UserProfile`, `TutorProfileFields`, `StudentProfileFields`, `AdminProfile`
-- `screens/dashboards/StudentDashboard.tsx`
-- `screens/dashboards/TutorDashboard.tsx`
-- `screens/dashboards/AdminDashboard.tsx`
+- `screens/student/student_home.tsx` — Student Home dashboard (mock-data milestone; live `tutors` query to follow in Sprint 4)
+- `screens/tutor/tutor_home.tsx` — Tutor Dashboard (mock-data milestone; live `enrollmentRequests` + `sessions` queries to follow in Sprint 4)
 - `screens/auth/AdminLoginForm.tsx` (modal/section used by PhoneEntry when "Log in" + admin detection)
-- `app/(app)/student.tsx`, `app/(app)/tutor.tsx`, `app/(app)/admin.tsx` — route group `/(app)/*` for signed-in users
-- `app/(auth)/_layout.tsx` — auth route group (existing screens get moved here)
-- `app/(app)/_layout.tsx` — signed-in route group with auth guard
+- `app/student-home.tsx`, `app/tutor-home.tsx` — flat-route wrappers (the planned `app/(app)/*` route group was simplified to a flat tree; see §12)
+- `app/_layout.tsx` — root layout with the auth guard; the same file also serves as the `(app)/_layout.tsx` and the planned `(auth)/_layout.tsx` (flat tree, single guard)
 
 ### Modified files
 - `package.json` — add `@react-native-firebase/app`, `@react-native-firebase/auth`, `@react-native-firebase/firestore` (installed via `npx expo install` which routes through `expo-build-properties` for ABI filter setup). Add `expo-build-properties` to plugins.
@@ -310,52 +308,80 @@ Functions:
 
 ### Step 8 — Profile persistence
 
-In `StudentProfileScreen.handleSubmit` and `TutorProfileScreen.handleSubmit`, after the existing local validation and `registration.updateProfile(...)` call, do:
+In `StudentProfileScreen.handleSubmit` and `TutorProfileScreen.handleSubmit`, after the existing local validation and `registration.updateProfile(...)` call, do (modular v22+ API — the namespaced `firestore().collection().doc().set()` form is deprecated):
 
 ```ts
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getApp } from '@react-native-firebase/app';
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
 
 async function persistProfile(role: Role) {
+  const db = getFirestore(getApp());
   const u = auth().currentUser;
   if (!u) throw new Error("No authenticated user");
-  await firestore().collection('users').doc(u.uid).set({
+
+  await setDoc(doc(db, 'users', u.uid), {
     uid: u.uid,
     phone: u.phoneNumber,
     fullName,
     email,
     role,
-    createdAt: firestore.FieldValue.serverTimestamp(),
-    updatedAt: firestore.FieldValue.serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   }, { merge: true });
 
-  await firestore().collection('users').doc(u.uid).collection(`${role}Profile`).doc('default').set({
+  // Student / tutor profile lives in a subcollection so re-saving on
+  // "Edit profile" doesn't churn auth metadata on the parent user doc.
+  await setDoc(doc(db, 'users', u.uid, `${role}Profile`, 'default'), {
     ...roleSpecificFields,
-    updatedAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: serverTimestamp(),
   }, { merge: true });
-
-  // Critical: tell the auth store the role is now known so the route
-  // guard in app/(auth)/_layout.tsx will route us to /(app)/{role} on
-  // the next render. Without this, the guard sees user && !role and
-  // could bounce us back. See Step 7 guard spec.
-  authStore.update({ role });
 }
 ```
 
 After successful write: navigate to the appropriate dashboard.
 
+> **Update (June 19, 2026)** — both profile screens now write to Firestore on submit. `StudentProfileScreen` → `users/{uid}/studentProfile/default` (fields: `grade`, `subjects`, `location`, `fullName`, `email`, `updatedAt`). `TutorProfileScreen` → `users/{uid}/tutorProfile/default` (fields: `subjects`, `gradesTeaching`, `yearsExperience`, `hourlyRateNpr`, `location`, `headline`, `bio`, `phoneDisplay`, `fullName`, `email`, `updatedAt`). The submit button shows "Saving…" and is disabled during the write. If no user is signed in, the screens fall back to `/phone-entry` instead of writing. See `Documentation/04-Firebase/phase-3-notes.md §3` for the full schema.
+
+### Step 8.b — Email + password sign-in (free email verification)
+
+> **Update (June 19, 2026)** — added as a third sign-in path alongside phone OTP and Google. Free (no SMS quota burned); user clicks a link in their email instead.
+
+The new `/email-signup` route handles both signup and login:
+
+1. **Signup**: `authService.signUpWithEmail(email, password)` calls `createUserWithEmailAndPassword` and immediately `sendEmailVerification`. The screen flips to a "Check your inbox" pending state.
+2. **Login** (already-verified user): `authService.loginWithEmail(email, password)` → `signInWithEmailAndPassword`. If `user.emailVerified` is `false`, the same pending screen is shown with a "Resend verification email" link.
+3. **Check verified**: the pending screen's "I've verified — continue" button calls `getAuth(getApp()).currentUser.reload()` to re-read the server-side `emailVerified` claim. If true, route to `/role-selection`.
+4. **Guard**: the `_layout.tsx` redirect effect blocks email/password users whose `emailVerified` is `false` from reaching any screen other than `/email-signup` and `/phone-entry`. Phone OTP users and Google Sign-In users bypass this check entirely (Google auto-verifies; phone OTP uses a verified phone number as the credential).
+
+This flow is documented in the screen header comment at `screens/auth/EmailSignUp.tsx`.
+
 ### Step 9 — Dashboards (simple)
 
-Each dashboard is a single screen at `app/(app)/{role}.tsx` and `screens/dashboards/{Role}Dashboard.tsx`. All three follow the same template:
+> **Update (June 19, 2026)** — the dashboard screens below were implemented as `app/student-home.tsx` + `app/tutor-home.tsx` + `screens/student/student_home.tsx` + `screens/tutor/tutor_home.tsx` on June 17, 2026 (PRs #28 and #30) using mock-data constants (see `// TODO(firebase)` markers in those files). The route group structure was simplified to a **flat tree** rather than `app/(app)/*` and `app/(auth)/*` — the auth guard lives in `app/_layout.tsx` directly. The next step is to replace the mock arrays with real Firestore queries.
 
-- Top: avatar (initial fallback), full name, role badge
-- Card 1: profile summary (email, phone, role-specific fields)
-- Card 2: account info (uid — masked, member since)
-- Bottom: "Sign out" button → calls `signOut()` + `registration.reset()` + `router.replace("/(auth)/phone-entry")`
+Each dashboard is a single screen at `app/{role}-home.tsx` wrapping `screens/{role}/{role}_home.tsx`. The student screen follows this template:
 
-**No map, no booking list, no messaging, no search.** That keeps the dashboards honest about Phase 3's "auth only" scope.
+- **Hero header** (dark `bg-night`): greeting, location label, search bar with filter chip
+- **Nearby tutors** (horizontal scroller): mock tutor cards sorted by distance
+- **Verified tutors** (vertical list): mock tutor cards with verified badge
+- **Quick actions** (2×2 grid): 4 placeholder tiles (AI assistant, My enrollments, Browse map, Leave a review) — all show a "Coming soon" `Alert` for now
 
-The visual language matches the existing profile screens: night header, white surface cards, `border-border-subtle`, `shadow-sm`, `rounded-2xl`, `p-5`. Each dashboard uses its own accent color (student = `bg-primary-light`, tutor = `bg-onb-verify`, admin = `bg-onb-ai`) to make them visually distinct on first glance.
+The tutor screen follows this template:
+
+- **4 stat cards**: capacity / current students, rating + reviews, response rate, profile completion
+- **This-month earnings**: NPR amount with trend indicator
+- **Today's sessions**: 2 mock sessions with student + subject + duration
+- **Pending enrollment requests**: 2 mock cards with accept/decline
+- **Batch requests**: 2 mock join/conversion requests
+- **Availability slots**: 4 mock time slots with status badges
+- **Quick actions**: 4 placeholder tiles
+
+The visual language matches the rest of the app: `bg-night` hero, `bg-background` body, `bg-surface` cards with `border-border-subtle`, `rounded-card`.
 
 ### Step 10 — Firestore rules + indexes
 
@@ -479,21 +505,13 @@ npx expo start -c
 - `hooks/useRedirectAfterAuth.ts`
 - `types/user.ts`
 - `components/auth/AdminLoginForm.tsx`
-- `screens/dashboards/StudentDashboard.tsx`
-- `screens/dashboards/TutorDashboard.tsx`
-- `screens/dashboards/AdminDashboard.tsx`
-- `app/(auth)/_layout.tsx`
-- `app/(auth)/onboarding.tsx` (move from `app/onboarding.tsx`)
-- `app/(auth)/phone-entry.tsx` (move)
-- `app/(auth)/otpverify.tsx` (move)
-- `app/(auth)/create_password.tsx` (move)
-- `app/(auth)/role-selection.tsx` (move)
-- `app/(auth)/profile-student.tsx` (move)
-- `app/(auth)/profile-tutor.tsx` (move)
-- `app/(app)/_layout.tsx`
-- `app/(app)/student.tsx`
-- `app/(app)/tutor.tsx`
-- `app/(app)/admin.tsx`
+- `screens/student/student_home.tsx` (mock-data, wire to Firestore in Sprint 4)
+- `screens/tutor/tutor_home.tsx` (mock-data, wire to Firestore in Sprint 4)
+- `screens/auth/EmailSignUp.tsx` (email + password sign-in/sign-up with Email Verification)
+- `app/student-home.tsx` (route wrapper)
+- `app/tutor-home.tsx` (route wrapper)
+- `app/email-signup.tsx` (route wrapper for `/email-signup`)
+- `app/_layout.tsx` (replace `app/(app)/_layout.tsx` + `app/(auth)/_layout.tsx` — flat tree, single guard, with `emailVerified` block)
 - `scripts/seedAdmins.ts`
 - `Documentation/04-Firebase/phase-3-notes.md`
 
@@ -502,18 +520,20 @@ npx expo start -c
 - `package.json` (add `@react-native-firebase/app`, `@react-native-firebase/auth`, `@react-native-firebase/firestore`, `expo-build-properties`. **Remove** `firebase` and `react-native-webview` if previously installed.)
 - `app.json` (add `googleServicesFile: "./google-services.json"` to android; add `expo-build-properties` plugin entry with `compileSdkVersion: 35`, `targetSdkVersion: 35`, `minSdkVersion: 24`)
 - `babel.config.js` (add `react-native-worklets/plugin` last)
-- `app/_layout.tsx` (AuthBootstrap + nested Stack — **no reCAPTCHA container, no webview**)
+- `app/_layout.tsx` (AuthBootstrap + nested Stack — **no reCAPTCHA container, no webview** + emailVerified check + Stack screen for `/email-signup`)
 - `app/index.tsx` (use `useRedirectAfterAuth` instead of hardcoded `/onboarding`)
-- `screens/auth/PhoneEntryScreen.tsx` (wire to `auth().signInWithPhoneNumber(phone)`, detect email for admin path)
+- `screens/auth/PhoneEntryScreen.tsx` (wire to `auth().signInWithPhoneNumber(phone)`, detect email for admin path, add "Continue with email" link to `/email-signup`)
 - `screens/auth/OtpVerify.tsx` (verify OTP via `authStore.confirmationResult.confirm`)
 - `screens/auth/Password.tsx` (link password via `currentUser.updatePassword`)
 - `screens/auth/RoleSelection.tsx` (`registration.update({ role })` on select — bug fix)
-- `screens/auth/StudentProfileScreen.tsx` (write profile to Firestore via `firestore().collection('users').doc(uid).set(...)`, navigate to dashboard)
-- `screens/auth/TutorProfileScreen.tsx` (write profile to Firestore, navigate to dashboard)
+- `screens/auth/StudentProfileScreen.tsx` (write profile to Firestore via modular `setDoc(doc(db, 'users', uid, 'studentProfile', 'default'), ...)`; navigate to dashboard)
+- `screens/auth/TutorProfileScreen.tsx` (write profile to Firestore via modular `setDoc(doc(db, 'users', uid, 'tutorProfile', 'default'), ...)`; navigate to dashboard)
+- `services/firebase/authService.ts` (add `signUpWithEmail`, `loginWithEmail`, `sendVerificationAgain`)
+- `store/authStore.ts` (add `reset()` action used by the dashboards' "Log out" button)
 - `lib/registration.ts` (add `confirmationResult` slot — kept simple, not persisted)
 - `firebase/firestore.rules` (extend for `tutorProfile`/`studentProfile` subcollections + `admins` public-read for v1)
 - `lib/README.md` (mark as aspirational; remove JS-SDK-flavored `env.ts` example)
-- `Documentation/04-Firebase/phase-3-notes.md` (new — documents the v1 limitations, RNFirebase caveats, emulator setup)
+- `Documentation/04-Firebase/phase-3-notes.md` (new — documents the v1 limitations, RNFirebase caveats, emulator setup, dashboards, logout flow, email verification)
 
 ### Files to add to the project root (not in any tracked folder)
 

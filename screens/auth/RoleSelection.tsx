@@ -78,7 +78,11 @@ export function RoleSelectionScreen() {
       // Commit to local store so the root layout guard sees the role
       // immediately on the next render and stops redirecting back here.
       setRole(role);
-      router.replace(role === "tutor" ? "/profile-tutor" : "/profile-student");
+      // After picking a role, send the user to the dashboard for that role.
+      // The first-time profile-completion flows (`/profile-student` and
+      // `/profile-tutor`) are no longer the destination — those screens are
+      // accessed via a "Edit profile" affordance on the dashboard itself.
+      router.replace(role === "tutor" ? "/tutor-home" : "/student-home");
     } catch (error: any) {
       console.error("RoleSelection: failed to write role to Firestore", error);
       Alert.alert(
@@ -146,7 +150,7 @@ export function RoleSelectionScreen() {
               subtitle="List your teaching services and receive enrollment requests."
               title="Tutor"
             />
-          </View>
+          </View>   
         </ScrollView>
 
         <View className="px-5 pt-3 pb-8 bg-background">
