@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useClerk } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -12,7 +13,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthStore } from "@/store/authStore";
-import { logout } from "@/services/firebase/authService";
 
 /**
  * EdumentX — Tutor Dashboard (UI-only milestone)
@@ -157,17 +157,22 @@ function showComingSoon(feature: string) {
 
 /**
  * Sign the user out, clear the local auth store, and route back to the
- * login screen. Uses the existing `authService.logout()` helper (modular
- * RNFirebase v22+ API) and Zustand `useAuthStore.reset()` to drop the
- * cached `user` / `role`. Mirrors the same flow as `StudentHome` so the
- * two dashboards stay in lock-step.
+ * login screen. Clerk is the source of truth for the session; we call
+ * `useClerk().signOut()` which fires the `ClerkFirebaseBridge` to sign
+ * Firebase out in the background. The local Zustand `useAuthStore.reset()`
+ * call drops the cached `user` / `role` so the layout guard immediately
+ * redirects on the next render. Mirrors the same flow as `StudentHome`
+ * so the two dashboards stay in lock-step.
  */
-async function handleSignOut(router: ReturnType<typeof useRouter>) {
+async function handleSignOut(
+  signOut: ReturnType<typeof useClerk>["signOut"],
+  router: ReturnType<typeof useRouter>,
+) {
   try {
-    await logout();
-    useAuthStore.getState().reset?.();
+    await signOut();
+    useAuthStore.getState().reset();
   } catch (err) {
-    console.error("TutorDashboard: logout failed", err);
+    console.error("TutorDashboard: sign-out failed", err);
     Alert.alert("Could not sign out", "Please try again.");
     return;
   }
@@ -201,6 +206,7 @@ function statusAccent(kind: BatchRequest["kind"]) {
 
 export function TutorDashboard() {
   const router = useRouter();
+  const { signOut } = useClerk();
   const [available, setAvailable] = useState(true);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
@@ -679,7 +685,7 @@ export function TutorDashboard() {
                   {
                     text: "Log out",
                     style: "destructive",
-                    onPress: () => handleSignOut(router),
+                    onPress: () => handleSignOut(signOut, router),
                   },
                 ],
               );

@@ -49,7 +49,7 @@ export function RoleSelectionScreen() {
     if (!user) {
       Alert.alert(
         "Not signed in",
-        "Please sign in (phone OTP or Google) before picking a role.",
+        "Please sign in (email code or Google) before picking a role.",
       );
       router.replace("/phone-entry");
       return;
@@ -59,6 +59,10 @@ export function RoleSelectionScreen() {
       // Modular RNFirebase v22+ API: getFirestore + doc + setDoc, not
       // firestore().collection().doc().set(). The namespaced form logs a
       // deprecation warning on every call.
+      // `user.uid` here is the Clerk user ID — the `ClerkFirebaseBridge`
+      // uses the `integration_firebase` JWT template whose `uid` claim
+      // is exactly the Clerk user id, which is the Firestore document
+      // id every screen uses (see `Documentation/04-Firebase/Clerk_Integration.md`).
       const db = getFirestore(getApp());
       const userRef = doc(db, "users", user.uid);
       const now = serverTimestamp();
@@ -68,7 +72,7 @@ export function RoleSelectionScreen() {
           uid: user.uid,
           email: user.email ?? null,
           displayName: user.displayName ?? null,
-          phone: user.phoneNumber ?? null,
+          username: user.username ?? null,
           role,
           createdAt: now,
           updatedAt: now,
@@ -109,7 +113,7 @@ export function RoleSelectionScreen() {
             accessibilityRole="button"
             hitSlop={12}
             className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
-            onPress={() => router.replace("/create_password")}
+            onPress={() => router.replace("/phone-entry")}
           >
             <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
             <Text className="text-body text-text-primary">Back</Text>
@@ -117,7 +121,7 @@ export function RoleSelectionScreen() {
 
           <View className="gap-2 mb-6">
             <Text className="text-overline text-text-primary uppercase">
-              Step 3 of 4
+              Step 1 of 2
             </Text>
             <Text className="text-hero text-text-primary">
               How will you use EdumentX?

@@ -1,4 +1,38 @@
+/**
+ * EdumentX — OTP Verify Screen
+ *
+ * Single OTP entry point for both sign-in and sign-up flows. The
+ * route params determine which Clerk object to call when the user
+ * submits the 6-digit code:
+ *
+ *   - `mode === 'signin'` → `signIn.attemptFirstFactor({
+ *       strategy: 'email_code', code })` — this is the path the
+ *     catch-and-fallback handler in PhoneEntryScreen takes when the
+ *     identifier already exists.
+ *
+ *   - `mode === 'signup'` → `signUp.attemptEmailAddressVerification({
+ *       code })` — this is the path after `signUp.create(...)` +
+ *     `prepareEmailAddressVerification({ strategy: 'email_code' })`
+ *     was called in PhoneEntryScreen.
+ *
+ * On success, both paths call `setActive({ session: createdSessionId })`
+ * and the layout guard in `app/_layout.tsx` reads `users/{uid}.role`
+ * to route to `/student-home` or `/tutor-home` (or `/role-selection`
+ * for first-time sign-ups).
+ *
+ * UI/UX notes:
+ *   - Hero shows the email (or "your username" hint) the code was
+ *     sent to.
+ *   - 6 digit boxes that auto-advance and auto-submit on the 6th key.
+ *   - Paste-friendly: tapping-and-holding the first box (or any box)
+ *     accepts a pasted OTP string and splits it across the boxes.
+ *   - "Resend" is gated by a 60s cooldown and re-calls
+ *     `prepareFirstFactor` / `prepareEmailAddressVerification`.
+ *   - Friendly error messages translated from Clerk error codes
+ *     (see `formatClerkError` at the bottom of this file).
+ */
 import { Ionicons } from "@expo/vector-icons";
+import { useSignIn, useSignUp } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,36 +50,56 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
-import { sendOTP, verifyOTP } from "@/services/firebase/authService";
-import { useAuthStore } from "@/store/authStore";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
 type OtpDigit = string;
+type VerifyMode = "signin" | "signup";
 
 export function OtpVerify() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string }>();
+  const params = useLocalSearchParams<{
+    identifier?: string;
+    mode?: string;
+  }>();
   const inputRefs = useRef<(RNTextInput | null)[]>([]);
   const [otp, setOtp] = useState<OtpDigit[]>(Array(OTP_LENGTH).fill(""));
   const [timer, setTimer] = useState(RESEND_SECONDS);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  const confirmationResult = useAuthStore((state) => state.confirmationResult);
-  const setConfirmationResult = useAuthStore((state) => state.setConfirmationResult);
-  const setUser = useAuthStore((state) => state.setUser);
+  const { signIn, isLoaded: signInLoaded, setActive: setActiveSignIn } =
+    useSignIn();
+  const { signUp, isLoaded: signUpLoaded, setActive: setActiveSignUp } =
+    useSignUp();
 
-  const phone = useMemo(() => {
-    const rawPhone = Array.isArray(params.phone) ? params.phone[0] : params.phone;
-    return rawPhone?.replace(/\D/g, "").slice(0, 10) ?? "";
-  }, [params.phone]);
+  const identifier = useMemo(() => {
+    const raw = Array.isArray(params.identifier)
+      ? params.identifier[0]
+      : params.identifier;
+    return (raw ?? "").trim();
+  }, [params.identifier]);
+
+  const mode: VerifyMode =
+    params.mode === "signin" ? "signin" : "signup";
 
   const code = otp.join("");
   const canVerify = otp.every(Boolean) && code.length === OTP_LENGTH;
   const formattedTimer = `00:${String(timer).padStart(2, "0")}`;
-  const displayPhone = phone ? `+977 ${phone}` : "+977 98XXXXXXXX";
+
+  // The identifier may be either an email (we sent the code to it
+  // directly) or a username (we sent the code to the email linked to
+  // that username). Show a clear label either way — never leak the
+  // linked email back to the screen.
+  const identifierLooksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    identifier,
+  );
+  const displayIdentifier = identifierLooksLikeEmail
+    ? identifier
+    : identifier
+      ? `the email linked to ${identifier}`
+      : "your email";
 
   useEffect(() => {
     if (timer <= 0) {
@@ -109,39 +163,100 @@ export function OtpVerify() {
     requestAnimationFrame(() => focusInput(index - 1));
   }
 
+  /**
+   * Re-send the code. We have to re-call the prepare step on the
+   * right Clerk object based on the mode — Clerk doesn't expose a
+   * generic "resend" helper, so we mirror the PhoneEntryScreen call
+   * here.
+   */
   async function handleResend() {
-    if (timer > 0 || isResending) {
-      return;
-    }
+    if (timer > 0 || isResending) return;
+    if (!signInLoaded || !signUpLoaded) return;
     setIsResending(true);
     try {
-      const fullPhone = phone.startsWith("+977") ? phone : `+977${phone}`;
-      const newConfirmation = await sendOTP(fullPhone);
-      setConfirmationResult(newConfirmation);
+      if (mode === "signin") {
+        if (!signIn) throw new Error("Sign-in session expired.");
+        const emailCodeFactor = signIn.supportedFirstFactors?.find(
+          (f) => f.strategy === "email_code",
+        );
+        if (!emailCodeFactor) {
+          Alert.alert(
+            "Email sign-in unavailable",
+            "This account doesn't support email-code sign-in. Try a different method.",
+          );
+          return;
+        }
+        await signIn.prepareFirstFactor({
+          strategy: "email_code",
+          emailAddressId: emailCodeFactor.emailAddressId,
+        });
+      } else {
+        if (!signUp) throw new Error("Sign-up session expired.");
+        await signUp.prepareEmailAddressVerification({
+          strategy: "email_code",
+        });
+      }
       clearOtp();
       setTimer(RESEND_SECONDS);
-    } catch (error: any) {
-      Alert.alert("Error resending OTP", error.message || "Something went wrong.");
+    } catch (err: any) {
+      const friendly = formatClerkError(err);
+      Alert.alert(friendly.title, friendly.message);
     } finally {
       setIsResending(false);
     }
   }
 
+  /**
+   * Submit the 6-digit code. On success, Clerk returns a created
+   * session id; we `setActive` and the layout guard takes over.
+   */
   async function handleVerify() {
-    if (!canVerify || isVerifying) {
-      return;
-    }
-    if (!confirmationResult) {
-      Alert.alert("Session Error", "No active verification session. Please go back and resend.");
-      return;
-    }
+    if (!canVerify || isVerifying) return;
+    if (!signInLoaded || !signUpLoaded) return;
     setIsVerifying(true);
     try {
-      const credential = await verifyOTP(confirmationResult, code);
-      setUser(credential.user);
-      router.push("/create_password");
-    } catch (error: any) {
-      Alert.alert("Verification failed", "The code you entered is incorrect or expired.");
+      if (mode === "signin") {
+        if (!signIn) {
+          Alert.alert(
+            "Session expired",
+            "Please go back and request a new code.",
+          );
+          return;
+        }
+        const attempt = await signIn.attemptFirstFactor({
+          strategy: "email_code",
+          code,
+        });
+        if (attempt.status === "complete" && attempt.createdSessionId) {
+          await setActiveSignIn({ session: attempt.createdSessionId });
+          return;
+        }
+        Alert.alert(
+          "Verification status: " + attempt.status,
+          "Please try again or contact support.",
+        );
+      } else {
+        if (!signUp) {
+          Alert.alert(
+            "Session expired",
+            "Please go back and request a new code.",
+          );
+          return;
+        }
+        const attempt = await signUp.attemptEmailAddressVerification({ code });
+        if (attempt.status === "complete" && attempt.createdSessionId) {
+          await setActiveSignUp({ session: attempt.createdSessionId });
+          return;
+        }
+        Alert.alert(
+          "Verification status: " + attempt.status,
+          "Please try again or contact support.",
+        );
+      }
+    } catch (err: any) {
+      const friendly = formatClerkError(err);
+      Alert.alert(friendly.title, friendly.message);
+      clearOtp();
     } finally {
       setIsVerifying(false);
     }
@@ -177,14 +292,17 @@ export function OtpVerify() {
               />
             </View>
             <Text className="text-hero text-text-primary text-center">
-              Verify your number
+              Enter your code
             </Text>
             <Text
               className="text-body text-text-secondary text-center"
               style={{ maxWidth: 288 }}
             >
-              Enter the 6 digit code sent to{" "}
-              <Text className="text-button text-text-primary">{displayPhone}</Text>.
+              We sent a 6-digit code to{" "}
+              <Text className="text-button text-text-primary">
+                {displayIdentifier}
+              </Text>
+              . The code expires in 10 minutes.
             </Text>
           </View>
 
@@ -267,7 +385,7 @@ export function OtpVerify() {
               className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
             >
               <Text className="text-button text-white disabled:text-text-muted">
-                {isVerifying ? "Verifying..." : "Verify OTP"}
+                {isVerifying ? "Verifying..." : "Verify code"}
               </Text>
             </Pressable>
           </View>
@@ -275,4 +393,46 @@ export function OtpVerify() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+/**
+ * Friendly translations for the common Clerk error codes that the
+ * user will see. Falls back to a generic message for codes we don't
+ * know about, so we never surface a raw Clerk stack trace.
+ */
+function formatClerkError(err: any): { title: string; message: string } {
+  const code: string | undefined = err?.errors?.[0]?.code;
+  const fallback: { title: string; message: string } = {
+    title: "Something went wrong",
+    message:
+      err?.errors?.[0]?.longMessage ??
+      err?.message ??
+      "Please try again or contact support.",
+  };
+  switch (code) {
+    case "verification_expired":
+      return {
+        title: "Code expired",
+        message: "That code has expired. Please request a new one.",
+      };
+    case "verification_failed":
+      return {
+        title: "Wrong code",
+        message: "The code you entered didn't match. Please try again.",
+      };
+    case "too_many_requests":
+      return {
+        title: "Too many attempts",
+        message:
+          "You've made too many attempts in a short window. Please wait a minute and try again.",
+      };
+    case "network_error":
+    case "network_timeout":
+      return {
+        title: "Network error",
+        message: "Check your connection and try again.",
+      };
+    default:
+      return fallback;
+  }
 }

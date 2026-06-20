@@ -9,6 +9,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -50,10 +51,14 @@ const SUBJECTS = [
 ] as const;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,30}$/;
+const PHONE_REGEX = /^\d{7,15}$/;
 
 type FormErrors = {
   fullName?: string;
   email?: string;
+  username?: string;
+  phone?: string;
   grade?: string;
   subjects?: string;
 };
@@ -64,6 +69,8 @@ export function StudentProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [grade, setGrade] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
@@ -79,6 +86,8 @@ export function StudentProfileScreen() {
   const canSubmit =
     fullName.trim().length >= 3 &&
     EMAIL_REGEX.test(email.trim()) &&
+    USERNAME_REGEX.test(username.trim()) &&
+    PHONE_REGEX.test(phone.trim()) &&
     grade !== null &&
     subjects.length >= 1 &&
     location !== null &&
@@ -88,6 +97,14 @@ export function StudentProfileScreen() {
     const validationErrors: FormErrors = {};
     if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
     if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
+    if (!USERNAME_REGEX.test(username.trim())) {
+      validationErrors.username =
+        "Username must be 3–30 characters: letters, digits, underscore, or dot.";
+    }
+    if (!PHONE_REGEX.test(phone.trim())) {
+      validationErrors.phone =
+        "Enter a valid phone number (7–15 digits, no country code).";
+    }
     if (!grade) validationErrors.grade = "Select your grade.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
     setErrors(validationErrors);
@@ -100,6 +117,8 @@ export function StudentProfileScreen() {
     registration.updateProfile({
       fullName: fullName.trim(),
       email: email.trim(),
+      username: username.trim(),
+      phone: phone.trim(),
       grade,
       subjects,
       location,
@@ -108,7 +127,7 @@ export function StudentProfileScreen() {
     if (!user) {
       Alert.alert(
         "Not signed in",
-        "Please sign in (phone OTP or Google) before completing your profile.",
+        "Please sign in (email code or Google) before completing your profile.",
       );
       router.replace("/phone-entry");
       return;
@@ -133,6 +152,8 @@ export function StudentProfileScreen() {
           location,
           fullName: fullName.trim(),
           email: email.trim(),
+          username: username.trim(),
+          phone: phone.trim(),
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -188,6 +209,51 @@ export function StudentProfileScreen() {
             onChangeFullName={setFullName}
             onChangeEmail={setEmail}
           />
+
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <Text className="text-overline text-text-muted uppercase">
+              Username & phone
+            </Text>
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Username (3–30 chars: letters, digits, _ or .)
+              </Text>
+              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+                <Ionicons color={colors.text.muted} name="at-outline" size={18} />
+                <TextInput
+                  className="flex-1 text-text-primary text-body"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={setUsername}
+                  placeholder="your_handle"
+                  placeholderTextColor={colors.text.muted}
+                  value={username}
+                />
+              </View>
+              {errors.username ? (
+                <Text className="text-caption text-danger">{errors.username}</Text>
+              ) : null}
+            </View>
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Phone (digits only — for parents to reach tutors)
+              </Text>
+              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+                <Ionicons color={colors.text.muted} name="call-outline" size={18} />
+                <TextInput
+                  className="flex-1 text-text-primary text-body"
+                  keyboardType="phone-pad"
+                  onChangeText={setPhone}
+                  placeholder="98XXXXXXXX"
+                  placeholderTextColor={colors.text.muted}
+                  value={phone}
+                />
+              </View>
+              {errors.phone ? (
+                <Text className="text-caption text-danger">{errors.phone}</Text>
+              ) : null}
+            </View>
+          </View>
 
           <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
             <Text className="text-overline text-text-muted uppercase">

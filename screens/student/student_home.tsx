@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useClerk } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
@@ -13,7 +14,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthStore } from "@/store/authStore";
-import { logout } from "@/services/firebase/authService";
 
 /**
  * EdumentX — Student Home (UI-only milestone)
@@ -80,18 +80,21 @@ function showComingSoon(feature: string) {
 
 /**
  * Sign the user out, clear the local auth store, and route back to the
- * login screen. Uses the existing `authService.logout()` helper (modular
- * RNFirebase v22+ API) and Zustand `useAuthStore.reset()` to drop the
- * cached `user` / `role`. Without the `reset()` call, the next sign-in
- * would briefly flash the previous role's dashboard before the new role
- * doc is fetched.
+ * login screen. Clerk is the source of truth for the session; we call
+ * `useClerk().signOut()` which fires the `ClerkFirebaseBridge` to sign
+ * Firebase out in the background. The local Zustand `useAuthStore.reset()`
+ * call drops the cached `user` / `role` so the layout guard immediately
+ * redirects on the next render.
  */
-async function handleSignOut(router: ReturnType<typeof useRouter>) {
+async function handleSignOut(
+  signOut: ReturnType<typeof useClerk>["signOut"],
+  router: ReturnType<typeof useRouter>,
+) {
   try {
-    await logout();
-    useAuthStore.getState().reset?.();
+    await signOut();
+    useAuthStore.getState().reset();
   } catch (err) {
-    console.error("StudentHome: logout failed", err);
+    console.error("StudentHome: sign-out failed", err);
     Alert.alert("Could not sign out", "Please try again.");
     return;
   }
@@ -104,6 +107,7 @@ async function handleSignOut(router: ReturnType<typeof useRouter>) {
 
 export function StudentHome() {
   const router = useRouter();
+  const { signOut } = useClerk();
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -277,7 +281,7 @@ export function StudentHome() {
                   {
                     text: "Log out",
                     style: "destructive",
-                    onPress: () => handleSignOut(router),
+                    onPress: () => handleSignOut(signOut, router),
                   },
                 ],
               );

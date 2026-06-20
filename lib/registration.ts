@@ -3,13 +3,19 @@
  *
  * A tiny module-level store for the multi-step signup draft. The real
  * `store/registrationStore.ts` (Zustand + AsyncStorage persist) is built in
- * Phase 3 per `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md`
+ * Phase 4 per `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md`
  * §7.5. Until then, this shim is enough to pass the role + draft fields
- * between PhoneEntry → OtpVerify → Password → RoleSelection → Profile* without
+ * between PhoneEntry → OtpVerify → RoleSelection → Profile* without
  * dropping data on navigation.
  *
  * Data shape is intentionally identical to the planned Phase 3 store so the
  * Phase 3 replacement is a one-file body swap.
+ *
+ * **Post-Clerk pivot (June 20, 2026):** phone and password are no longer
+ * part of the auth flow (Clerk handles sign-in via Email OTP and Google
+ * OAuth). The `countryCode` and `password` fields are kept here as
+ * type-level placeholders so the Phase 4 swap-in doesn't need to change
+ * the public surface; they stay empty in practice.
  */
 
 import { useSyncExternalStore } from "react";
@@ -22,6 +28,8 @@ export type LocationValue = {
 };
 
 export type RegistrationState = {
+  // Kept as type-level placeholders for Phase-4 compatibility. Always
+  // empty in practice after the Clerk pivot.
   phone: string;
   countryCode: string;
   password: string;
@@ -29,6 +37,13 @@ export type RegistrationState = {
   profileDraft: {
     fullName: string;
     email: string;
+    /** Custom username collected on the profile screens (Clerk's
+     *  username requirement is OFF in the dashboard, so this lives in
+     *  Firestore only). */
+    username: string;
+    /** Unverified phone number for parent-initiated contact (no SMS
+     *  OTP — Clerk doesn't enable phone provider on the free tier). */
+    phone: string;
     // student-only
     grade: string | null;
     // both, multi-select
@@ -53,6 +68,8 @@ const initialState: RegistrationState = {
   profileDraft: {
     fullName: "",
     email: "",
+    username: "",
+    phone: "",
     grade: null,
     subjects: [],
     location: null,
@@ -99,7 +116,7 @@ function get(): RegistrationState {
  * useSyncExternalStore so concurrent React (React 19) is happy.
  *
  * Usage:
- *   const phone = useRegistration((s) => s.phone);
+ *   const phone = useRegistration((s) => s.profileDraft.phone);
  *   const { fullName, email } = useRegistration((s) => s.profileDraft);
  */
 export function useRegistration<T>(selector: (s: RegistrationState) => T): T {

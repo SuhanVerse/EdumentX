@@ -26,7 +26,7 @@ import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
-import { registration, useRegistration } from "@/lib/registration";
+import { registration } from "@/lib/registration";
 import { useAuthStore } from "@/store/authStore";
 
 const SUBJECTS = [
@@ -52,12 +52,16 @@ const GRADES = [
 ] as const;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,30}$/;
+const PHONE_REGEX = /^\d{7,15}$/;
 const HEADLINE_MAX = 80;
 const BIO_MAX = 280;
 
 type FormErrors = {
   fullName?: string;
   email?: string;
+  username?: string;
+  phone?: string;
   headline?: string;
   subjects?: string;
   grades?: string;
@@ -72,10 +76,11 @@ const inputBase =
 export function TutorProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const phone = useRegistration((s) => s.phone);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -107,6 +112,8 @@ export function TutorProfileScreen() {
   const canSubmit =
     fullName.trim().length >= 3 &&
     EMAIL_REGEX.test(email.trim()) &&
+    USERNAME_REGEX.test(username.trim()) &&
+    PHONE_REGEX.test(phone.trim()) &&
     headline.trim().length > 0 &&
     subjects.length >= 1 &&
     gradesTeaching.length >= 1 &&
@@ -118,6 +125,14 @@ export function TutorProfileScreen() {
     const validationErrors: FormErrors = {};
     if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
     if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
+    if (!USERNAME_REGEX.test(username.trim())) {
+      validationErrors.username =
+        "Username must be 3–30 characters: letters, digits, underscore, or dot.";
+    }
+    if (!PHONE_REGEX.test(phone.trim())) {
+      validationErrors.phone =
+        "Enter a valid phone number (7–15 digits, no country code).";
+    }
     if (headline.trim().length === 0) validationErrors.headline = "Add a one-line headline that parents will see.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
     if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";
@@ -126,7 +141,7 @@ export function TutorProfileScreen() {
 
     if (Object.keys(validationErrors).length > 0) return;
 
-    const phoneDisplay = phone ? `+977 ${phone}` : "";
+    const phoneDisplay = phone.trim() ? `+977 ${phone.trim()}` : "";
 
     // Cache the draft in the registration shim so the in-flight navigation
     // can read it before Firestore round-trip completes. The shim will be
@@ -134,6 +149,8 @@ export function TutorProfileScreen() {
     registration.updateProfile({
       fullName: fullName.trim(),
       email: email.trim(),
+      username: username.trim(),
+      phone: phone.trim(),
       subjects,
       location,
       phoneDisplay,
@@ -147,7 +164,7 @@ export function TutorProfileScreen() {
     if (!user) {
       Alert.alert(
         "Not signed in",
-        "Please sign in (phone OTP or Google) before completing your profile.",
+        "Please sign in (email code or Google) before completing your profile.",
       );
       router.replace("/phone-entry");
       return;
@@ -175,6 +192,8 @@ export function TutorProfileScreen() {
           headline: headline.trim(),
           bio: bio.trim(),
           phoneDisplay,
+          phone: phone.trim(),
+          username: username.trim(),
           fullName: fullName.trim(),
           email: email.trim(),
           updatedAt: serverTimestamp(),
@@ -237,20 +256,50 @@ export function TutorProfileScreen() {
             onChangeEmail={setEmail}
           />
 
-          {/* Phone (read-only) */}
-          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          {/* Username + phone (editable — for parent-initiated contact) */}
+          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
             <Text className="text-overline text-text-muted uppercase">
-              Phone (verified)
+              Username & phone
             </Text>
-            <View className="flex-row items-center gap-2 h-phone-row px-3 border-emphasis border-border rounded-md bg-background">
-              <Ionicons color={colors.text.muted} name="lock-closed-outline" size={18} />
-              <Text className="text-body text-text-primary font-semibold">
-                {phone ? `+977 ${phone}` : "+977 98XXXXXXXX"}
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Username (3–30 chars: letters, digits, _ or .)
               </Text>
+              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+                <Ionicons color={colors.text.muted} name="at-outline" size={18} />
+                <TextInput
+                  className="flex-1 text-text-primary text-body"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={setUsername}
+                  placeholder="your_handle"
+                  placeholderTextColor={colors.text.muted}
+                  value={username}
+                />
+              </View>
+              {errors.username ? (
+                <Text className="text-caption text-danger">{errors.username}</Text>
+              ) : null}
             </View>
-            <Text className="text-caption text-text-muted">
-              Verified during signup. Parents can request to call you from inside the app.
-            </Text>
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Phone (digits only — parents can request a call from inside the app)
+              </Text>
+              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+                <Ionicons color={colors.text.muted} name="call-outline" size={18} />
+                <TextInput
+                  className="flex-1 text-text-primary text-body"
+                  keyboardType="phone-pad"
+                  onChangeText={setPhone}
+                  placeholder="98XXXXXXXX"
+                  placeholderTextColor={colors.text.muted}
+                  value={phone}
+                />
+              </View>
+              {errors.phone ? (
+                <Text className="text-caption text-danger">{errors.phone}</Text>
+              ) : null}
+            </View>
           </View>
 
           {/* Headline */}

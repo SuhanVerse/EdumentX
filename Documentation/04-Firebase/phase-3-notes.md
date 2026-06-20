@@ -1,23 +1,54 @@
-# Firebase — Phase 3 Notes (Native React Native Firebase)
+# Firebase + Clerk — Phase 3 Notes (post-Clerk-pivot)
 
-> **Audience**: developers working on the Firebase Auth + dashboards sprint.
-> **Source of truth**: `Documentation/05-Build-and-Deploy/firebase-auth-plan.md` (rewritten June 12, 2026 to use `@react-native-firebase/*` instead of the JS SDK; see `firebase-auth-plan-audit.md` finding #14 for the override).
+> **Audience**: developers working on the auth flow, dashboards, or the
+> `users/{uid}` Firestore data model.
+> **Pivot date**: June 20, 2026 — identity moved from Firebase Auth to
+> Clerk Auth. Firebase is retained **only** for Firestore. The two
+> systems are bridged by `components/ClerkFirebaseBridge.tsx` (the
+> "Silent Bridge"), which signs the RNFirebase client in/out in the
+> background as the Clerk session changes. See
+> `Documentation/04-Firebase/Clerk_Integration.md` for the original
+> integration spec.
+> **Source of truth for the integration design**:
+> `Documentation/04-Firebase/Clerk_Integration.md`.
 > **Project ID in use**: `edumentx-dev` (Firestore region `asia-south1`).
-> **SDK**: `@react-native-firebase/app` + `@react-native-firebase/auth` + `@react-native-firebase/firestore` (RNFB 21.x on Expo SDK 54 / new architecture).
+> **SDK**: `@clerk/clerk-expo` v2.19.x (identity) + `@react-native-firebase/app` + `@react-native-firebase/firestore` (data) + `@react-native-firebase/auth` (used **only** by the bridge for `signInWithCustomToken` — never call it from feature code).
 
-This file is the **developer-facing operations doc** for Firebase. The plan is the "what to build" doc; this is the "how to talk to Firebase and what to watch out for" doc.
+This file is the **developer-facing operations doc** for the
+post-pivot auth + Firestore model. It's a "how to talk to the system
+and what to watch out for" doc; the original plan files
+(`firebase-auth-plan.md`, `firebase-auth-plan-audit.md`) are kept
+under `Documentation/05-Build-and-Deploy/` for historical context but
+are **superseded by the Clerk pivot**.
 
 ---
 
 ## 1. Source of truth for Firebase config
 
-**For the React Native app**: `google-services.json` at the project root. The native Firebase SDK reads it at native build time. It is auto-generated when you register the Android app in the Firebase Console (Project Settings → Your apps → Android).
+**For the React Native app**: `google-services.json` at the project
+root. The native Firebase SDK reads it at native build time. It is
+auto-generated when you register the Android app in the Firebase
+Console (Project Settings → Your apps → Android).
 
-**For the v2 web admin tool** (out of scope): `.env` keeps `EXPO_PUBLIC_FIREBASE_*` values.
+**For the v2 web admin tool** (out of scope): `.env` keeps
+`EXPO_PUBLIC_FIREBASE_*` values. The RN app does **not** read these
+at runtime — see the warning below.
 
-> **⚠️ Do not read `process.env.EXPO_PUBLIC_FIREBASE_*` from React Native code.** The native SDK does not see these values. Reading them at runtime will give you `undefined` and you'll spend a day debugging why auth fails silently. Use `import auth from '@react-native-firebase/auth'` and `import firestore from '@react-native-firebase/firestore'`. That's it.
+> **⚠️ Do not read `process.env.EXPO_PUBLIC_FIREBASE_*` from React
+> Native code.** The native SDK does not see these values. Reading
+> them at runtime will give you `undefined` and you'll spend a day
+> debugging why Firestore writes fail silently. Use
+> `import { getFirestore, getApp, doc, setDoc } from '@react-native-firebase/firestore'`. That's it.
 
-The only env var we read at runtime is `EXPO_PUBLIC_FIREBASE_USE_EMULATOR` (gated behind `services/firebase/emulator.ts`). Keep it set to `false` in `.env`; flip to `true` only when running `firebase emulators:start` locally.
+The only Firebase env var we read at runtime is
+`EXPO_PUBLIC_FIREBASE_USE_EMULATOR` (gated behind
+`services/firebase/emulator.ts`). Keep it set to `false` in `.env`;
+flip to `true` only when running `firebase emulators:start` locally.
+
+The only Clerk env var we read at runtime is
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...`. This goes to
+`<ClerkProvider>` in `app/_layout.tsx`. Get it from the Clerk
+Dashboard → API Keys.
 
 ---
 
@@ -26,36 +57,55 @@ The only env var we read at runtime is `EXPO_PUBLIC_FIREBASE_USE_EMULATOR` (gate
 | File | Where it comes from | Required for |
 |---|---|---|
 | `google-services.json` | Firebase Console → Project Settings → Your apps → Android app (`com.anonymous.edumentx`) → Download | Native build. **Must match the SHA-1 / SHA-256 fingerprints in the Firebase Console** — those are already configured from the `eas credentials` output you ran. |
-| `.env` | committed | `EXPO_PUBLIC_FIREBASE_USE_EMULATOR` |
+| `.env` | committed | `EXPO_PUBLIC_FIREBASE_USE_EMULATOR`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` |
 | `google-services.plist` (iOS, future) | Firebase Console → Project Settings → Your apps → iOS app | iOS builds. Out of scope for v1. |
 
-If you change the Android package name in `app.json`, **or** rotate the keystore (`eas credentials` → Keystore → Reset), the SHA-1 / SHA-256 fingerprints change and you must re-register the Android app in the Firebase Console and re-download `google-services.json`. The old one will silently break auth.
+If you change the Android package name in `app.json`, **or** rotate
+the keystore (`eas credentials` → Keystore → Reset), the SHA-1 /
+SHA-256 fingerprints change and you must re-register the Android app
+in the Firebase Console and re-download `google-services.json`. The
+old one will silently break the ClerkFirebaseBridge (Firebase rejects
+the custom token with `auth/invalid-app-credential`).
 
 ---
 
-## 3. Doc-collection layout
+## 3. How Clerk and Firestore identify the same user
+
+The bridge works because Clerk's `integration_firebase` JWT template
+mints a Firebase-shaped custom token whose `uid` claim is the Clerk
+user id. The RNFirebase `signInWithCustomToken()` call decodes that
+token and uses the `uid` claim as the local Firebase user id. From
+that point on, every Firestore `request.auth.uid` is the Clerk user
+id.
+
+This means **the document path `users/{clerkUid}` works in every
+security rule, every client query, and every server-side call** —
+without any extra mapping layer. The single source of truth for the
+user identity is Clerk; Firestore just uses the id it gets.
+
+If you ever need to look up a user by Clerk id, the path is
+`firestore.collection('users').doc(clerkUserId)`. If you ever need to
+look up a Clerk user by Firestore doc id, call
+`clerkClient.users.getUser(firestoreDocId)`. The two systems stay in
+lock-step.
+
+---
+
+## 4. Doc-collection layout
 
 ```
-/users/{uid}                        # user profile (owner-only read/write)
-  ├── uid                           # string, == userId
-  ├── phone                         # E.164 (e.g. "+97798XXXXXXXX")
-  ├── fullName                      # string
-  ├── email                         # string
-  ├── role                          # "student" | "tutor"
-  ├── createdAt, updatedAt          # serverTimestamp
-  ├── tutorProfile/default          # subcollection doc (if role=tutor)
-  └── studentProfile/default        # subcollection doc (if role=student)
-
-/admins/{adminId}                   # admin credentials (see §4 caveats)
-  ├── email                         # unique
-  ├── displayName                   # string
-  ├── role                          # "admin"
-  ├── salt                          # base64, per-admin random
-  ├── passwordHash                  # sha256(salt + ":" + password), base64
-  └── createdAt, updatedAt          # serverTimestamp
+/users/{clerkUid}                    # user profile (owner-only read/write)
+  ├── uid                            # string, == clerkUserId
+  ├── email                          # string | null
+  ├── displayName                    # string | null
+  ├── username                       # string | null (custom username, 3-30 chars)
+  ├── role                           # "student" | "tutor"
+  ├── createdAt, updatedAt           # serverTimestamp
+  ├── tutorProfile/default           # subcollection doc (if role=tutor)
+  └── studentProfile/default         # subcollection doc (if role=student)
 ```
 
-### `/users/{uid}/tutorProfile/default`
+### `/users/{clerkUid}/tutorProfile/default`
 
 | Field | Type | Notes |
 |---|---|---|
@@ -67,24 +117,32 @@ If you change the Android package name in `app.json`, **or** rotate the keystore
 | `headline` | `string` | one-line pitch |
 | `bio` | `string` | long-form |
 | `phoneDisplay` | `string` | formatted phone for display |
+| `phone` | `string` | unverified digits-only, for parent-initiated contact (collected on the profile screen) |
+| `username` | `string` | unverified, mirrors `users/{clerkUid}.username` |
+| `fullName` | `string` | |
+| `email` | `string` | |
 | `updatedAt` | `serverTimestamp` | |
 
-### `/users/{uid}/studentProfile/default`
+### `/users/{clerkUid}/studentProfile/default`
 
 | Field | Type | Notes |
 |---|---|---|
 | `grade` | `string` | e.g. `"Grade 10"` |
 | `subjects` | `string[]` | subjects needed |
 | `location` | `{ neighborhood: string; city: string }` | |
+| `phone` | `string` | unverified digits-only, for parent-initiated contact |
+| `username` | `string` | unverified, mirrors `users/{clerkUid}.username` |
+| `fullName` | `string` | |
+| `email` | `string` | |
 | `updatedAt` | `serverTimestamp` | |
 
-### `/admins/{adminId}`
-
-See §4 (admin security caveat) before reading or writing this collection.
+`/admins/{adminId}` was removed entirely in the Clerk pivot — admin
+sign-in is now a separate Clerk user with a `publicMetadata.role` of
+`"admin"` (out of scope for v1).
 
 ---
 
-## 4. Firestore security rules — current state
+## 5. Firestore security rules — current state
 
 `firebase/firestore.rules`:
 
@@ -93,6 +151,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
+    // `request.auth.uid` is the Clerk user id, not a Firebase uid —
+    // ClerkFirebaseBridge uses the `uid` claim on the custom token as
+    // the Firebase local uid, so the two are equal.
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
     match /users/{userId} {
@@ -109,12 +170,6 @@ service cloud.firestore {
         allow read:  if isOwner(userId);
         allow write: if isOwner(userId);
       }
-    }
-
-    match /admins/{adminId} {
-      // ⚠️ v1: PUBLIC read. See §5. Replace with Cloud Function in v2.
-      allow read:  if true;
-      allow write: if false;
     }
 
     match /{document=**} {
@@ -136,197 +191,258 @@ Test (using the emulator suite):
 firebase emulators:exec --only firestore "npm run test:rules"   # if a rules test script exists
 ```
 
----
-
-## 5. Admin sign-in — v1 security caveat
-
-**This is the single most important thing to know about the v1 admin flow.**
-
-- The `admins` collection is **publicly readable** by design.
-- The password is stored as `sha256(salt + ":" + password)` with a per-admin random salt.
-- Client-side: the app reads the doc, computes the same hash with the stored salt, and uses `timingSafeEqual` (constant-time comparison) to compare.
-- This is **acceptable for the v1 demo** (one seed-admin account, dev environment) but is **not safe for production**.
-
-### v2 plan (out of scope for v1)
-
-1. Create a Cloud Function `matchAdmin(email, password)` that:
-   - Verifies the SHA-256 hash server-side (admin SDK has full access).
-   - On match, mints a custom token via `admin.auth().createCustomToken(uid)`.
-   - Returns `{ customToken, uid, displayName }`.
-2. Change the client to call this function on submit.
-3. Client receives the custom token, calls `auth().signInWithCustomToken(customToken)`.
-4. Now the admin has a real Firebase Auth session; `auth().currentUser` is populated.
-5. Tighten the `admins` rule to `allow read: if request.auth != null;` (or remove client reads entirely).
-
-This is tracked here as a v2 ticket. Do not ship `admins` docs to production until the Cloud Function is live.
+The owner check is unchanged from the pre-pivot rules. The only
+difference is that `request.auth.uid` now flows from Clerk's
+custom-token `uid` claim instead of from a Firebase-owned account,
+but the rules don't care where the uid came from.
 
 ---
 
-## 6. Phone auth — no reCAPTCHA, no webview
+## 6. The Silent Bridge — `components/ClerkFirebaseBridge.tsx`
 
-**Big difference from the JS-SDK era**: there is **no `RecaptchaVerifier`, no `applicationVerifier`, no `react-native-webview`, no invisible iframe**.
+This is the single component that owns the Clerk ↔ Firestore
+identity mapping. **It is the only place in the codebase allowed to
+import from `@react-native-firebase/auth`.**
 
-The native RNFirebase `auth().signInWithPhoneNumber(phone)` call:
+What it does, in order:
 
-```ts
-import auth from '@react-native-firebase/auth';
+1. Watches `useAuth()` from `@clerk/clerk-expo`.
+2. While Clerk is loading, does nothing. The Firestore reads on the
+   layout guard will fail with `auth/...` until this bridge signs the
+   client in; that's expected and the layout guard is written to
+   tolerate it.
+3. When Clerk reports a signed-in user that we haven't already
+   bridged, calls `useAuth().getToken({ template:
+   'integration_firebase' })`. The JWT template is configured in the
+   Clerk Dashboard; its name is hardcoded as
+   `FIREBASE_JWT_TEMPLATE` in the component file.
+4. Hands the token to `signInWithCustomToken(auth, token)`. The
+   resulting Firebase user id is the Clerk user id (it's the `uid`
+   claim in the token). The bridge stores the bridged uid in a
+   `useRef` so it doesn't refetch the JWT on every Clerk re-render.
+5. When Clerk reports a sign-out, calls `firebaseSignOut()` to drop
+   the Firebase session.
 
-const confirmation = await auth().signInWithPhoneNumber('+97798XXXXXXXX');
-// ↑ no second argument
-const user = await confirmation.confirm('123456');
+Failure modes the bridge is designed to handle:
+
+| Symptom | Cause | Bridge behavior |
+|---|---|---|
+| `getToken` returns `null` | The `integration_firebase` JWT template isn't enabled in the Clerk Dashboard, or it's named differently | Logs a clear error to the console. The Firestore writes will fail with `auth/custom-token-mismatch` — the dev sees a single console message naming the template and the Dashboard location. |
+| `signInWithCustomToken` throws | Token expired or signed with a key Firebase doesn't trust | Logs the error. The next render where `useAuth()` re-emits a new session will retry. |
+| `firebaseSignOut` throws | Already signed out (we triggered the sign-out ourselves) | Caught and swallowed. The only way this can fail is if Firebase was already signed out, in which case the throw is benign. |
+| `useAuth()` returns `isLoaded: false` | Clerk is still resolving the session from SecureStore | The bridge effect early-returns. No token fetch is attempted. |
+
+---
+
+## 7. Auth flow — Unified Passwordless Gateway
+
+The pre-pivot flow had three entry points (phone OTP, email/password,
+Google). After the pivot there is **one** entry point
+(`screens/auth/PhoneEntryScreen.tsx`) that handles both sign-in and
+sign-up.
+
+```
++----------------------------+
+|  /phone-entry              |
+|                            |
+|  Identifier input          |
+|  (email OR username)       |
++----------------------------+
+              |
+              v
++--------------------------------+
+| signIn.create({ identifier })  |
++--------------------------------+
+   |                  |
+   | needs_first_     | form_identifier_not_found
+   | factor           |
+   v                  v
+prepareFirstFactor    signUp.create({ emailAddress })
+{ strategy:           +
+   'email_code' }     signUp.prepareEmailAddressVerification(
+                      { strategy: 'email_code' })
+   |                  |
+   +--------+---------+
+            |
+            v
++----------------------------+
+|  /otpverify                |
+|  mode: 'signin' | 'signup' |
++----------------------------+
+            |
+            v
+   attemptFirstFactor        attemptEmailAddressVerification
+   ({ strategy:              ({ code })
+      'email_code',
+      code })
+            |
+            v
+   setActive({ session: createdSessionId })
+            |
+            v
++----------------------------+
+|  app/_layout.tsx           |
+|  layout guard: read        |
+|  users/{clerkUid}.role,    |
+|  route to dashboard        |
++----------------------------+
 ```
 
-On Android, RNFirebase calls into the native `FirebaseAuth` SDK which uses **Google Play Integrity** for automatic device verification. On iOS it uses APNs. Both paths are first-party Google APIs, not a webview fallback. The user never sees a reCAPTCHA challenge unless Play Integrity is missing on the device (rare — modern Android devices all have it).
+Google Sign-In is a parallel entry that bypasses the gateway
+entirely: `useOAuth({ strategy: 'oauth_google' })` from
+`@clerk/clerk-expo` opens Clerk's native OAuth popup, returns a
+session id, and the layout guard takes over.
 
-### Common emulator / dev-mode pitfalls
+The `/role-selection` and `/profile-{student,tutor}` screens still
+exist; they're reached when the layout guard sees a signed-in user
+without a role, or with a role but no profile subdoc yet.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `auth/app-not-authorized` on emulator | Emulator image has no Google Play Services | Use a Google APIs emulator image, not a vanilla AOSP one. In Android Studio AVD Manager: choose a system image with "Google Play" in the name. |
-| `auth/operation-not-allowed` on first send | Phone sign-in not enabled in Firebase Console | Auth → Sign-in method → Phone → Enable |
-| `auth/invalid-app-credential` on real device | SHA-1 / SHA-256 mismatch | Re-run `eas credentials` → Display Fingerprint. Add the values to Firebase Console → Project Settings → Your apps → Android → Fingerprints. Re-download `google-services.json`. |
-| OTP never arrives on real device | SMS quota exceeded, or phone number not in test numbers | Add the phone to Auth → Sign-in method → Phone → "Phone numbers for testing" with a fixed code |
+### Username support
 
-For local dev, **always add a test phone** in the Firebase Console (e.g. `+9779800000000` → code `123456`). This bypasses real SMS billing and is the documented path.
+The Clerk dashboard has the **Username requirement turned OFF**.
+That means Clerk doesn't require a username at sign-up, but it still
+*allows* one. The Unified Passwordless Gateway accepts a username as
+the identifier; if `signIn.create({ identifier: "alice" })` succeeds
+Clerk resolves it to the user, sends the email_code to the linked
+email, and we never see the email on the OTP screen (we just say
+"the email linked to alice").
+
+If the username doesn't exist and the user typed a username rather
+than an email, we **reject the sign-up** with a clear message — Clerk
+rejects a `signUp.create({ emailAddress: "alice" })` call, and we
+shouldn't pretend otherwise. The "I don't have an account" case for
+a username resolves to "please enter your email" rather than
+silently treating the username as an email.
 
 ---
 
-## 7. Local dev workflow
+## 8. Local dev workflow
 
 ```bash
-# 1. Start the Firestore + Auth emulators
+# 1. Start the Firestore emulator
 firebase emulators:start
 # → Firestore at 127.0.0.1:8080
-# → Auth at 127.0.0.1:9099
 
-# 2. Tell the RN app to use them
+# 2. Tell the RN app to use it
 echo 'EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true' >> .env
 
 # 3. Boot Metro
 npx expo start -c
 ```
 
-When `EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true`, `services/firebase/emulator.ts` calls `firestore().useEmulator('127.0.0.1', 8080)`. (The Auth emulator auto-connects because the native SDK detects the env-flag; no separate call needed.) Verify in the Emulator UI at http://localhost:4000 that the test admin doc and any test users appear in the right collections.
+When `EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true`,
+`services/firebase/emulator.ts` calls
+`firestore().useEmulator('127.0.0.1', 8080)`. Verify in the Emulator
+UI at http://localhost:4000 that the test user docs appear under
+`users/{clerkUid}`.
+
+> **Note**: the Auth emulator is no longer used. Clerk is the identity
+> provider, and Clerk doesn't have a local emulator on the free tier
+> (you can use their staging keys for dev, but you can't fully
+> replicate the production flow). For dev, use a Clerk **dev
+> instance** with test email addresses and the real Email OTP flow —
+> codes arrive in your inbox. The `integration_firebase` JWT template
+> is enabled in dev too; just make sure the dev instance has the
+> Firebase integration toggled on.
 
 ---
 
-## 8. Common error codes (RNFirebase)
+## 9. Common error codes (post-pivot)
 
-Surfaced via `services/firebase/errors.ts → formatFirebaseError(code)`:
+Surfaced via inline `formatClerkError` helpers in
+`screens/auth/PhoneEntryScreen.tsx` and `screens/auth/OtpVerify.tsx`:
 
 | Code | Meaning | UI action |
 |---|---|---|
-| `auth/invalid-phone-number` | Phone not E.164 or not allowed by region | show "Enter a valid 10-digit Nepali number" |
-| `auth/too-many-requests` | SMS quota or rate limit | show "Too many attempts. Try again in 5 minutes." |
-| `auth/invalid-verification-code` | OTP mismatch | shake the OTP box, clear the field |
-| `auth/code-expired` | OTP > 5 min old | "Code expired. Tap to resend." |
-| `auth/network-request-failed` | no network | "Check your connection and try again." |
-| `auth/app-not-authorized` | SHA-1 mismatch or missing Play Services | log to crashlytics, show "Auth not configured. Contact support." |
-| `auth/operation-not-allowed` | Phone provider not enabled in Console | log to crashlytics, show "Auth not configured. Contact support." |
-| `auth/requires-recent-login` | `updatePassword` called > 5 min after sign-in | re-authenticate, then retry |
-| `firestore/permission-denied` | rule violation | generic "Unable to save. Please try again." (do not leak rule details) |
-| `firestore/not-found` | `users/{uid}` doesn't exist post-OTP | this is the "finish your profile" case — route to `/(auth)/role-selection` |
+| `form_identifier_not_found` | The identifier (email or username) doesn't match a Clerk user | caught internally; fall through to sign-up |
+| `form_identifier_exists` | Trying to sign up with an email that already has a Clerk account | "An account with that email already exists. Try logging in instead." |
+| `verification_expired` | The 6-digit code was older than 10 minutes | "That code has expired. Please request a new one." |
+| `verification_failed` | The 6-digit code didn't match | "The code you entered didn't match. Please try again." |
+| `too_many_requests` | Rate limit on the code-resend endpoint | "You've made too many attempts. Please wait a minute." |
+| `network_error` / `network_timeout` | Connectivity | "Check your connection and try again." |
+| `firestore/permission-denied` | Rule violation | generic "Unable to save. Please try again." (do not leak rule details) |
+| `firestore/not-found` | `users/{uid}` doesn't exist post-OTP | This is the "finish your profile" case — route to `/role-selection` |
 
 ---
 
-## 9. What to NOT do in v1
+## 10. What to NOT do in v1
 
-- **Don't** read `process.env.EXPO_PUBLIC_FIREBASE_API_KEY` from RN code. The native SDK doesn't see it. Use the imports.
-- **Don't** add a `RecaptchaVerifier` to the call site. The native SDK doesn't take one. If you see `auth/argument-error` from `signInWithPhoneNumber`, check that you're not passing a verifier you copied from a JS-SDK tutorial.
-- **Don't** install `firebase` or `react-native-webview` for auth. They are no longer needed.
-- **Don't** edit `app.json` to add `@react-native-firebase/app` as a config plugin. RNFB 21.x auto-initializes from `google-services.json` at native build time. Adding it will throw "plugin not found" on `expo prebuild`.
-- **Don't** change the Android package name without also re-registering the Android app in the Firebase Console. The package name in `app.json` (`com.anonymous.edumentx`) MUST match the one in `google-services.json`.
-- **Don't** store the seed admin password in plaintext in the seed script output or in git. The script should write `{ salt, passwordHash }` and print only a `✅ seeded admin: admin@edumentx.dev` confirmation to stdout.
-- **Don't** ship `admins` collection docs to production. The rule is public-read by design for v1 demo, which is fine for the dev project, **not** fine for `edumentx-prod`.
-- **Don't** add `adminProfile` as a value of the `Role` union type in `types/user.ts`. `adminProfile` is orthogonal — admins are matched in a separate collection, not signed up via the role selection flow.
+- **Don't** read `process.env.EXPO_PUBLIC_FIREBASE_API_KEY` from RN
+  code. The native SDK doesn't see it. Use the imports.
+- **Don't** call `getAuth()`, `signInWithCustomToken()`, or
+  `firebaseSignOut()` from anywhere except
+  `components/ClerkFirebaseBridge.tsx`. Other code paths go through
+  Clerk.
+- **Don't** add Firebase Auth to your feature code for OTP, sign-in,
+  sign-up, or Google. Clerk owns all of those.
+- **Don't** add `@react-native-google-signin/google-signin` back to
+  the project. Clerk's `useOAuth({ strategy: 'oauth_google' })`
+  replaces it.
+- **Don't** edit `app.json` to add `@react-native-firebase/app` as a
+  config plugin. RNFB 21.x auto-initializes from `google-services.json`
+  at native build time. Adding it will throw "plugin not found" on
+  `expo prebuild`.
+- **Don't** change the Android package name without also re-registering
+  the Android app in the Firebase Console. The package name in
+  `app.json` (`com.anonymous.edumentx`) MUST match the one in
+  `google-services.json`.
+- **Don't** write to `users/{uid}` from a code path that doesn't go
+  through the bridge. If the bridge hasn't completed, your write
+  will fail with `auth/...` and you'll blame the rules. The layout
+  guard tolerates this; feature code should not.
+- **Don't** use `signIn.create({ identifier: ... })` to test for
+  account existence from feature code. It burns a sign-in attempt
+  rate limit on Clerk. The only place this call belongs is the
+  catch-and-fallback in `PhoneEntryScreen.tsx`.
+- **Don't** put `confirmationResult` (or any Firebase Auth state) in
+  the Zustand store. Clerk's `signIn` / `signUp` objects own that;
+  if you feel the need to persist it, you almost certainly want a
+  Clerk session token instead.
 
 ---
 
-## 10. v2 ticket list
+## 11. v2 ticket list (post-pivot)
 
-- [ ] Cloud Function `matchAdmin(email, password) → customToken` + client `signInWithCustomToken` swap
-- [ ] Tighten `admins` rule to `allow read: if request.auth != null;` (or remove client reads)
-- [ ] Cloud Function `signInWithPhonePassword(phone, password) → customToken` to enable phone+password login
+- [ ] Cloud Function to set `publicMetadata.role = 'admin'` on a Clerk
+  user (so admins can sign in via Clerk and the layout guard reads
+  the role from Clerk instead of Firestore)
+- [ ] Tighten `users/{uid}` rules with a `request.auth.token.email_verified
+  === true` check on profile writes (now possible because Clerk
+  sets `email_verified` in the custom token)
 - [ ] iOS app registration + `GoogleService-Info.plist`
-- [ ] Avatar upload to Firebase Storage (Storage rules are already in place)
+- [ ] Avatar upload to Firebase Storage (Storage rules are already in
+  place)
 - [ ] Tutor verification flow (Blue Tick Pro, document upload)
-- [ ] Switch from SHA-256 to bcrypt/argon2 for password storage
+- [ ] Username uniqueness check via Cloud Function (currently the
+  username lives only in Firestore; clients can write duplicates)
 
 ---
 
-## 12. Email + password sign-in (100% free, added June 19, 2026)
+## 12. Dashboards — current state
 
-A third sign-in path alongside phone OTP and Google Sign-In. The phone OTP path stays as the primary flow for users who don't have or don't want to share an email; Google Sign-In is the fast path for users with a Google account. **Email + password** is the free fallback that doesn't burn SMS quota — useful for desktop test users, for users in regions where Google Sign-In is unavailable, and as a recovery path if the phone provider is temporarily down.
-
-### Flow
-
-1. From `/phone-entry` the user taps **"Continue with email"** → routes to `/email-signup` (`screens/auth/EmailSignUp.tsx`).
-2. The screen has a `signup` / `login` toggle (matches the visual pattern of `/phone-entry`). In signup mode:
-   - `authService.signUpWithEmail(email, password)` calls `createUserWithEmailAndPassword` and immediately `sendEmailVerification` on the new user.
-   - The screen flips to the **"Check your inbox"** pending state — shows the email address the link was sent to, a "Resend verification email" link, and an "I've verified — continue" button.
-   - **Don't route them to `/role-selection` yet.** The pending screen's job is to keep them on this screen until `emailVerified === true`.
-3. The user taps the link in their email → Firebase Auth server flips the `emailVerified` flag on their user.
-4. When they tap **"I've verified — continue"**, the screen calls `getAuth(getApp()).currentUser.reload()` to re-read the server-side claims. If `emailVerified` is now `true`, sync the local Zustand store and `router.replace("/role-selection")`.
-5. In login mode (existing verified user): `authService.loginWithEmail(email, password)` → `signInWithEmailAndPassword`. If `emailVerified === false` (they signed up but never tapped the link), show the same pending screen. If `true`, route to `/role-selection` directly.
-
-### Client-side guard
-
-The `_layout.tsx` redirect effect has a **new step** between the signed-out and signed-in branches:
-
-```ts
-// Signed in via email/password but unverified — bounce to /email-signup.
-if (isEmailPasswordUser && !emailVerified) {
-  const allowedWhileUnverified = new Set(["email-signup", "phone-entry"]);
-  if (!allowedWhileUnverified.has(currentRoute)) {
-    router.replace("/email-signup");
-  }
-  return;
-}
-```
-
-`isEmailPasswordUser` is `user.providerData.some(p => p.providerId === "password")`. Phone OTP users and Google Sign-In users return `false` for that predicate (their `providerData` is `["phone"]` or `["google.com"]`), so they bypass this check entirely.
-
-### Why the client-side check is "best effort"
-
-This is a UI guard, not a security boundary. A malicious user can patch the JS bundle to skip the check. The **real** authorization layer is in `firestore.rules` (which we extend in a v2 sprint to check `request.auth.token.email_verified === true` on writes to `users/{uid}/studentProfile` and `users/{uid}/tutorProfile`). For v1 the only data an unverified user can read is the public docs, so the risk is low.
-
-### Quota + cost
-
-`sendEmailVerification` has no per-message cost — it's counted against the project's Auth quota, which defaults to a few hundred sends/day. Plenty for a single-country beta. **No billing setup is required.** If we ever blow past the default, raise the quota in Firebase Console → Authentication → Sign-in method → Email/Password → "Email link quota".
-
----
-
-## 13. Logout from dashboards (added June 19, 2026)
-
-Before this change, there was no way to clear the Firebase Auth session once signed in — the dashboards had no logout button, and there was no profile/settings screen. The fix:
-
-- `store/authStore.ts` gained a `reset()` action that clears `user`, `role`, `confirmationResult`, and flips `isLoading` to `false`.
-- `services/firebase/authService.ts` already had `logout()` (the modular `auth.signOut()`). No changes there.
-- Both dashboards (`screens/student/student_home.tsx`, `screens/tutor/tutor_home.tsx`) now have a destructive-styled **"Log out"** `Pressable` at the bottom of the ScrollView, with a confirmation dialog so an accidental tap doesn't destroy the session. The handler:
-  1. Calls `await logout()`.
-  2. Calls `useAuthStore.getState().reset()` to drop the cached `user` and `role`.
-  3. `router.replace("/phone-entry")` — `replace`, not `push`, so the dashboard isn't left under the auth screen in the navigation stack.
-- The `_layout.tsx` guard's `onAuthStateChanged` callback also resets the store when Firebase Auth fires its `null` user event, so even if the dashboard's `reset()` call were skipped, the layout guard would catch it on the next render.
-
-The new `reset()` action is also useful for tests that need to reset state between cases.
-
----
-
-*Maintained by SuhanVerse · June 19, 2026 (added email verification §12, logout from dashboards §13; dashboard mock-data milestone)*
-
----
-
-## 11. Dashboards — current state
-
-The student and tutor dashboards were implemented on June 17, 2026 (PRs #28 and #30) as **UI-only milestones with mock-data arrays**. They render correctly and the auth-guard correctly routes `student` → `/student-home` and `tutor` → `/tutor-home`. The next sprint (Sprint 4 — Map & Discovery) replaces the mocks with live Firestore queries.
+The student and tutor dashboards were implemented on June 17, 2026
+(PRs #28 and #30) as **UI-only milestones with mock-data arrays**.
+They render correctly and the auth-guard correctly routes
+`student` → `/student-home` and `tutor` → `/tutor-home`. The next
+sprint (Sprint 4 — Map & Discovery) replaces the mocks with live
+Firestore queries.
 
 | Route | File | Mock data sources (to be replaced) | Real Firestore source |
 |---|---|---|---|
-| `/student-home` | `screens/student/student_home.tsx` | `MOCK_TUTORS`, `PROFILE` | `tutors/{uid}` for self, `tutors` collection (geo + subject filter) for the rest |
-| `/tutor-home` | `screens/tutor/tutor_home.tsx` | `TUTOR_PROFILE`, `TODAY_SESSIONS`, `PENDING_REQUESTS`, `BATCH_REQUESTS`, `SESSION_SLOTS` | `tutors/{uid}` (self profile), `sessions` (today filter), `enrollmentRequests` (tutorId + status==pending), `batchRequests` (tutorId + status==pending) |
+| `/student-home` | `screens/student/student_home.tsx` | `MOCK_TUTORS`, `PROFILE` | `users/{clerkUid}` for self, `users` collection (role==tutor, filter by `tutorProfile.subjects` + `tutorProfile.location`) for the rest |
+| `/tutor-home` | `screens/tutor/tutor_home.tsx` | `TUTOR_PROFILE`, `TODAY_SESSIONS`, `PENDING_REQUESTS`, `BATCH_REQUESTS`, `SESSION_SLOTS` | `users/{clerkUid}/tutorProfile/default` (self profile), `sessions` (tutorId filter), `enrollmentRequests` (tutorId + status==pending), `batchRequests` (tutorId + status==pending) |
 
-The TODO markers in those files name the exact Firestore collection + filter for each mock block.
+The TODO markers in those files name the exact Firestore collection +
+filter for each mock block.
+
+The dashboards' sign-out handlers call `useClerk().signOut()` from
+`@clerk/clerk-expo`, which fires the bridge's `firebaseSignOut()`
+for us. They then call `useAuthStore.getState().reset()` to drop the
+cached `user` and `role`, and `router.replace("/phone-entry")` to
+clear the navigation stack.
 
 ---
 
-*Maintained by SuhanVerse · June 19, 2026 (dashboards merged into main; mock-data milestone)*
+*Maintained by SuhanVerse · June 20, 2026 (post-Clerk-pivot rewrite;
+supersedes the June 19 phone OTP / email-password / dashboards
+version of this file).*
