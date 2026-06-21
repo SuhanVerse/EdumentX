@@ -143,6 +143,8 @@ export default function RootLayout() {
       "role-selection",
       "profile-student",
       "profile-tutor",
+      "student-home",
+      "tutor-home",
       "phone-entry",
       "otpverify",
       "create_password",
@@ -172,6 +174,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile-student" />
           <Stack.Screen name="profile-tutor" />
           <Stack.Screen name="student-home" />
+          <Stack.Screen name="tutor-home" />
         </Stack>
         {isLoading ? (
           <View
