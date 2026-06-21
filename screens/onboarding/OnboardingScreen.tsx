@@ -1,13 +1,13 @@
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AiMatchIllustration } from '@/components/illustrations/AiMatchIllustration';
-import { DiscoverIllustration } from '@/components/illustrations/DiscoverIllustration';
-import { VerifiedIllustration } from '@/components/illustrations/VerifiedIllustration';
-import { colors } from '@/constants/colors';
+import { AiMatchIllustration } from "@/components/illustrations/AiMatchIllustration";
+import { DiscoverIllustration } from "@/components/illustrations/DiscoverIllustration";
+import { VerifiedIllustration } from "@/components/illustrations/VerifiedIllustration";
+import { colors } from "@/constants/colors";
 
 type IllustrationComponent = () => React.JSX.Element;
 
@@ -21,25 +21,25 @@ type OnboardingSlide = {
 
 const slides: OnboardingSlide[] = [
   {
-    title: 'Discover tutors on the map',
+    title: "Discover tutors on the map",
     subtitle:
-      'See verified home tutors in your neighborhood - sorted by distance, subject, and rating.',
+      "See verified home tutors in your neighborhood - sorted by distance, subject, and rating.",
     backgroundColor: colors.onboarding.mapBackground,
     accentColor: colors.brand.primary,
     Illustration: DiscoverIllustration,
   },
   {
-    title: 'Ask AI for the best match',
+    title: "Ask AI for the best match",
     subtitle:
-      'Tell our AI assistant what you need to learn. It recommends the right tutor in seconds.',
+      "Tell our AI assistant what you need to learn. It recommends the right tutor in seconds.",
     backgroundColor: colors.onboarding.aiBackground,
     accentColor: colors.brand.ai,
     Illustration: AiMatchIllustration,
   },
   {
-    title: 'Verified, trusted tutors',
+    title: "Verified, trusted tutors",
     subtitle:
-      'Every Blue Tick Pro tutor is document-verified by our team. Your safety, our priority.',
+      "Every Blue Tick Pro tutor is document-verified by our team. Your safety, our priority.",
     backgroundColor: colors.onboarding.verifyBackground,
     accentColor: colors.brand.verification,
     Illustration: VerifiedIllustration,
@@ -50,6 +50,7 @@ export function OnboardingScreen() {
   const router = useRouter();
   const [activeSlide, setActiveSlide] = useState(0);
   const { width } = useWindowDimensions();
+
   const slide = slides[activeSlide];
   const Illustration = slide.Illustration;
   const illustrationHeight = Math.min(280, Math.max(220, width * 0.72));
@@ -59,11 +60,11 @@ export function OnboardingScreen() {
       setActiveSlide((current) => current + 1);
       return;
     }
-    router.replace('/phone-entry');
+    router.replace("/phone-entry");
   }
 
   function handleSkip() {
-    router.replace('/phone-entry');
+    router.replace("/phone-entry");
   }
 
   return (
@@ -97,7 +98,9 @@ export function OnboardingScreen() {
           <Text className="text-hero text-text-primary mb-3">
             {slide.title}
           </Text>
-          <Text className="text-body text-text-secondary">{slide.subtitle}</Text>
+          <Text className="text-body text-text-secondary">
+            {slide.subtitle}
+          </Text>
         </View>
 
         <View className="gap-5">
@@ -109,7 +112,9 @@ export function OnboardingScreen() {
                 accessibilityRole="button"
                 onPress={() => setActiveSlide(index)}
                 className={`h-2 rounded-pill ${
-                  index === activeSlide ? 'w-6 bg-night' : 'w-2 bg-border-strong'
+                  index === activeSlide
+                    ? "w-6 bg-night"
+                    : "w-2 bg-border-strong"
                 }`}
               />
             ))}
@@ -121,7 +126,7 @@ export function OnboardingScreen() {
             className="min-h-btn rounded-card bg-night items-center justify-center active:opacity-90"
           >
             <Text className="text-button text-white">
-              {activeSlide === slides.length - 1 ? 'Get started' : 'Next'}
+              {activeSlide === slides.length - 1 ? "Get started" : "Next"}
             </Text>
           </Pressable>
         </View>
