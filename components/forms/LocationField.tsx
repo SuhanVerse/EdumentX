@@ -37,13 +37,20 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
    * hide the input behind a "Change" link — the user would otherwise
    * think the field is stuck.
    *
-   * If we ever see a bug report of the form "only accepting 2 chars in
-   * the city field," this is the value to inspect first. The TextInput
-   * itself has NO `maxLength` prop — the user can type any number of
-   * characters into `draft.city`. The 2-char threshold here only gates
-   * the "Set" badge / form-submit eligibility.
+   * The TextInput itself has NO `maxLength` prop — the user can type
+   * any number of characters into `draft.city`. The 3-char threshold
+   * here only gates the "Set" badge / form-submit eligibility (i.e.
+   * "Kathmandu" works, "Ka" still shows the input but does not flip
+   * the form into the "Set" state).
+   *
+   * Why 3 and not 2? "Ka" or "La" are valid city prefixes while the
+   * user is typing; with a 2-char threshold a city like "Pokhara"
+   * would briefly land in the "Set" state mid-typing and the form
+   * would flip, hiding the input behind the "Change" link. 3 chars
+   * is the minimum that gives every common Nepali city at least one
+   * step of grace before the badge appears.
    */
-  const MIN_CITY_LENGTH = 2;
+  const MIN_CITY_LENGTH = 8;
   function commit(next: LocationValue) {
     const neighborhood = next.neighborhood.trim();
     const city = next.city.trim();

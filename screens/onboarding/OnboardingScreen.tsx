@@ -59,11 +59,14 @@ export function OnboardingScreen() {
       setActiveSlide((current) => current + 1);
       return;
     }
-    router.replace('/phone-entry');
+    // Last slide → drop the user at the auth entry screen. The
+    // `EmailSignUp` screen handles both Sign up and Log in via its
+    // mode toggle. (June 21, 2026 pivot away from phone OTP.)
+    router.replace('/email-signup');
   }
 
   function handleSkip() {
-    router.replace('/phone-entry');
+    router.replace('/email-signup');
   }
 
   return (

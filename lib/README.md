@@ -131,7 +131,10 @@ export function navigateToRoleHome(role: UserRole) {
 }
 
 export function navigateToAuth() {
-  router.replace('/phone-entry');
+  // The single auth entry screen is `/email-signup` (hosts both Sign
+  // up and Log in via its mode toggle, plus "Continue with Google").
+  // Phone OTP was removed in the June 21, 2026 pivot.
+  router.replace('/email-signup');
 }
 
 export function redirectAfterAuth() {

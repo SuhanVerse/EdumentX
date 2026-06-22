@@ -239,24 +239,34 @@ ls -lh google-services.json
 # expect: file present at project root
 
 cat .env
-# expect: EXPO_PUBLIC_FIREBASE_USE_EMULATOR present (set to "false" by default)
+# expect: EXPO_PUBLIC_FIREBASE_* keys present (edumentx-dev project)
 ```
 
-**Important**: with RNFirebase, `.env` only carries `EXPO_PUBLIC_FIREBASE_USE_EMULATOR`. The `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`, etc. values are no longer read at runtime — RNFirebase reads them from `google-services.json` at **native build time**, not from `process.env`. The Firebase JS-SDK-era env-vars in `.env` are harmless if still present (unused) but should be cleaned up. The runtime config is one source of truth now: `google-services.json`.
+**Important**: with RNFirebase, `.env` only carries the
+`EXPO_PUBLIC_FIREBASE_*` API keys for the dev project. RNFirebase
+reads them via `google-services.json` at **native build time**, not
+from `process.env` at runtime. The runtime config is one source of
+truth now: `google-services.json`.
 
-### C.7 — Start emulators (optional, for offline dev)
+### C.7 — (no emulator in MVP)
 
-```bash
-firebase emulators:start
-# → Firestore at 127.0.0.1:8080
-# → Auth at 127.0.0.1:9099 (auto-detected by RNFirebase when env-flag is set)
-# → Emulator UI at http://localhost:4000
+The MVP does **not** use the Firebase Local Emulator Suite. The dev
+build talks directly to the live `edumentx-dev` project on Google's
+servers. To push a rule change from `firebase/firestore.rules` to
+the live project, either:
 
-# In another terminal, tell the app to use them:
-echo 'EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true' >> .env
-```
+* Paste the file contents into the Firebase Console
+  (`console.firebase.google.com/project/edumentx-dev/firestore/rules`)
+  and click **Publish**, **or**
+* Run `firebase deploy --only firestore:rules` after `firebase login`
+  (one-time). The CLI reads `firebase.json` from the repo root and
+  deploys the file referenced under `firestore.rules`.
 
-The Auth emulator is auto-wired by RNFirebase when `EXPO_PUBLIC_FIREBASE_USE_EMULATOR=true` is set — no separate `connectAuthEmulator` call needed (the native SDK detects it). For SMS-free local testing, you can also add a test phone number in the Firebase Console (Auth → Sign-in method → Phone → "Phone numbers for testing" → `+9779800000000` → code `123456`).
+The local emulator (`firebase emulators:start`) is a useful tool for
+offline rule iteration but is not wired into the dev build. If you
+later want to add it back, the wiring pattern is in the Git history
+of `services/firebase/emulator.ts` before it was removed in June
+2026.
 
 ### C.8 — Execute the Firebase auth plan
 

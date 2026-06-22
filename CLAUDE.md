@@ -8,7 +8,7 @@ You are an expert React Native + NativeWind engineer building EdumentX.
 2. **Never use Tamagui.** All `@tamagui/*` packages and `tamagui.config.ts` have been removed. Do not reintroduce them.
 3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `constants/colors.ts`.
 4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure React Native + NativeWind code before writing anything to our `app/` or `components/` directories.
-5. **Clerk is the only auth library.** Use `@clerk/clerk-expo` for sign-in, sign-up, email OTP, Google OAuth, sessions, and sign-out. The only place `@react-native-firebase/auth` may be touched is inside `components/ClerkFirebaseBridge.tsx`, where it consumes a Clerk-minted custom token via `signInWithCustomToken` to bridge into Firestore. Do not call `getAuth`, `signInWithCustomToken`, or `firebaseSignOut` anywhere else in the codebase.
+5. **Auth is native Firebase Auth.** Use `@react-native-firebase/auth` (`getAuth(getApp())`, `createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `signInWithCredential`, etc.) and `@react-native-google-signin/google-signin` for Google Sign-In. The unified entry point is `screens/auth/EmailSignUp.tsx` — it hosts both the Email + Password form and the "Continue with Google" button. Do NOT reintroduce Clerk; a one-day pivot to Clerk (June 20) was reverted the next day (Clerk's `integration_firebase` template is discontinued for new accounts). The Clerk-pivot history is archived under `Documentation/99-Archive/2026-06-21-clerk-revert/`.
 
 ## Translation Protocol
 
@@ -19,64 +19,122 @@ When referencing the BasoBas project (found in `Documentation/98-Reference-BasoB
 * ALWAYS rewrite their UI logic into our EdumentX design system using React Native primitives + NativeWind classes (`bg-night`, `text-amber`, `rounded-card`, `p-4`).
 * Read `Documentation/98-Reference-BasoBas/ANALYSIS.md` first for the per-file translation map.
 
-## Current State (June 20, 2026)
+## Current State (June 21, 2026)
 
-**Phase 2 (Clerk Pivot) — Complete**
+**Phase 2 (Native Firebase Auth) — Complete**
 
-Identity has moved from Firebase Auth to Clerk Auth. Firebase is retained **only** for Firestore. The two systems are stitched together by `components/ClerkFirebaseBridge.tsx`, a "Silent Bridge" that:
+Identity lives in native Firebase Auth. Two free methods are wired up:
+**Email + Password** (via `createUserWithEmailAndPassword` +
+`sendEmailVerification`) and **Google Sign-In** (via
+`@react-native-google-signin/google-signin` + `signInWithCredential`).
+There is no Clerk, no SMS, and no phone provider — Firebase's SMS OTP
+requires the paid Blaze plan, and a one-day Clerk pivot (June 20) was
+reverted after Clerk discontinued their `integration_firebase` template
+for new accounts.
 
-1. Watches `useAuth()` from `@clerk/clerk-expo`.
-2. When the user signs in, asks Clerk for a custom token minted from the `integration_firebase` JWT template (configured in the Clerk Dashboard).
-3. Hands that token to `signInWithCustomToken()` from `@react-native-firebase/auth`. The resulting Firebase user id IS the Clerk user id (it's the `uid` claim in the token), so every Firestore read/write keyed on `users/{clerkUid}` just works.
-4. On sign-out, calls `firebaseSignOut()` so the Firestore session is dropped.
+The Clerk-pivot history is archived under
+`Documentation/99-Archive/2026-06-21-clerk-revert/`.
 
-Why this works: Clerk's `integration_firebase` template produces a token whose payload matches the Firebase custom-token format. RNFirebase's `signInWithCustomToken` is happy with it, and the `uid` claim on the decoded token becomes the Firebase local uid. The bridge owns that mapping in one place so the rest of the app never has to think about it.
+**Auth flow (Email + Password / Google):**
+- `screens/auth/EmailSignUp.tsx` — single auth entry screen with a
+  "Sign up" / "Log in" toggle. On signup, calls
+  `signUpWithEmail(...)` and flips to a "check your inbox" pending
+  panel that hosts the **"I've verified — continue"** button. That
+  button is the only place the app calls
+  `auth.currentUser.reload()` — without it, the cached `User`
+  object's `emailVerified` flag stays stale and the layout guard
+  refuses to advance. This was Bug #4 in the June 21 audit.
+- `screens/auth/EmailSignUp.tsx` — also hosts the "Continue with
+  Google" button, which calls `signInWithGoogle()`. Google users are
+  auto-verified by Google and skip the inbox step entirely.
 
-**Auth flow (Unified Passwordless Gateway):**
-- `screens/auth/PhoneEntryScreen.tsx` — single input that accepts an email OR a custom username. Tries `signIn.create({ identifier })` first; on `form_identifier_not_found` it falls through to `signUp.create({ emailAddress })` + `signUp.prepareEmailAddressVerification({ strategy: 'email_code' })`. Both paths converge on `screens/auth/OtpVerify.tsx` with a `mode` query param.
-- `screens/auth/OtpVerify.tsx` — single 6-digit code entry. Branches on `mode` between `signIn.attemptFirstFactor({ strategy: 'email_code', code })` and `signUp.attemptEmailAddressVerification({ code })`. Calls `setActive({ session })` on success; the layout guard in `app/_layout.tsx` then routes by `users/{uid}.role`.
-- Google Sign-In: `useOAuth({ strategy: 'oauth_google' })` from `@clerk/clerk-expo` (the native popup).
+**Auth-flow routing ("Source of Truth"):**
+`app/_layout.tsx` runs a 5-step redirect tree on every render where
+`user` / `role` / `segments` change:
+1. Wait for the root navigator to mount (`useRootNavigationState()`).
+2. `!user` → `/email-signup`.
+3. `user && !emailVerified && password-provider` → `/email-signup`
+   (the "check your inbox" panel; user can also sit on the screen
+   freely).
+4. `user && verified && !role` → `/role-selection` (first-time
+   signup, no doc yet).
+5. `user && verified && role` → matching dashboard.
 
-**Clerk dashboard configuration:**
-- Email verification code: ON
-- Google OAuth: ON
-- Phone provider: OFF (Pro feature — not available on the free tier)
-- Username requirement: OFF (so the identifier input can be a username, but Firestore owns the canonical username, not Clerk)
+Step 5 was Bug #1 ("Amnesia Login Loop") — an existing user with a
+populated `users/{uid}.role` was being sent back to
+`/role-selection` on login. The fix: read the role inside the
+`onAuthStateChanged` callback (not in a separate effect) and write
+it to the Zustand store **before** the redirect effect runs, so the
+guard sees the populated role on its first pass.
 
-**Environment:**
-- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...` — the only Clerk env var. Set in `.env` and loaded by `app/_layout.tsx` into `<ClerkProvider>`.
+**Phase flow (after auth):**
+```
+email-signup        ← single auth surface (signup or login)
+  ↓ (verified, role still null)
+role-selection      ← pick student or tutor (writes role to Firestore)
+  ↓ (role set)
+profile-student     ← collect username, phone, grade, subjects, location
+  or profile-tutor  ← collect username, phone, headline, bio, monthly rate
+  ↓ (profile subcollection written)
+student-home        ← live dashboard (reads users/{uid} + profile subdoc)
+  or tutor-home
+```
 
-**Files added/rewritten in this pivot:**
-- ✅ `components/ClerkFirebaseBridge.tsx` (new)
-- ✅ `app/_layout.tsx` (ClerkProvider + bridge + role-fetching layout guard)
-- ✅ `screens/auth/PhoneEntryScreen.tsx` (Unified Passwordless Gateway)
-- ✅ `screens/auth/OtpVerify.tsx` (Clerk email_code verify)
-- ✅ `screens/auth/RoleSelection.tsx` (writes `username` to `users/{uid}`)
-- ✅ `screens/auth/StudentProfileScreen.tsx` (collects username + unverified phone)
-- ✅ `screens/auth/TutorProfileScreen.tsx` (collects username + unverified phone)
-- ✅ `screens/student/student_home.tsx` (Clerk `useClerk().signOut()`)
-- ✅ `screens/tutor/tutor_home.tsx` (Clerk `useClerk().signOut()`)
-- ✅ `store/authStore.ts` (lightweight `ClerkUser` type — uid, email, displayName, avatarUrl, username)
-- ✅ `services/firebase/authService.ts` (gutted — only `logout` remains as a belt-and-suspenders fallback; new code should call `useClerk().signOut()` directly)
-- ✅ `lib/registration.ts` (added `username` + `phone` to `profileDraft`; kept `phone`/`countryCode`/`password` as type-level placeholders for Phase-4 compatibility)
+**Files at play in this flow:**
+- ✅ `app/_layout.tsx` (Source-of-Truth routing + onAuthStateChanged)
+- ✅ `screens/auth/EmailSignUp.tsx` (signup + login + Google + "I've verified — continue")
+- ✅ `screens/auth/RoleSelection.tsx` (writes role, routes to /profile-* not dashboard)
+- ✅ `screens/auth/StudentProfileScreen.tsx` (writes
+  `users/{uid}/studentProfile/default`)
+- ✅ `screens/auth/TutorProfileScreen.tsx` (writes
+  `users/{uid}/tutorProfile/default`, uses `monthlyRateNpr`)
+- ✅ `screens/student/student_home.tsx` (live `onSnapshot` reads,
+  shows real `fullName` + `locationLabel`)
+- ✅ `screens/tutor/tutor_home.tsx` (live `onSnapshot` reads, shows
+  real `fullName` + verified flag)
+- ✅ `services/firebase/authService.ts` (modular RNFirebase API,
+  Google Sign-In, no OTP)
+- ✅ `components/forms/LocationField.tsx` (`MIN_CITY_LENGTH = 3`, not
+  2 — the location-field bug from the June 21 audit)
+- ✅ `lib/registration.ts` (no more Clerk-pivot type-level
+  placeholders)
 
-**Files deleted in this pivot (and not coming back):**
+**Files removed in this pivot:**
+- ❌ `screens/auth/PhoneEntryScreen.tsx`
+- ❌ `screens/auth/OtpVerify.tsx`
 - ❌ `screens/auth/Password.tsx`
-- ❌ `screens/auth/EmailSignUp.tsx`
-- ❌ `screens/auth/ProfileScreen.tsx` (the original first-time setup — split into `StudentProfileScreen`/`TutorProfileScreen` earlier)
+- ❌ `app/phone-entry.tsx`
+- ❌ `app/otpverify.tsx`
 - ❌ `app/create_password.tsx`
-- ❌ `app/email-signup.tsx`
-- ❌ `@react-native-google-signin/google-signin` (Clerk's `useOAuth` replaces it)
+- ❌ `components/ClerkFirebaseBridge.tsx`
+- ❌ `@clerk/clerk-expo`, `expo-crypto`, `expo-secure-store`,
+  `expo-web-browser`, `expo-application`
+- ❌ `Documentation/04-Firebase/Clerk_Integration.md` (moved to
+  archive)
 
-**Build pipeline (expo SDK 54, NativeWind 4.2.x, Clerk v2.19.x):**
-- `babel.config.js` uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` + `nativewind/babel`. No reanimated/Tamagui plugins.
-- `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })` only. The `Documentation/98-Reference-BasoBas/` folder is excluded via `blockList`.
-- `app/_layout.tsx` mounts `<ClerkProvider>` → `<ClerkFirebaseBridge />` → `<GestureHandlerRootView>` → `<SafeAreaProvider>` → `<RootLayoutNav>`.
-- `RootLayoutNav` always renders the `<Stack>` (never conditionally returns a different tree — that breaks expo-router child tracking). The loading overlay sits on top of the Stack via `pointerEvents="none"`.
-- `users/{clerkUid}` is the only Firestore root document the auth flow touches. Role (`"student" | "tutor"`) is read on every signed-in render to drive the redirect guard.
-- `useRootNavigationState()` gate prevents `router.replace()` from firing before the navigator mounts (which would throw "Attempted to navigate before mounting the Root Layout component").
+**Build pipeline (expo SDK 54, NativeWind 4.2.x, native Firebase):**
+- `babel.config.js` uses `babel-preset-expo` with
+  `jsxImportSource: 'nativewind'` + `nativewind/babel`. No
+  reanimated/Tamagui plugins.
+- `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })`
+  only. The `Documentation/98-Reference-BasoBas/` folder is excluded
+  via `blockList`.
+- `app/_layout.tsx` mounts `<GestureHandlerRootView>` →
+  `<SafeAreaProvider>` → `<Stack>`. The Stack always renders (no
+  conditional tree returns — that breaks expo-router child
+  tracking). The loading overlay sits on top via
+  `pointerEvents="none"`.
+- `users/{uid}` is the only Firestore root document the auth flow
+  touches. Role + verified flag drive the redirect guard.
+- `useRootNavigationState()` gate prevents `router.replace()` from
+  firing before the navigator mounts.
 
-**Pending deliverables (post-pivot):**
-- Rebuild the EAS dev client (one-time, after native deps changed: `@clerk/clerk-expo` added, `@react-native-google-signin/google-signin` removed).
-- Sweep `Documentation/` for stale Firebase Auth references (see tasks #46 + #49).
+**Pending deliverables:**
+- Rebuild the EAS dev client with the updated native deps (Clerk
+  packages removed, `@react-native-google-signin/google-signin`
+  restored).
+- Wire metric values (rating, reviews, response rate, monthly
+  earnings) in `tutor_home.tsx` — they're still mock data.
+- Wire the `MOCK_TUTORS` list in `student_home.tsx` to a real
+  `tutors` collection query.
 

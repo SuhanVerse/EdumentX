@@ -17,8 +17,8 @@ import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
   doc,
-  setDoc,
   serverTimestamp,
+  writeBatch,
 } from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
@@ -56,7 +56,6 @@ const PHONE_REGEX = /^\d{7,15}$/;
 
 type FormErrors = {
   fullName?: string;
-  email?: string;
   username?: string;
   phone?: string;
   grade?: string;
@@ -68,7 +67,10 @@ export function StudentProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  // Email comes from the verified Firebase Auth identity and is
+  // locked here — see `NameEmailFields` `emailDisabled`. Editing the
+  // profile email would create a mismatch with the auth provider.
+  const authEmail = user?.email ?? "";
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [grade, setGrade] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export function StudentProfileScreen() {
 
   const canSubmit =
     fullName.trim().length >= 3 &&
-    EMAIL_REGEX.test(email.trim()) &&
+    EMAIL_REGEX.test(authEmail.trim()) &&
     USERNAME_REGEX.test(username.trim()) &&
     PHONE_REGEX.test(phone.trim()) &&
     grade !== null &&
@@ -96,7 +98,14 @@ export function StudentProfileScreen() {
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
     if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
-    if (!EMAIL_REGEX.test(email.trim())) validationErrors.email = "Enter a valid email address.";
+    if (!EMAIL_REGEX.test(authEmail.trim())) {
+      Alert.alert(
+        "Account email is missing",
+        "Please sign in again so we can attach your profile to the verified email.",
+      );
+      router.replace("/email-signup");
+      return;
+    }
     if (!USERNAME_REGEX.test(username.trim())) {
       validationErrors.username =
         "Username must be 3–30 characters: letters, digits, underscore, or dot.";
@@ -116,7 +125,7 @@ export function StudentProfileScreen() {
     // removed once Zustand + AsyncStorage persist lands in Phase 4.
     registration.updateProfile({
       fullName: fullName.trim(),
-      email: email.trim(),
+      email: authEmail.trim(),
       username: username.trim(),
       phone: phone.trim(),
       grade,
@@ -127,43 +136,87 @@ export function StudentProfileScreen() {
     if (!user) {
       Alert.alert(
         "Not signed in",
-        "Please sign in (email code or Google) before completing your profile.",
+        "Please sign in (email or Google) before completing your profile.",
       );
-      router.replace("/phone-entry");
+      router.replace("/email-signup");
       return;
     }
 
     setIsSaving(true);
     try {
-      // Modular RNFirebase v22+ API: getFirestore + doc + setDoc, not
-      // firestore().collection().doc().set(). The namespaced form logs a
-      // deprecation warning on every call.
+      // Modular RNFirebase v22+ API: getFirestore + doc + writeBatch +
+      // serverTimestamp, not firestore().collection().doc().set(). The
+      // namespaced form logs a deprecation warning on every call.
       const db = getFirestore(getApp());
-      // Per Documentation/04-Firebase/phase-3-notes.md §3, the student
-      // profile lives at `users/{uid}/studentProfile/default` (not on the
-      // user doc itself, so it can be re-written cheaply on every "Edit
-      // profile" save without touching auth metadata).
+      // Two writes, committed atomically so the user is never in a
+      // half-saved state (root doc says "student" but subcollection
+      // is empty, or vice versa). `writeBatch` commits all writes
+      // together or fails the whole batch — there is no partial
+      // success. Both writes use `set` with only the fields we want
+      // to write, and we include `uid` on the root doc so the
+      // `request.resource.data.uid == userId` guard in
+      // firestore.rules passes on first-create AND on update.
+      //
+      //   1. Root user doc — stamps `role: "student"` so the layout
+      //      guard in `app/_layout.tsx` can route a returning user
+      //      straight to the dashboard. `RoleSelection` already wrote
+      //      this, but if the user landed here via a different path
+      //      (e.g. Google sign-in linking an existing email+password
+      //      account) the root doc may not have a role yet, and we
+      //      want the post-onboarding state to be self-consistent.
+      //
+      //   2. Subcollection doc — the actual profile metadata. Per
+      //      Documentation/04-Firebase/phase-3-notes.md §3, the
+      //      student profile lives at
+      //      `users/{uid}/studentProfile/default` (not on the user
+      //      doc itself, so it can be re-written cheaply on every
+      //      "Edit profile" save without touching auth metadata).
+      const userRef = doc(db, "users", user.uid);
       const profileRef = doc(db, "users", user.uid, "studentProfile", "default");
-      await setDoc(
+      const now = serverTimestamp();
+      const batch = writeBatch(db);
+      batch.set(
+        userRef,
+        {
+          uid: user.uid,
+          email: authEmail.trim(),
+          role: "student",
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+      batch.set(
         profileRef,
         {
           grade,
           subjects,
           location,
           fullName: fullName.trim(),
-          email: email.trim(),
+          email: authEmail.trim(),
           username: username.trim(),
           phone: phone.trim(),
-          updatedAt: serverTimestamp(),
+          updatedAt: now,
         },
         { merge: true },
       );
+      await batch.commit();
+      // Mirror the role into the local store so the layout guard
+      // advances to the dashboard on the next render (the doc-fetch
+      // listener will also pick this up, but committing it here
+      // makes the navigation feel instant).
+      useAuthStore.getState().setRole("student");
       router.replace("/student-home");
     } catch (error: any) {
       console.error("StudentProfileScreen: failed to save profile", error);
+      // Surface the actual Firebase error code so the user (and any
+      // support agent) can tell at a glance whether this is a rules
+      // mismatch (`permission-denied`), a network problem, or a bug.
+      // Without this we silently route forward and the user thinks
+      // their profile was saved.
+      const code = error?.code ? `\n\nError code: ${error.code}` : "";
       Alert.alert(
         "Could not save profile",
-        error?.message ?? "Please check your connection and try again.",
+        `${error?.message ?? "Please check your connection and try again."}${code}`,
       );
     } finally {
       setIsSaving(false);
@@ -204,10 +257,13 @@ export function StudentProfileScreen() {
 
           <NameEmailFields
             fullName={fullName}
-            email={email}
+            email={authEmail}
+            emailDisabled
             errors={errors}
             onChangeFullName={setFullName}
-            onChangeEmail={setEmail}
+            onChangeEmail={() => {
+              /* email is locked — sourced from verified auth identity */
+            }}
           />
 
           <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">

@@ -1,12 +1,5 @@
 import "@/global.css";
 import {
-  ClerkProvider,
-  useAuth,
-  useUser,
-} from "@clerk/clerk-expo";
-import * as SecureStore from "expo-secure-store";
-import type { TokenCache } from "@clerk/clerk-expo";
-import {
   Stack,
   useRouter,
   useSegments,
@@ -17,44 +10,36 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { getApp } from "@react-native-firebase/app";
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import {
   getFirestore,
   doc,
   getDoc,
+  setDoc,
+  serverTimestamp,
 } from "@react-native-firebase/firestore";
+import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { ClerkFirebaseBridge } from "@/components/ClerkFirebaseBridge";
-import { useAuthStore, type ClerkUser, type UserRole } from "@/store/authStore";
+import { useAuthStore, type UserRole } from "@/store/authStore";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // The native splash module is not always available in dev. Safe to ignore.
 });
 
-// Map from a raw Firestore `role` string to the route we want to land on
-// after a successful sign-in. We do the role→route mapping in one place so
-// the layout guard, dashboards, and tests all agree.
-//
-// Note: the dashboards live at `/student-home` and `/tutor-home`. The
-// `/profile-student` and `/profile-tutor` routes still exist as the
-// first-time profile-completion flows and are NOT the dashboard entry.
+/**
+ * Map a `users/{uid}.role` value to the matching dashboard route. The
+ * `_layout.tsx` guard, the dashboards, and any tests should all funnel
+ * through this single helper so the route stays in lock-step with the
+ * `UserRole` type.
+ */
 function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
   if (role === "tutor") return "/tutor-home";
   return "/student-home";
 }
 
-/**
- * Inner layout — runs inside <ClerkProvider> so the Clerk hooks are
- * available. Owns the auth subscription, the role-fetch effect, and
- * the redirect guard.
- *
- * Why split this out: <ClerkProvider> can only provide hooks to
- * children, but we want to wrap the entire <Stack> with
- * <ClerkProvider> (so the auth screen tree has Clerk context too). A
- * small inner component lets us do both.
- */
-function RootLayoutNav() {
+export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   // True once the root navigator has mounted. We must NOT call
@@ -63,10 +48,6 @@ function RootLayoutNav() {
   // See https://docs.expo.dev/router/advanced/root-layout/#navigation-lifecycle
   const navState = useRootNavigationState();
   const isNavigatorReady = navState?.key != null;
-
-  const { isLoaded: clerkLoaded, isSignedIn, userId } = useAuth();
-  const { user: clerkUser } = useUser();
-
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.role);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -74,127 +55,98 @@ function RootLayoutNav() {
   const setRole = useAuthStore((state) => state.setRole);
   const setLoading = useAuthStore((state) => state.setLoading);
 
-  // Track the currently-signed-in uid so we only fetch the user doc when
-  // it actually changes (not on every Clerk callback). Clerk's `userId`
-  // is stable for the lifetime of the session, so this is purely a
-  // re-render optimization — but it also keeps the Firestore read
-  // count down.
+  // Track the currently-signed-in uid so we only fetch the user doc when it
+  // actually changes (not on every state callback).
   const lastUidRef = useRef<string | null>(null);
 
-  // Mirror the Clerk session into our local auth store. We:
-  //   1. When Clerk says "not signed in", clear the store and stop.
-  //   2. When Clerk says "signed in" and the uid is new, derive a
-  //      lightweight ClerkUser from the Clerk User object and fetch
-  //      the `users/{uid}` Firestore doc to learn the role.
-  //   3. When Clerk says "signed in" with the same uid, just flip
-  //      `isLoading` off (no work needed).
   useEffect(() => {
-    // While Clerk is still loading the session from SecureStore, keep
-    // `isLoading: true` so the splash overlay stays up. Don't mirror
-    // anything to the store yet.
-    if (!clerkLoaded) return;
+    // Give gesture-handler one frame to register its TurboModule before
+    // the native splash hides and the JS-side keep-awake can resolve.
+    const timeout = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {
+        // ignore — the splash may have already auto-hidden
+      });
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, []);
 
-    if (!isSignedIn || !userId) {
-      // Signed out.
-      lastUidRef.current = null;
-      setUser(null);
-      setRole(null);
-      setLoading(false);
-      return;
-    }
-
-    if (lastUidRef.current === userId) {
-      // Same user as last time we mirrored.
-      setLoading(false);
-      return;
-    }
-
-    // New signed-in user. Build a lightweight ClerkUser and fetch role.
-    lastUidRef.current = userId;
-    const lightweight: ClerkUser = {
-      uid: userId,
-      email: clerkUser?.primaryEmailAddress?.emailAddress ?? null,
-      displayName: clerkUser?.fullName ?? clerkUser?.firstName ?? null,
-      avatarUrl: clerkUser?.imageUrl ?? null,
-      username: clerkUser?.username ?? null,
-    };
-    setUser(lightweight);
-
-    (async () => {
-      try {
-        const db = getFirestore(getApp());
-        const userDocRef = doc(db, "users", userId);
-        const snap = await getDoc(userDocRef);
-        const data = snap.data() as { role?: string } | undefined;
-        const roleValue: UserRole =
-          data?.role === "tutor" || data?.role === "student"
-            ? (data.role as UserRole)
-            : null;
-        setRole(roleValue);
-      } catch (err) {
-        // Treat any read failure as "no role yet" — the user will be
-        // sent to /role-selection and can re-try. The same error is
-        // expected if the bridge hasn't completed yet (the Firestore
-        // call will fail with `auth/...` because the custom-token
-        // sign-in is still in flight); the next render after the
-        // bridge succeeds will retry on the same callback.
-        console.warn("RootLayout: failed to read users/{uid}", err);
-        setRole(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [
-    clerkLoaded,
-    isSignedIn,
-    userId,
-    clerkUser,
-    setUser,
-    setRole,
-    setLoading,
-  ]);
-
-  // Redirect logic — runs on every render where `user` / `role` /
-  // segments change. The order matters:
-  //   0. Wait for Clerk to finish loading + the root navigator to
-  //      mount. Without this guard expo-router throws
-  //      "Attempted to navigate before mounting the Root Layout
-  //      component".
-  //   1. While we're still loading, do nothing (the loading overlay
-  //      is visible).
-  //   2. If signed out, force onto an auth screen.
-  //   3. If signed in but no role doc, force onto /role-selection.
-  //   4. If signed in + has role, force onto the right dashboard
-  //      route (but allow the profile-completion flows to be reached
-  //      so a returning user who never finished setup can finish it).
+  /**
+   * Source-of-Truth routing.
+   *
+   * Every render where `user` / `role` / `segments` change, this hook
+   * decides which route the user belongs on. The decision tree:
+   *
+   *   0. Wait for the root navigator to mount (otherwise expo-router
+   *      throws "Attempted to navigate before mounting the Root Layout
+   *      component").
+   *   1. While we're still loading the auth state, do nothing.
+   *   2. If signed out, force onto an auth screen.
+   *   3. If signed in via email/password but `emailVerified === false`,
+   *      force onto /email-signup (the "check your inbox" pending
+   *      state — the EmailSignUp screen already has the
+   *      `reload()`-then-recheck handler).
+   *   4. If signed in + verified + role is set → force onto the
+   *      matching dashboard.
+   *   5. If signed in + verified + no role → /role-selection (first
+   *      time setup).
+   *
+   * Step 4 is the "Amnesia Login Loop" fix: an existing user who logs
+   * back in sees their `role` already populated in the local Zustand
+   * store (we read `users/{uid}` immediately after
+   * `onAuthStateChanged` fires below) and is sent straight to the
+   * dashboard. They never see /role-selection unless their doc really
+   * has no role yet — which would only happen for a brand-new signup.
+   */
   useEffect(() => {
     if (!isNavigatorReady) return;
-    if (!clerkLoaded || isLoading) return;
+    if (isLoading) return;
     const currentRoute = segments.join("/");
-    if (!isSignedIn || !user) {
-      // Signed out — only the onboarding / phone-entry / otpverify
-      // screens are allowed. We treat /index and /onboarding as
-      // "always allowed".
+
+    if (!user) {
+      // Signed out — only onboarding + the auth entry screen are
+      // allowed. `/email-signup` is where users create an account or
+      // log in. Phone OTP was removed in the June 21, 2026 pivot.
       const allowedForSignedOut = new Set([
         "",
         "index",
         "onboarding",
-        "phone-entry",
-        "otpverify",
+        "email-signup",
       ]);
       if (!allowedForSignedOut.has(currentRoute)) {
-        router.replace("/phone-entry");
+        router.replace("/email-signup");
       }
       return;
     }
-    // Signed in.
+
+    // Signed in via email/password but unverified — bounce to the
+    // "check your inbox" pending state on /email-signup until they
+    // click the link. They can also sit on /email-signup freely
+    // (the screen itself owns the reload + recheck flow).
+    const isEmailPasswordUser = !!user.providerData.some(
+      (p) => p.providerId === "password",
+    );
+    const emailVerified = user.emailVerified ?? true;
+    if (isEmailPasswordUser && !emailVerified) {
+      if (currentRoute !== "email-signup") {
+        router.replace("/email-signup");
+      }
+      return;
+    }
+
+    // Signed in + verified. The store already knows whether the user
+    // has a `role` (we fetched it on the onAuthStateChanged callback
+    // below). The presence of a role means there's a `users/{uid}` doc
+    // — Source of Truth.
     if (!role) {
       if (currentRoute !== "role-selection") {
         router.replace("/role-selection");
       }
       return;
     }
-    // Signed in + has role.
+
+    // Signed in + verified + has role → route to the matching
+    // dashboard. We allow role-selection / profile-* screens through
+    // so a returning user can re-edit their profile if they want.
     const target = dashboardPathForRole(role);
     const allowedForSignedIn = new Set<string>([
       "role-selection",
@@ -202,10 +154,8 @@ function RootLayoutNav() {
       "profile-tutor",
       "student-home",
       "tutor-home",
-      "phone-entry",
-      "otpverify",
+      "email-signup",
     ]);
-    // Force them off the auth screens once they have a role.
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
     }
@@ -216,120 +166,206 @@ function RootLayoutNav() {
     isNavigatorReady,
     segments,
     router,
-    clerkLoaded,
-    isSignedIn,
   ]);
 
-  // CRITICAL: always render the Stack, even while loading.
-  // Conditionally returning a different tree from the same component
-  // (the loading View vs. the Stack) makes expo-router lose track of
-  // child screens and can trigger "Cannot read property 'displayName'
-  // of undefined" when the Stack tries to remount its children on the
-  // next render. The loading spinner overlays the Stack instead.
-  //
-  // <StatusBar /> is rendered OUTSIDE the <Stack> — Expo Router only
-  // accepts <Stack.Screen> children inside a <Stack>; anything else
-  // (StatusBar, Toasts, custom providers) must live as a sibling of
-  // the Stack, not a descendant. Putting StatusBar inside used to
-  // spam "Layout children must be of type Screen" warnings.
-  return (
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="phone-entry" />
-        <Stack.Screen name="otpverify" />
-        <Stack.Screen name="role-selection" />
-        <Stack.Screen name="profile-student" />
-        <Stack.Screen name="profile-tutor" />
-        <Stack.Screen name="student-home" />
-        <Stack.Screen name="tutor-home" />
-      </Stack>
-      {isLoading ? (
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 items-center justify-center bg-background"
-        >
-          <ActivityIndicator size="large" color="#0F172A" />
-        </View>
-      ) : null}
-      <StatusBar style="dark" />
-    </>
-  );
-}
-
-// Inlined `tokenCache` backed by `expo-secure-store`. Persists the
-// active Clerk session JWT in the iOS Keychain / Android Keystore so
-// the user stays signed in across app launches. Without this, Clerk
-// falls back to its `MemoryTokenCache` and the user is signed out on
-// every cold start.
-//
-// `AFTER_FIRST_UNLOCK` matches the JWT's intended lifetime — the
-// token is only valid until the user signs out, so we don't need
-// `WHEN_UNLOCKED_THIS_DEVICE_ONLY` or stricter. See Clerk's docs:
-// https://clerk.com/docs/quickstarts/expo#configure-the-token-cache-with-expo
-//
-// Both `getToken` and `saveToken` swallow + log on failure rather
-// than re-throwing. On some Android emulators (notably the Pixel
-// AVDs on certain host setups) the Keystore refuses to provision
-// a hardware-backed key, surfacing as "Keychain couldn't be set".
-// Re-throwing here would crash Clerk's session bootstrap; instead
-// we fall through, Clerk uses its in-memory cache for the rest of
-// the session, and the user just has to sign in again on next
-// cold start. The dev console line gives us a clear breadcrumb.
-const tokenCache: TokenCache = {
-  async getToken(key) {
-    try {
-      return await SecureStore.getItemAsync(key, {
-        keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
-      });
-    } catch {
-      try {
-        await SecureStore.deleteItemAsync(key, {
-          keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
-        });
-      } catch {
-        // ignore — we just wanted to clear a corrupt entry
-      }
-      return null;
-    }
-  },
-  async saveToken(key, token) {
-    try {
-      await SecureStore.setItemAsync(key, token, {
-        keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
-      });
-    } catch (err) {
-      // Don't crash the auth flow if the Keystore refuses the write.
-      // The session is still valid in memory for this app launch.
-      console.warn(
-        "tokenCache.saveToken: SecureStore.setItemAsync failed — " +
-          "falling back to in-memory token cache for this session.",
-        err,
-      );
-    }
-  },
-};
-
-export default function RootLayout() {
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if (!publishableKey) {
-    // We don't `throw` here because that would crash the entire app
-    // before the splash hides; instead we log a clear error and
-    // render a fallback so the dev experience is debuggable.
-    console.error(
-      "RootLayout: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. " +
-        "Add it to .env — see .env.example.",
-    );
+  /**
+   * Normalize a `users/{uid}.role` value into the `UserRole` union.
+   *
+   * The canonical values are lowercase `"student"` and `"tutor"`
+   * (see `UserRole` in `store/authStore.ts`). But this project has
+   * gone through several auth pivots (Clerk → native Firebase, plus
+   * earlier drafts that displayed the human label `"Student / Parent"`
+   * or `"Tutor"` on the role card and may have written that string
+   * verbatim to Firestore). Returning `null` for those legacy values
+   * would loop the user back to /role-selection forever, which is
+   * exactly the bug reported on June 21, 2026.
+   *
+   * So we:
+   *   1. Trim + lowercase the value.
+   *   2. Match against the canonical list.
+   *   3. Match against the legacy display labels and map them to the
+   *      canonical enum value.
+   *
+   * If we *can* resolve a role, the caller is responsible for writing
+   * the canonical value back to Firestore so future reads are clean.
+   */
+  function normalizeRole(raw: unknown): UserRole {
+    if (typeof raw !== "string") return null;
+    const v = raw.trim().toLowerCase();
+    if (v === "student" || v === "tutor") return v;
+    // Legacy display labels from earlier role-pick screens.
+    if (v === "student / parent") return "student";
+    if (v === "tutor / teacher") return "tutor";
+    // Anything else (e.g. null, "admin" granted out-of-band, garbage)
+    // is treated as "no role yet".
+    return null;
   }
+
+  /**
+   * Subscribe to Firebase auth state. Each callback:
+   *   (a) updates the user in the Zustand store,
+   *   (b) fetches `users/{uid}` to read the role + profile flags, and
+   *   (c) flips the loading flag off once we know enough to route.
+   *
+   * We use the **modular** `@react-native-firebase/*` API (`getApp`,
+   * `getAuth`, `onAuthStateChanged`) — the namespaced `auth().…` calls
+   * are deprecated in v22+ and log a deprecation warning on every
+   * call.
+   *
+   * The `lastUidRef` guard prevents re-fetching the user doc on
+   * rapid re-emits (e.g. when `reload()` is called by
+   * EmailSignUp.handleCheckVerified — Firebase re-emits the auth
+   * state, but the uid didn't change and we already have a populated
+   * role in the store). It is **not** safe to skip the fetch when
+   * the cached role is `null`: the user may have just signed back
+   * in after `reset()` cleared the store, and skipping the fetch
+   * would leave `role: null` and re-bounce them to /role-selection
+   * ("Amnesia Login Loop" — see CLAUDE.md Bug #1, June 21 audit).
+   *
+   * After the read, `normalizeRole` maps legacy role values (e.g.
+   * the human-readable `"Tutor"` label from an earlier role-pick
+   * screen) back to the canonical enum. If the doc is missing the
+   * `uid` field — a common artifact of pre-pivot code that wrote
+   * the root doc without it — or if the role value is non-canonical,
+   * we re-write the doc with the canonical shape so subsequent
+   * writes from the profile screens don't fail the
+   * `request.resource.data.uid == userId` rules guard.
+   */
+  useEffect(() => {
+    const app = getApp();
+    const firebaseAuth = getAuth(app);
+    const firebaseDb = getFirestore(app);
+    const subscriber = onAuthStateChanged(
+      firebaseAuth,
+      async (nextUser: FirebaseAuthTypes.User | null) => {
+        setUser(nextUser);
+        if (!nextUser) {
+          lastUidRef.current = null;
+          setRole(null);
+          setLoading(false);
+          return;
+        }
+        // Skip the doc-fetch only when both conditions hold:
+        //   1. uid is unchanged from the last callback
+        //      (avoids re-fetching on rapid re-emits from
+        //      auth.currentUser.reload()), AND
+        //   2. the store already has a populated role
+        //      (i.e. we just confirmed this uid's role on a
+        //      previous callback this session).
+        // If `role` is null (e.g. the user just signed back in
+        // after `reset()`), always re-fetch — the doc may now
+        // contain a role that wasn't there before.
+        const cachedRole = useAuthStore.getState().role;
+        if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
+          setLoading(false);
+          return;
+        }
+        lastUidRef.current = nextUser.uid;
+        try {
+          const userDocRef = doc(firebaseDb, "users", nextUser.uid);
+          const snap = await getDoc(userDocRef);
+          const data = snap.data() as
+            | { role?: string | null; uid?: string | null; email?: string | null }
+            | undefined;
+          const roleValue = normalizeRole(data?.role);
+          setRole(roleValue);
+
+          // ---- One-time heal of the `users/{uid}` root doc ----
+          //
+          // Two historical shapes can leave the user stuck on
+          // /role-selection even though they completed signup:
+          //
+          //   (a) The doc was created by an older version of the
+          //       code that wrote a *display label* (e.g. "Tutor")
+          //       instead of the canonical enum value ("tutor"). The
+          //       previous `data?.role === "tutor"` strict check
+          //       rejected it and sent the user back to role
+          //       selection forever.
+          //
+          //   (b) The doc was created by an earlier version that
+          //       didn't include the `uid` field. Subsequent updates
+          //       fail the `request.resource.data.uid == userId`
+          //       guard in firestore.rules, which silently blocks
+          //       every future write from the profile screens.
+          //
+          // If either condition holds, normalize the doc in place
+          // so subsequent reads / writes are clean. The write goes
+          // through the same owner-only rule, so this is safe.
+          if (snap.exists()) {
+            const needsUidHeal = data?.uid !== nextUser.uid;
+            const needsRoleHeal =
+              roleValue !== null && data?.role !== roleValue;
+            if (needsUidHeal || needsRoleHeal) {
+              try {
+                await setDoc(
+                  userDocRef,
+                  {
+                    uid: nextUser.uid,
+                    role: roleValue ?? data?.role ?? null,
+                    email: data?.email ?? nextUser.email ?? null,
+                    updatedAt: serverTimestamp(),
+                  },
+                  { merge: true },
+                );
+                console.log(
+                  "RootLayout: healed users/{uid} — uid/missing:",
+                  needsUidHeal,
+                  "role/normalized:",
+                  needsRoleHeal,
+                );
+              } catch (healErr) {
+                // Healing failed — likely a rules mismatch. Don't
+                // block the user; the redirect already happened and
+                // they can still proceed. The next login will retry.
+                console.warn(
+                  "RootLayout: failed to heal users/{uid}",
+                  healErr,
+                );
+              }
+            }
+          }
+        } catch (err) {
+          // Treat any read failure as "no role yet" — the user will be
+          // sent to /role-selection and can re-try.
+          console.warn("RootLayout: failed to read users/{uid}", err);
+          setRole(null);
+        } finally {
+          setLoading(false);
+        }
+      },
+    );
+    return subscriber;
+  }, [setUser, setRole, setLoading]);
+
+  // CRITICAL: always render the Stack, even while loading. Conditionally
+  // returning a different tree from the same component (the loading View
+  // vs. the Stack) makes expo-router lose track of child screens and
+  // can trigger "Cannot read property 'displayName' of undefined" when
+  // the Stack tries to remount its children on the next render. The
+  // loading spinner overlays the Stack instead.
   return (
-    <ClerkProvider publishableKey={publishableKey ?? "pk_test_missing"} tokenCache={tokenCache}>
-      <ClerkFirebaseBridge />
-      <GestureHandlerRootView className="flex-1">
-        <SafeAreaProvider>
-          <RootLayoutNav />
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ClerkProvider>
+    <GestureHandlerRootView className="flex-1">
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="email-signup" />
+          <Stack.Screen name="role-selection" />
+          <Stack.Screen name="profile-student" />
+          <Stack.Screen name="profile-tutor" />
+          <Stack.Screen name="student-home" />
+          <Stack.Screen name="tutor-home" />
+        </Stack>
+        {isLoading ? (
+          <View
+            pointerEvents="none"
+            className="absolute inset-0 items-center justify-center bg-background"
+          >
+            <ActivityIndicator size="large" color="#0F172A" />
+          </View>
+        ) : null}
+        <StatusBar style="dark" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

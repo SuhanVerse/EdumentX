@@ -36,8 +36,8 @@
         }
       ],
       "@react-native-firebase/app",
-      "expo-secure-store",
-      "expo-web-browser"
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
