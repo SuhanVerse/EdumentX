@@ -78,5 +78,3 @@ export function VerifiedIllustration() {
     </View>
   );
 }
-
-export default VerifiedIllustration;

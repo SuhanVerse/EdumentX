@@ -93,5 +93,3 @@ export function AiMatchIllustration() {
     </View>
   );
 }
-
-export default AiMatchIllustration;

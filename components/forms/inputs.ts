@@ -3,9 +3,9 @@
  *
  * Centralising these constants keeps the input visual contract consistent
  * between `NameEmailFields`, the inline inputs on the profile screens, and
- * any new form fields. They compose with an `errorClass` appended:
+ * any new form fields. They compose like:
  *
- *   `${INPUT_BASE} ${errors?.foo ? INPUT_ERROR : INPUT_OK}`
+ *   `${INPUT_BASE} ${errors?.foo ? INPUT_BORDER_ERROR : INPUT_BORDER_OK}`
  *
  * Why a string constant (and not a `<TextInput>` wrapper component): RN
  * + NativeWind play nicest when `className` is a literal Tailwind class
