@@ -13,11 +13,13 @@ This folder contains high-level, project-wide documents. Read these first.
 
 **EdumentX** is a **location-based home tutor marketplace** built with React Native (Expo SDK 54) and Firebase. It connects **Students/Parents** with **verified home Tutors** nearby, with AI-powered matching and a trust system ("Blue Tick Pro" verified tutors).
 
-**Status (June 2026)**: Authentication and onboarding UI complete. Firebase backend pending. Multi-role dashboards not yet built.
+**Status (June 22, 2026)**: Native Firebase Auth + Firestore + Supabase Storage shipped (zero-budget hybrid stack). Multi-role dashboards live. Next: OpenStreetMap tiles, Nominatim geocoding, client-side KNN, Supabase-backed avatar uploads, Groq RAG chatbot. See `Documentation/01-Architecture/ARCHITECTURE.md` for the canonical stack matrix and anti-patterns.
 
 **Target market**: Nepal (initial), international-ready architecture.
 
 **Differentiator**: Not a generic e-learning platform — specifically an in-person home tutoring marketplace with map-based discovery.
+
+**Architectural rule (zero-budget)**: Every backend dependency must be usable on a free tier with **no credit card required**. Firebase Cloud Storage / Cloud Functions / Google Maps SDK / OpenAI are out of scope. See `ARCHITECTURE.md` §0 and §8 for the rule and the anti-pattern list.
 
 ## How to Use the Master Guide
 
@@ -43,9 +45,12 @@ The master guide has 15 sections. You don't need to read all of them — here's 
 
 ## Other Places to Look
 
-- **Implementation guides**: [`../03-Implementation-Guides/`](../03-Implementation-Guides/)
-- **AI prompts**: [`../06-Prompts/`](../06-Prompts/)
-- **Code reference**: `app/`, `screens/`, `constants/`, `firebase/` (in project root)
+- **Architecture (canonical stack)**: [`../01-Architecture/ARCHITECTURE.md`](../01-Architecture/ARCHITECTURE.md) — **read this first** before adding any new dependency
+- **Implementation guides**: [`../03-Implementation-Guides/`](../03-Implementation-Guides/) — `IMPLEMENTATION_ROADMAP.md` is the v3.0 current-state guide
+- **Firebase**: [`../04-Firebase/phase-3-notes.md`](../04-Firebase/phase-3-notes.md) — Phase 3 operations doc
+- **Build & deploy**: [`../05-Build-and-Deploy/firebase-auth-plan.md`](../05-Build-and-Deploy/firebase-auth-plan.md) + `firebase-auth-plan-audit.md`
+- **AI prompts**: [`../06-Prompts/`](../06-Prompts/) — including the Antigravity + Claude integration guide
+- **Code reference**: `app/`, `screens/`, `components/`, `lib/`, `tailwind.config.js` (in project root)
 - **Old docs**: [`../99-Archive/`](../99-Archive/)
 
 ## Maintaining This Folder

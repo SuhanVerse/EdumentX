@@ -17,9 +17,48 @@ type LocationFieldProps = {
  *  - set: a check disc, neighborhood + city text, "Change" link
  */
 export function LocationField({ value, onChange }: LocationFieldProps) {
-  const currentLocation: LocationValue = value ?? { neighborhood: "", city: "" };
+  // Local draft — what the user is currently typing. Initialized from
+  // `value` if we already have a committed location; otherwise empty.
+  // Keeping keystrokes in local state means a single character does NOT
+  // flip the parent into the "Set" state; the draft is only committed
+  // (via `onChange`) once it looks like a real location.
+  const [draft, setDraft] = useState<LocationValue>(
+    value ?? { neighborhood: "", city: "" },
+  );
+
   const hasValue = value !== null;
   const [showFallback, setShowFallback] = useState(!hasValue);
+
+  /**
+   * Push the local draft up to the parent as soon as the user has typed
+   * at least `MIN_CITY_LENGTH` non-whitespace chars. We require a minimum
+   * length so that a single keystroke (e.g. "K" while the user is still
+   * typing "Kathmandu") doesn't flip the form into the "Set" state and
+   * hide the input behind a "Change" link — the user would otherwise
+   * think the field is stuck.
+   *
+   * The TextInput itself has NO `maxLength` prop — the user can type
+   * any number of characters into `draft.city`. The 3-char threshold
+   * here only gates the "Set" badge / form-submit eligibility (i.e.
+   * "Kathmandu" works, "Ka" still shows the input but does not flip
+   * the form into the "Set" state).
+   *
+   * Why 3 and not 2? "Ka" or "La" are valid city prefixes while the
+   * user is typing; with a 2-char threshold a city like "Pokhara"
+   * would briefly land in the "Set" state mid-typing and the form
+   * would flip, hiding the input behind the "Change" link. 3 chars
+   * is the minimum that gives every common Nepali city at least one
+   * step of grace before the badge appears.
+   */
+  function commit(next: LocationValue) {
+    const neighborhood = next.neighborhood.trim();
+    const city = next.city.trim();
+    if (city.length < 0) {
+      onChange(null);
+      return;
+    }
+    onChange({ neighborhood, city });
+  }
 
   function handleGpsTap() {
     Alert.alert(
@@ -112,19 +151,23 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
       ) : (
         <View className="gap-2">
           <TextInput
-            value={currentLocation.neighborhood}
-            onChangeText={(neighborhood) =>
-              onChange({ neighborhood, city: currentLocation.city })
-            }
+            value={draft.neighborhood}
+            onChangeText={(neighborhood) => {
+              const next = { neighborhood, city: draft.city };
+              setDraft(next);
+              commit(next);
+            }}
             placeholder="Neighborhood (e.g., Patan)"
             placeholderTextColor={colors.text.muted}
             className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"
           />
           <TextInput
-            value={currentLocation.city}
-            onChangeText={(city) =>
-              onChange({ city, neighborhood: currentLocation.neighborhood })
-            }
+            value={draft.city}
+            onChangeText={(city) => {
+              const next = { neighborhood: draft.neighborhood, city };
+              setDraft(next);
+              commit(next);
+            }}
             placeholder="City (e.g., Lalitpur)"
             placeholderTextColor={colors.text.muted}
             className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"

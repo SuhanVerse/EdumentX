@@ -1,0 +1,844 @@
+{
+  "communities": {
+    "0": [
+      "auth_confirmation",
+      "auth_confirmation_confirmationscreen",
+      "auth_confirmation_detailrow",
+      "auth_confirmation_detailrowprops",
+      "auth_confirmation_styles",
+      "auth_confirmation_successcheckmark",
+      "auth_confirmation_summarycard",
+      "auth_confirmation_summarycardprops",
+      "auth_confirmation_tagpill",
+      "auth_kyc_landlord",
+      "auth_kyc_landlord_compressdoc",
+      "auth_kyc_landlord_doctypechip",
+      "auth_kyc_landlord_doctypechipprops",
+      "auth_kyc_landlord_documentuploadzone",
+      "auth_kyc_landlord_documentuploadzoneprops",
+      "auth_kyc_landlord_kyclandlordscreen",
+      "auth_kyc_landlord_pickfromoptions",
+      "auth_kyc_landlord_styles",
+      "auth_kyc_tenant",
+      "auth_kyc_tenant_documentuploadzone",
+      "auth_kyc_tenant_documentuploadzoneprops",
+      "auth_kyc_tenant_kyctenantscreen",
+      "auth_kyc_tenant_styles",
+      "auth_kyc_tenant_usedocumentpicker",
+      "auth_layout",
+      "auth_layout_authlayout",
+      "auth_profile_setup",
+      "auth_profile_setup_compressimage",
+      "auth_profile_setup_nepal_cities",
+      "auth_profile_setup_preferences",
+      "auth_profile_setup_profileformvalues",
+      "auth_profile_setup_profileschema",
+      "auth_profile_setup_profilesetupscreen",
+      "auth_profile_setup_styles",
+      "auth_profile_setup_useavatarpicker",
+      "auth_role",
+      "auth_role_rolecard",
+      "auth_role_rolecardprops",
+      "auth_role_roles",
+      "auth_role_roleselectionscreen",
+      "auth_role_styles",
+      "landlord_verification_verificationscreen",
+      "onboarding_onboardingeyebrow",
+      "onboarding_onboardingeyebrow_onboardingeyebrow",
+      "onboarding_onboardingeyebrow_props",
+      "onboarding_onboardingeyebrow_styles",
+      "onboarding_onboardingheader",
+      "onboarding_onboardingheader_onboardingheader",
+      "onboarding_onboardingheader_props",
+      "onboarding_onboardingheader_styles",
+      "onboarding_stepprogressbar",
+      "onboarding_stepprogressbar_props",
+      "onboarding_stepprogressbar_styles",
+      "rationale_kyc_optional_tenant",
+      "rationale_kyc_required_landlord",
+      "shared_primarybutton",
+      "shared_primarybutton_primarybutton",
+      "shared_primarybutton_props",
+      "shared_primarybutton_styles",
+      "store_onboardingstore",
+      "store_onboardingstore_initialkyc",
+      "store_onboardingstore_initialprofile",
+      "store_onboardingstore_onboardingstate",
+      "store_onboardingstore_useonboardingstore",
+      "types_onboarding_types",
+      "types_onboarding_types_documenttype",
+      "types_onboarding_types_onboardingkycdata",
+      "types_onboarding_types_onboardingpayload",
+      "types_onboarding_types_onboardingprofiledata",
+      "types_onboarding_types_propertypreference",
+      "types_onboarding_types_userrole"
+    ],
+    "1": [
+      "app_tenant_reviews_property_id_tsx_property_id",
+      "auth_phone",
+      "auth_phone_styles",
+      "landlord_id",
+      "landlord_id_publiclandlordprofilescreen",
+      "landlord_verification",
+      "listing_id",
+      "listing_id_listingdetailscreen",
+      "modal_filter",
+      "modal_filter_filtermodal",
+      "modal_notifications_prefs",
+      "modal_notifications_prefs_notificationprefsmodal",
+      "molecules_screenheader",
+      "molecules_screenheader_props",
+      "molecules_screenheader_screenheader",
+      "organisms_listingcomposer",
+      "organisms_listingcomposer_props",
+      "property_id_propertyreviewsscreen",
+      "reviews_index",
+      "reviews_index_myreviewsscreen",
+      "schedule_visit_propertyid",
+      "schedule_visit_propertyid_schedulevisitscreen",
+      "tenant_ai_preferences",
+      "tenant_ai_preferences_aipreferencesscreen",
+      "tenant_edit_profile",
+      "tenant_edit_profile_editprofilescreen",
+      "tenant_id",
+      "tenant_id_tenantprofilescreen",
+      "tenant_kyc_upload",
+      "tenant_kyc_upload_kycuploadscreen",
+      "tenant_list_property",
+      "tenant_list_property_listpropertyscreen",
+      "tenant_map",
+      "tenant_notifications",
+      "tenant_report",
+      "tenant_report_reportscreen",
+      "tenant_saved",
+      "visit_id",
+      "visit_id_visitdetailscreen",
+      "write_visitid",
+      "write_visitid_writereviewscreen"
+    ],
+    "2": [
+      "app_landlord_request_id_requestdetailscreen",
+      "app_landlord_tabs_layout_tsx_tabs_layout",
+      "app_landlord_tenant_id_tenantprofilescreen",
+      "app_landlord_visits_landlordvisitsscreen",
+      "app_tenant_modal_filter_filtermodal",
+      "app_tenant_tabs_index_hometab",
+      "app_tenant_tabs_layout_tenanttabslayout",
+      "app_tenant_tabs_layout_tsx_tabs_layout",
+      "app_tenant_tabs_search_searchtab",
+      "app_tenant_tabs_visits_visitstab",
+      "components_atoms_statuspill_statuspill",
+      "components_docktab",
+      "components_docktab_docktab",
+      "components_docktab_docktabprops",
+      "components_onboarding_mapillustration_mapillustration",
+      "concept_role_based_routing",
+      "constants_landlorddockitems",
+      "constants_landlorddockitems_landlord_dock_items",
+      "constants_tenantdockitems",
+      "constants_tenantdockitems_tenant_dock_items",
+      "glassdock_constants_layout_layout_constants",
+      "glassdock_glassdock",
+      "glassdock_glassdock_glassdock",
+      "glassdock_glassdock_styles",
+      "glassdock_hooks_usedockstate_usedockstate",
+      "glassdock_types_dock_dock_types",
+      "organisms_floatingdock",
+      "organisms_floatingdock_floatingdock",
+      "organisms_floatingdock_floatingdockprops",
+      "organisms_floatingdock_icons",
+      "organisms_floatingdock_props",
+      "rationale_auth_gating",
+      "store_authstore_role_type",
+      "tabs_layout_landlordtabslayout",
+      "tabs_layout_tenanttabslayout",
+      "types_dock",
+      "types_dock_dockitem",
+      "types_dock_glassdockprops"
+    ],
+    "3": [
+      "package_dependencies",
+      "package_dependencies_expo",
+      "package_dependencies_expo_blur",
+      "package_dependencies_expo_camera",
+      "package_dependencies_expo_constants",
+      "package_dependencies_expo_document_picker",
+      "package_dependencies_expo_file_system",
+      "package_dependencies_expo_font",
+      "package_dependencies_expo_google_fonts_dm_sans",
+      "package_dependencies_expo_google_fonts_dm_serif_display",
+      "package_dependencies_expo_haptics",
+      "package_dependencies_expo_image",
+      "package_dependencies_expo_image_manipulator",
+      "package_dependencies_expo_image_picker",
+      "package_dependencies_expo_linking",
+      "package_dependencies_expo_location",
+      "package_dependencies_expo_router",
+      "package_dependencies_expo_secure_store",
+      "package_dependencies_expo_splash_screen",
+      "package_dependencies_expo_status_bar",
+      "package_dependencies_gorhom_bottom_sheet",
+      "package_dependencies_hookform_resolvers",
+      "package_dependencies_lucide_react_native",
+      "package_dependencies_nativewind",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_react_hook_form",
+      "package_dependencies_react_native",
+      "package_dependencies_react_native_async_storage_async_storage",
+      "package_dependencies_react_native_gesture_handler",
+      "package_dependencies_react_native_maps",
+      "package_dependencies_react_native_reanimated",
+      "package_dependencies_react_native_safe_area_context",
+      "package_dependencies_react_native_screens",
+      "package_dependencies_react_native_svg",
+      "package_dependencies_react_native_web",
+      "package_dependencies_zod",
+      "package_dependencies_zustand"
+    ],
+    "4": [
+      "app",
+      "app_adaptiveicon_backgroundcolor",
+      "app_adaptiveicon_foregroundimage",
+      "app_android_adaptiveicon",
+      "app_experiments_tsconfigpaths",
+      "app_experiments_typedroutes",
+      "app_expo",
+      "app_expo_android",
+      "app_expo_assetbundlepatterns",
+      "app_expo_experiments",
+      "app_expo_icon",
+      "app_expo_ios",
+      "app_expo_name",
+      "app_expo_orientation",
+      "app_expo_plugins",
+      "app_expo_scheme",
+      "app_expo_slug",
+      "app_expo_splash",
+      "app_expo_userinterfacestyle",
+      "app_expo_version",
+      "app_expo_web",
+      "app_ios_bundleidentifier",
+      "app_ios_supportstablet",
+      "app_splash_backgroundcolor",
+      "app_splash_image",
+      "app_splash_resizemode",
+      "app_web_favicon"
+    ],
+    "5": [
+      "auth_onboarding",
+      "auth_onboarding_featureslide",
+      "auth_onboarding_onboardingscreen",
+      "auth_onboarding_slides",
+      "concept_onboarding_steps",
+      "concept_verification_trust",
+      "onboarding_mapillustration",
+      "onboarding_mapillustration_mapillustration",
+      "onboarding_mapillustration_styles",
+      "onboarding_nextbutton",
+      "onboarding_nextbutton_nextbutton",
+      "onboarding_nextbutton_nextbuttonprops",
+      "onboarding_onboardinglayout",
+      "onboarding_onboardinglayout_onboardinglayout",
+      "onboarding_onboardinglayout_onboardinglayoutprops",
+      "onboarding_paginationdots",
+      "onboarding_paginationdots_paginationdots",
+      "onboarding_paginationdots_paginationdotsprops",
+      "onboarding_skipbutton",
+      "onboarding_skipbutton_skipbutton",
+      "onboarding_skipbutton_skipbuttonprops",
+      "onboarding_stepprogressbar_stepprogressbar",
+      "onboarding_verifiedillustration",
+      "onboarding_verifiedillustration_styles",
+      "onboarding_verifiedillustration_verifiedillustration",
+      "types_onboarding_types_kycstatus"
+    ],
+    "6": [
+      "app_vision_auth_flow",
+      "app_vision_features",
+      "app_vision_landlord_experience",
+      "app_vision_overall",
+      "app_vision_product_vision",
+      "app_vision_tenant_experience",
+      "app_vision_visit_request_workflow",
+      "concept_5day_auto_archive",
+      "concept_address_privacy",
+      "concept_dual_role",
+      "concept_free_tier_limits",
+      "concept_high_demand_auto_flag",
+      "concept_kyc_mandatory_landlord",
+      "concept_kyc_states",
+      "concept_location_unlock_rule",
+      "concept_notification_system",
+      "concept_post_visit_followup",
+      "concept_pro_plan",
+      "concept_property_status_system",
+      "concept_visit_status_lifecycle",
+      "onboarding_visitillustration",
+      "onboarding_visitillustration_styles",
+      "onboarding_visitillustration_visitillustration",
+      "rationale_broker_elimination",
+      "rationale_phone_number_identity"
+    ],
+    "7": [
+      "atoms_statuspill",
+      "atoms_statuspill_props",
+      "atoms_statuspill_status",
+      "atoms_statuspill_status_styles",
+      "atoms_statuspill_status_type",
+      "atoms_statuspill_statuspill",
+      "concept_property_listing",
+      "molecules_propertycard",
+      "molecules_propertycard_propertycard",
+      "molecules_propertycard_propertycardvariant",
+      "molecules_propertycard_props",
+      "molecules_propertycard_status_badges",
+      "molecules_propertycard_status_overlay",
+      "molecules_propertycard_statusoverlay",
+      "molecules_reviewcard",
+      "molecules_reviewcard_props",
+      "molecules_reviewcard_reviewcard",
+      "organisms_listingcomposer_listingcomposer",
+      "organisms_propertyhero",
+      "organisms_propertyhero_propertyhero",
+      "organisms_propertyhero_props",
+      "organisms_propertyhero_width_screen_width",
+      "organisms_propertymappin",
+      "organisms_propertymappin_mappindata",
+      "organisms_propertymappin_propertymappin"
+    ],
+    "8": [
+      "package",
+      "package_devdependencies",
+      "package_devdependencies_babel_core",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_config_expo",
+      "package_devdependencies_eslint_config_prettier",
+      "package_devdependencies_prettier",
+      "package_devdependencies_prettier_plugin_tailwindcss",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_types_react",
+      "package_devdependencies_typescript",
+      "package_main",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_android",
+      "package_scripts_format",
+      "package_scripts_ios",
+      "package_scripts_lint",
+      "package_scripts_prebuild",
+      "package_scripts_start",
+      "package_scripts_web",
+      "package_version"
+    ],
+    "9": [
+      "auth_landing",
+      "auth_landing_landingscreen",
+      "auth_loading",
+      "auth_loading_loadingscreen",
+      "auth_loading_logomark",
+      "auth_loading_styles",
+      "auth_otp",
+      "auth_otp_fmttimer",
+      "auth_otp_maskphone",
+      "auth_otp_otpscreen",
+      "auth_otp_styles",
+      "auth_phone_phonescreen",
+      "auth_role_rolescreen",
+      "molecules_otpinput",
+      "molecules_otpinput_otpcell",
+      "molecules_otpinput_otpcellprops",
+      "molecules_otpinput_otpinput",
+      "molecules_otpinput_otpinputprops",
+      "molecules_otpinput_styles",
+      "rationale_tab_dock_variants",
+      "tabs__layout_landlordtabslayout",
+      "tabs__layout_tenanttabslayout"
+    ],
+    "10": [
+      "app_landlord_tabs_index_tsx_tabs_index",
+      "app_tenant_tabs_index_tsx_tabs_index",
+      "app_tenant_tabs_profile_tsx_tabs_profile",
+      "landlord_notifications",
+      "landlord_notifications_notificationsscreen",
+      "organisms_screenbody",
+      "organisms_screenbody_dockbottomreserve",
+      "organisms_screenbody_screenbody",
+      "organisms_screenbody_screenbodyprops",
+      "organisms_screenbody_screenbodywithaction",
+      "organisms_screenbody_screenbodywithactionprops",
+      "tabs_index_hometab",
+      "tabs_index_landlorddashboard",
+      "tabs_profile_profiletab",
+      "tabs_requests",
+      "tabs_requests_requeststab",
+      "tabs_search",
+      "tabs_search_searchtab",
+      "tabs_visits",
+      "tabs_visits_visitstab"
+    ],
+    "11": [
+      "app_index",
+      "app_index_index",
+      "app_layout",
+      "app_layout_rootlayout",
+      "app_tenant_layout_tenantlayout",
+      "config_devmode",
+      "config_devmode_devmode",
+      "config_devmode_getdevmode",
+      "config_devmode_getinitialhref",
+      "landlord_settings",
+      "landlord_settings_settingsscreen",
+      "package_json_manifest",
+      "store_authstore",
+      "store_authstore_authstate",
+      "store_authstore_role",
+      "store_authstore_useauth",
+      "tenant_settings",
+      "tenant_settings_settingsscreen"
+    ],
+    "12": [
+      "app_rootlayout",
+      "tenant_expo_router_navigation",
+      "tenant_filter_filtermodal",
+      "tenant_landlord_publiclandlordprofilescreen",
+      "tenant_map_mapscreen",
+      "tenant_notifications_notificationsscreen",
+      "tenant_notificationsprefs_notificationprefsmodal",
+      "tenant_property_gallery_gallerymodal",
+      "tenant_property_propertydetailscreen",
+      "tenant_reviews_propertyreviewsscreen",
+      "tenant_reviews_writereviewscreen",
+      "tenant_role_based_redirect",
+      "tenant_saved_savedscreen",
+      "tenant_schedulevisit_schedulevisitscreen",
+      "tenant_searchresults_searchresultsscreen",
+      "tenant_tenantlayout",
+      "tenant_visit_visitdetailscreen"
+    ],
+    "13": [
+      "app_landlord_tabs_profile_tsx_tabs_profile",
+      "landlord_ai_preferences",
+      "landlord_ai_preferences_aipreferencesscreen",
+      "landlord_edit_profile",
+      "landlord_edit_profile_editprofilescreen",
+      "landlord_visits",
+      "landlord_visits_landlordvisitsscreen",
+      "listing__id__listingdetailscreen",
+      "request__id__requestdetailscreen",
+      "tabs_profile_landlordprofiletab",
+      "tenant__id__tenantprofilescreen"
+    ],
+    "14": [
+      "landlord_dashboard",
+      "landlord_layout",
+      "landlord_layout_landlordlayout",
+      "landlord_listing_detail",
+      "landlord_listings",
+      "landlord_new_step1",
+      "landlord_new_step2",
+      "landlord_new_step3",
+      "landlord_new_step4",
+      "landlord_requests",
+      "landlord_tabs_layout"
+    ],
+    "15": [
+      "atoms_avatar",
+      "atoms_avatar_avatar",
+      "atoms_avatar_props",
+      "concept_atomic_design_layers",
+      "molecules_formfield",
+      "molecules_formfield_formfield",
+      "molecules_formfield_props",
+      "molecules_searchbar",
+      "molecules_searchbar_props",
+      "molecules_searchbar_searchbar"
+    ],
+    "16": [
+      "new_step_1",
+      "new_step_1_newlistingstep1",
+      "new_step_2",
+      "new_step_2_newlistingstep2",
+      "new_step_3",
+      "new_step_3_newlistingstep3",
+      "new_step_4",
+      "new_step_4_newlistingstep4",
+      "tabs_listings",
+      "tabs_listings_listingstab"
+    ],
+    "17": [
+      "concept_design_token_palette",
+      "config_app_json",
+      "config_babel_config",
+      "config_metro_config",
+      "config_nativewind_env",
+      "config_package_json",
+      "config_prettier_config",
+      "config_tailwind",
+      "config_tsconfig"
+    ],
+    "18": [
+      "molecules_filterchip",
+      "molecules_filterchip_bg_map",
+      "molecules_filterchip_chipcolor",
+      "molecules_filterchip_chipvariant",
+      "molecules_filterchip_filterchip",
+      "molecules_filterchip_props",
+      "molecules_filterchip_text_map"
+    ],
+    "19": [
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_extends",
+      "tsconfig_include",
+      "tsconfig_paths"
+    ],
+    "20": [
+      "assets_adaptive_icon",
+      "assets_favicon",
+      "assets_icon",
+      "assets_splash",
+      "claude_md_graphify_concept",
+      "expo_project_assets"
+    ],
+    "21": [
+      "auth_feature_map",
+      "auth_feature_map_featuremapscreen",
+      "auth_feature_verified",
+      "auth_feature_verified_featureverifiedscreen",
+      "auth_feature_visits",
+      "auth_feature_visits_featurevisitsscreen"
+    ],
+    "22": [
+      "molecules_menucard",
+      "molecules_menucard_menucard",
+      "molecules_menucard_props",
+      "molecules_menurow",
+      "molecules_menurow_menurow",
+      "molecules_menurow_props"
+    ],
+    "23": [
+      "metro_config",
+      "metro_config_config",
+      "metro_config_getdefaultconfig",
+      "metro_config_withnativewind"
+    ],
+    "24": [
+      "atoms_sectionlabel",
+      "atoms_sectionlabel_props",
+      "atoms_sectionlabel_sectionlabel"
+    ],
+    "25": [
+      "atoms_toggle",
+      "atoms_toggle_props",
+      "atoms_toggle_toggle"
+    ],
+    "26": [
+      "eslint_config",
+      "eslint_config_defineconfig",
+      "eslint_config_expoconfig"
+    ],
+    "27": [
+      "hooks_usedockstate",
+      "hooks_usedockstate_dockanimationstate",
+      "hooks_usedockstate_usedockstate"
+    ],
+    "28": [
+      "tenant_aipreferences_aipreferencesscreen",
+      "tenant_preferences",
+      "tenant_preferences_preferencesscreen"
+    ],
+    "29": [
+      "tenant_editprofile_editprofilescreen",
+      "tenant_kycupload_kycuploadscreen",
+      "tenant_listproperty_listpropertyscreen"
+    ],
+    "30": [
+      "app_tenant_property_id_tsx_property_id",
+      "property_id_propertydetailscreen"
+    ],
+    "31": [
+      "id_gallery",
+      "id_gallery_gallerymodal"
+    ],
+    "32": [
+      "readme_ai_powered_rental_concept",
+      "readme_basobas_app"
+    ],
+    "33": [
+      "request_id",
+      "request_id_requestdetailscreen"
+    ],
+    "34": [
+      "tenant_layout",
+      "tenant_layout_tenantlayout"
+    ],
+    "35": [
+      "tenant_search_results",
+      "tenant_search_results_searchresultsscreen"
+    ],
+    "36": [
+      "app_json"
+    ],
+    "37": [
+      "app_landlord_verification_verificationscreen"
+    ],
+    "38": [
+      "app_tenant_tabs_profile_profiletab"
+    ],
+    "39": [
+      "auth__layout_authlayout"
+    ],
+    "40": [
+      "babel_config"
+    ],
+    "41": [
+      "concept_auth_flow"
+    ],
+    "42": [
+      "concept_kyc_verification"
+    ],
+    "43": [
+      "concept_listing_creation_flow"
+    ],
+    "44": [
+      "concept_visit_request_flow"
+    ],
+    "45": [
+      "config_eslint_config"
+    ],
+    "46": [
+      "constants_layout"
+    ],
+    "47": [
+      "landlord__layout_landlordlayout"
+    ],
+    "48": [
+      "landlord_profile"
+    ],
+    "49": [
+      "nativewind_env_d"
+    ],
+    "50": [
+      "prettier_config"
+    ],
+    "51": [
+      "settings_local_json"
+    ],
+    "52": [
+      "tailwind_config"
+    ],
+    "53": [
+      "tenant_reviews_myreviewsscreen"
+    ],
+    "54": [
+      "tenant_visits_visitstab"
+    ]
+  },
+  "cohesion": {
+    "0": 0.05955734406438632,
+    "1": 0.07439024390243902,
+    "2": 0.08534850640113797,
+    "3": 0.05263157894736842,
+    "4": 0.07407407407407407,
+    "5": 0.12307692307692308,
+    "6": 0.14,
+    "7": 0.09333333333333334,
+    "8": 0.08695652173913043,
+    "9": 0.11688311688311688,
+    "10": 0.14210526315789473,
+    "11": 0.20261437908496732,
+    "12": 0.125,
+    "13": 0.18181818181818182,
+    "14": 0.21818181818181817,
+    "15": 0.2,
+    "16": 0.2222222222222222,
+    "17": 0.3333333333333333,
+    "18": 0.2857142857142857,
+    "19": 0.2857142857142857,
+    "20": 0.7333333333333333,
+    "21": 0.3333333333333333,
+    "22": 0.3333333333333333,
+    "23": 0.6666666666666666,
+    "24": 0.6666666666666666,
+    "25": 0.6666666666666666,
+    "26": 0.6666666666666666,
+    "27": 0.6666666666666666,
+    "28": 0.6666666666666666,
+    "29": 0.6666666666666666,
+    "30": 1.0,
+    "31": 1.0,
+    "32": 1.0,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 1.0,
+    "36": 1.0,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0,
+    "41": 1.0,
+    "42": 1.0,
+    "43": 1.0,
+    "44": 1.0,
+    "45": 1.0,
+    "46": 1.0,
+    "47": 1.0,
+    "48": 1.0,
+    "49": 1.0,
+    "50": 1.0,
+    "51": 1.0,
+    "52": 1.0,
+    "53": 1.0,
+    "54": 1.0
+  },
+  "gods": [
+    {
+      "id": "molecules_screenheader_screenheader",
+      "label": "ScreenHeader()",
+      "degree": 48
+    },
+    {
+      "id": "store_onboardingstore_useonboardingstore",
+      "label": "useOnboardingStore",
+      "degree": 17
+    },
+    {
+      "id": "app_expo",
+      "label": "expo",
+      "degree": 15
+    },
+    {
+      "id": "store_authstore_useauth",
+      "label": "useAuth",
+      "degree": 11
+    },
+    {
+      "id": "app_vision_overall",
+      "label": "Project Documentation Index",
+      "degree": 11
+    },
+    {
+      "id": "organisms_screenbody_screenbody",
+      "label": "ScreenBody()",
+      "degree": 10
+    },
+    {
+      "id": "organisms_floatingdock_floatingdock",
+      "label": "FloatingDock()",
+      "degree": 9
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 8
+    },
+    {
+      "id": "molecules_propertycard_propertycard",
+      "label": "PropertyCard()",
+      "degree": 8
+    },
+    {
+      "id": "onboarding_stepprogressbar_stepprogressbar",
+      "label": "StepProgressBar()",
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "useOnboardingStore",
+      "target": "KYC Verification States",
+      "source_files": [
+        "src/store/onboardingStore.ts",
+        "docs/AUTH_FLOW.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; bridges separate communities; peripheral node `KYC Verification States` unexpectedly reaches hub `useOnboardingStore`"
+    },
+    {
+      "source": "FloatingDock()",
+      "target": "Real-Time Notification System",
+      "source_files": [
+        "src/components/organisms/FloatingDock.tsx",
+        "docs/FEATURES.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "getInitialHref()",
+      "target": "Dual Role System",
+      "source_files": [
+        "src/config/devMode.ts",
+        "docs/APP_VISION.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "useOnboardingStore",
+      "target": "KYC Mandatory For Landlord",
+      "source_files": [
+        "src/store/onboardingStore.ts",
+        "docs/AUTH_FLOW.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "useOnboardingStore",
+      "target": "Onboarding Steps",
+      "source_files": [
+        "src/store/onboardingStore.ts",
+        "docs/AUTH_FLOW.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; crosses file types (code ↔ doc); connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `ReportScreen()` and `PropertyDetailScreen`?",
+      "why": "Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low."
+    },
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `HomeTab` and `MapIllustration`?",
+      "why": "Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `ScreenHeader()` connect `Community 1` to `Community 0`, `Community 33`, `Community 2`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 13`, `Community 16`, `Community 28`?",
+      "why": "High betweenness centrality (0.189) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `ListingComposer()` connect `Community 7` to `Community 1`?",
+      "why": "High betweenness centrality (0.056) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `FloatingDock()` connect `Community 2` to `Community 10`, `Community 11`, `Community 6`, `Community 15`?",
+      "why": "High betweenness centrality (0.056) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 2 inferred relationships involving `ScreenHeader()` (e.g. with `Role-Based Routing` and `Role type: tenant | landlord | null`) actually correct?",
+      "why": "`ScreenHeader()` has 2 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 3 inferred relationships involving `useOnboardingStore` (e.g. with `KYC Mandatory For Landlord` and `KYC Verification States`) actually correct?",
+      "why": "`useOnboardingStore` has 3 INFERRED edges - model-reasoned connections that need verification."
+    }
+  ]
+}

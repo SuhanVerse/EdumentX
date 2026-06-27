@@ -10,13 +10,28 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // The root user doc — created by `RoleSelection` and read by
+    // `app/_layout.tsx` to decide which dashboard to show.
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
       allow read: if isOwner(userId);
       allow update: if isOwner(userId) && request.resource.data.uid == userId;
       allow delete: if false;
+
+      // Profile subcollection docs (one per role). The screens write
+      // these from `StudentProfileScreen` / `TutorProfileScreen` and
+      // the dashboards read them on every render. The owner can write
+      // any field — the form-level validation is the source of truth
+      // for shape, and the security rules just enforce "you can only
+      // touch your own profile."
+      match /{subcollection}/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
+    // Everything else stays locked down. The app's MVP only touches
+    // /users/{uid} and its subcollections; new collections need an
+    // explicit rule added here before the client can read/write.
     match /{document=**} {
       allow read, write: if false;
     }

@@ -3,9 +3,13 @@
 > **Purpose**: This is the single source of truth for the EdumentX project — a **location-based home tutor marketplace** built with React Native (Expo) + Firebase. It contains the complete project overview, every screen's exact layout, design tokens, architecture, and a concrete roadmap for improvements.
 >
 > **Generated**: June 5, 2026  
-> **Last Updated**: June 6, 2026 (Tamagui foundation in progress — see Section 16)  
-> **Project Phase**: Phase 1 (Tamagui Foundation) — 3/7 screens migrated, palette tuned, 4 screens + 3 illustrations pending  
-> **Verified Against**: Actual codebase (`screens/`, `app/`, `constants/`)
+> **Last Updated**: June 12, 2026 (Phase 1.5 NativeWind complete — see Section 16)  
+> **Project Phase**: Phase 1.5 ✅ DONE / Phase 2 ⏳ NEXT (babel + webview) / Phase 3 ⏳ plan audited  
+> **Verified Against**: Actual codebase (`screens/`, `app/`, `constants/`, `tailwind.config.js`)
+
+> **Architectural correction (June 12, 2026)**: the previous "Tamagui Foundation" phase was reverted on June 8, 2026 in favor of **NativeWind 4.2 + Tailwind CSS 3.4**. All Tamagui packages and `tamagui.config.ts` files have been removed. This guide is updated to reflect that. If you see `@tamagui/*` references anywhere in the docs, they are stale.
+
+> **Architectural correction (June 22, 2026)**: the project is now strictly **zero-budget / free-tier only**. Firebase Cloud Storage, Cloud Functions, Google Maps SDK, and paid LLM providers (OpenAI / Anthropic / Cohere) are out of scope. Object storage now lives in **Supabase Storage** (1 GB free, no card); map tiles come from **OpenStreetMap** via `react-native-maps` `<UrlTile>` (no key); geocoding uses **Nominatim** (keyless); distance/KNN math runs **client-side** (no Cloud Functions); the future RAG chatbot will use **Groq** or **HuggingFace** (free dev tier). See `Documentation/01-Architecture/ARCHITECTURE.md` for the canonical stack matrix.
 
 ---
 
@@ -45,17 +49,19 @@
 
 | Status | Component |
 |--------|-----------|
-| ✅ Complete | Onboarding & Authentication UI flow (7 screens) |
-| ✅ Complete | Design system & token layer |
+| ✅ Complete | Onboarding & Authentication UI flow (9 screens) |
+| ✅ Complete | Design system & token layer (NativeWind 4.2 + Tailwind 3.4) |
 | ✅ Complete | Firestore & Storage security rules (pre-implementation) |
-| ⏳ Pending | Firebase Auth integration |
-| ⏳ Pending | Firestore data persistence |
-| ⏳ Pending | Dashboard screens (Student & Tutor) |
-| ⏳ Pending | Map-based discovery |
-| ⏳ Pending | AI tutor matching |
-| ⏳ Pending | Tutor verification flow |
-| ⏳ Pending | Reusable component library |
-| ⏳ Pending | Global state management |
+| ⏳ Pending | Babel worklets plugin (Phase 2) |
+| ⏳ Pending | Firebase JS SDK + webview install (Phase 2) |
+| ⏳ Pending | Firebase Auth integration (Phase 3) |
+| ⏳ Pending | Firestore data persistence (Phase 3) |
+| ⏳ Pending | Role dashboards (Student/Tutor/Admin) (Phase 3) |
+| ⏳ Pending | Map-based discovery (Phase 5) |
+| ⏳ Pending | AI tutor matching (Phase 8) |
+| ⏳ Pending | Tutor verification flow (Phase 6) |
+| ⏳ Pending | Reusable component library (Phase 4) |
+| ⏳ Pending | Zustand global state (Phase 4) |
 
 ---
 
@@ -71,8 +77,11 @@
 | Mobile Runtime | React Native | 0.81.5 |
 | Navigation | Expo Router (file-based) | 6.0.23 |
 | Icons | @expo/vector-icons (Ionicons) | 15.0.3 |
-| Backend | Firebase (Auth, Firestore, Storage) | TBD |
-| Maps | Google Maps | API key required |
+| Backend | Firebase (Auth, Firestore) + Supabase Storage | Auth/Firestore: Spark plan (no card); Supabase: 1 GB free |
+| Maps | OpenStreetMap via `react-native-maps` `<UrlTile>` | No API key (see `Documentation/01-Architecture/ARCHITECTURE.md` §4) |
+| Geocoding | Nominatim (OpenStreetMap) | ~1 req/sec, keyless |
+| Location math | Client-side Haversine + KNN | No Cloud Functions (Spark plan has no CF runtime) |
+| RAG chatbot | Groq (Llama 3) or HuggingFace Serverless | Free dev tier |
 | State Management | Local `useState` (no global store yet) | — |
 | Styling | `StyleSheet.create` | — |
 
@@ -146,9 +155,10 @@ EdumentX/
 │   ├── _layout.tsx                 # Root: GestureHandler → SafeArea → Stack
 │   ├── index.tsx                   # "/" → SplashScreen + 1800ms auto-nav
 │   ├── onboarding.tsx              # /onboarding
-│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle)
+│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle + "Continue with email" link)
 │   ├── otpverify.tsx               # /otpverify
 │   ├── create_password.tsx         # /create_password
+│   ├── email-signup.tsx            # /email-signup (email + password + Email Verification)
 │   ├── role-selection.tsx          # /role-selection
 │   └── profile.tsx                 # /profile
 │
@@ -157,26 +167,29 @@ EdumentX/
 │   │   ├── PhoneEntryScreen.tsx    # 385 lines
 │   │   ├── OtpVerify.tsx           # 397 lines
 │   │   ├── Password.tsx            # 357 lines
+│   │   ├── EmailSignUp.tsx         # email + password sign-in/up with pending verification state
 │   │   ├── RoleSelection.tsx       # 323 lines
 │   │   └── ProfileScreen.tsx       # 458 lines
 │   └── onboarding/
 │       ├── SplashScreen.tsx        # 98 lines
 │       └── OnboardingScreen.tsx    # 195 lines
 │
-├── components/                     # ❌ EMPTY — needs extraction
-│   └── forms/                      # ❌ EMPTY
+├── components/                     # Shared form + illustration components
+│   ├── forms/                      # 4 components (AvatarUploader, ChipGroup, LocationField, NameEmailFields)
+│   └── illustrations/              # 3 SVG components (Discover, AiMatch, Verified)
 │
-├── constants/                      # Design tokens
-│   ├── theme.ts                    # ★ MASTER (5220 bytes)
-│   ├── colors.ts                   # Re-exports subset
-│   ├── typography.ts               # Re-exports + minor overrides
-│   └── spacing.ts                  # Re-exports (with remapping!)
+├── constants/                      # Narrow hex fallback for SVG primitives only
+│   └── colors.ts                   # Used only by components/illustrations/* (per CLAUDE.md rule 3)
 │
-├── services/                       # ❌ EMPTY — Firebase services pending
+├── tailwind.config.js              # ★ MASTER design-token source of truth (colors, spacing, fontSize, etc.)
+├── global.css                      # @tailwind base/components/utilities
+├── nativewind-env.d.ts             # NativeWind TS shim
+│
+├── services/                       # ⏳ Empty in Phase 1.5; Phase 3 adds services/firebase/{config,auth,firestore,errors}.ts
 │   └── firebase/
 │
 ├── firebase/
-│   ├── firestore.rules             # Default-deny + users/{uid}
+│   ├── firestore.rules             # Default-deny + users/{uid} + subcollection rules (Phase 3)
 │   ├── storage.rules               # Default-deny + users/{uid}/
 │   └── indexes.json                # Empty
 │
@@ -223,6 +236,7 @@ EdumentX/
       <Stack.Screen name="phone-entry" />
       <Stack.Screen name="otpverify" />
       <Stack.Screen name="create_password" />
+      <Stack.Screen name="email-signup" />
       <Stack.Screen name="role-selection" />
       <Stack.Screen name="profile" />
     </Stack>
@@ -442,11 +456,23 @@ theme.components = {
 └──────┬───────────────┘
        ↓
 ┌──────────────────────┐
-│ ProfileSetup         │  Dark header + sand body
-│ /profile             │  Avatar, name, email, grade, subject
+│ ProfileSetup (first  │  Dark header + sand body
+│ time only)           │  Avatar, name, email, grade, subject
+│ /profile-student     │  → after submit, lands on /student-home
+│ /profile-tutor       │  → after submit, lands on /tutor-home
 └──────┬───────────────┘
        ↓
-   [Dashboard]  ⏳ Not yet implemented
+┌──────────────────────┐
+│ StudentHome          │  Dark hero + sand body
+│ /student-home        │  Search, nearby tutors, verified tutors,
+│                      │  quick actions (all mock data for now)
+└──────────────────────┘
+
+┌──────────────────────┐
+│ TutorDashboard       │  4 stat cards + today's sessions
+│ /tutor-home          │  + pending requests + batch requests
+│                      │  + availability slots (all mock for now)
+└──────────────────────┘
 ```
 
 ### Route-to-Screen Mapping
@@ -458,10 +484,12 @@ theme.components = {
 | `/phone-entry` | `PhoneEntryScreen` | ✅ |
 | `/otpverify` | `OtpVerify` | ✅ |
 | `/create_password` | `CreatePassword` (Password.tsx) | ✅ |
+| `/email-signup` | `EmailSignUp` (email + password + Email Verification) | ✅ |
 | `/role-selection` | `RoleSelectionScreen` | ✅ |
-| `/profile` | `ProfileScreen` | ✅ |
-| `/student/dashboard` | — | ⏳ TODO |
-| `/tutor/dashboard` | — | ⏳ TODO |
+| `/profile-student` | `StudentProfileScreen` (first-time profile only) | ✅ |
+| `/profile-tutor` | `TutorProfileScreen` (first-time profile only) | ✅ |
+| `/student-home` | `StudentHome` | ✅ (mock data — wire to Firestore next) |
+| `/tutor-home` | `TutorDashboard` | ✅ (mock data — wire to Firestore next) |
 | `/discover` (map) | — | ⏳ TODO |
 | `/tutor/:id` | — | ⏳ TODO |
 | `/chat/:id` | — | ⏳ TODO |
@@ -979,8 +1007,9 @@ service firebase.storage {
 | OTP with auto-advance | `OtpVerify.tsx` | Mock verification, 60s resend |
 | Password creation | `Password.tsx` | Length-based strength |
 | Role selection (2 roles) | `RoleSelection.tsx` | Student/Parent & Tutor |
-| Profile setup | `ProfileScreen.tsx` | Avatar + form + chips |
-| Design system | `constants/theme.ts` | Single source of truth |
+| Profile setup (Student) | `StudentProfileScreen.tsx` | Avatar + form + chips |
+| Profile setup (Tutor) | `TutorProfileScreen.tsx` | Avatar + form + bio + hourly rate |
+| Design system | `tailwind.config.js` | Single source of truth (NativeWind 4.2) |
 | Expo Router v6 nav | `app/*.tsx` | All routes wired |
 | Firebase rules | `firebase/*.rules` | Pre-emptive security |
 | TypeScript strict | `tsconfig.json` | Path aliases configured |
@@ -992,7 +1021,7 @@ service firebase.storage {
 | 1 | Firebase Auth integration | 🔴 P0 | Phone OTP + password sign-in |
 | 2 | Firestore user doc creation | 🔴 P0 | Persist profile data on signup |
 | 3 | Role-based dashboards | 🔴 P0 | Post-auth landing screens |
-| 4 | Map-based tutor discovery | 🔴 P0 | Google Maps integration |
+| 4 | Map-based tutor discovery | 🔴 P0 | OpenStreetMap via `react-native-maps` `<UrlTile>` (no Google Maps key) |
 | 5 | Country picker (Nepal only now) | 🟡 P1 | Auto-detect locale |
 | 6 | Storage avatar upload | 🟡 P1 | Image picker wired, no upload |
 | 7 | Component library | 🟡 P1 | Extract `PrimaryButton`, `FormInput`, etc. |
@@ -1264,11 +1293,11 @@ services/
 │   ├── config.ts                # initializeApp
 │   ├── auth.ts                  # signUpWithPhone, verifyOtp, signInWithPassword
 │   ├── firestore.ts             # CRUD user profile, tutor docs
-│   └── storage.ts               # uploadAvatar, uploadDocument
+│   └── storage.ts               # (DEPRECATED — Supabase storage in services/supabase/storage.ts)
 ├── api/
 │   ├── client.ts                # Base fetch wrapper
-│   ├── ai.ts                    # AI tutor matching
-│   └── maps.ts                  # Google Maps geocoding
+│   ├── ai.ts                    # AI tutor matching (Groq / HuggingFace)
+│   └── maps.ts                  # Nominatim (OpenStreetMap) geocoding — replaces Google Maps Geocoding
 ├── validation/
 │   ├── phone.ts                 # Country-aware phone validation
 │   ├── password.ts              # Strength rules
@@ -1345,7 +1374,7 @@ Benefits:
 |---------|---------------|
 | `.env` committed | Verify `.gitignore` excludes it; add to pre-commit hook |
 | API keys in client | Use Firebase App Check to prevent abuse |
-| OTP brute force | Backend rate limiting (Cloud Function) |
+| OTP brute force | Firebase Auth has built-in rate limiting for Email/Password + Google (no Cloud Function needed). For phone OTP (not used — Blaze-required), an in-app cooldown counter on the client would be the only free option. |
 | Open redirects | Sanitize deep links in `expo-linking` |
 | Avatar uploads | Compress + strip EXIF client-side |
 
@@ -1520,30 +1549,33 @@ export function ScreenName() {
 
 ---
 
-## 16. Current State (June 6, 2026)
+## 16. Current State (June 12, 2026)
 
 This section is the **live status snapshot**. Pair it with the appendix-inventory line counts which are the most recent.
 
-### 16.1 Tamagui Foundation — Status
+### 16.1 Foundation (NativeWind) — Status ✅ COMPLETE
+
+> Replaces the previous "Tamagui Foundation" section, which has been reverted. As of June 8, 2026 we are running **NativeWind 4.2.5 + Tailwind CSS 3.4.19**, not Tamagui. All `@tamagui/*` packages and `tamagui.config.ts` files have been removed.
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| `tamagui`, `@tamagui/config`, `@tamagui/animations-react-native` | ✅ Installed | v2.1.0 |
-| `@tamagui/babel-plugin`, `@tamagui/metro-plugin` | ✅ Installed (dev) | |
-| `@tamagui/font-inter` (Inter for body) | ✅ Installed | Plus Jakarta Sans still pending |
-| `react-native-reanimated` 3.x | ✅ Installed | Required for animations |
-| `react-native-svg` | ✅ Installed | Required for illustration components |
-| `@react-native-async-storage/async-storage` | ✅ Installed | Needed for Zustand persist in Phase 3 |
-| `constants/tamagui.config.ts` | ✅ Created | Mirrors `theme.ts`; uses `@tamagui/config/reanimated` driver |
-| `tamagui.config.ts` (root) | ✅ Created | Required by babel/metro plugins to resolve from root |
-| `babel.config.js` | ✅ Created | babel-preset-expo (jsxImportSource: tamagui) + Tamagui plugin + reanimated/plugin last |
-| `metro.config.js` | ✅ Created | wrapWithReanimatedMetroConfig + TamaguiMetroPlugin |
-| `app/_layout.tsx` wrapped in `<TamaguiProvider>` | ✅ Done | defaultTheme="light" |
+| `nativewind` | ✅ Installed | v4.2.5 |
+| `tailwindcss` | ✅ Installed | v3.4.19 |
+| `react-native-reanimated` | ✅ Installed | v4.1.1 (requires `react-native-worklets/plugin` in babel — Phase 2) |
+| `react-native-gesture-handler` | ✅ Installed | v2.28.0 |
+| `react-native-svg` | ✅ Installed | for illustration components |
+| `@react-native-async-storage/async-storage` | ✅ Installed | for Phase 3 Zustand persist |
+| `tailwind.config.js` | ✅ Created | single source of truth for design tokens |
+| `global.css` | ✅ Created at project root | imported by `app/_layout.tsx` |
+| `nativewind-env.d.ts` | ✅ Created at project root | NativeWind TS shim |
+| `babel.config.js` | ✅ Created | babel-preset-expo (jsxImportSource: nativewind) + nativewind/babel. **Missing worklets plugin — Phase 2 adds it.** |
+| `metro.config.js` | ✅ Created | `getDefaultConfig(__dirname, { isCSSEnabled: true })` wrapped with `withNativeWind`. `Documentation/98-Reference-BasoBas/` excluded via blockList. |
+| `app/_layout.tsx` imports `../global.css` | ✅ Done | No `TamaguiProvider` (Tamagui removed) |
 | `tsconfig.json` excludes `Documentation/98-Reference-BasoBas/**` | ✅ Done | Web-app noise gone from typecheck |
 
 ### 16.2 Palette Refinements (WCAG AA on white)
 
-Four hex values were tightened in `constants/theme.ts` to clear WCAG AA contrast on the `$surface` (white) background:
+Four hex values were tightened in `tailwind.config.js` to clear WCAG AA contrast on the `surface` (white) background:
 
 | Token | Before | After | Before contrast | After contrast |
 | --- | --- | --- | --- | --- |
@@ -1554,50 +1586,65 @@ Four hex values were tightened in `constants/theme.ts` to clear WCAG AA contrast
 
 All other tokens remain unchanged.
 
-### 16.3 Screen Migration Progress (3/7)
+### 16.3 Screen Migration Progress (9/9 NativeWind)
+
+All 9 auth/onboarding screens have been migrated from the previous `StyleSheet.create` baseline to NativeWind classes. There is no separate "Tamagui" or "StyleSheet" version of any screen anymore.
 
 | Screen | Status | Notes |
 | --- | --- | --- |
-| `screens/onboarding/SplashScreen.tsx` | ✅ Migrated | Pure YStack + Animated.View; typecheck clean |
-| `screens/onboarding/OnboardingScreen.tsx` | ✅ Migrated | 3 slides, pagination dots, skip/next; typecheck clean |
-| `screens/auth/PhoneEntryScreen.tsx` | ⚠️ Migrated, 2 typecheck errors | Lines 159 & 192 use `backgroundColor={colors.border.strong}` — Tamagui expects named tokens. Wrap in `style={{ backgroundColor: ... }}`. |
-| `screens/auth/OtpVerify.tsx` | ⏳ Not migrated | 397 lines; OTP boxes + caret + resend timer |
-| `screens/auth/Password.tsx` | ⏳ Not migrated | 357 lines; strength bar |
-| `screens/auth/RoleSelection.tsx` | ⏳ Not migrated | 323 lines; card-based role picker |
-| `screens/auth/ProfileScreen.tsx` | ⏳ Not migrated | 458 lines; avatar + form + subject chips |
+| `screens/onboarding/SplashScreen.tsx` | ✅ Migrated | NativeWind `className` only; 0 inline styles |
+| `screens/onboarding/OnboardingScreen.tsx` | ✅ Migrated | 3 slides wired to SVG illustrations |
+| `screens/auth/PhoneEntryScreen.tsx` | ✅ Migrated | Has an `Alert.alert` placeholder at submit — replaced in Phase 3 |
+| `screens/auth/OtpVerify.tsx` | ✅ Migrated | OTP boxes + caret + resend timer |
+| `screens/auth/Password.tsx` | ✅ Migrated | Strength bar; uses `authStore.confirmationResult` in Phase 3 |
+| `screens/auth/RoleSelection.tsx` | ✅ Migrated | **Bug**: doesn't write `role` to registration shim — fixed in Phase 3 Step 3.b |
+| `screens/auth/ProfileScreen.tsx` | 🟡 Dead code | Will be deleted in Phase 3 (replaced by `StudentProfileScreen`/`TutorProfileScreen`) |
+| `screens/auth/StudentProfileScreen.tsx` | ✅ Migrated | Writes to Firestore in Phase 3 |
+| `screens/auth/TutorProfileScreen.tsx` | ✅ Migrated | Writes to Firestore in Phase 3 |
 
-### 16.4 Pending Phase 1 Deliverables
+### 16.4 Shared Components (7/7 NativeWind)
 
-1. **Fix 2 typecheck errors** in `PhoneEntryScreen.tsx` (lines 159, 192) — replace `backgroundColor={hex}` with `style={{ backgroundColor: hex }}`.
-2. **Migrate 4 auth screens** to Tamagui primitives — OtpVerify, Password, RoleSelection, ProfileScreen.
-3. **Build 3 illustration components** as pure code (no images):
-   - `components/illustrations/DiscoverIllustration.tsx` — map grid + pin + locate FAB
-   - `components/illustrations/AiMatchIllustration.tsx` — chat-bubble stack + sparkle
-   - `components/illustrations/VerifiedIllustration.tsx` — tutor card stack + verified seal
-4. **Wire illustrations into `OnboardingScreen.tsx`** — replace the current `Ionicons` icons with the new components.
-5. **Final `npm run typecheck`** — must be clean (0 errors).
+| Component | Status | Notes |
+| --- | --- | --- |
+| `components/forms/AvatarUploader.tsx` | ✅ Migrated | `expo-image-picker` 17.x media-types API (not the deprecated `MediaTypeOptions`) |
+| `components/forms/ChipGroup.tsx` | ✅ Migrated | |
+| `components/forms/LocationField.tsx` | ✅ Migrated | |
+| `components/forms/NameEmailFields.tsx` | ✅ Migrated | |
+| `components/illustrations/DiscoverIllustration.tsx` | ✅ Migrated | Uses `constants/colors.ts` (narrow hex fallback for SVG) |
+| `components/illustrations/AiMatchIllustration.tsx` | ✅ Migrated | |
+| `components/illustrations/VerifiedIllustration.tsx` | ✅ Migrated | |
 
-### 16.5 New Reference Assets
+### 16.5 Pending Phase 1.5 → Phase 2 Deliverables
+
+1. **Add `react-native-worklets/plugin` as the last preset** in `babel.config.js`. Fixes the `installTurboModule called with 0 arguments` crash. See `IMPLEMENTATION_ROADMAP.md §B.1`.
+2. **Install `firebase` + `react-native-webview`** via `npx expo install`. `firebase` is pure JS (no rebuild); `react-native-webview` has native code (dev-client rebuild required).
+3. **Final `npm run typecheck`** — must be clean (0 errors).
+
+### 16.6 New Documentation Assets (June 12, 2026)
 
 | Asset | Purpose |
 | --- | --- |
-| `Documentation/98-Reference-BasoBas/ANALYSIS.md` | Per-file UX translation guide for the friend-project reference |
-| `Documentation/gemini_chat_context.md` | Full chat transcript with friend who designed the BasoBas Figma Make export |
+| `Documentation/04-Firebase/phase-3-notes.md` | Phase 3 operations doc: env vars, doc-collection layout, security caveats, v2 ticket list |
+| `Documentation/05-Build-and-Deploy/firebase-auth-plan.md` | The audited 13-step implementation plan |
+| `Documentation/05-Build-and-Deploy/firebase-auth-plan-audit.md` | 9 corrections applied to the plan (June 12, 2026) |
+| `Documentation/06-Prompts/antigravity-integration.md` | How to pair Antigravity (Firebase console) with Claude Code (repo) |
+| `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md` | Updated to v3.0 (NativeWind + Phase 3 plan-aware) |
+| `lib/README.md` | Updated to clarify env access pattern (EXPO_PUBLIC_*, not app.json extra) |
 | `CLAUDE.md` (project root) | System directives + Current State section, picked up by Claude Code automatically |
 
-### 16.6 What Does NOT Belong in Phase 1
+### 16.7 What Does NOT Belong in Phase 1.5 / 2 / 3
 
 Per the user's explicit sequencing ("phase by phase, ask me to continue"), these are deferred to later phases:
 
-- ❌ Zustand stores (Phase 3)
-- ❌ Service layer (`services/firebase/`, `services/auth/`) (Phase 3)
-- ❌ Firebase Auth integration (Phase 4)
-- ❌ Role-based dashboards (Phase 5)
-- ❌ Map screen + tutor discovery (Phase 5)
-- ❌ Bottom nav, sheets, modals (Phase 2)
-- ❌ Dark mode, i18n, Storybook (P3)
+- ❌ Service layer (`services/firebase/`, `services/auth/`) — Phase 3
+- ❌ Firebase Auth integration — Phase 3
+- ❌ Role-based dashboards (Student/Tutor/Admin) — Phase 3
+- ❌ Zustand stores (Phase 4 — `lib/registration.ts` stays as the `useSyncExternalStore` shim through Phase 3)
+- ❌ Map screen + tutor discovery — Phase 5
+- ❌ Bottom nav, sheets, modals — Phase 4
+- ❌ Dark mode, i18n, Storybook — Phase 7
 
-Stay focused on Phase 1 until the typecheck is clean and the 3 onboarding illustrations are wired in.
+Stay focused on Phase 2 (babel + webview) and Phase 3 (auth + dashboards) until the e2e paths in `firebase-auth-plan.md` Step 13 are green.
 
 ---
 
@@ -1606,33 +1653,47 @@ Stay focused on Phase 1 until the typecheck is clean and the 3 onboarding illust
 ### Appendix A: Full File Inventory
 
 ```
-app/_layout.tsx                          24 lines   Root Stack
+app/_layout.tsx                          191 lines  Root Stack + auth guard
 app/index.tsx                            20 lines   Entry + splash timer
 app/onboarding.tsx                       ~5 lines   Route wrapper
 app/phone-entry.tsx                      ~5 lines
 app/otpverify.tsx                        ~5 lines
 app/create_password.tsx                  ~5 lines
 app/role-selection.tsx                   ~5 lines
-app/profile.tsx                          ~5 lines
+app/profile-student.tsx                  ~5 lines   First-time profile only
+app/profile-tutor.tsx                    ~5 lines   First-time profile only
+app/student-home.tsx                     ~5 lines   Wraps screens/student/student_home.tsx
+app/tutor-home.tsx                       ~5 lines   Wraps screens/tutor/tutor_home.tsx
 
 screens/onboarding/SplashScreen.tsx      98 lines
 screens/onboarding/OnboardingScreen.tsx  195 lines
-screens/auth/PhoneEntryScreen.tsx        385 lines
-screens/auth/OtpVerify.tsx               397 lines
-screens/auth/Password.tsx                357 lines
-screens/auth/RoleSelection.tsx           323 lines
-screens/auth/ProfileScreen.tsx           458 lines
+screens/auth/PhoneEntryScreen.tsx        ~190 lines
+screens/auth/OtpVerify.tsx               ~210 lines
+screens/auth/Password.tsx                ~195 lines
+screens/auth/RoleSelection.tsx           ~190 lines   Now writes role to Firestore
+screens/auth/StudentProfileScreen.tsx    ~200 lines
+screens/auth/TutorProfileScreen.tsx      ~230 lines
+screens/student/student_home.tsx         311 lines   Mock-data student dashboard
+screens/tutor/tutor_home.tsx             740 lines   Mock-data tutor dashboard
 
-constants/theme.ts                       248 lines  ★ Master
-constants/colors.ts                      39 lines
-constants/typography.ts                  27 lines
-constants/spacing.ts                     12 lines
+components/forms/AvatarUploader.tsx      ~110 lines
+components/forms/ChipGroup.tsx           ~80 lines
+components/forms/LocationField.tsx       ~140 lines
+components/forms/NameEmailFields.tsx     ~70 lines
+components/illustrations/DiscoverIllustration.tsx
+components/illustrations/AiMatchIllustration.tsx
+components/illustrations/VerifiedIllustration.tsx
 
-firebase/firestore.rules                 ~20 lines
+lib/registration.ts                      123 lines  ★ useSyncExternalStore shim
+constants/colors.ts                      ~80 lines  (SVG hex fallback)
+tailwind.config.js                       ~190 lines ★ design-token source of truth
+global.css                               ~10 lines  (Tailwind directives)
+
+firebase/firestore.rules                 ~30 lines
 firebase/storage.rules                   ~15 lines
 firebase/indexes.json                    empty {}
 
-Total source lines (screens + app + constants): ~2300
+Total source lines (screens + app + components + lib): ~2200
 ```
 
 ### Appendix B: Existing Documentation Reference
@@ -1679,10 +1740,10 @@ Total source lines (screens + app + constants): ~2300
 
 | Sprint | Duration | Goals |
 |--------|----------|-------|
-| **Sprint 1: Auth Foundation** | 1 week | Firebase Auth, registration store, persist data, country picker |
-| **Sprint 2: Component Library** | 1 week | Extract `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` |
-| **Sprint 3: Dashboards** | 2 weeks | Student/Tutor dashboards with role-based routing, navigation tabs |
-| **Sprint 4: Map & Discovery** | 2 weeks | Google Maps, tutor list, filters, tutor detail screen |
+| **Sprint 1: Auth Foundation** | 1 week | ✅ Done — Firebase Auth (RNFirebase), registration store, country picker |
+| **Sprint 2: Component Library** | 1 week | ✅ Mostly done — `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` extracted |
+| **Sprint 3: Dashboards** | 2 weeks | ✅ UI shipped with mock data (`/student-home`, `/tutor-home`); ⏳ next: wire to Firestore `tutors`, `enrollmentRequests`, `sessions` collections |
+| **Sprint 4: Map & Discovery** | 2 weeks | OpenStreetMap + Nominatim, tutor list, filters, tutor detail screen |
 | **Sprint 5: Enrollments & Chat** | 2 weeks | Request flow, in-app messaging, notifications |
 | **Sprint 6: Polish & Beta** | 1 week | Onboarding polish, animations, accessibility audit, EAS build |
 | **Sprint 7: Verification & Trust** | 1 week | Tutor document upload, admin verification flow |
@@ -1691,4 +1752,4 @@ Total source lines (screens + app + constants): ~2300
 
 ---
 
-*This document was generated by analyzing the actual codebase as of June 5, 2026. Last updated June 6, 2026 to add Section 16 (Current State) after the Tamagui foundation work.*
+*This document was generated by analyzing the actual codebase as of June 5, 2026. Last updated June 12, 2026 to refresh Section 16 (Current State) after the NativeWind migration (Phase 1.5) was completed and the Firebase Phase 3 plan was written and audited.*

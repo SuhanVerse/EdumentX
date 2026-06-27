@@ -8,12 +8,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.edumentx",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.edumentx"
+      "package": "com.anonymous.edumentx",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static"
@@ -21,7 +24,20 @@
     "plugins": [
       "expo-router",
       "expo-dev-client",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

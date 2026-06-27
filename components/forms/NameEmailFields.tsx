@@ -1,6 +1,11 @@
 import { Text, TextInput, View } from "react-native";
 
 import { colors } from "@/constants/colors";
+import {
+  INPUT_BASE,
+  INPUT_BORDER_ERROR,
+  INPUT_BORDER_OK,
+} from "@/components/forms/inputs";
 
 type NameEmailFieldsProps = {
   fullName: string;
@@ -9,17 +14,23 @@ type NameEmailFieldsProps = {
     fullName?: string;
     email?: string;
   };
+  /**
+   * When true, the email field is rendered as a non-editable row.
+   * The email is the verified login identity, so we lock it here to
+   * prevent the user from accidentally desyncing the profile email
+   * from the auth provider. Phase 4 will add a Settings → Account
+   * flow that calls `firebase/auth#updateEmail`.
+   */
+  emailDisabled?: boolean;
   onChangeFullName: (value: string) => void;
   onChangeEmail: (value: string) => void;
 };
-
-const inputBase =
-  "min-h-btn px-4 border-emphasis rounded-card bg-surface text-body-lg text-text-primary";
 
 export function NameEmailFields({
   fullName,
   email,
   errors,
+  emailDisabled = false,
   onChangeFullName,
   onChangeEmail,
 }: NameEmailFieldsProps) {
@@ -33,8 +44,10 @@ export function NameEmailFields({
           placeholder="e.g., Aarav Tamang"
           placeholderTextColor={colors.text.muted}
           autoCapitalize="words"
-          className={`${inputBase} ${
-            errors?.fullName ? "border-danger" : "border-border"
+          autoComplete="name"
+          textContentType="name"
+          className={`${INPUT_BASE} ${
+            errors?.fullName ? INPUT_BORDER_ERROR : INPUT_BORDER_OK
           }`}
         />
         {errors?.fullName ? (
@@ -44,17 +57,32 @@ export function NameEmailFields({
 
       <View className="gap-1">
         <Text className="text-overline text-text-muted uppercase">Email</Text>
-        <TextInput
-          value={email}
-          onChangeText={onChangeEmail}
-          placeholder="e.g., aarav@gmail.com"
-          placeholderTextColor={colors.text.muted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          className={`${inputBase} ${
-            errors?.email ? "border-danger" : "border-border"
-          }`}
-        />
+        {emailDisabled ? (
+          <View className="flex-row items-center justify-between min-h-btn px-4 border-emphasis border-border rounded-md bg-background">
+            <Text
+              className="flex-1 text-body-lg text-text-primary"
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {email}
+            </Text>
+            <Text className="text-caption text-text-muted">Verified</Text>
+          </View>
+        ) : (
+          <TextInput
+            value={email}
+            onChangeText={onChangeEmail}
+            placeholder="e.g., aarav@gmail.com"
+            placeholderTextColor={colors.text.muted}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            className={`${INPUT_BASE} ${
+              errors?.email ? INPUT_BORDER_ERROR : INPUT_BORDER_OK
+            }`}
+          />
+        )}
         {errors?.email ? (
           <Text className="text-caption text-danger">{errors.email}</Text>
         ) : null}

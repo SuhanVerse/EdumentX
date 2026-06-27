@@ -56,8 +56,6 @@ functions/.env.*
 *.key
 *.pem
 *.mobileprovision
-GoogleService-Info.plist
-google-services.json
 
 # TypeScript
 *.tsbuildinfo
