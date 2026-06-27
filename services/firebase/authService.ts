@@ -26,9 +26,32 @@ const auth = getAuth(getApp());
  * Signs the user in with their Google account. Google users are
  * auto-verified by Google, so they skip the email-link step and land
  * directly in the role/profile flow.
+ *
+ * Why we call `GoogleSignin.signOut()` first: the native Google SDK
+ * caches the previously-signed-in Google account on the device. On
+ * Android, that cache means `signIn()` auto-selects the last account
+ * without showing the picker — which made the user land on whichever
+ * account happened to be cached, not the one they wanted. Clearing
+ * the cache forces the picker to appear every time.
+ *
+ * This only touches the **Google SDK's** session — Firebase Auth's
+ * session is independent and is set / cleared by
+ * `auth.signInWithCredential` / `auth.signOut` (see `logout()`).
+ * The two are not interchangeable.
  */
 export const signInWithGoogle = async (): Promise<FirebaseAuthTypes.UserCredential> => {
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+  // Force-clear any previously-remembered Google account so the
+  // account picker appears every time. Wrapped in try/catch because
+  // the SDK throws if the user wasn't previously signed in at the
+  // Google layer — that's fine, swallow it.
+  try {
+    await GoogleSignin.signOut();
+  } catch {
+    // No prior Google session to clear. Safe to ignore.
+  }
+
   const { data } = await GoogleSignin.signIn();
   if (!data?.idToken) {
     throw new Error('No ID token returned by Google Sign-In.');
