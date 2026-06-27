@@ -1,14 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { useRouter } from "expo-router";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { TutorBottomBar } from "@/components/TutorBottomBar";
 
 /**
  * EdumentX — Tutor Dashboard (UI-only milestone)
@@ -45,8 +41,18 @@ const TODAY_SESSIONS: readonly {
   subject: string;
   duration: string;
 }[] = [
-  { time: "4:00 PM", student: "Aarav Tamang",     subject: "Mathematics", duration: "60 min" },
-  { time: "6:00 PM", student: "Priya Maharjan",   subject: "Physics",     duration: "60 min" },
+  {
+    time: "4:00 PM",
+    student: "Aarav Tamang",
+    subject: "Mathematics",
+    duration: "60 min",
+  },
+  {
+    time: "6:00 PM",
+    student: "Priya Maharjan",
+    subject: "Physics",
+    duration: "60 min",
+  },
 ];
 
 type PendingRequest = {
@@ -65,7 +71,11 @@ type PendingRequest = {
 const PENDING_REQUESTS: readonly PendingRequest[] = [
   {
     id: "er1",
-    student: { name: "Sita Karki",    grade: "Grade 9",  avatar: "https://i.pravatar.cc/100?img=47" },
+    student: {
+      name: "Sita Karki",
+      grade: "Grade 9",
+      avatar: "https://i.pravatar.cc/100?img=47",
+    },
     subjects: ["Mathematics", "Physics"],
     plan: "2x / week",
     schedule: "Mon · Wed · 5–6 PM",
@@ -73,7 +83,11 @@ const PENDING_REQUESTS: readonly PendingRequest[] = [
   },
   {
     id: "er2",
-    student: { name: "Bishal Thapa",  grade: "Grade 11", avatar: "https://i.pravatar.cc/100?img=12" },
+    student: {
+      name: "Bishal Thapa",
+      grade: "Grade 11",
+      avatar: "https://i.pravatar.cc/100?img=12",
+    },
     subjects: ["Chemistry"],
     plan: "1x / week",
     schedule: "Sat · 10–11 AM",
@@ -99,7 +113,11 @@ const BATCH_REQUESTS: readonly BatchRequest[] = [
   {
     id: "br1",
     kind: "join",
-    student: { name: "Anish Pradhan", grade: "Grade 10", avatar: "https://i.pravatar.cc/100?img=33" },
+    student: {
+      name: "Anish Pradhan",
+      grade: "Grade 10",
+      avatar: "https://i.pravatar.cc/100?img=33",
+    },
     subject: "Mathematics",
     slotId: "slot-a",
     sessionCode: "MATH-A2F",
@@ -108,7 +126,11 @@ const BATCH_REQUESTS: readonly BatchRequest[] = [
   {
     id: "br2",
     kind: "conversion",
-    student: { name: "Sneha Adhikari", grade: "Grade 8", avatar: "https://i.pravatar.cc/100?img=20" },
+    student: {
+      name: "Sneha Adhikari",
+      grade: "Grade 8",
+      avatar: "https://i.pravatar.cc/100?img=20",
+    },
     subject: "Science",
     slotId: "slot-b",
     sessionCode: "SCI-91K",
@@ -137,7 +159,7 @@ type QuickAction = {
 };
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
-  { label: "View inbox",     feature: "Inbox"        },
+  { label: "View inbox", feature: "Inbox" },
   { label: "Manage batches", feature: "Batch manager" },
   { label: "Set availability", feature: "Availability" },
 ];
@@ -145,10 +167,7 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 type ReqTab = "enrollments" | "batches";
 
 function showComingSoon(feature: string) {
-  Alert.alert(
-    "Coming soon",
-    `${feature} will be added in a future update.`,
-  );
+  Alert.alert("Coming soon", `${feature} will be added in a future update.`);
 }
 
 function statusAccent(kind: BatchRequest["kind"]) {
@@ -173,15 +192,22 @@ function statusAccent(kind: BatchRequest["kind"]) {
 }
 
 export function TutorDashboard() {
+  const router = useRouter();
   const [available, setAvailable] = useState(true);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
-  const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
+  const [batchActions, setBatchActions] = useState<
+    Record<string, "accepted" | "rejected">
+  >({});
 
   const capacity = TUTOR_PROFILE.capacity;
   const currentStudents = TUTOR_PROFILE.currentStudents;
   const capPct = (currentStudents / capacity) * 100;
   const capColor =
-    capPct >= 100 ? "bg-danger" : capPct > 80 ? "bg-warning" : "bg-verification";
+    capPct >= 100
+      ? "bg-danger"
+      : capPct > 80
+        ? "bg-warning"
+        : "bg-verification";
 
   return (
     <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
@@ -222,23 +248,22 @@ export function TutorDashboard() {
               {available ? "Available for new students" : "Hidden from search"}
             </Text>
             <Text className="text-caption text-white/65 mt-0.5">
-              Toggle to {available ? "pause" : "resume"} appearing in search results
+              Toggle to {available ? "pause" : "resume"} appearing in search
+              results
             </Text>
           </View>
-          <Pressable 
+          <Pressable
             accessibilityRole="switch"
             accessibilityState={{ checked: available }}
             accessibilityLabel="Toggle availability"
             onPress={() => setAvailable(!available)}
-            className={`w-11 h-6.5 rounded-full px-0.5 active:opacity-80 ${
+            className={`w-11 h-6 rounded-full px-0.5 active:opacity-80 ${
               available ? "bg-verification" : "bg-white/20"
             }`}
           >
             <View
               className={`w-[22px] h-[22px] rounded-full bg-white
-              ${
-                available ? "left-5" : "left-0.5"
-              }`}
+              ${available ? "left-5" : "left-0.5"}`}
             />
           </Pressable>
         </View>
@@ -294,7 +319,9 @@ export function TutorDashboard() {
         >
           <View className="flex-row items-center gap-2 mb-2.5">
             <Ionicons name="people" size={16} color="#B45309" />
-            <Text className="flex-1 text-button-sm font-medium text-text-primary">Capacity</Text>
+            <Text className="flex-1 text-button-sm font-medium text-text-primary">
+              Capacity
+            </Text>
             <Text
               className={`text-button-sm font-medium ${
                 capPct >= 100 ? "text-danger" : "text-verification"
@@ -359,9 +386,13 @@ export function TutorDashboard() {
                   i > 0 ? "border-t border-border-subtle" : ""
                 }`}
               >
-                <Text className="w-[60px] text-caption font-medium text-amber">{s.time}</Text>
+                <Text className="w-[60px] text-caption font-medium text-amber">
+                  {s.time}
+                </Text>
                 <View className="flex-1">
-                  <Text className="text-button-sm text-text-primary">{s.student}</Text>
+                  <Text className="text-button-sm text-text-primary">
+                    {s.student}
+                  </Text>
                   <Text className="text-caption text-text-muted mt-0.5">
                     {s.subject} · {s.duration}
                   </Text>
@@ -390,8 +421,16 @@ export function TutorDashboard() {
           <View className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5">
             {(
               [
-                { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
-                { key: "batches",     label: "Batch requests",  count: BATCH_REQUESTS.length },
+                {
+                  key: "enrollments",
+                  label: "New enrollments",
+                  count: PENDING_REQUESTS.length,
+                },
+                {
+                  key: "batches",
+                  label: "Batch requests",
+                  count: BATCH_REQUESTS.length,
+                },
               ] as const
             ).map((t) => {
               const on = reqTab === t.key;
@@ -498,8 +537,14 @@ export function TutorDashboard() {
                       <View
                         className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-pill border mb-2.5 ${accent.bg} ${accent.border}`}
                       >
-                        <Ionicons name={accent.icon} size={11} color={accent.iconColor} />
-                        <Text className={`text-micro font-semibold tracking-wider ${accent.color}`}>
+                        <Ionicons
+                          name={accent.icon}
+                          size={11}
+                          color={accent.iconColor}
+                        />
+                        <Text
+                          className={`text-micro font-semibold tracking-wider ${accent.color}`}
+                        >
                           {accent.label}
                         </Text>
                       </View>
@@ -517,13 +562,18 @@ export function TutorDashboard() {
                           {br.kind === "join" && slot ? (
                             <View className="mt-2 bg-background border border-border rounded-lg px-2.5 py-1.5">
                               <View className="flex-row items-center gap-1.5">
-                                <Ionicons name="lock-closed" size={11} color="#4F46E5" />
+                                <Ionicons
+                                  name="lock-closed"
+                                  size={11}
+                                  color="#4F46E5"
+                                />
                                 <Text className="text-caption font-medium text-text-secondary">
                                   {slot.label}
                                 </Text>
                               </View>
                               <Text className="text-caption text-text-muted mt-0.5">
-                                Code: {br.sessionCode} · {slot.students}/{slot.capacity} students
+                                Code: {br.sessionCode} · {slot.students}/
+                                {slot.capacity} students
                               </Text>
                             </View>
                           ) : null}
@@ -533,15 +583,22 @@ export function TutorDashboard() {
                               "{br.message}"
                             </Text>
                           ) : null}
-                          <Text className="mt-1.5 text-micro text-text-muted">{br.submittedAt}</Text>
+                          <Text className="mt-1.5 text-micro text-text-muted">
+                            {br.submittedAt}
+                          </Text>
                         </View>
                       </View>
 
                       {blocked && !action ? (
                         <View className="mt-2.5 flex-row items-center gap-1.5 px-2.5 py-2 bg-danger-bg border border-danger-bg rounded-lg">
-                          <Ionicons name="alert-circle" size={13} color="#B91C1C" />
+                          <Ionicons
+                            name="alert-circle"
+                            size={13}
+                            color="#B91C1C"
+                          />
                           <Text className="text-caption text-danger-text">
-                            Session is full ({slot?.students}/{slot?.capacity}). Approval is blocked.
+                            Session is full ({slot?.students}/{slot?.capacity}).
+                            Approval is blocked.
                           </Text>
                         </View>
                       ) : null}
@@ -551,10 +608,16 @@ export function TutorDashboard() {
                           <Pressable
                             disabled={blocked}
                             onPress={() =>
-                              !blocked && setBatchActions((p) => ({ ...p, [br.id]: "accepted" }))
+                              !blocked &&
+                              setBatchActions((p) => ({
+                                ...p,
+                                [br.id]: "accepted",
+                              }))
                             }
                             className={`flex-1 h-9 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                              blocked ? "bg-background" : "bg-verification active:opacity-80"
+                              blocked
+                                ? "bg-background"
+                                : "bg-verification active:opacity-80"
                             }`}
                           >
                             <Ionicons
@@ -572,18 +635,25 @@ export function TutorDashboard() {
                           </Pressable>
                           <Pressable
                             onPress={() =>
-                              setBatchActions((p) => ({ ...p, [br.id]: "rejected" }))
+                              setBatchActions((p) => ({
+                                ...p,
+                                [br.id]: "rejected",
+                              }))
                             }
                             className="flex-1 h-9 bg-surface border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
                           >
                             <Ionicons name="close" size={13} color="#DC2626" />
-                            <Text className="text-caption font-medium text-danger">Decline</Text>
+                            <Text className="text-caption font-medium text-danger">
+                              Decline
+                            </Text>
                           </Pressable>
                         </View>
                       ) : (
                         <Text
                           className={`mt-2.5 text-center text-caption ${
-                            action === "accepted" ? "text-verification" : "text-text-muted"
+                            action === "accepted"
+                              ? "text-verification"
+                              : "text-text-muted"
                           }`}
                         >
                           {action === "accepted"
@@ -610,7 +680,9 @@ export function TutorDashboard() {
             <Ionicons name="people" size={20} color="#FFFFFF" />
           </View>
           <View className="flex-1">
-            <Text className="text-card-title font-medium text-ai">Create a group batch</Text>
+            <Text className="text-card-title font-medium text-ai">
+              Create a group batch
+            </Text>
             <Text className="text-caption text-ai mt-0.5">
               Combine 2–6 students into a shared batch
             </Text>
@@ -620,20 +692,32 @@ export function TutorDashboard() {
 
         {/* Quick actions row */}
         <View className="flex-row flex-wrap justify-between mt-3.5">
-          {QUICK_ACTIONS.map(({ label, feature }) => (
-            <Pressable
-              key={label}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              onPress={() => showComingSoon(feature)}
-              style={{ width: "48%" }}
-              className="bg-surface border border-border rounded-card p-3.5 mb-2.5 active:opacity-70"
-            >
-              <Text className="text-button-sm font-medium text-text-primary">{label}</Text>
-            </Pressable>
-          ))}
+          {QUICK_ACTIONS.map(({ label, feature }) => {
+            const handlePress = () => {
+              if (feature === "Inbox") {
+                router.push("/tutor-inbox");
+              } else {
+                showComingSoon(feature);
+              }
+            };
+            return (
+              <Pressable
+                key={label}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                onPress={handlePress}
+                style={{ width: "48%" }}
+                className="bg-surface border border-border rounded-card p-3.5 mb-2.5 active:opacity-70"
+              >
+                <Text className="text-button-sm font-medium text-text-primary">
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
+      <TutorBottomBar />
     </SafeAreaView>
   );
 }
@@ -665,17 +749,40 @@ const ICON_COLOR_MAP = {
   success: "#047857",
 } as const;
 
-function Metric({ iconName, colorClass, iconColor, label, value, trend, trendUp }: MetricProps) {
+function Metric({
+  iconName,
+  colorClass,
+  iconColor,
+  label,
+  value,
+  trend,
+  trendUp,
+}: MetricProps) {
   return (
-    <View className="bg-surface border border-border rounded-card p-3.5 mb-2.5" style={{ width: "48%" }}>
+    <View
+      className="bg-surface border border-border rounded-card p-3.5 mb-2.5"
+      style={{ width: "48%" }}
+    >
       <View className="flex-row items-center justify-between mb-2">
-        <View className={`w-8 h-8 rounded-lg items-center justify-center ${colorClass}`}>
-          <Ionicons name={iconName} size={16} color={ICON_COLOR_MAP[iconColor]} />
+        <View
+          className={`w-8 h-8 rounded-lg items-center justify-center ${colorClass}`}
+        >
+          <Ionicons
+            name={iconName}
+            size={16}
+            color={ICON_COLOR_MAP[iconColor]}
+          />
         </View>
-        {trendUp ? <Ionicons name="trending-up" size={14} color="#047857" /> : null}
+        {trendUp ? (
+          <Ionicons name="trending-up" size={14} color="#047857" />
+        ) : null}
       </View>
-      <Text className="text-caption text-text-muted uppercase tracking-wider mb-1">{label}</Text>
-      <Text className="text-section-title font-medium text-text-primary leading-tight">{value}</Text>
+      <Text className="text-caption text-text-muted uppercase tracking-wider mb-1">
+        {label}
+      </Text>
+      <Text className="text-section-title font-medium text-text-primary leading-tight">
+        {value}
+      </Text>
       <Text
         className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}
       >
@@ -707,10 +814,13 @@ type StatusBadgeProps = {
 };
 
 function StatusBadge({ status }: StatusBadgeProps) {
-  const palette: Record<StatusBadgeProps["status"], { bg: string; text: string; label: string }> = {
-    pending:  { bg: "bg-warning-bg",  text: "text-warning",  label: "Pending"  },
-    accepted: { bg: "bg-success-bg",  text: "text-success",  label: "Accepted" },
-    rejected: { bg: "bg-danger-bg",   text: "text-danger",   label: "Declined" },
+  const palette: Record<
+    StatusBadgeProps["status"],
+    { bg: string; text: string; label: string }
+  > = {
+    pending: { bg: "bg-warning-bg", text: "text-warning", label: "Pending" },
+    accepted: { bg: "bg-success-bg", text: "text-success", label: "Accepted" },
+    rejected: { bg: "bg-danger-bg", text: "text-danger", label: "Declined" },
   };
   const { bg, text, label } = palette[status];
   return (

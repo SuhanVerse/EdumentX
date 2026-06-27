@@ -6,11 +6,7 @@ import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { getApp } from "@react-native-firebase/app";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-} from "@react-native-firebase/firestore";
+import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -24,7 +20,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 // Map from a raw Firestore `role` string to the route we want to land on
 // after a successful sign-in. We do the role→route mapping in one place so
 // the layout guard, dashboards, and tests all agree.
-function dashboardPathForRole(role: UserRole): "/profile-tutor" | "/profile-student" {
+function dashboardPathForRole(
+  role: UserRole,
+): "/profile-tutor" | "/profile-student" {
   if (role === "tutor") return "/profile-tutor";
   return "/profile-student";
 }
@@ -145,9 +143,12 @@ export default function RootLayout() {
       "profile-tutor",
       "student-home",
       "tutor-home",
+      "tutor-inbox",
       "phone-entry",
       "otpverify",
       "create_password",
+      "batches",
+      "tutor_edit_profile",
     ]);
     // Force them off the auth screens once they have a role.
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
@@ -175,6 +176,9 @@ export default function RootLayout() {
           <Stack.Screen name="profile-tutor" />
           <Stack.Screen name="student-home" />
           <Stack.Screen name="tutor-home" />
+          <Stack.Screen name="tutor-inbox" />
+          <Stack.Screen name="batches" />
+          <Stack.Screen name="tutor_edit_profile" />
         </Stack>
         {isLoading ? (
           <View
