@@ -11,7 +11,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:all": "firebase deploy --only firestore,storage"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -20,10 +22,14 @@
     "@react-native-firebase/auth": "^24.1.1",
     "@react-native-firebase/firestore": "^24.1.1",
     "@react-native-google-signin/google-signin": "^16.1.2",
+    "@supabase/supabase-js": "^2.108.2",
+    "base64-arraybuffer": "^1.0.2",
     "expo": "~54.0.35",
+    "expo-application": "~7.0.8",
     "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
+    "expo-file-system": "~19.0.23",
     "expo-font": "~14.0.12",
     "expo-image-picker": "~17.0.11",
     "expo-linking": "~8.0.11",
@@ -52,6 +58,9 @@
     "eslint-config-expo": "~10.0.0",
     "prettier": "^3.8.3",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "react-native-css-interop": "0.2.5"
   },
   "private": true
 }

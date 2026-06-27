@@ -121,9 +121,9 @@ import { useAuthStore, type UserRole } from '@/store/authStore';
 // superseded when the SDK pivot (RNFirebase, June 12, 2026) was finalized.
 // If/when we add route groups in a later sprint, update this file.
 
-function dashboardPathForRole(role: UserRole): '/profile-tutor' | '/profile-student' {
-  if (role === 'tutor') return '/profile-tutor';
-  return '/profile-student';
+function dashboardPathForRole(role: UserRole): '/tutor-home' | '/student-home' {
+  if (role === 'tutor') return '/tutor-home';
+  return '/student-home';
 }
 
 export function navigateToRoleHome(role: UserRole) {
@@ -131,7 +131,10 @@ export function navigateToRoleHome(role: UserRole) {
 }
 
 export function navigateToAuth() {
-  router.replace('/phone-entry');
+  // The single auth entry screen is `/email-signup` (hosts both Sign
+  // up and Log in via its mode toggle, plus "Continue with Google").
+  // Phone OTP was removed in the June 21, 2026 pivot.
+  router.replace('/email-signup');
 }
 
 export function redirectAfterAuth() {

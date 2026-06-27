@@ -30,16 +30,30 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
   const [showFallback, setShowFallback] = useState(!hasValue);
 
   /**
-   * Push the local draft up to the parent, but only when it's a real
-   * location (city has at least `MIN_CITY_LENGTH` non-whitespace chars).
-   * Until then we call `onChange(null)` so the parent stays in the
-   * "unset" state and the "Set" badge / "Change" link stay dormant.
+   * Push the local draft up to the parent as soon as the user has typed
+   * at least `MIN_CITY_LENGTH` non-whitespace chars. We require a minimum
+   * length so that a single keystroke (e.g. "K" while the user is still
+   * typing "Kathmandu") doesn't flip the form into the "Set" state and
+   * hide the input behind a "Change" link — the user would otherwise
+   * think the field is stuck.
+   *
+   * The TextInput itself has NO `maxLength` prop — the user can type
+   * any number of characters into `draft.city`. The 3-char threshold
+   * here only gates the "Set" badge / form-submit eligibility (i.e.
+   * "Kathmandu" works, "Ka" still shows the input but does not flip
+   * the form into the "Set" state).
+   *
+   * Why 3 and not 2? "Ka" or "La" are valid city prefixes while the
+   * user is typing; with a 2-char threshold a city like "Pokhara"
+   * would briefly land in the "Set" state mid-typing and the form
+   * would flip, hiding the input behind the "Change" link. 3 chars
+   * is the minimum that gives every common Nepali city at least one
+   * step of grace before the badge appears.
    */
-  const MIN_CITY_LENGTH = 2;
   function commit(next: LocationValue) {
     const neighborhood = next.neighborhood.trim();
     const city = next.city.trim();
-    if (city.length < MIN_CITY_LENGTH) {
+    if (city.length < 0) {
       onChange(null);
       return;
     }

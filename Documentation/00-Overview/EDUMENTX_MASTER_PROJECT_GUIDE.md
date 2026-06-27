@@ -9,6 +9,8 @@
 
 > **Architectural correction (June 12, 2026)**: the previous "Tamagui Foundation" phase was reverted on June 8, 2026 in favor of **NativeWind 4.2 + Tailwind CSS 3.4**. All Tamagui packages and `tamagui.config.ts` files have been removed. This guide is updated to reflect that. If you see `@tamagui/*` references anywhere in the docs, they are stale.
 
+> **Architectural correction (June 22, 2026)**: the project is now strictly **zero-budget / free-tier only**. Firebase Cloud Storage, Cloud Functions, Google Maps SDK, and paid LLM providers (OpenAI / Anthropic / Cohere) are out of scope. Object storage now lives in **Supabase Storage** (1 GB free, no card); map tiles come from **OpenStreetMap** via `react-native-maps` `<UrlTile>` (no key); geocoding uses **Nominatim** (keyless); distance/KNN math runs **client-side** (no Cloud Functions); the future RAG chatbot will use **Groq** or **HuggingFace** (free dev tier). See `Documentation/01-Architecture/ARCHITECTURE.md` for the canonical stack matrix.
+
 ---
 
 ## Table of Contents
@@ -75,8 +77,11 @@
 | Mobile Runtime | React Native | 0.81.5 |
 | Navigation | Expo Router (file-based) | 6.0.23 |
 | Icons | @expo/vector-icons (Ionicons) | 15.0.3 |
-| Backend | Firebase (Auth, Firestore, Storage) | TBD |
-| Maps | Google Maps | API key required |
+| Backend | Firebase (Auth, Firestore) + Supabase Storage | Auth/Firestore: Spark plan (no card); Supabase: 1 GB free |
+| Maps | OpenStreetMap via `react-native-maps` `<UrlTile>` | No API key (see `Documentation/01-Architecture/ARCHITECTURE.md` §4) |
+| Geocoding | Nominatim (OpenStreetMap) | ~1 req/sec, keyless |
+| Location math | Client-side Haversine + KNN | No Cloud Functions (Spark plan has no CF runtime) |
+| RAG chatbot | Groq (Llama 3) or HuggingFace Serverless | Free dev tier |
 | State Management | Local `useState` (no global store yet) | — |
 | Styling | `StyleSheet.create` | — |
 
@@ -150,9 +155,10 @@ EdumentX/
 │   ├── _layout.tsx                 # Root: GestureHandler → SafeArea → Stack
 │   ├── index.tsx                   # "/" → SplashScreen + 1800ms auto-nav
 │   ├── onboarding.tsx              # /onboarding
-│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle)
+│   ├── phone-entry.tsx             # /phone-entry (signup/login toggle + "Continue with email" link)
 │   ├── otpverify.tsx               # /otpverify
 │   ├── create_password.tsx         # /create_password
+│   ├── email-signup.tsx            # /email-signup (email + password + Email Verification)
 │   ├── role-selection.tsx          # /role-selection
 │   └── profile.tsx                 # /profile
 │
@@ -161,6 +167,7 @@ EdumentX/
 │   │   ├── PhoneEntryScreen.tsx    # 385 lines
 │   │   ├── OtpVerify.tsx           # 397 lines
 │   │   ├── Password.tsx            # 357 lines
+│   │   ├── EmailSignUp.tsx         # email + password sign-in/up with pending verification state
 │   │   ├── RoleSelection.tsx       # 323 lines
 │   │   └── ProfileScreen.tsx       # 458 lines
 │   └── onboarding/
@@ -229,6 +236,7 @@ EdumentX/
       <Stack.Screen name="phone-entry" />
       <Stack.Screen name="otpverify" />
       <Stack.Screen name="create_password" />
+      <Stack.Screen name="email-signup" />
       <Stack.Screen name="role-selection" />
       <Stack.Screen name="profile" />
     </Stack>
@@ -448,11 +456,23 @@ theme.components = {
 └──────┬───────────────┘
        ↓
 ┌──────────────────────┐
-│ ProfileSetup         │  Dark header + sand body
-│ /profile             │  Avatar, name, email, grade, subject
+│ ProfileSetup (first  │  Dark header + sand body
+│ time only)           │  Avatar, name, email, grade, subject
+│ /profile-student     │  → after submit, lands on /student-home
+│ /profile-tutor       │  → after submit, lands on /tutor-home
 └──────┬───────────────┘
        ↓
-   [Dashboard]  ⏳ Not yet implemented
+┌──────────────────────┐
+│ StudentHome          │  Dark hero + sand body
+│ /student-home        │  Search, nearby tutors, verified tutors,
+│                      │  quick actions (all mock data for now)
+└──────────────────────┘
+
+┌──────────────────────┐
+│ TutorDashboard       │  4 stat cards + today's sessions
+│ /tutor-home          │  + pending requests + batch requests
+│                      │  + availability slots (all mock for now)
+└──────────────────────┘
 ```
 
 ### Route-to-Screen Mapping
@@ -464,10 +484,12 @@ theme.components = {
 | `/phone-entry` | `PhoneEntryScreen` | ✅ |
 | `/otpverify` | `OtpVerify` | ✅ |
 | `/create_password` | `CreatePassword` (Password.tsx) | ✅ |
+| `/email-signup` | `EmailSignUp` (email + password + Email Verification) | ✅ |
 | `/role-selection` | `RoleSelectionScreen` | ✅ |
-| `/profile` | `ProfileScreen` | ✅ |
-| `/student/dashboard` | — | ⏳ TODO |
-| `/tutor/dashboard` | — | ⏳ TODO |
+| `/profile-student` | `StudentProfileScreen` (first-time profile only) | ✅ |
+| `/profile-tutor` | `TutorProfileScreen` (first-time profile only) | ✅ |
+| `/student-home` | `StudentHome` | ✅ (mock data — wire to Firestore next) |
+| `/tutor-home` | `TutorDashboard` | ✅ (mock data — wire to Firestore next) |
 | `/discover` (map) | — | ⏳ TODO |
 | `/tutor/:id` | — | ⏳ TODO |
 | `/chat/:id` | — | ⏳ TODO |
@@ -999,7 +1021,7 @@ service firebase.storage {
 | 1 | Firebase Auth integration | 🔴 P0 | Phone OTP + password sign-in |
 | 2 | Firestore user doc creation | 🔴 P0 | Persist profile data on signup |
 | 3 | Role-based dashboards | 🔴 P0 | Post-auth landing screens |
-| 4 | Map-based tutor discovery | 🔴 P0 | Google Maps integration |
+| 4 | Map-based tutor discovery | 🔴 P0 | OpenStreetMap via `react-native-maps` `<UrlTile>` (no Google Maps key) |
 | 5 | Country picker (Nepal only now) | 🟡 P1 | Auto-detect locale |
 | 6 | Storage avatar upload | 🟡 P1 | Image picker wired, no upload |
 | 7 | Component library | 🟡 P1 | Extract `PrimaryButton`, `FormInput`, etc. |
@@ -1271,11 +1293,11 @@ services/
 │   ├── config.ts                # initializeApp
 │   ├── auth.ts                  # signUpWithPhone, verifyOtp, signInWithPassword
 │   ├── firestore.ts             # CRUD user profile, tutor docs
-│   └── storage.ts               # uploadAvatar, uploadDocument
+│   └── storage.ts               # (DEPRECATED — Supabase storage in services/supabase/storage.ts)
 ├── api/
 │   ├── client.ts                # Base fetch wrapper
-│   ├── ai.ts                    # AI tutor matching
-│   └── maps.ts                  # Google Maps geocoding
+│   ├── ai.ts                    # AI tutor matching (Groq / HuggingFace)
+│   └── maps.ts                  # Nominatim (OpenStreetMap) geocoding — replaces Google Maps Geocoding
 ├── validation/
 │   ├── phone.ts                 # Country-aware phone validation
 │   ├── password.ts              # Strength rules
@@ -1352,7 +1374,7 @@ Benefits:
 |---------|---------------|
 | `.env` committed | Verify `.gitignore` excludes it; add to pre-commit hook |
 | API keys in client | Use Firebase App Check to prevent abuse |
-| OTP brute force | Backend rate limiting (Cloud Function) |
+| OTP brute force | Firebase Auth has built-in rate limiting for Email/Password + Google (no Cloud Function needed). For phone OTP (not used — Blaze-required), an in-app cooldown counter on the client would be the only free option. |
 | Open redirects | Sanitize deep links in `expo-linking` |
 | Avatar uploads | Compress + strip EXIF client-side |
 
@@ -1631,25 +1653,28 @@ Stay focused on Phase 2 (babel + webview) and Phase 3 (auth + dashboards) until 
 ### Appendix A: Full File Inventory
 
 ```
-app/_layout.tsx                          24 lines   Root Stack
+app/_layout.tsx                          191 lines  Root Stack + auth guard
 app/index.tsx                            20 lines   Entry + splash timer
 app/onboarding.tsx                       ~5 lines   Route wrapper
 app/phone-entry.tsx                      ~5 lines
 app/otpverify.tsx                        ~5 lines
 app/create_password.tsx                  ~5 lines
 app/role-selection.tsx                   ~5 lines
-app/profile-student.tsx                  ~5 lines
-app/profile-tutor.tsx                    ~5 lines
+app/profile-student.tsx                  ~5 lines   First-time profile only
+app/profile-tutor.tsx                    ~5 lines   First-time profile only
+app/student-home.tsx                     ~5 lines   Wraps screens/student/student_home.tsx
+app/tutor-home.tsx                       ~5 lines   Wraps screens/tutor/tutor_home.tsx
 
 screens/onboarding/SplashScreen.tsx      98 lines
 screens/onboarding/OnboardingScreen.tsx  195 lines
 screens/auth/PhoneEntryScreen.tsx        ~190 lines
 screens/auth/OtpVerify.tsx               ~210 lines
 screens/auth/Password.tsx                ~195 lines
-screens/auth/RoleSelection.tsx           ~170 lines
-screens/auth/ProfileScreen.tsx           🟡 DEAD — to be deleted in Phase 3
+screens/auth/RoleSelection.tsx           ~190 lines   Now writes role to Firestore
 screens/auth/StudentProfileScreen.tsx    ~200 lines
 screens/auth/TutorProfileScreen.tsx      ~230 lines
+screens/student/student_home.tsx         311 lines   Mock-data student dashboard
+screens/tutor/tutor_home.tsx             740 lines   Mock-data tutor dashboard
 
 components/forms/AvatarUploader.tsx      ~110 lines
 components/forms/ChipGroup.tsx           ~80 lines
@@ -1715,10 +1740,10 @@ Total source lines (screens + app + components + lib): ~2200
 
 | Sprint | Duration | Goals |
 |--------|----------|-------|
-| **Sprint 1: Auth Foundation** | 1 week | Firebase Auth, registration store, persist data, country picker |
-| **Sprint 2: Component Library** | 1 week | Extract `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` |
-| **Sprint 3: Dashboards** | 2 weeks | Student/Tutor dashboards with role-based routing, navigation tabs |
-| **Sprint 4: Map & Discovery** | 2 weeks | Google Maps, tutor list, filters, tutor detail screen |
+| **Sprint 1: Auth Foundation** | 1 week | ✅ Done — Firebase Auth (RNFirebase), registration store, country picker |
+| **Sprint 2: Component Library** | 1 week | ✅ Mostly done — `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` extracted |
+| **Sprint 3: Dashboards** | 2 weeks | ✅ UI shipped with mock data (`/student-home`, `/tutor-home`); ⏳ next: wire to Firestore `tutors`, `enrollmentRequests`, `sessions` collections |
+| **Sprint 4: Map & Discovery** | 2 weeks | OpenStreetMap + Nominatim, tutor list, filters, tutor detail screen |
 | **Sprint 5: Enrollments & Chat** | 2 weeks | Request flow, in-app messaging, notifications |
 | **Sprint 6: Polish & Beta** | 1 week | Onboarding polish, animations, accessibility audit, EAS build |
 | **Sprint 7: Verification & Trust** | 1 week | Tutor document upload, admin verification flow |

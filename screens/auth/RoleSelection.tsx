@@ -16,8 +16,9 @@ import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
   doc,
+  getDoc,
   serverTimestamp,
-  setDoc,
+  writeBatch,
 } from "@react-native-firebase/firestore";
 
 import { colors } from "@/constants/colors";
@@ -49,41 +50,112 @@ export function RoleSelectionScreen() {
     if (!user) {
       Alert.alert(
         "Not signed in",
-        "Please sign in (phone OTP or Google) before picking a role.",
+        "Please sign in (email or Google) before picking a role.",
       );
-      router.replace("/phone-entry");
+      router.replace("/email-signup");
       return;
     }
     setIsSaving(true);
     try {
-      // Modular RNFirebase v22+ API: getFirestore + doc + setDoc, not
-      // firestore().collection().doc().set(). The namespaced form logs a
-      // deprecation warning on every call.
+      // Modular RNFirebase v22+ API: getFirestore + doc + writeBatch +
+      // serverTimestamp, not firestore().collection().doc().set(). The
+      // namespaced form logs a deprecation warning on every call.
       const db = getFirestore(getApp());
       const userRef = doc(db, "users", user.uid);
       const now = serverTimestamp();
-      await setDoc(
+      // Two writes, committed atomically via `writeBatch`:
+      //
+      //   1. Read `users/{uid}` once to detect re-picks (an existing
+      //      role) and preserve the original `createdAt`. Without
+      //      this check, every visit to /role-selection would reset
+      //      `createdAt` to "now" because `merge: true` overwrites
+      //      fields we include in the payload — including
+      //      `createdAt`.
+      //
+      //   2. Write the doc with the canonical shape (`uid`, `email`,
+      //      `displayName`, `username`, `role`, `createdAt`,
+      //      `updatedAt`). Including `uid` is critical — it satisfies
+      //      the `request.resource.data.uid == userId` rule guard so
+      //      *updates* to this doc (from the profile screens, role
+      //      re-pick, or layout heal) don't get silently denied.
+      //
+      // We only set `createdAt` if the doc doesn't already have one;
+      // otherwise we leave it untouched. `updatedAt` is bumped every
+      // time so we always know when the role was last changed.
+      const existing = await getDoc(userRef);
+      const existingData = existing.data() as
+        | { createdAt?: unknown; role?: string | null }
+        | undefined;
+      const batch = writeBatch(db);
+      batch.set(
         userRef,
         {
           uid: user.uid,
           email: user.email ?? null,
           displayName: user.displayName ?? null,
-          phone: user.phoneNumber ?? null,
+          // `displayName` and `username` from Firebase Auth are both
+          // null on email/password accounts, but we copy them through
+          // so the user doc reflects what Auth knows about the user.
+          username: (user as { username?: string | null }).username ?? null,
           role,
-          createdAt: now,
+          // Preserve the original `createdAt` if the doc already has
+          // one. Without this guard, a re-pick of the role would
+          // reset `createdAt` to the new timestamp — wrong, because
+          // `createdAt` is meant to track when the *account* was
+          // created, not when the role was last edited.
+          ...(existingData?.createdAt
+            ? {}
+            : { createdAt: now }),
           updatedAt: now,
         },
         { merge: true },
       );
+      await batch.commit();
       // Commit to local store so the root layout guard sees the role
       // immediately on the next render and stops redirecting back here.
       setRole(role);
-      router.replace(role === "tutor" ? "/profile-tutor" : "/profile-student");
+      // If the user is *changing* their role (re-pick), log it so we
+      // can spot abnormal flows. This is the path that, before the
+      // heal step in `app/_layout.tsx`, would loop the user back to
+      // /role-selection if the doc's role value was non-canonical.
+      const isRoleChange =
+        existingData?.role && existingData.role !== role;
+      if (isRoleChange) {
+        console.log(
+          "RoleSelection: role changed",
+          existingData.role,
+          "->",
+          role,
+        );
+      }
+      // Where to send the user next depends on whether the role is
+      // brand-new (send to the matching profile-completion flow) or
+      // already in place (send to the matching dashboard, since the
+      // layout's redirect would land them there anyway — saving the
+      // user from an extra hop through /profile-*).
+      //
+      // This is the "Re-login routing flash" fix: on re-login, the
+      // layout briefly routes through /role-selection while the
+      // doc-fetch is in flight. If the user happened to tap a role
+      // during that flash (or the doc was already populated), we
+      // must not bounce them to a profile-completion screen they
+      // already filled in.
+      if (isRoleChange || !existingData?.role) {
+        router.replace(role === "tutor" ? "/profile-tutor" : "/profile-student");
+      } else {
+        router.replace(role === "tutor" ? "/tutor-home" : "/student-home");
+      }
     } catch (error: any) {
       console.error("RoleSelection: failed to write role to Firestore", error);
+      // Surface the actual Firebase error code so the user (and any
+      // support agent) can tell at a glance whether this is a rules
+      // mismatch (`permission-denied`), a network problem, or a bug.
+      // Without this we silently route forward and the user thinks
+      // their role was saved.
+      const code = error?.code ? `\n\nError code: ${error.code}` : "";
       Alert.alert(
         "Could not save role",
-        error?.message ?? "Please check your connection and try again.",
+        `${error?.message ?? "Please check your connection and try again."}${code}`,
       );
     } finally {
       setIsSaving(false);
@@ -105,7 +177,7 @@ export function RoleSelectionScreen() {
             accessibilityRole="button"
             hitSlop={12}
             className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
-            onPress={() => router.replace("/create_password")}
+            onPress={() => router.replace("/email-signup")}
           >
             <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
             <Text className="text-body text-text-primary">Back</Text>
@@ -113,14 +185,10 @@ export function RoleSelectionScreen() {
 
           <View className="gap-2 mb-6">
             <Text className="text-overline text-text-primary uppercase">
-              Step 3 of 4
+              Step 1 of 2
             </Text>
             <Text className="text-hero text-text-primary">
               How will you use EdumentX?
-            </Text>
-            <Text className="text-body text-text-secondary">
-              Select your role once during signup. Admin approval is required to
-              change it later.
             </Text>
           </View>
 
@@ -146,7 +214,7 @@ export function RoleSelectionScreen() {
               subtitle="List your teaching services and receive enrollment requests."
               title="Tutor"
             />
-          </View>
+          </View>   
         </ScrollView>
 
         <View className="px-5 pt-3 pb-8 bg-background">
