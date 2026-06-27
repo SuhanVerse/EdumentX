@@ -75,11 +75,22 @@ export function EmailSignUp() {
     try {
       if (mode === "signup") {
         const credential = await signUpWithEmail(email.trim(), password);
-        useAuthStore.getState().setUser(credential.user);
+        // Do NOT call setUser() here. The Firebase auth listener in
+        // app/_layout.tsx is the single source of truth for "who is
+        // signed in" and is already racing to set it. If we set the
+        // user optimistically from this screen, there is a single
+        // render between our setUser() and the listener's
+        // setLoading(true) where the routing guard sees
+        //   user: <User>, role: null, isLoading: false
+        // and bounces the user to /role-selection — exactly the bug
+        // they reported on June 27. Letting the listener handle it
+        // alone keeps the routing guard blocked on isLoading the
+        // entire time the Firestore role-fetch is in flight.
         setPendingEmail(credential.user.email ?? email.trim());
       } else {
         const credential = await loginWithEmail(email.trim(), password);
-        useAuthStore.getState().setUser(credential.user);
+        // Same rationale as the signup branch above: do not call
+        // setUser() here. The listener in _layout.tsx owns it.
         if (!credential.user.emailVerified) {
           // The account exists but the email link was never clicked.
           // Send them to the same "check your inbox" panel.
@@ -128,7 +139,10 @@ export function EmailSignUp() {
     setIsGoogleLoading(true);
     try {
       const credential = await signInWithGoogle();
-      useAuthStore.getState().setUser(credential.user);
+      // Same rationale as handleSubmit: do NOT call setUser() here.
+      // The auth listener in app/_layout.tsx is the single source of
+      // truth and will set the user, fetch the role, and only then
+      // release the routing guard.
       // Google users are auto-verified — _layout.tsx routes them on
       // based on whether their users/{uid} doc already exists.
     } catch (error: any) {
