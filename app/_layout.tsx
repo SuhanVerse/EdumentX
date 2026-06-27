@@ -1,24 +1,24 @@
 import "@/global.css";
+import { getApp } from "@react-native-firebase/app";
+import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import {
   Stack,
+  useRootNavigationState,
   useRouter,
   useSegments,
-  useRootNavigationState,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { getApp } from "@react-native-firebase/app";
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-} from "@react-native-firebase/firestore";
-import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -145,8 +145,15 @@ export default function RootLayout() {
     }
 
     // Signed in + verified + has role → route to the matching
-    // dashboard. We allow role-selection / profile-* screens through
-    // so a returning user can re-edit their profile if they want.
+    // dashboard. We allow `role-selection` and the `profile-*`
+    // screens through so a returning user can re-edit their profile
+    // if they want. We deliberately do **not** allow `email-signup`:
+    // a verified user with a role who is sitting on /email-signup
+    // is the "post-login flash" trap — the redirect tree sent them
+    // there for one render while `role` was still `null`, and the
+    // guard sees them there, finds them in the allowlist, and
+    // refuses to advance them. Drop them from the list so the next
+    // render pushes them to the dashboard.
     const target = dashboardPathForRole(role);
     const allowedForSignedIn = new Set<string>([
       "role-selection",
@@ -154,7 +161,6 @@ export default function RootLayout() {
       "profile-tutor",
       "student-home",
       "tutor-home",
-      "email-signup",
     ]);
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
@@ -238,6 +244,7 @@ export default function RootLayout() {
     const subscriber = onAuthStateChanged(
       firebaseAuth,
       async (nextUser: FirebaseAuthTypes.User | null) => {
+        setLoading(true);
         setUser(nextUser);
         if (!nextUser) {
           lastUidRef.current = null;

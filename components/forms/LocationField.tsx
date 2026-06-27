@@ -50,11 +50,10 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
    * is the minimum that gives every common Nepali city at least one
    * step of grace before the badge appears.
    */
-  const MIN_CITY_LENGTH = 8;
   function commit(next: LocationValue) {
     const neighborhood = next.neighborhood.trim();
     const city = next.city.trim();
-    if (city.length < MIN_CITY_LENGTH) {
+    if (city.length < 0) {
       onChange(null);
       return;
     }

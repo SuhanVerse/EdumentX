@@ -9,6 +9,8 @@
 
 > **Architectural correction (June 12, 2026)**: the previous "Tamagui Foundation" phase was reverted on June 8, 2026 in favor of **NativeWind 4.2 + Tailwind CSS 3.4**. All Tamagui packages and `tamagui.config.ts` files have been removed. This guide is updated to reflect that. If you see `@tamagui/*` references anywhere in the docs, they are stale.
 
+> **Architectural correction (June 22, 2026)**: the project is now strictly **zero-budget / free-tier only**. Firebase Cloud Storage, Cloud Functions, Google Maps SDK, and paid LLM providers (OpenAI / Anthropic / Cohere) are out of scope. Object storage now lives in **Supabase Storage** (1 GB free, no card); map tiles come from **OpenStreetMap** via `react-native-maps` `<UrlTile>` (no key); geocoding uses **Nominatim** (keyless); distance/KNN math runs **client-side** (no Cloud Functions); the future RAG chatbot will use **Groq** or **HuggingFace** (free dev tier). See `Documentation/01-Architecture/ARCHITECTURE.md` for the canonical stack matrix.
+
 ---
 
 ## Table of Contents
@@ -75,8 +77,11 @@
 | Mobile Runtime | React Native | 0.81.5 |
 | Navigation | Expo Router (file-based) | 6.0.23 |
 | Icons | @expo/vector-icons (Ionicons) | 15.0.3 |
-| Backend | Firebase (Auth, Firestore, Storage) | TBD |
-| Maps | Google Maps | API key required |
+| Backend | Firebase (Auth, Firestore) + Supabase Storage | Auth/Firestore: Spark plan (no card); Supabase: 1 GB free |
+| Maps | OpenStreetMap via `react-native-maps` `<UrlTile>` | No API key (see `Documentation/01-Architecture/ARCHITECTURE.md` §4) |
+| Geocoding | Nominatim (OpenStreetMap) | ~1 req/sec, keyless |
+| Location math | Client-side Haversine + KNN | No Cloud Functions (Spark plan has no CF runtime) |
+| RAG chatbot | Groq (Llama 3) or HuggingFace Serverless | Free dev tier |
 | State Management | Local `useState` (no global store yet) | — |
 | Styling | `StyleSheet.create` | — |
 
@@ -1016,7 +1021,7 @@ service firebase.storage {
 | 1 | Firebase Auth integration | 🔴 P0 | Phone OTP + password sign-in |
 | 2 | Firestore user doc creation | 🔴 P0 | Persist profile data on signup |
 | 3 | Role-based dashboards | 🔴 P0 | Post-auth landing screens |
-| 4 | Map-based tutor discovery | 🔴 P0 | Google Maps integration |
+| 4 | Map-based tutor discovery | 🔴 P0 | OpenStreetMap via `react-native-maps` `<UrlTile>` (no Google Maps key) |
 | 5 | Country picker (Nepal only now) | 🟡 P1 | Auto-detect locale |
 | 6 | Storage avatar upload | 🟡 P1 | Image picker wired, no upload |
 | 7 | Component library | 🟡 P1 | Extract `PrimaryButton`, `FormInput`, etc. |
@@ -1288,11 +1293,11 @@ services/
 │   ├── config.ts                # initializeApp
 │   ├── auth.ts                  # signUpWithPhone, verifyOtp, signInWithPassword
 │   ├── firestore.ts             # CRUD user profile, tutor docs
-│   └── storage.ts               # uploadAvatar, uploadDocument
+│   └── storage.ts               # (DEPRECATED — Supabase storage in services/supabase/storage.ts)
 ├── api/
 │   ├── client.ts                # Base fetch wrapper
-│   ├── ai.ts                    # AI tutor matching
-│   └── maps.ts                  # Google Maps geocoding
+│   ├── ai.ts                    # AI tutor matching (Groq / HuggingFace)
+│   └── maps.ts                  # Nominatim (OpenStreetMap) geocoding — replaces Google Maps Geocoding
 ├── validation/
 │   ├── phone.ts                 # Country-aware phone validation
 │   ├── password.ts              # Strength rules
@@ -1369,7 +1374,7 @@ Benefits:
 |---------|---------------|
 | `.env` committed | Verify `.gitignore` excludes it; add to pre-commit hook |
 | API keys in client | Use Firebase App Check to prevent abuse |
-| OTP brute force | Backend rate limiting (Cloud Function) |
+| OTP brute force | Firebase Auth has built-in rate limiting for Email/Password + Google (no Cloud Function needed). For phone OTP (not used — Blaze-required), an in-app cooldown counter on the client would be the only free option. |
 | Open redirects | Sanitize deep links in `expo-linking` |
 | Avatar uploads | Compress + strip EXIF client-side |
 
@@ -1738,7 +1743,7 @@ Total source lines (screens + app + components + lib): ~2200
 | **Sprint 1: Auth Foundation** | 1 week | ✅ Done — Firebase Auth (RNFirebase), registration store, country picker |
 | **Sprint 2: Component Library** | 1 week | ✅ Mostly done — `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` extracted |
 | **Sprint 3: Dashboards** | 2 weeks | ✅ UI shipped with mock data (`/student-home`, `/tutor-home`); ⏳ next: wire to Firestore `tutors`, `enrollmentRequests`, `sessions` collections |
-| **Sprint 4: Map & Discovery** | 2 weeks | Google Maps, tutor list, filters, tutor detail screen |
+| **Sprint 4: Map & Discovery** | 2 weeks | OpenStreetMap + Nominatim, tutor list, filters, tutor detail screen |
 | **Sprint 5: Enrollments & Chat** | 2 weeks | Request flow, in-app messaging, notifications |
 | **Sprint 6: Polish & Beta** | 1 week | Onboarding polish, animations, accessibility audit, EAS build |
 | **Sprint 7: Verification & Trust** | 1 week | Tutor document upload, admin verification flow |
