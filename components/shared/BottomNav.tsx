@@ -1,0 +1,157 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter, usePathname } from "expo-router";
+import { Pressable, Text, View } from "react-native";
+
+/**
+ * EdumentX — Persistent bottom navigation bar
+ *
+ * Stage 6 (June 27, 2026):
+ *   - Renders a 5-tab nav used by every authenticated student screen
+ *     (Home → Map → AI → Enrollments → Profile).
+ *   - Active tab is visually distinct: amber pill behind the icon and
+ *     amber-tinted label. Matches the design language used by the
+ *     StudentHome CTA (`bg-amber` accent).
+ *   - Tapping a tab calls `router.navigate(route)` — `navigate` (not
+ *     `push`) so the back stack doesn't grow with every tab switch and
+ *     users can't accidentally "back" into a screen they left.
+ *   - The `current` prop is optional: when omitted we fall back to
+ *     `usePathname()` so the active state is correct without
+ *     screens having to pass anything in.
+ *   - Tutor screens reuse the same component by passing `role="tutor"`
+ *     and overriding the tab set in a future iteration. For now we
+ *     only ship the student nav; tutor dashboards continue to use
+ *     their existing in-file sign-out until Phase 4.5.
+ */
+
+export type BottomNavRole = "student";
+
+export type BottomNavTab = {
+  /** Ionicons name (no `-outline` suffix — we add it ourselves). */
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  route: `/${string}`;
+};
+
+const STUDENT_TABS: BottomNavTab[] = [
+  { icon: "home", label: "Home", route: "/student-home" },
+  { icon: "map", label: "Map", route: "/map-search" },
+  { icon: "sparkles", label: "AI", route: "/AI-chat" },
+  { icon: "book", label: "Enrollments", route: "/enrollment" },
+  { icon: "person", label: "Profile", route: "/stu-profile" },
+];
+
+/**
+ * Single tab button. Two visual states (active / inactive) keyed off
+ * the `active` prop. We render both the filled and outline glyph and
+ * toggle their opacity rather than swapping the icon name, so the
+ * active-tab pill has visual weight even when the icon itself is
+ * identical to the inactive one.
+ */
+function TabButton({
+  tab,
+  active,
+  onPress,
+}: {
+  tab: BottomNavTab;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={tab.label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      className="flex-1 items-center justify-center active:opacity-70"
+    >
+      <View
+        className={
+          active
+            ? "w-12 h-7 rounded-pill bg-amber-light items-center justify-center"
+            : "w-12 h-7 items-center justify-center"
+        }
+      >
+        <Ionicons
+          name={active ? tab.icon : (`${tab.icon}-outline` as any)}
+          size={20}
+          color={active ? "#B45309" : "#64748B"}
+        />
+      </View>
+      <Text
+        className={
+          active
+            ? "text-micro mt-0.5 font-semibold text-amber"
+            : "text-micro mt-0.5 text-text-muted"
+        }
+      >
+        {tab.label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function BottomNav({
+  role = "student",
+  current,
+}: {
+  role?: BottomNavRole;
+  /**
+   * Optional override for the active route. When omitted, the active
+   * state is derived from `usePathname()`. Pass this in when the
+   * pathname doesn't match a tab route (e.g. inside the FiltersSheet
+   * Modal where the underlying route is still `/map-search`).
+   */
+  current?: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const tabs = role === "student" ? STUDENT_TABS : STUDENT_TABS;
+  const activeRoute = current ?? pathname;
+
+  /**
+   * Tap handler for a tab button.
+   *
+   * We deliberately do **not** call `router.navigate(tab.route)`.
+   * `navigate` resolves the href relative to the current stack
+   * position (see expo-router's `resolveHref` util). When the user is
+   * already at `/student-home` and the stack contains
+   * `[..., /map-search, /student-home]` (because the auth guard
+   * replaced them in), `navigate('/AI-chat')` resolves against the
+   * current URL — but because every tab is at the root, expo-router
+   * matches the existing `/student-home` entry by its tail segment
+   * and stays put. The user sees "every tab routes to Student Home"
+   * because the auth guard keeps re-installing `/student-home` at the
+   * bottom of the stack.
+   *
+   * The fix: `router.replace(tab.route)` walks the route tree by
+   * absolute URL rather than resolving against the current stack
+   * position, and replaces the current screen with the target — no
+   * pop dance, no stack-position matching. This is the same pattern
+   * the auth guard uses in `app/_layout.tsx`.
+   *
+   * Source: https://docs.expo.dev/router/navigating-pages/ — "Use
+   * `router.replace` for paths starting with `/`".
+   */
+  function goTo(route: `/${string}`) {
+    if (activeRoute === route) return;
+    router.replace(route as any);
+  }
+
+  return (
+    <View
+      className="bg-surface border-t border-border-subtle"
+      style={{ paddingBottom: 16, paddingTop: 6 }}
+    >
+      <View className="flex-row">
+        {tabs.map((tab) => (
+          <TabButton
+            key={tab.route}
+            tab={tab}
+            active={activeRoute === tab.route}
+            onPress={() => goTo(tab.route)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
