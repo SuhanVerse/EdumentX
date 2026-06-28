@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -10,42 +9,58 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 
 import { TutorBottomBar } from "@/components/TutorBottomBar";
-import { logout } from "@/services/firebase/authService";
 import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Tutor Dashboard (UI-only milestone)
  *
- * This screen is intentionally self-contained while Firebase Auth +
- * Firestore are unwired. The five `TODO(firebase)` blocks below mark
- * the seams where the live data will plug in. The shape of the mock
- * records (TODAY_SESSIONS, PENDING_REQUESTS, BATCH_REQUESTS,
- * SESSION_SLOTS, TUTOR_PROFILE) is designed to match the planned
- * Firestore documents so the JSX below does not need to change when
- * data lands.
+ * Live reads from `users/{uid}/tutorProfile/default` via `onSnapshot`.
+ * Empty-state copy stays for the sessions / pending-request cards —
+ * those collections land in Phase 5. Numeric metric values
+ * (rating, reviews, response rate, monthly earnings) now come from the
+ * tutor profile doc so they reflect the saved `fullName` and not the
+ * stale "Manoj Khadka" mock that lived here before.
  */
 
-// TODO(firebase): replace with the authenticated tutor's profile read
-// from `tutors/{uid}` and `useRegistration((s) => s.profileDraft)`.
-const TUTOR_PROFILE = {
-  name: "Manoj Khadka",
-  isVerifiedProfessional: true,
-  capacity: 8,
-  currentStudents: 5,
-  rating: 4.8,
-  reviews: 47,
-  responseRate: 92,
-  profileCompletion: 75,
-  thisMonthEarningsNpr: 28_000,
-  trendUp: true,
-} as const;
+// Shape mirrors the fields the JSX reads from the tutorProfile doc.
+// Optional fields default to zero/false so the UI renders an empty
+// state instead of `NaN` while the doc-fetch is in flight or when a
+// newer tutor hasn't yet set every metric.
+interface TutorDashboardData {
+  fullName: string;
+  isVerifiedProfessional: boolean;
+  capacity: number;
+  currentStudents: number;
+  rating: number;
+  reviews: number;
+  responseRate: number;
+  profileCompletion: number;
+  thisMonthEarningsNpr: number;
+}
 
-// JSX reads `profile.X` (a common EdumentX convention used in the
-// student dashboard too); alias the mock here so the call sites
-// resolve until the real `useAuthStore` selector replaces it.
-const profile = TUTOR_PROFILE;
+const FALLBACK: TutorDashboardData = {
+  fullName: "Tutor",
+  isVerifiedProfessional: false,
+  capacity: 0,
+  currentStudents: 0,
+  rating: 0,
+  reviews: 0,
+  responseRate: 0,
+  profileCompletion: 0,
+  thisMonthEarningsNpr: 0,
+};
+
+function toNum(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
 
 // TODO(firebase): replace with a Firestore `sessions` query filtered by
 // `tutorId == auth.uid && date == today`.
@@ -196,36 +211,70 @@ function showComingSoon(feature: string) {
 }
 
 /**
- * Sign the user out, clear the local auth store, and route back to the
- * login screen. Calls the Firebase `logout()` helper, then drops the
- * cached `user` / `role` from the local Zustand store so the layout
- * guard immediately redirects on the next render. Mirrors the same
- * flow as `StudentHome` so the two dashboards stay in lock-step.
+ * Sign-out used to live here but moved to the tutor profile tab
+ * (`screens/tutor/edit_profile.tsx`) on June 28, 2026 so the
+ * affordance sits next to the user's account info — same place the
+ * student has it. Removing the function also clears the
+ * `'handleSignOut' is defined but never used` eslint warning.
  */
-async function handleSignOut(router: ReturnType<typeof useRouter>) {
-  try {
-    await logout();
-    useAuthStore.getState().reset();
-  } catch (err) {
-    console.error("TutorDashboard: sign-out failed", err);
-    Alert.alert("Could not sign out", "Please try again.");
-    return;
-  }
-  // Replace the dashboard in the history stack so the user can't
-  // swipe-back into it. `replace` is mandatory — `push` would leave the
-  // dashboard mounted under /email-signup and the layout guard would
-  // bounce back to the dashboard on the next render.
-  router.replace("/email-signup");
-}
 
 export function TutorDashboard() {
-  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const [available, setAvailable] = useState(true);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
 
-  const capacity = profile.capacity;
-  const currentStudents = profile.currentStudents;
+  // Live read from the tutorProfile subcollection. We subscribe via
+  // `onSnapshot` so future Phase-5 "Edit profile" writes propagate to
+  // the dashboard without a reload. The student's home screen uses
+  // the same pattern (see `StudentHome.tsx`).
+  const [data, setData] = useState<TutorDashboardData>(FALLBACK);
+
+  useEffect(() => {
+    if (!user) {
+      setData(FALLBACK);
+      return;
+    }
+    const db = getFirestore(getApp());
+    const profileRef = doc(db, "users", user.uid, "tutorProfile", "default");
+    const unsub = onSnapshot(
+      profileRef,
+      (snap) => {
+        const d = snap.data() as Partial<TutorDashboardData> | undefined;
+        if (!d) {
+          setData(FALLBACK);
+          return;
+        }
+        setData({
+          fullName:
+            typeof d.fullName === "string" && d.fullName.trim().length > 0
+              ? d.fullName.trim()
+              : "Tutor",
+          isVerifiedProfessional: !!(d as { isVerifiedProfessional?: boolean })
+            .isVerifiedProfessional,
+          capacity: toNum((d as { capacity?: number }).capacity),
+          currentStudents: toNum((d as { currentStudents?: number }).currentStudents),
+          rating: toNum((d as { rating?: number }).rating),
+          reviews: toNum((d as { reviews?: number }).reviews),
+          responseRate: toNum((d as { responseRate?: number }).responseRate),
+          profileCompletion: toNum(
+            (d as { profileCompletion?: number }).profileCompletion,
+          ),
+          thisMonthEarningsNpr: toNum(
+            (d as { thisMonthEarningsNpr?: number }).thisMonthEarningsNpr,
+          ),
+        });
+      },
+      (err) => {
+        console.warn("TutorDashboard: profile read failed", err);
+        setData(FALLBACK);
+      },
+    );
+    return () => unsub();
+  }, [user]);
+
+  const capacity = data.capacity;
+  const currentStudents = data.currentStudents;
   const capPct = capacity > 0 ? (currentStudents / capacity) * 100 : 0;
   const capColor =
     capPct >= 100
@@ -244,9 +293,9 @@ export function TutorDashboard() {
           <View>
             <Text className="text-body text-white/70">Welcome back,</Text>
             <Text className="text-screen-title font-medium text-white mt-0.5">
-              {profile.name || "Tutor"}
+              {data.fullName || "Tutor"}
             </Text>
-            {profile.isVerifiedProfessional ? (
+            {data.isVerifiedProfessional ? (
               <View className="flex-row items-center gap-1 px-2.5 py-1 rounded-pill bg-verification-light mt-2 self-start">
                 <Ionicons name="shield-checkmark" size={12} color="#A7F3D0" />
                 <Text className="text-caption text-success font-medium">
@@ -306,7 +355,7 @@ export function TutorDashboard() {
             colorClass="bg-warning-bg"
             iconColor="warning"
             label="Avg rating"
-            value={profile.rating.toFixed(1)}
+            value={data.rating.toFixed(1)}
           />
           <Metric
             iconName="time"
@@ -320,7 +369,11 @@ export function TutorDashboard() {
             colorClass="bg-ai-light"
             iconColor="ai"
             label="This month"
-            value="Rs 0"
+            value={
+              data.thisMonthEarningsNpr > 0
+                ? `Rs ${data.thisMonthEarningsNpr.toLocaleString("en-IN")}`
+                : "Rs 0"
+            }
           />
         </View>
 
@@ -360,11 +413,11 @@ export function TutorDashboard() {
             <View className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
               <View
                 className="h-full bg-amber rounded-full"
-                style={{ width: `${profile.profileCompletion}%` }}
+                style={{ width: `${data.profileCompletion}%` }}
               />
             </View>
             <Text className="text-button-sm text-amber font-medium">
-              {profile.profileCompletion}%
+              {data.profileCompletion}%
             </Text>
           </View>
         </View>

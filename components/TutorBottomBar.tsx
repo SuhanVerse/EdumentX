@@ -23,7 +23,7 @@ const TUTOR_TABS: readonly TutorTabDef[] = [
   },
   { key: "inbox", label: "Inbox", path: "/tutor-inbox", icon: Inbox },
   { key: "batches", label: "Batches", path: "/batches", icon: Users },
-  { key: "profile", label: "Profile", path: "/profile-tutor", icon: User },
+  { key: "profile", label: "Profile", path: "/tutor_edit_profile", icon: User },
 ] as const;
 
 const ACTIVE_COLOR = "#2B6CB0";

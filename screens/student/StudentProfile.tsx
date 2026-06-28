@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -10,14 +11,23 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 
 import { AvatarBubble } from "@/components/forms/AvatarBubble";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { EditableField } from "@/components/forms/EditableField";
+import { MenuRow } from "@/components/forms/MenuRow";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { logout } from "@/services/firebase/authService";
+import { uploadAvatar } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
-import { initials } from "@/data/mockData";
 
 /**
  * EdumentX — Student Profile
@@ -52,20 +62,82 @@ export function StudentProfile() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  // `savedPhotoUrl` gates the photo-persist effect from looping on
+  // every render — we only write when the local value diverges from
+  // what the doc already has. `uploadingPhoto` disables the picker
+  // affordance while a request is in flight.
+  const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
-  // Hydrate from the auth user on first mount. We deliberately don't
-  // touch the Firestore profile here — that's the job of
-  // StudentProfileScreen (the onboarding flow). This screen is a
-  // post-onboarding edit surface.
+  // Hydrate from Firestore on first mount. We prefer the saved
+  // `fullName` from `users/{uid}/studentProfile/default` (the
+  // value the user typed during profile setup) and fall back to
+  // the Firebase Auth identity if no profile doc exists yet. We
+  // use a one-shot `getDoc` instead of `onSnapshot` because this
+  // screen is local-only for now — switching to a live read would
+  // race the user's own edits and yank the TextInput out from
+  // under them. When Phase 5 wires a real save handler, we
+  // upgrade to `onSnapshot` and gate it on `loaded`.
   useEffect(() => {
     if (!user) return;
-    const fallback =
-      user.displayName?.trim() ||
-      (user.email ? user.email.split("@")[0] : "Student");
-    setName(fallback);
+    const db = getFirestore(getApp());
+    const profileRef = doc(db, "users", user.uid, "studentProfile", "default");
+    let cancelled = false;
+    getDoc(profileRef)
+      .then((snap) => {
+        if (cancelled) return;
+        const d = snap.data() as
+          | { fullName?: string; photoUrl?: string }
+          | undefined;
+        if (d?.fullName && d.fullName.trim().length > 0) {
+          setName(d.fullName.trim());
+        } else {
+          setName(
+            user.displayName?.trim() ||
+              (user.email ? user.email.split("@")[0] : "Student"),
+          );
+        }
+        // Seed both `avatarUri` and `savedPhotoUrl` from the doc so
+        // the persist effect doesn't immediately re-write what we
+        // just read.
+        if (typeof d?.photoUrl === "string") {
+          setAvatarUri(d.photoUrl);
+          setSavedPhotoUrl(d.photoUrl);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn("StudentProfile: profile read failed", err);
+        setName(
+          user.displayName?.trim() ||
+            (user.email ? user.email.split("@")[0] : "Student"),
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+  // Auto-persist `photoUrl` to Firestore whenever it changes. The
+  // `savedPhotoUrl` gate prevents the effect from writing back what
+  // it just read. Fire-and-forget — if it fails we log; the user
+  // still sees the new avatar immediately because `setAvatarUri`
+  // updated synchronously when the upload returned.
+  useEffect(() => {
+    if (!user) return;
+    if (!avatarUri || avatarUri === savedPhotoUrl) return;
+    const db = getFirestore(getApp());
+    const profileRef = doc(db, "users", user.uid, "studentProfile", "default");
+    setDoc(
+      profileRef,
+      { photoUrl: avatarUri, updatedAt: serverTimestamp() },
+      { merge: true },
+    )
+      .then(() => setSavedPhotoUrl(avatarUri))
+      .catch((err) => console.warn("StudentProfile: photoUrl persist failed", err));
+  }, [avatarUri, savedPhotoUrl, user]);
 
   function showComingSoon(feature: string) {
     Alert.alert(
@@ -74,14 +146,45 @@ export function StudentProfile() {
     );
   }
 
-  function pickImage() {
-    // We intentionally don't import the image picker here — the
-    // picker UI is a larger surface (permissions, base64 handling,
-    // Supabase upload). For Stage 5 we surface a "Coming soon"
-    // alert so the user knows the affordance exists. The full
-    // picker flow lands when Supabase Storage wiring (Phase 5.1) is
-    // re-enabled on this branch.
-    showComingSoon("Profile picture upload");
+  async function pickImage() {
+    const uid = user?.uid;
+    if (!uid) {
+      Alert.alert("Not signed in", "Please sign in to update your photo.");
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Allow photo access in system settings to choose a profile image.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+    const localUri = result.assets[0].uri;
+
+    setUploadingPhoto(true);
+    try {
+      const { publicUrl } = await uploadAvatar(uid, localUri);
+      // Append a cache-buster query param exactly like `AvatarUploader`
+      // does so React Native's `<Image>` re-fetches instead of
+      // serving a cached version of the previous avatar.
+      setAvatarUri(`${publicUrl}?t=${Date.now()}`);
+    } catch (err: any) {
+      console.error("StudentProfile: avatar upload failed", err);
+      Alert.alert(
+        "Upload failed",
+        err?.message ?? "Please check your connection and try again.",
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
   }
 
   async function handleSignOut() {
@@ -127,7 +230,7 @@ export function StudentProfile() {
           <AvatarBubble
             name={name || user?.email || "Student"}
             uri={avatarUri}
-            editable
+            editable={!uploadingPhoto}
             onPress={pickImage}
           />
           <Text className="text-section-title font-medium text-text-primary mt-3">
@@ -143,10 +246,17 @@ export function StudentProfile() {
           )}
           <Pressable
             onPress={pickImage}
-            className="mt-3 px-3 py-1.5 bg-sand rounded-pill active:opacity-80"
+            disabled={uploadingPhoto}
+            accessibilityRole="button"
+            accessibilityLabel="Upload or change profile photo"
+            className="mt-3 px-3 py-1.5 bg-sand rounded-pill active:opacity-80 disabled:opacity-50"
           >
             <Text className="text-micro text-text-secondary font-medium">
-              {avatarUri ? "Change photo" : "Upload photo"}
+              {uploadingPhoto
+                ? "Uploading…"
+                : avatarUri
+                  ? "Change photo"
+                  : "Upload photo"}
             </Text>
           </Pressable>
         </View>
@@ -292,31 +402,3 @@ export function StudentProfile() {
   );
 }
 
-function MenuRow({
-  icon,
-  label,
-  onPress,
-  last,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  last?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      className={
-        last
-          ? "flex-row items-center gap-3 px-4 py-3.5 active:opacity-80"
-          : "flex-row items-center gap-3 px-4 py-3.5 border-b border-border-subtle active:opacity-80"
-      }
-    >
-      <Ionicons name={icon} size={20} color="#475569" />
-      <Text className="flex-1 text-body-lg text-text-primary">{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-    </Pressable>
-  );
-}

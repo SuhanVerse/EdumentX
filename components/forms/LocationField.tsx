@@ -140,7 +140,7 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
         accessibilityState={{ disabled: !canSave }}
         disabled={!canSave}
         onPress={handleSave}
-        className="min-h-cta-amber rounded-md items-center justify-center bg-amber active:opacity-90 disabled:opacity-50"
+        className="min-h-cta-amber rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:opacity-50 self-center w-full max-w-xs mt-1"
       >
         <Text className="text-button-sm text-white font-semibold">
           Save Location
