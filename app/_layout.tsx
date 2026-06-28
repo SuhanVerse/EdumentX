@@ -3,19 +3,14 @@ import { getApp } from "@react-native-firebase/app";
 import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import {
+  getFirestore,
   doc,
   getDoc,
-  getFirestore,
-  serverTimestamp,
   setDoc,
+  serverTimestamp,
 } from "@react-native-firebase/firestore";
-import {
-  Stack,
-  useRootNavigationState,
-  useRouter,
-  useSegments,
-} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -28,15 +23,12 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // The native splash module is not always available in dev. Safe to ignore.
 });
 
-/**
- * Map a `users/{uid}.role` value to the matching dashboard route. The
- * `_layout.tsx` guard, the dashboards, and any tests should all funnel
- * through this single helper so the route stays in lock-step with the
- * `UserRole` type.
- */
-function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
-  if (role === "tutor") return "/tutor-home";
-  return "/student-home";
+// Map from a raw Firestore `role` string to the route we want to land on
+// after a successful sign-in. We do the role→route mapping in one place so
+// the layout guard, dashboards, and tests all agree.
+function dashboardPathForRole(role: UserRole): "/profile-tutor" | "/profile-student" {
+  if (role === "tutor") return "/profile-tutor";
+  return "/profile-student";
 }
 
 export default function RootLayout() {
@@ -172,10 +164,16 @@ export default function RootLayout() {
       "AI-chat",
       "enrollment",
       "stu-profile",
+      // Tutor sub-screens (feature/tutor merge). Reachable from the
+      // TutorBottomBar.
+      "batches",
+      "tutor-inbox",
+      "tutor_edit_profile",
       // Shared screens reachable from student surfaces (e.g.
       // StudentProfile's "Notifications" row routes to
       // /notification).
       "notification",
+      "filters-sheet",
     ]);
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
@@ -369,20 +367,29 @@ export default function RootLayout() {
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
         <Stack screenOptions={{ headerShown: false }}>
+          {/* Auth flow */}
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="email-signup" />
           <Stack.Screen name="role-selection" />
+          {/* Profile collection (post-role-pick) */}
           <Stack.Screen name="profile-student" />
           <Stack.Screen name="profile-tutor" />
+          {/* Dashboards */}
           <Stack.Screen name="student-home" />
           <Stack.Screen name="tutor-home" />
+          {/* Student sub-screens (BottomNav targets) */}
           <Stack.Screen name="map-search" />
-          <Stack.Screen name="filters-sheet" />
           <Stack.Screen name="AI-chat" />
           <Stack.Screen name="enrollment" />
           <Stack.Screen name="stu-profile" />
+          {/* Tutor sub-screens (TutorBottomBar targets) */}
+          <Stack.Screen name="batches" />
+          <Stack.Screen name="tutor-inbox" />
+          <Stack.Screen name="tutor_edit_profile" />
+          {/* Shared */}
           <Stack.Screen name="notification" />
+          <Stack.Screen name="filters-sheet" />
         </Stack>
         {isLoading ? (
           <View
