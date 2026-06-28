@@ -145,15 +145,18 @@ export default function RootLayout() {
     }
 
     // Signed in + verified + has role → route to the matching
-    // dashboard. We allow `role-selection` and the `profile-*`
-    // screens through so a returning user can re-edit their profile
-    // if they want. We deliberately do **not** allow `email-signup`:
-    // a verified user with a role who is sitting on /email-signup
-    // is the "post-login flash" trap — the redirect tree sent them
-    // there for one render while `role` was still `null`, and the
-    // guard sees them there, finds them in the allowlist, and
-    // refuses to advance them. Drop them from the list so the next
-    // render pushes them to the dashboard.
+    // dashboard. We allow the auth-flow screens and the student
+    // dashboard sub-screens through so a signed-in student can move
+    // freely between Home / Map / AI / Enrollments / Profile without
+    // being bounced back to the dashboard.
+    //
+    // We deliberately do **not** allow `email-signup`: a verified
+    // user with a role who is sitting on /email-signup is the
+    // "post-login flash" trap — the redirect tree sent them there
+    // for one render while `role` was still `null`, and the guard
+    // sees them there, finds them in the allowlist, and refuses to
+    // advance them. Drop them from the list so the next render
+    // pushes them to the dashboard.
     const target = dashboardPathForRole(role);
     const allowedForSignedIn = new Set<string>([
       "role-selection",
@@ -161,6 +164,18 @@ export default function RootLayout() {
       "profile-tutor",
       "student-home",
       "tutor-home",
+      // Student sub-screens (Phase 4 dashboard shell). These are
+      // reachable via the BottomNav; the guard must allow them or
+      // it will replace them back to the dashboard on the next
+      // render.
+      "map-search",
+      "AI-chat",
+      "enrollment",
+      "stu-profile",
+      // Shared screens reachable from student surfaces (e.g.
+      // StudentProfile's "Notifications" row routes to
+      // /notification).
+      "notification",
     ]);
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
@@ -362,6 +377,12 @@ export default function RootLayout() {
           <Stack.Screen name="profile-tutor" />
           <Stack.Screen name="student-home" />
           <Stack.Screen name="tutor-home" />
+          <Stack.Screen name="map-search" />
+          <Stack.Screen name="filters-sheet" />
+          <Stack.Screen name="AI-chat" />
+          <Stack.Screen name="enrollment" />
+          <Stack.Screen name="stu-profile" />
+          <Stack.Screen name="notification" />
         </Stack>
         {isLoading ? (
           <View

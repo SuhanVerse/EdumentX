@@ -19,6 +19,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { logout } from "@/services/firebase/authService";
+import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -262,6 +263,8 @@ export function StudentHome() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <BottomNav role="student" current="/student-home" />
     </SafeAreaView>
   );
 }
