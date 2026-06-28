@@ -5,12 +5,12 @@
  * `store/registrationStore.ts` (Zustand + AsyncStorage persist) is
  * built in Phase 4 per
  * `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md`
- * §7.5. Until then, this shim is enough to pass the role + draft
- * fields between RoleSelection → StudentProfileScreen /
- * TutorProfileScreen without dropping data on navigation.
+ * §7.5. Until then, this shim is enough to pass the draft fields
+ * between StudentProfileScreen / TutorProfileScreen and any future
+ * "Edit profile" screen without dropping data on navigation.
  *
- * Data shape is intentionally identical to the planned Phase 3 store
- * so the Phase 3 replacement is a one-file body swap.
+ * Data shape is intentionally identical to the planned Phase 4 store
+ * so the Phase 4 replacement is a one-file body swap.
  *
  * **Auth model (June 21, 2026):** identity lives in Firebase Auth via
  * Email + Password or Google Sign-In. Phone OTP was removed — Clerk
@@ -18,8 +18,6 @@
  * optional contact number parents can use to reach a tutor from inside
  * the app; it is NOT used for sign-in.
  */
-
-import { useSyncExternalStore } from "react";
 
 export type Role = "student" | "tutor";
 
@@ -79,58 +77,21 @@ const initialState: RegistrationState = {
 };
 
 let state: RegistrationState = initialState;
-const listeners = new Set<() => void>();
-
-function emit() {
-  listeners.forEach((l) => l());
-}
-
-function set(next: RegistrationState) {
-  state = next;
-  emit();
-}
-
-function update(patch: Partial<RegistrationState>) {
-  set({ ...state, ...patch });
-}
-
-function updateProfile(patch: Partial<RegistrationState["profileDraft"]>) {
-  set({ ...state, profileDraft: { ...state.profileDraft, ...patch } });
-}
-
-function reset() {
-  set({ ...initialState, profileDraft: { ...initialState.profileDraft } });
-}
-
-function get(): RegistrationState {
-  return state;
-}
 
 /**
- * Subscribe to a slice of the registration state. Re-renders the
- * component when the selected value changes (shallow equality).
- * Backed by useSyncExternalStore so concurrent React (React 19) is
- * happy.
+ * Patch a subset of the profile draft fields. Called by the profile
+ * screens before their Firestore `writeBatch` so the in-flight
+ * navigation can read the freshly-typed values without waiting for
+ * the round-trip to complete.
  *
- * Usage:
- *   const role = useRegistration((s) => s.role);
- *   const { fullName, email } = useRegistration((s) => s.profileDraft);
+ * The only currently-used method on this object — `registration.reset`
+ * and the rest of the planned Phase 4 surface land with the real
+ * Zustand+AsyncStorage store.
  */
-export function useRegistration<T>(selector: (s: RegistrationState) => T): T {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => selector(state),
-    () => selector(initialState),
-  );
+function updateProfile(patch: Partial<RegistrationState["profileDraft"]>) {
+  state = { ...state, profileDraft: { ...state.profileDraft, ...patch } };
 }
 
 export const registration = {
-  get,
-  set,
-  update,
   updateProfile,
-  reset,
 };

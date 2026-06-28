@@ -104,5 +104,3 @@ export function DiscoverIllustration() {
     </View>
   );
 }
-
-export default DiscoverIllustration;

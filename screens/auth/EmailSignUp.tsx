@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import {
   loginWithEmail,
@@ -266,16 +267,12 @@ export function EmailSignUp() {
             </View>
 
             <View className="gap-3 pt-4">
-              <Pressable
-                accessibilityRole="button"
-                disabled={isCheckingVerified}
+              <PrimaryButton
+                label={isCheckingVerified ? "Checking..." : "I've verified — continue"}
                 onPress={handleCheckVerified}
-                className="min-h-btn rounded-card items-center justify-center bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
-              >
-                <Text className="text-button text-white disabled:text-text-muted">
-                  {isCheckingVerified ? "Checking..." : "I've verified — continue"}
-                </Text>
-              </Pressable>
+                loading={isCheckingVerified}
+                disabled={isCheckingVerified}
+              />
 
               <Pressable
                 accessibilityRole="button"
@@ -412,20 +409,16 @@ export function EmailSignUp() {
 
           {/* Primary CTA — email + password */}
           <View className="pt-6">
-            <Pressable
-              accessibilityRole="button"
-              disabled={!canSubmit}
+            <PrimaryButton
+              label={isSubmitting
+                ? "Sending..."
+                : mode === "signup"
+                  ? "Create account"
+                  : "Log in"}
               onPress={handleSubmit}
-              className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
-            >
-              <Text className="text-button text-white disabled:text-text-muted">
-                {isSubmitting
-                  ? "Sending..."
-                  : mode === "signup"
-                    ? "Create account"
-                    : "Log in"}
-              </Text>
-            </Pressable>
+              loading={isSubmitting}
+              disabled={!canSubmit}
+            />
           </View>
 
           {/* Divider with "or" — same visual language as the old

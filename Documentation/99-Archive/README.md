@@ -1,44 +1,76 @@
 # 99-Archive
 
-> **Purpose**: Older documentation that has been superseded by newer guides. These files are kept for historical reference and git blame purposes. **Do not use them as the source of truth** — the latest numbered `00-` files in their respective folders are always authoritative.
+> **Purpose**: Older documentation that has been superseded by newer guides.
+> These files are kept for historical reference and git-blame purposes.
+> **Do not use them as the source of truth** — the latest numbered
+> `00-` / `01-` / `03-` files in their respective folders are always
+> authoritative.
 
 ## What's in Here
 
-### Project Overviews (Superseded by `00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md`)
+### `2026-06-21-clerk-revert/` — Clerk pivot history
 
-| File | What It Was | Why Archived |
-|------|------------|--------------|
-| `COMPREHENSIVE_PROJECT_ANALYSIS_v1.md` | First comprehensive analysis (June 2026) | Superseded by the v2 master guide which adds: improvement roadmap, performance/testing sections, AI quick-reference, and AI tools guidance |
-| `PROJECT_SUMMARY_v1.md` | High-level project summary | Outdated — pre-Tamagui, pre-Firebase architecture |
-| `PROJECT_STRUCTURE_AND_FEATURE_WORKFLOW_v1.md` | Directory structure and feature workflows | Outdated — pre-new folder structure |
-| `FEATURE_IMPLEMENTATION_GUIDE_v1.md` | Step-by-step implementation guide | Outdated — predates Tamagui + Firebase rewrite |
-| `Minor_Proposal_Report.pdf` | Academic project proposal | Not relevant to engineering |
-| `Figma_Make_UI_v1.png` | First Figma Make output | Superseded by the v2 master Figma prompt |
+The Clerk → native Firebase Auth pivot that was attempted on June 20 and
+reverted on June 21 because Clerk discontinued its `integration_firebase`
+template for new accounts. Contains the original Clerk integration
+write-up that was moved here from `04-Firebase/`.
 
-### Figma / Design Prompts (Superseded by `06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md`)
+### `design-prompts-jun2026/` — v1 design-prompt material
 
-| File | What It Was | Why Archived |
-|------|------------|--------------|
-| `FINAL_FIGMA_MAKE_PROMPT_v1.md` | First Figma Make prompt | Replaced by the v2 master prompt with sidebar, multi-role, and design system extraction |
-| `EDUMENTX_DESIGN_PROMPTS_v1.md` | Design generation prompts | Merged into the v2 master prompt |
-| `MASTER_FIGMA_PROMPT_GUIDE_v1.md` | Master guide for Figma Make | Replaced by the v2 master prompt |
-| `PROFESSIONAL_REDESIGN_STRATEGY_v1.md` | Professional redesign strategy | Insights incorporated into the v2 master prompt |
-| `DESIGN_PROMPT_ISSUES_AND_FIXES_v1.md` | Known Figma Make issues | Incorporated into the v2 master prompt §9 |
-| `FILES_TO_ATTACH_WITH_PROMPT_v1.md` | Required file attachments for Figma Make | Incorporated into the v2 master prompt §7 |
-| `FIGMA_MAKE_README_v1.md` | Figma Make folder README | Replaced by `06-Prompts/Figma-Make/` structure |
+All v1 design-prompt material (the 13 dated `_v1.md` files plus the
+`Figma_Make_UI_v1.png` reference screenshot) was moved here on
+**June 27, 2026** and **consolidated into a single `README.md`** at the
+folder root.
 
-## Reading Order
+**Read `design-prompts-jun2026/README.md` first** — it captures the
+unique insights from those 13 files (palette origin, the 15 prompt
+fixes, screen list, typography rules) so you don't have to dig through
+the originals.
 
-If you want to understand the project's evolution, read in this order:
-1. `Minor_Proposal_Report.pdf` — original academic context
-2. `PROJECT_SUMMARY_v1.md` — early product vision
-3. `COMPREHENSIVE_PROJECT_ANALYSIS_v1.md` — first deep analysis
-4. `EDUMENTX_MASTER_PROJECT_GUIDE.md` (in `00-Overview/`) — current canonical guide
-5. `00-MASTER-FIGMA-MAKE-PROMPT.md` (in `06-Prompts/Figma-Make/`) — current design direction
-6. `00-MASTER-CLAUDE-CODE-PROMPT.md` (in `06-Prompts/Claude-Code/`) — current engineering direction
+The original files are kept verbatim inside the folder for git-blame.
+**Do not edit them.** If you need to know "why the current prompt
+doesn't do X," the answer is almost always in `design-prompts-jun2026/README.md`
+§4 (the 15 fixes).
+
+### `context-snapshots-jun2026/` — AI conversation snapshots
+
+Long context snapshots that were loose at the Documentation root before
+the June 27, 2026 cleanup. These are **read-only historical records** of
+working sessions with Claude / Gemini / other tools. They are NOT
+current documentation.
+
+| File | What it was |
+|---|---|
+| `claude_tamagui_context.txt` | Tamagui migration session context (1,876 lines) |
+| `gemini_chat_context.md` / `gemini_chat_context_v2.md` | Gemini prompt-engineering sessions |
+| `gemini_dashboards.md` | Dashboard design exploration |
+| `Screenshot from 2026-06-09 ...png` | App screenshot from a working session |
+| `WhatsApp Image 2026-06-08 ...{06,07}.jpeg` | Team-shared screenshots |
+
+## Reading Order (for project-history context)
+
+1. `97-Educational_Contents/Minor_Proposal_Report.pdf` — original academic context (now in `97-Educational_Contents/`, not here)
+2. `99-Archive/context-snapshots-jun2026/` — chronological working sessions
+3. `99-Archive/design-prompts-jun2026/README.md` — design-iteration history
+4. `99-Archive/2026-06-21-clerk-revert/` — Clerk pivot lessons learned
+5. `00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md` — current canonical guide
+6. `06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md` — current design direction
+7. `06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md` — current engineering direction
 
 ## Why Not Delete?
 
-Deleting documentation removes context. Future contributors (and AI tools) benefit from understanding what was tried, what didn't work, and how the project evolved. Git history + this archive = complete record.
+Deleting documentation removes context. Future contributors (and AI
+tools) benefit from understanding what was tried, what didn't work,
+and how the project evolved. Git history + this archive = complete
+record.
 
-If you find a v1 doc that's misleading, add a note at the top of the file with `> ⚠️ SUPERSEDED — see [new file] for the current version.`
+If you find a doc here that's misleading, **add a note at the top of
+the file** with `> ⚠️ SUPERSEDED — see [new file] for the current version.`
+Do not edit the body.
+
+---
+
+*Last reorganized June 27, 2026 — the 13 design-prompt v1 files were
+merged into a single consolidated README inside `design-prompts-jun2026/`
+and the orphan context snapshots at the Documentation root were moved
+to `context-snapshots-jun2026/`.*

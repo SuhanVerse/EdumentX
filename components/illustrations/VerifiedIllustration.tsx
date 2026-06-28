@@ -1,10 +1,19 @@
 /**
  * VerifiedIllustration — Onboarding slide 3 of 3.
  *
+ * Pure SVG composition wrapped in a Reanimated 4 entrance (fade +
+ * slide-up). Same artwork as before — only the outer wrapper
+ * animation changed. The entrance fires once on mount.
+ *
  * NativeWind migration: SVG primitives need raw hex; Tailwind classes
  * apply to the outer wrapper.
  */
-import { View } from 'react-native';
+import { useEffect } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
 
 import { colors } from '@/constants/colors';
@@ -19,8 +28,24 @@ const COLORS = {
 } as const;
 
 export function VerifiedIllustration() {
+  // Entrance shared value: 0 = hidden (12px down + transparent),
+  // 1 = rest position. Animates once on mount.
+  const enter = useSharedValue(0);
+
+  useEffect(() => {
+    enter.value = withTiming(1, { duration: 450 });
+  }, [enter]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 12 }],
+  }));
+
   return (
-    <View className="w-full h-full items-center justify-center">
+    <Animated.View
+      style={[{ width: '100%', height: '100%' }, animatedStyle]}
+      className="items-center justify-center"
+    >
       <Svg
         viewBox="0 0 220 220"
         width="100%"
@@ -75,8 +100,6 @@ export function VerifiedIllustration() {
           fill="none"
         />
       </Svg>
-    </View>
+    </Animated.View>
   );
 }
-
-export default VerifiedIllustration;

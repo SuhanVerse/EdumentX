@@ -31,6 +31,16 @@ config.resolver.blockList = exclusionList([
   new RegExp(`${projectRoot}[/\\\\]firebase-export-[^/\\\\]+[/\\\\].*`),
 ]);
 
+// Phase 3 (3D assets): whitelist binary 3D model formats so
+// `@react-three/fiber/native` / `expo-gl` / `@react-three/drei/native`
+// can bundle them via `require("./hero.glb")`. The default Expo Metro
+// assetExts covers png/jpg/json/mp4/etc. but not glTF — without this
+// Metro tries to transform the binary as a JS module and crashes.
+const baseAssetExts = config.resolver.assetExts ?? [];
+config.resolver.assetExts = Array.from(
+  new Set([...baseAssetExts, "glb", "gltf", "obj"]),
+);
+
 // Pre-compute the absolute path to react-native-css-interop's
 // jsx-runtime entry so the resolver can return it synchronously.
 const cssInteropJsxRuntimeAbs = path.join(
