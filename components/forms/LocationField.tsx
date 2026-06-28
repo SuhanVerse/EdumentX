@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import { colors } from "@/constants/colors";
 import type { LocationValue } from "@/lib/registration";
@@ -11,182 +11,141 @@ type LocationFieldProps = {
 };
 
 /**
- * "Share my location" form card. Two states:
- *  - unset: a primary copper "Use my current location" button +
- *    two manual text fields below (neighborhood + city)
- *  - set: a check disc, neighborhood + city text, "Change" link
+ * "Share my location" form card. Two modes (internal state; the parent
+ * `value` prop is only read on mount):
+ *
+ *   unset — neighborhood + city TextInputs are mounted; the user types
+ *           freely without any keystroke committing. A "Save Location"
+ *           button below the inputs is the *only* way to push the draft
+ *           up to the parent via `onChange(...)`.
+ *
+ *   set   — single summary row (neighborhood, city) with an "Edit" pill
+ *           that flips back to unset with the draft re-populated.
+ *
+ * Why the explicit Save button: the previous implementation called
+ * `onChange(...)` on every keystroke once a minimum-length threshold
+ * was crossed. The parent then flipped its state from `null` to a
+ * populated `LocationValue`, this component re-rendered in the "set"
+ * view, and the TextInputs unmounted. The user perceived this as
+ * "I can only type 3 characters." Removing the threshold was not
+ * enough on its own — even `if (city.length < 0)` would still cause
+ * the parent to flip on the first character. The fix is to decouple
+ * "user is typing" from "parent has a value": the parent only learns
+ * the value when the user explicitly saves.
+ *
+ * Why we initialize from `value` on mount but ignore later updates:
+ * the parent only owns the canonical "last saved" value. While the
+ * user is editing, the draft is the source of truth — yanking it
+ * out from under them when the parent's setLocation callback fires
+ * (e.g. on a re-render) would be jarring.
  */
 export function LocationField({ value, onChange }: LocationFieldProps) {
-  // Local draft — what the user is currently typing. Initialized from
-  // `value` if we already have a committed location; otherwise empty.
-  // Keeping keystrokes in local state means a single character does NOT
-  // flip the parent into the "Set" state; the draft is only committed
-  // (via `onChange`) once it looks like a real location.
+  const [mode, setMode] = useState<"unset" | "set">(value ? "set" : "unset");
   const [draft, setDraft] = useState<LocationValue>(
     value ?? { neighborhood: "", city: "" },
   );
 
-  // Minimum city length before the draft is considered a real location.
-  // See the long comment on `commit()` below for why 3 (not 2). Without
-  // this gate the parent flips to the "Set" view on the very first
-  // keystroke and the TextInputs unmount, making it look like the field
-  // only accepts one character. That bug existed because the constant
-  // was declared here as documentation but the actual `< 0` comparison
-  // was always false — a typo carried over from the original draft.
-  const MIN_CITY_LENGTH = 3;
+  const canSave = draft.city.trim().length > 0;
 
-  const hasValue = value !== null;
-  const [showFallback, setShowFallback] = useState(!hasValue);
-
-  /**
-   * Push the local draft up to the parent as soon as the user has typed
-   * at least `MIN_CITY_LENGTH` non-whitespace chars. We require a minimum
-   * length so that a single keystroke (e.g. "K" while the user is still
-   * typing "Kathmandu") doesn't flip the form into the "Set" state and
-   * hide the input behind a "Change" link — the user would otherwise
-   * think the field is stuck.
-   *
-   * The TextInput itself has NO `maxLength` prop — the user can type
-   * any number of characters into `draft.city`. The 3-char threshold
-   * here only gates the "Set" badge / form-submit eligibility (i.e.
-   * "Kathmandu" works, "Ka" still shows the input but does not flip
-   * the form into the "Set" state).
-   *
-   * Why 3 and not 2? "Ka" or "La" are valid city prefixes while the
-   * user is typing; with a 2-char threshold a city like "Pokhara"
-   * would briefly land in the "Set" state mid-typing and the form
-   * would flip, hiding the input behind the "Change" link. 3 chars
-   * is the minimum that gives every common Nepali city at least one
-   * step of grace before the badge appears.
-   */
-  function commit(next: LocationValue) {
-    const neighborhood = next.neighborhood.trim();
-    const city = next.city.trim();
-    if (city.length < MIN_CITY_LENGTH) {
-      // Below the threshold — keep the draft local so the inputs stay
-      // mounted. We do NOT call onChange(null); the parent will keep
-      // treating the location as "unset" because the previous value
-      // (if any) is unchanged. If the field was already committed we
-      // must NOT clear it just because the user is editing it.
-      return;
-    }
-    onChange({ neighborhood, city });
+  function handleSave() {
+    if (!canSave) return;
+    onChange({
+      neighborhood: draft.neighborhood.trim(),
+      city: draft.city.trim(),
+    });
+    setMode("set");
   }
 
-  function handleGpsTap() {
-    Alert.alert(
-      "Location will be enabled soon",
-      "For now, enter your neighborhood and city manually. The map phase will add real GPS detection.",
-    );
+  function handleEdit() {
+    setMode("unset");
   }
 
-  function handleManualEntry() {
-    setShowFallback(true);
-  }
-
-  if (hasValue && value) {
+  // ---- "set" view — single summary row + Edit pill
+  if (mode === "set") {
+    const summary = `${value?.neighborhood ? `${value.neighborhood}, ` : ""}${value?.city ?? ""}`;
     return (
-      <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-overline text-text-muted uppercase">
-            Your location
-          </Text>
-          <View className="flex-row items-center gap-1">
-            <Ionicons color={colors.semantic.success} name="checkmark-circle" size={14} />
-            <Text className="text-caption text-success font-semibold">
-              Set
-            </Text>
-          </View>
-        </View>
-        <Text className="text-caption text-text-secondary">
-          Used to show you to nearby tutors. You can update this anytime.
-        </Text>
-        <View className="gap-2">
-          <View className="flex-row items-center gap-2 p-3 border-emphasis border-border rounded-xl bg-sand">
-            <View className="w-9 h-9 items-center justify-center rounded-full bg-onb-verify">
-              <Ionicons color={colors.brand.primary} name="location-outline" size={18} />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text className="text-button-sm text-text-primary">
-                {value.neighborhood ? `${value.neighborhood}, ` : ""}
-                {value.city}
-              </Text>
-              <Text className="text-caption text-text-muted">
-                Entered manually
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Change location"
-              onPress={() => onChange(null)}
-              className="min-h-pill-sm px-3 active:opacity-70"
-            >
-              <Text className="text-button-sm text-text-primary">Change</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-      <View className="flex-row items-center justify-between">
+      <View className="gap-2">
         <Text className="text-overline text-text-muted uppercase">
           Your location
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit location"
+          onPress={handleEdit}
+          className="flex-row items-center justify-between bg-surface border border-border rounded-card min-h-input px-4 active:opacity-80"
+        >
+          <View className="flex-row items-center gap-2 flex-1">
+            <Ionicons
+              color={colors.brand.primary}
+              name="location-outline"
+              size={18}
+            />
+            <Text
+              className="text-body-lg text-text-primary flex-1"
+              numberOfLines={1}
+            >
+              {summary}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
+            <Ionicons
+              color={colors.text.secondary}
+              name="pencil"
+              size={11}
+            />
+            <Text className="text-micro text-text-secondary font-medium">
+              Edit
+            </Text>
+          </View>
+        </Pressable>
       </View>
-      <Text className="text-caption text-text-secondary">
-        Used to show you to nearby learners. You can update this anytime.
+    );
+  }
+
+  // ---- "unset" view — two TextInputs + Save button
+  return (
+    <View className="gap-3">
+      <Text className="text-overline text-text-muted uppercase">
+        Your location
       </Text>
 
-      {!showFallback ? (
-        <View className="gap-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Use my current location"
-            onPress={handleGpsTap}
-            className="min-h-input rounded-card bg-amber flex-row items-center justify-center gap-2 active:opacity-90"
-          >
-            <Ionicons color="white" name="navigate-outline" size={18} />
-            <Text className="text-button text-white font-semibold">
-              Use my current location
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleManualEntry}
-            className="min-h-pill-sm items-center justify-center active:opacity-70"
-          >
-            <Text className="text-caption text-text-muted">or enter manually</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View className="gap-2">
+      <View className="gap-2">
+        <View className="min-h-input px-3 justify-center border-2 border-border rounded-md bg-surface">
           <TextInput
             value={draft.neighborhood}
-            onChangeText={(neighborhood) => {
-              const next = { neighborhood, city: draft.city };
-              setDraft(next);
-              commit(next);
-            }}
+            onChangeText={(neighborhood) =>
+              setDraft({ neighborhood, city: draft.city })
+            }
             placeholder="Neighborhood (e.g., Patan)"
             placeholderTextColor={colors.text.muted}
-            className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"
-          />
-          <TextInput
-            value={draft.city}
-            onChangeText={(city) => {
-              const next = { neighborhood: draft.neighborhood, city };
-              setDraft(next);
-              commit(next);
-            }}
-            placeholder="City (e.g., Lalitpur)"
-            placeholderTextColor={colors.text.muted}
-            className="min-h-input px-3 border-emphasis border-border rounded-md bg-surface text-body-lg text-text-primary"
+            className="text-body-lg text-text-primary"
           />
         </View>
-      )}
+        <View className="min-h-input px-3 justify-center border-2 border-border rounded-md bg-surface">
+          <TextInput
+            value={draft.city}
+            onChangeText={(city) =>
+              setDraft({ neighborhood: draft.neighborhood, city })
+            }
+            placeholder="City (e.g., Lalitpur)"
+            placeholderTextColor={colors.text.muted}
+            className="text-body-lg text-text-primary"
+          />
+        </View>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Save location"
+        accessibilityState={{ disabled: !canSave }}
+        disabled={!canSave}
+        onPress={handleSave}
+        className="min-h-cta-amber rounded-md items-center justify-center bg-amber active:opacity-90 disabled:opacity-50"
+      >
+        <Text className="text-button-sm text-white font-semibold">
+          Save Location
+        </Text>
+      </Pressable>
     </View>
   );
 }

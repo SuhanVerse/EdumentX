@@ -62,7 +62,20 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
 
     try {
       const { publicUrl } = await uploadAvatar(uid, localUri);
-      onChange(publicUrl);
+      // Cache-buster: `uploadAvatar` always writes to `{bucket}/{uid}.jpg`
+      // (`upsert: true`), so the returned `publicUrl` is identical
+      // between uploads. React Native's `<Image source={{ uri }}>`
+      // keys on the URI string and treats a same-URI prop as "same
+      // image" — the network layer skips the refetch and the old
+      // pixels stay on screen. Appending `?t=${Date.now()}` forces
+      // the loader to re-fetch the new bytes.
+      //
+      // The cache-buster is purely a render-time concern — Supabase
+      // ignores query params when serving the file, and the persisted
+      // Firestore value is functionally the same URL. (If we ever
+      // need a clean URL on disk, strip `?t=…` in the form submit
+      // handler — out of scope for this fix.)
+      onChange(`${publicUrl}?t=${Date.now()}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown upload error";
       Alert.alert("Upload failed", message);

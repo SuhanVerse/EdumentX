@@ -188,16 +188,14 @@ export function EmailSignUp() {
     setIsCheckingVerified(true);
     try {
       const { getApp } = await import("@react-native-firebase/app");
-      const { getAuth, reload } = await import("@react-native-firebase/auth");
+      const { getAuth } = await import("@react-native-firebase/auth");
       const currentUser = getAuth(getApp()).currentUser;
       if (!currentUser) {
         Alert.alert("Session expired", "Please sign in again.");
         setPendingEmail(null);
         return;
       }
-      // Modular v22+ — pass the user as the first arg, not the
-      // deprecated instance method (`currentUser.reload()`).
-      await reload(currentUser);
+      await currentUser.reload();
       if (currentUser.emailVerified) {
         // Sync the local store with the (now-verified) user, then let
         // the _layout.tsx guard take over the routing.
