@@ -4,7 +4,9 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithCredential,
   sendEmailVerification,
+  signOut,
 } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -57,7 +59,7 @@ export const signInWithGoogle = async (): Promise<FirebaseAuthTypes.UserCredenti
     throw new Error('No ID token returned by Google Sign-In.');
   }
   const googleCredential = GoogleAuthProvider.credential(data.idToken);
-  return await auth.signInWithCredential(googleCredential);
+  return await signInWithCredential(auth, googleCredential);
 };
 
 /**
@@ -100,7 +102,10 @@ export const signUpWithEmail = async (
  * email send fails.
  */
 export const sendVerificationAgain = async (): Promise<void> => {
-  const user = auth.currentUser;
+  // Modular v22+ — re-fetch the auth instance rather than reading the
+  // cached `auth` module-level binding's `.currentUser`. The latter is
+  // the deprecated instance method and logs a warning on every call.
+  const user = getAuth(getApp()).currentUser;
   if (!user) {
     throw new Error('No signed-in user to verify.');
   }
@@ -126,5 +131,5 @@ export const loginWithEmail = async (
  * routes to the auth screen.
  */
 export const logout = async (): Promise<void> => {
-  await auth.signOut();
+  await signOut(auth);
 };

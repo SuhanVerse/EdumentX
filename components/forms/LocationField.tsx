@@ -26,6 +26,15 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
     value ?? { neighborhood: "", city: "" },
   );
 
+  // Minimum city length before the draft is considered a real location.
+  // See the long comment on `commit()` below for why 3 (not 2). Without
+  // this gate the parent flips to the "Set" view on the very first
+  // keystroke and the TextInputs unmount, making it look like the field
+  // only accepts one character. That bug existed because the constant
+  // was declared here as documentation but the actual `< 0` comparison
+  // was always false — a typo carried over from the original draft.
+  const MIN_CITY_LENGTH = 3;
+
   const hasValue = value !== null;
   const [showFallback, setShowFallback] = useState(!hasValue);
 
@@ -53,8 +62,12 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
   function commit(next: LocationValue) {
     const neighborhood = next.neighborhood.trim();
     const city = next.city.trim();
-    if (city.length < 0) {
-      onChange(null);
+    if (city.length < MIN_CITY_LENGTH) {
+      // Below the threshold — keep the draft local so the inputs stay
+      // mounted. We do NOT call onChange(null); the parent will keep
+      // treating the location as "unset" because the previous value
+      // (if any) is unchanged. If the field was already committed we
+      // must NOT clear it just because the user is editing it.
       return;
     }
     onChange({ neighborhood, city });
