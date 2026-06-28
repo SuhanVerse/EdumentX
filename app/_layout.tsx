@@ -26,9 +26,18 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 // Map from a raw Firestore `role` string to the route we want to land on
 // after a successful sign-in. We do the role→route mapping in one place so
 // the layout guard, dashboards, and tests all agree.
-function dashboardPathForRole(role: UserRole): "/profile-tutor" | "/profile-student" {
-  if (role === "tutor") return "/profile-tutor";
-  return "/profile-student";
+//
+// IMPORTANT: this must return the dashboard routes (`/student-home`,
+// `/tutor-home`), NOT the profile-setup routes (`/profile-student`,
+// `/profile-tutor`). The profile-setup routes are reachable via
+// `RoleSelection.tsx` after a brand-new user picks a role — that's the
+// only legitimate path. Returning the profile-setup routes from this
+// helper would bounce every returning user back to the profile-setup
+// screen on re-login ("re-login profile-setup flash"). The dashboards
+// are the correct destination for `user && verified && role`.
+function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
+  if (role === "tutor") return "/tutor-home";
+  return "/student-home";
 }
 
 export default function RootLayout() {
