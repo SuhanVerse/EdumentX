@@ -3,19 +3,14 @@ import { getApp } from "@react-native-firebase/app";
 import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import {
+  getFirestore,
   doc,
   getDoc,
-  getFirestore,
-  serverTimestamp,
   setDoc,
+  serverTimestamp,
 } from "@react-native-firebase/firestore";
-import {
-  Stack,
-  useRootNavigationState,
-  useRouter,
-  useSegments,
-} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -28,12 +23,18 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // The native splash module is not always available in dev. Safe to ignore.
 });
 
-/**
- * Map a `users/{uid}.role` value to the matching dashboard route. The
- * `_layout.tsx` guard, the dashboards, and any tests should all funnel
- * through this single helper so the route stays in lock-step with the
- * `UserRole` type.
- */
+// Map from a raw Firestore `role` string to the route we want to land on
+// after a successful sign-in. We do the role→route mapping in one place so
+// the layout guard, dashboards, and tests all agree.
+//
+// IMPORTANT: this must return the dashboard routes (`/student-home`,
+// `/tutor-home`), NOT the profile-setup routes (`/profile-student`,
+// `/profile-tutor`). The profile-setup routes are reachable via
+// `RoleSelection.tsx` after a brand-new user picks a role — that's the
+// only legitimate path. Returning the profile-setup routes from this
+// helper would bounce every returning user back to the profile-setup
+// screen on re-login ("re-login profile-setup flash"). The dashboards
+// are the correct destination for `user && verified && role`.
 function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
   if (role === "tutor") return "/tutor-home";
   return "/student-home";
@@ -100,6 +101,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isNavigatorReady) return;
     if (isLoading) return;
+
+    // No rAF wrap here — the reference working commit fires
+    // `router.replace` synchronously inside the effect body once
+    // `useRootNavigationState().key` is truthy. The previous Round 3
+    // rAF wrap deferred past the navigator's internal mount handoff,
+    // but the user reports that restore-to-reference is the
+    // authoritative fix for the auth-flow regressions. If the
+    // "navigate before mounting" error recurs in a future emulator
+    // run we can reintroduce the rAF with the cancelAnimationFrame
+    // cleanup; for now parity with the working reference wins.
     const currentRoute = segments.join("/");
 
     if (!user) {
@@ -145,15 +156,18 @@ export default function RootLayout() {
     }
 
     // Signed in + verified + has role → route to the matching
-    // dashboard. We allow `role-selection` and the `profile-*`
-    // screens through so a returning user can re-edit their profile
-    // if they want. We deliberately do **not** allow `email-signup`:
-    // a verified user with a role who is sitting on /email-signup
-    // is the "post-login flash" trap — the redirect tree sent them
-    // there for one render while `role` was still `null`, and the
-    // guard sees them there, finds them in the allowlist, and
-    // refuses to advance them. Drop them from the list so the next
-    // render pushes them to the dashboard.
+    // dashboard. We allow the auth-flow screens and the student
+    // dashboard sub-screens through so a signed-in student can move
+    // freely between Home / Map / AI / Enrollments / Profile without
+    // being bounced back to the dashboard.
+    //
+    // We deliberately do **not** allow `email-signup`: a verified
+    // user with a role who is sitting on /email-signup is the
+    // "post-login flash" trap — the redirect tree sent them there
+    // for one render while `role` was still `null`, and the guard
+    // sees them there, finds them in the allowlist, and refuses to
+    // advance them. Drop them from the list so the next render
+    // pushes them to the dashboard.
     const target = dashboardPathForRole(role);
     const allowedForSignedIn = new Set<string>([
       "role-selection",
@@ -161,6 +175,24 @@ export default function RootLayout() {
       "profile-tutor",
       "student-home",
       "tutor-home",
+      // Student sub-screens (Phase 4 dashboard shell). These are
+      // reachable via the BottomNav; the guard must allow them or
+      // it will replace them back to the dashboard on the next
+      // render.
+      "map-search",
+      "AI-chat",
+      "enrollment",
+      "stu-profile",
+      // Tutor sub-screens (feature/tutor merge). Reachable from the
+      // TutorBottomBar.
+      "batches",
+      "tutor-inbox",
+      "tutor_edit_profile",
+      // Shared screens reachable from student surfaces (e.g.
+      // StudentProfile's "Notifications" row routes to
+      // /notification).
+      "notification",
+      "filters-sheet",
     ]);
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
@@ -354,14 +386,29 @@ export default function RootLayout() {
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
         <Stack screenOptions={{ headerShown: false }}>
+          {/* Auth flow */}
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="email-signup" />
           <Stack.Screen name="role-selection" />
+          {/* Profile collection (post-role-pick) */}
           <Stack.Screen name="profile-student" />
           <Stack.Screen name="profile-tutor" />
+          {/* Dashboards */}
           <Stack.Screen name="student-home" />
           <Stack.Screen name="tutor-home" />
+          {/* Student sub-screens (BottomNav targets) */}
+          <Stack.Screen name="map-search" />
+          <Stack.Screen name="AI-chat" />
+          <Stack.Screen name="enrollment" />
+          <Stack.Screen name="stu-profile" />
+          {/* Tutor sub-screens (TutorBottomBar targets) */}
+          <Stack.Screen name="batches" />
+          <Stack.Screen name="tutor-inbox" />
+          <Stack.Screen name="tutor_edit_profile" />
+          {/* Shared */}
+          <Stack.Screen name="notification" />
+          <Stack.Screen name="filters-sheet" />
         </Stack>
         {isLoading ? (
           <View

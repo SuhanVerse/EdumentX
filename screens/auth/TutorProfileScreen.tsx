@@ -240,6 +240,15 @@ export function TutorProfileScreen() {
           username: username.trim(),
           fullName: fullName.trim(),
           email: authEmail.trim(),
+          // `photoUrl` is the Supabase public URL returned by
+          // `uploadAvatar()` after the user picks a photo. We
+          // persist it on the profile doc so the tutor profile tab
+          // (and any future marketplace cards) can render it
+          // without re-uploading. A profile without a photo is a
+          // valid state — we skip the field when no image was
+          // picked so we never write `null` (which would clobber a
+          // real URL on a subsequent edit).
+          ...(avatarUri ? { photoUrl: avatarUri } : {}),
           updatedAt: now,
         },
         { merge: true },
@@ -487,7 +496,7 @@ export function TutorProfileScreen() {
             accessibilityRole="button"
             disabled={!canSubmit || isSaving}
             onPress={handleSubmit}
-            className="min-h-btn-lg mt-4 rounded-lg items-center justify-center shadow-md bg-amber active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
+            className="min-h-btn-lg mt-4 rounded-card items-center justify-center shadow-md bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
           >
             <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               {isSaving ? "Saving..." : "Finish setup"}

@@ -1,9 +1,11 @@
 # EdumentX — Zero-Budget Hybrid Architecture
 
 > **Status**: Source of truth for the production stack.
-> **Last updated**: June 22, 2026 — locked in after the Firebase Blaze-plan
-> gate was confirmed unshippable (College demo project; no international
-> credit card available in Nepal).
+> **Last updated**: June 27, 2026 — Phase 3 (3D onboarding + animated
+> splash + reusable UI primitives) shipped. Four new JS-side
+> dependencies added (expo-gl, three, @react-three/fiber,
+> @react-three/drei) — all MIT, all keyless, all on the free tier.
+> See §4a for the 3D stack rationale.
 > **Read this first** if you are about to add a new backend dependency.
 
 This document is the canonical reference for every service the EdumentX
@@ -34,6 +36,7 @@ been working since Phase 2.
 | **RAG / Chatbot** | Groq Cloud API (Llama 3) **or** HuggingFace Serverless | Free dev tier | No |
 | **Push (future)** | Firebase Cloud Messaging | Unlimited | No |
 | **Analytics (future)** | Firebase Analytics | Unlimited events | No |
+| **3D / Animations** | `expo-gl` + `@react-three/fiber` + `@react-three/drei` + `three` | MIT (all 4) | No |
 
 If a future feature needs a service not on this list, **stop and add a
 row to this table before writing any code**. Do not introduce a paid
@@ -137,7 +140,12 @@ the "for development purposes only" watermark. OSM tiles are free,
 keyless, and have excellent coverage of Kathmandu Valley.
 
 **Setup**:
-- `react-native-maps` is already in the dependency tree (Phase 1.5).
+- `react-native-maps` install is **deferred to Phase 5.2** (it is
+  NOT in the dependency tree today — see commit history; the
+  earlier "Phase 1.5" note pre-dated the NativeWind migration
+  pruning and is stale). When Phase 5.2 lands, install via
+  `npx expo install react-native-maps` to pick up the SDK 54 native
+  version.
 - No API key needed; we use the `<UrlTile>` component to point at
   `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
 
@@ -171,6 +179,74 @@ request/second per IP. Heavy batch geocoding should use the
 
 **Hard rule**: respect the 1 req/sec rate limit. Debounce all
 autocomplete keystrokes to 800 ms minimum.
+
+---
+
+## 4a. 3D + Animations — `expo-gl` + `@react-three/fiber` + `@react-three/drei` + `three`
+
+**Why**: Phase 3 (June 27, 2026) ships 3D scenes in two of the three
+onboarding slides (Discover map + AI Match orb) and a polished
+Reanimated 4 splash + onboarding flow. The 3D stack has to be
+zero-budget — and it is, because **all four packages are MIT** and
+none of them ship a cloud component. The only one with native code
+is `expo-gl` (the GL context provider); the other three are pure
+JS, so the EAS dev-client rebuild cost is the same single rebuild
+as if we had added just `expo-gl`.
+
+| Package | Version | Role | Native? |
+|---|---|---|---|
+| `expo-gl` | `~16.0.10` | OpenGL ES view + context (the only native module) | Yes |
+| `@react-three/fiber` | `^9.0.4` | React renderer for three.js scenes. We import from `/native` subpath → RN-safe entrypoint that skips Web-only DOM/document/window shims. | No (pure JS) |
+| `@react-three/drei` | `^10.0.0` | Helpers (`<Float>`, `<Sparkles>`). Same `/native` subpath rule. | No (pure JS) |
+| `three` | `^0.171.0` | Underlying WebGL renderer + math. R3F drives it. | No (pure JS) |
+
+**Why not a paid 3D engine?** Lume, React Three Fiber editor, and
+anything branded "Studio" either wants a card or ships telemetry.
+The bare R3F stack gives us the same shader pipeline at $0.
+
+**Why `/native` subpaths?** The default `@react-three/fiber` index
+references Web-only modules (e.g. `react-dom` for some reconciler
+plugins). On RN they crash on import with "document is not
+defined". The `/native` subpath is the curated RN-safe entrypoint
+that swaps in the ExpoGL-compatible reconciler. Same rule for
+`@react-three/drei/native`.
+
+**Performance budgets**:
+- `dpr={[1, 2]}` on the native `<Canvas>` — clamps the device
+  pixel ratio to 2 so a 4K Android tablet doesn't melt.
+- One GL context per `<PremiumHero3D>` instance — slides 1 and 2
+  each get their own context; slide 3 is SVG so no context at all.
+- All particle drift (splash) is **pure Reanimated 4 worklets** —
+  no GL — so the splash surface stays clean for the future custom
+  EdumentX logo (which can be a flat `<Image>` or `<Svg>`).
+
+**Code map**:
+- `components/premium/PremiumHero3D.tsx` — `<Canvas>` wrapper with
+  the shared lighting rig (ambient + directional) and a `<Suspense>`
+  boundary for drei's async helpers. `pointerEvents="none"` by
+  default so the Next button beneath the GL surface still receives
+  taps.
+- `components/illustrations/DiscoverScene3D.tsx` — 3×3 sand-tile
+  grid + 3 tutor-pin cones + a pulsing amber beacon (rotates on Y,
+  beacon pulses via `useFrame` + `Math.sin`).
+- `components/illustrations/AiOrb3D.tsx` — `<Float>`-wrapped indigo
+  sphere + off-centre highlight + 20 `<Sparkles>` amber particles.
+- `components/premium/SplashParticleField.tsx` — 24-particle
+  ambient drift behind the splash logo (no GL).
+- `screens/onboarding/OnboardingScreen.tsx` — mounts the 3D scenes
+  inside `<PremiumHero3D>` for slides 1 + 2.
+- `screens/onboarding/SplashScreen.tsx` — Reanimated 4 rewrite
+  (dropped legacy `Animated.Value` + `Animated.timing`).
+
+**Hard rules**:
+- Never wrap `<Canvas>` in an outer `<GLView>` — the native Canvas
+  mounts its own GLView internally and stacking two contexts crashes
+  silently.
+- Never import from `@react-three/fiber` (default) — always from
+  `@react-three/fiber/native`. Same for drei.
+- Never load `.glb` / `.gltf` files until Phase 5.x ships Supabase
+  Storage — Metro is already configured (Phase 2 prep) to accept
+  those extensions, but no mesh should depend on them yet.
 
 ---
 
@@ -279,6 +355,23 @@ components/
   map/                      # TO CREATE in Phase 5.2
     TutorMap.tsx
     TutorMarker.tsx
+  premium/                  # Phase 3 — 3D + animation primitives
+    PremiumHero3D.tsx       # GLView + R3F Canvas wrapper for onboarding
+    SplashParticleField.tsx # 24-particle ambient drift behind splash
+  ui/                       # Phase 3 — reusable primitives
+    PrimaryButton.tsx       # primary/accent/ghost, Reanimated 4 spring press
+    PaginationDots.tsx      # onboarding dots with spring-snap width
+    SearchBar.tsx           # input with optional right icon
+    Avatar.tsx              # initials-first circular avatar
+  domain/                   # Phase 3 — listing cards
+    TutorCard.tsx           # `wide` + `compact-h` variants over MOCK_TUTORS
+
+lib/
+  mock/                     # Phase 3 — typed seed data
+    tutors.ts               # `MOCK_TUTORS` (12 Nepali tutors) + formatNpr()
+
+types/
+  onboarding.ts             # Phase 3 — extracted OnboardingSlide type
 ```
 
 ---
@@ -289,10 +382,9 @@ components/
 |-------|--------|-------|
 | 1.5 Foundation (NativeWind) | ✅ Done | Source-of-truth tokens in `tailwind.config.js` |
 | 2 Native Firebase Auth | ✅ Done | `EmailSignUp.tsx` + `RoleSelection.tsx` + `StudentProfileScreen.tsx` + `TutorProfileScreen.tsx` |
-| 3 Firestore rules + deploy | ✅ Done | `firebase/firestore.rules`, `npm run deploy:rules` |
-| 4 Dashboards | ✅ UI shipped | Live Firestore reads wired in Phase 2 |
+| 3 Onboarding 3D + Animations + UI Primitives | ✅ Done | Two of three onboarding slides upgraded to real WebGL (`expo-gl` + R3F), splash polished with Reanimated 4 + particle field, `PrimaryButton` / `PaginationDots` / `SearchBar` / `Avatar` / `TutorCard` primitives + `MOCK_TUTORS` seed. See §4a. |
 | 5.1 Supabase Storage | ⏳ Next | Keys already in `.env`; create `services/supabase/storage.ts` |
-| 5.2 OpenStreetMap tiles | ⏳ Next | Create `components/map/TutorMap.tsx` |
+| 5.2 OpenStreetMap tiles | ⏳ Next | Create `components/map/TutorMap.tsx` + install `react-native-maps` |
 | 5.3 Nominatim geocoding | ⏳ Pending | Upgrade `LocationField` |
 | 5.4 Client-side KNN | ⏳ Pending | `lib/location/knn.ts` |
 | 6 Admin + Verification | ⏳ Pending | Supabase `private-verification-docs` bucket |

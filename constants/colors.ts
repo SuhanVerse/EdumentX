@@ -27,6 +27,7 @@ export const colors = {
     verification: '#047857',
     verificationLight: '#ECFDF5',
     ai: '#4F46E5',
+    aiDark: '#312E81',
     splash: '#0F172A',
     splashText: '#F1F5F9',
     splashTrack: 'rgba(241, 245, 249, 0.12)',
