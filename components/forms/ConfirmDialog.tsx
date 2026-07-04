@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { ReactNode } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 
 /**
@@ -24,7 +25,16 @@ export function ConfirmDialog({
 }: {
   visible: boolean;
   title: string;
-  message: string;
+  /**
+   * Body of the dialog. Accepts `string | ReactNode` so callers can
+   * pass plain text (logout, simple confirmations) or a small JSX
+   * block (UserManagement's soft-delete dialog has multi-paragraph
+   * copy with a bold span). Rendered verbatim inside a centered
+   * `<Text>` block when a string is passed; rendered as a
+   * `<View>`-wrapped fragment when JSX is passed (so any inner
+   * `<Text>` doesn't get wrapped twice).
+   */
+  message: string | ReactNode;
   confirmLabel: string;
   cancelLabel: string;
   destructive?: boolean;
@@ -69,9 +79,13 @@ export function ConfirmDialog({
           <Text className="text-section-title font-medium text-text-primary text-center">
             {title}
           </Text>
-          <Text className="text-body text-text-secondary text-center mt-1.5">
-            {message}
-          </Text>
+          {typeof message === "string" ? (
+            <Text className="text-body text-text-secondary text-center mt-1.5">
+              {message}
+            </Text>
+          ) : (
+            <View className="mt-1.5">{message}</View>
+          )}
 
           <View className="mt-5 gap-2">
             <Pressable

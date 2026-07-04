@@ -1,0 +1,779 @@
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { ReactNode, useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { AdminNav } from "@/components/shared/AdminNav";
+import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+
+/**
+ * EdumentX — User Management (Admin)
+ *
+ * Fetches users from Firestore `users` collection.
+ * Shows: name, email, role, status (active/suspended/deleted).
+ * Actions: Suspend/Reinstate, Soft Delete (with confirmation overlay).
+ * Deleted users are hidden from the active list but retained in DB.
+ */
+
+type UserRole = "student" | "tutor" | "admin";
+type UserStatus = "active" | "suspended" | "deleted";
+
+type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatar?: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string; // ISO string
+  deletedAt?: string;
+  verified: boolean;
+};
+
+type RoleFilter = "All" | "Student" | "Tutor" | "Admin";
+type StatusFilter = "All" | "Active" | "Suspended" | "Deleted";
+
+export function UserManagement() {
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  // `loadError` is non-null when the Firestore read failed AND the
+  // admin hasn't opted in to seeing the dev-only mock fallback. We
+  // surface this as a visible empty state (with a "Show demo data"
+  // pill) instead of silently swapping in MOCK_USERS — silently
+  // rendering mock data hides real failures and makes the user list
+  // look populated when it isn't. The mock fallback is now
+  // deliberately opt-in and only available in dev (`__DEV__`).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showMock, setShowMock] = useState(false);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
+
+  // Fetch users from Firestore.
+  //
+  // Important Firestore detail: `orderBy("createdAt", "desc")` requires
+  // a composite index on (createdAt) — without it the call fails with
+  // `failed-precondition: The query requires an index`. We keep the
+  // orderBy (newest-first is the right default) but on failure we
+  // fall back to an un-ordered query so the admin can still see *all*
+  // users. The index can be created from the error URL or via
+  // `firebase deploy --only firestore:indexes` (Phase 5).
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUsers() {
+      try {
+        // Dynamic import to avoid circular deps
+        const { getFirestore } = await import("@react-native-firebase/firestore");
+        const { getApp } = await import("@react-native-firebase/app");
+        const { collection, getDocs, query, orderBy } = await import(
+          "@react-native-firebase/firestore"
+        );
+
+        const db = getFirestore(getApp());
+        const usersRef = collection(db, "users");
+
+        // Try the indexed query first; on `failed-precondition`, fall
+        // back to an un-ordered read so the screen still loads.
+        let snapshot;
+        try {
+          const q = query(usersRef, orderBy("createdAt", "desc"));
+          snapshot = await getDocs(q);
+        } catch (indexErr: any) {
+          if (indexErr?.code === "firestore/failed-precondition") {
+            console.warn(
+              "UserManagement: missing createdAt index, falling back to un-ordered read",
+            );
+            snapshot = await getDocs(usersRef);
+          } else {
+            throw indexErr;
+          }
+        }
+
+        if (cancelled) return;
+
+        const fetched: AdminUser[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          fetched.push({
+            id: doc.id,
+            name: data.displayName || data.username || data.email?.split("@")[0] || "Unknown",
+            email: data.email || "",
+            phone: data.phone || "",
+            avatar: data.avatar || "",
+            role: (data.role as UserRole) || "student",
+            status: (data.status as UserStatus) || "active",
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            deletedAt: data.deletedAt?.toDate?.()?.toISOString() || "",
+            verified: data.verified || false,
+          });
+        });
+        setUsers(fetched);
+        setLoadError(null);
+      } catch (err: any) {
+        if (cancelled) return;
+        console.warn("UserManagement: failed to fetch users", err);
+        setLoadError(
+          err?.code
+            ? `${err.code}: ${err.message ?? "unknown error"}`
+            : (err?.message ?? "Unknown error fetching users"),
+        );
+        setUsers([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The visible list is `users` (live data) OR `MOCK_USERS` if the
+  // dev fallback was opted-in. We keep them in separate state slots
+  // so a successful re-fetch flips back to live data automatically.
+  const visibleUsers = users.length > 0 || !showMock ? users : MOCK_USERS;
+
+  // Filter logic — operates on the visible list, not the raw Firestore
+  // result, so the dev fallback respects the same status / role /
+  // search filters.
+  const filtered = visibleUsers.filter((u) => {
+    if (statusFilter !== "All" && u.status !== statusFilter.toLowerCase()) return false;
+    if (roleFilter !== "All" && u.role !== roleFilter.toLowerCase()) return false;
+    const searchLower = search.toLowerCase();
+    if (
+      search &&
+      !u.name.toLowerCase().includes(searchLower) &&
+      !u.email.toLowerCase().includes(searchLower)
+    ) return false;
+    return true;
+  });
+
+  // Active users (for main list) vs deleted (hidden by default)
+  const activeUsers = filtered.filter((u) => u.status !== "deleted");
+  const deletedCount = visibleUsers.filter((u) => u.status === "deleted").length;
+
+  const toggleSuspend = async (user: AdminUser) => {
+    if (showMock && users.length === 0) {
+      Alert.alert(
+        "Demo data",
+        "Suspend / reinstate writes are disabled while demo data is being shown. Wait for the next successful refresh to manage live users.",
+      );
+      return;
+    }
+    const newStatus = user.status === "active" ? "suspended" : "active";
+    try {
+      const { getFirestore } = await import("@react-native-firebase/firestore");
+      const { getApp } = await import("@react-native-firebase/app");
+      const { doc, updateDoc } = await import("@react-native-firebase/firestore");
+
+      const db = getFirestore(getApp());
+      await updateDoc(doc(db, "users", user.id), {
+        status: newStatus,
+        updatedAt: new Date(),
+      });
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+      );
+    } catch (err) {
+      console.error("Failed to update user status", err);
+      Alert.alert("Error", "Failed to update user status. Please try again.");
+    }
+  };
+
+  const confirmDelete = (user: AdminUser) => {
+    if (showMock && users.length === 0) {
+      Alert.alert(
+        "Demo data",
+        "Delete is disabled while demo data is being shown. Wait for the next successful refresh to manage live users.",
+      );
+      return;
+    }
+    setDeleteUser(user);
+    setShowDeleteConfirm(user.id);
+  };
+
+  const executeSoftDelete = async () => {
+    if (!deleteUser) return;
+
+    try {
+      const { getFirestore } = await import("@react-native-firebase/firestore");
+      const { getApp } = await import("@react-native-firebase/app");
+      const { doc, updateDoc } = await import("@react-native-firebase/firestore");
+
+      const db = getFirestore(getApp());
+      await updateDoc(doc(db, "users", deleteUser.id), {
+        status: "deleted",
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === deleteUser.id ? { ...u, status: "deleted", deletedAt: new Date().toISOString() } : u
+        )
+      );
+    } catch (err) {
+      console.error("Failed to soft delete user", err);
+      Alert.alert("Error", "Failed to delete user. Please try again.");
+    } finally {
+      setShowDeleteConfirm(null);
+      setDeleteUser(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(null);
+    setDeleteUser(null);
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <StatusBar style="dark" />
+
+      {/* Header */}
+      <View className="bg-night px-5 pb-6 shrink-0">
+        <View className="flex-row items-center justify-between mt-2 mb-4">
+          <View>
+            <Text className="text-body text-white/70 mb-0.5">Management</Text>
+            <Text className="text-screen-title font-medium text-white">
+              User Management
+            </Text>
+          </View>
+          <Text className="text-caption text-white/60">
+            {visibleUsers.filter((u) => u.status !== "deleted").length} users · {deletedCount} deleted
+          </Text>
+        </View>
+
+        {/* Search */}
+        <View className="bg-surface rounded-xl h-11 flex-row items-center px-3 gap-2.5">
+          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search users..."
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 text-body-lg text-text-primary"
+          />
+          {search.length > 0 && (
+            <Pressable
+              accessibilityLabel="Clear search"
+              onPress={() => setSearch("")}
+              className="active:opacity-70"
+            >
+              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-4 flex-row gap-2 pb-1"
+          contentContainerStyle={{ paddingRight: 16 }}
+        >
+          {(["All", "Active", "Suspended", "Deleted"] as StatusFilter[]).map((f) => {
+            const count =
+              f === "All"
+                ? visibleUsers.length
+                : f === "Deleted"
+                  ? deletedCount
+                  : visibleUsers.filter((u) => u.status === f.toLowerCase()).length;
+            const isActive = statusFilter === f;
+            return (
+              <Pressable
+                key={f}
+                accessibilityRole="tab"
+                accessibilityLabel={`${f} users`}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => setStatusFilter(f)}
+                className={
+                  isActive
+                    ? "px-3 py-1.5 rounded-pill bg-amber active:opacity-80"
+                    : "px-3 py-1.5 rounded-pill bg-sand active:opacity-80"
+                }
+              >
+                <Text
+                  className={
+                    isActive
+                      ? "text-button-sm font-medium text-text-inverse"
+                      : "text-button-sm font-medium text-text-secondary"
+                  }
+                >
+                  {f}
+                </Text>
+                {count > 0 && (
+                  <View className={`ml-1.5 ${isActive ? "bg-surface/30" : "bg-white/50"} px-1.5 py-0.5 rounded-full`}>
+                    <Text
+                      className={
+                        isActive
+                          ? "text-micro font-semibold text-text-inverse"
+                          : "text-micro font-semibold text-text-muted"
+                      }
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Role Filter */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-2 flex-row gap-2 pb-1"
+          contentContainerStyle={{ paddingRight: 16 }}
+        >
+          {(["All", "Student", "Tutor", "Admin"] as RoleFilter[]).map((r) => {
+            const count =
+              r === "All"
+                ? visibleUsers.length
+                : visibleUsers.filter((u) => u.role === r.toLowerCase()).length;
+            const isActive = roleFilter === r;
+            return (
+              <Pressable
+                key={r}
+                accessibilityRole="tab"
+                accessibilityLabel={`${r} users`}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => setRoleFilter(r)}
+                className={
+                  isActive
+                    ? "px-3 py-1.5 rounded-pill bg-ai-light active:opacity-80"
+                    : "px-3 py-1.5 rounded-pill bg-sand active:opacity-80"
+                }
+              >
+                <Text
+                  className={
+                    isActive
+                      ? "text-button-sm font-medium text-ai"
+                      : "text-button-sm font-medium text-text-secondary"
+                  }
+                >
+                  {r}
+                </Text>
+                {count > 0 && (
+                  <View className={`ml-1.5 ${isActive ? "bg-ai/30" : "bg-white/50"} px-1.5 py-0.5 rounded-full`}>
+                    <Text
+                      className={
+                        isActive
+                          ? "text-micro font-semibold text-ai"
+                          : "text-micro font-semibold text-text-muted"
+                      }
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* List */}
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4 pb-8"
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <View className="items-center justify-center pt-20">
+            <Text className="text-body text-text-muted">Loading users…</Text>
+          </View>
+        ) : activeUsers.length === 0 ? (
+          <EmptyState
+            title={deriveEmptyTitle({
+              search,
+              roleFilter,
+              statusFilter,
+              loadError,
+              usingMock: showMock && users.length === 0,
+            })}
+            subtitle={deriveEmptySubtitle({ loadError, usingMock: showMock && users.length === 0 })}
+            icon="people-outline"
+          >
+            {/* Dev-only fallback: when the live read failed, offer a
+                "Show demo data" pill so the screen isn't completely
+                empty in dev. In production this pill is hidden by
+                `__DEV__`. Once the dev pill is tapped, the
+                `showMock` flag flips and the visible list re-renders
+                from MOCK_USERS until the next successful re-fetch. */}
+            {loadError && users.length === 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Show demo data"
+                onPress={() => setShowMock(true)}
+                className="mt-5 px-4 py-2 rounded-pill bg-amber-light active:opacity-80"
+              >
+                <Text className="text-button-sm font-medium text-amber">
+                  Show demo data
+                </Text>
+              </Pressable>
+            ) : null}
+            {showMock && users.length === 0 ? (
+              <Text className="text-caption text-text-muted mt-3 text-center">
+                Showing demo data. Live data will replace it on the next
+                successful refresh.
+              </Text>
+            ) : null}
+          </EmptyState>
+        ) : (
+          <View className="gap-3">
+            {activeUsers.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                onSuspend={() => toggleSuspend(user)}
+                onDelete={() => confirmDelete(user)}
+              />
+            ))}
+          </View>
+        )}
+        {/* Show a small banner at the bottom when the dev fallback
+            is active so the admin knows the list isn't live. Hidden
+            the moment a successful read flips `users` back to a
+            non-empty array. */}
+        {showMock && users.length === 0 ? (
+          <View className="mt-4 bg-warning-bg border border-amber rounded-card p-3 flex-row items-start gap-2">
+            <Ionicons name="alert-circle" size={16} color="#B45309" />
+            <View className="flex-1">
+              <Text className="text-button-sm font-medium text-warning-text">
+                Demo data
+              </Text>
+              <Text className="text-caption text-text-secondary mt-0.5">
+                The live Firestore read failed ({loadError ?? "unknown error"}).
+                Showing local mock data so the screen isn't empty.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <AdminNav current="/user-management" />
+
+      {/* Soft Delete Confirmation Overlay */}
+      <ConfirmDialog
+        visible={!!showDeleteConfirm}
+        title="Soft delete user?"
+        message={
+          <>
+            <Text className="text-body text-text-secondary">
+              {deleteUser?.name} ({deleteUser?.email}) will be marked as deleted.
+            </Text>
+            <Text className="text-body text-text-secondary mt-2">
+              This is a <Text className="font-semibold">soft delete</Text> — the user data will be retained in the database but hidden from the active user list. The user will lose access to the app.
+            </Text>
+            <Text className="text-caption text-text-muted mt-3">
+              Hard deletion of the Firebase Auth account is a separate admin action (not yet implemented).
+            </Text>
+          </>
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={executeSoftDelete}
+        onCancel={cancelDelete}
+      />
+    </SafeAreaView>
+  );
+}
+
+function UserRow({
+  user,
+  onSuspend,
+  onDelete,
+}: {
+  user: AdminUser;
+  onSuspend: () => void;
+  onDelete: () => void;
+}) {
+  const statusConfig = getStatusConfig(user.status);
+  const roleConfig = getRoleConfig(user.role);
+
+  return (
+    <Pressable
+      className="bg-surface border border-border-subtle rounded-card p-4 flex-row gap-3 items-center active:opacity-80"
+      accessibilityRole="button"
+      accessibilityLabel={`${user.name}, ${roleConfig.label}, ${statusConfig.label}`}
+    >
+      {/* Avatar */}
+      <View className="relative">
+        <View className="w-12 h-12 rounded-full bg-sand items-center justify-center overflow-hidden">
+          {user.avatar ? (
+            <Image
+              source={{ uri: user.avatar }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <Text className="text-card-title font-medium text-amber">
+              {user.name.charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </View>
+        {user.verified && (
+          <View className="absolute -bottom-0.5 -right-0.5">
+            <Ionicons name="checkmark-circle" size={16} color="#047857" />
+          </View>
+        )}
+      </View>
+
+      {/* Info */}
+      <View className="flex-1 min-w-0">
+        <View className="flex-row items-center gap-2 mb-1">
+          <Text className="text-card-title font-medium text-text-primary" numberOfLines={1}>
+            {user.name}
+          </Text>
+          <View
+            className={`px-2 py-0.5 rounded-full ${roleConfig.bgClass}`}
+          >
+            <Text className={`text-micro font-medium ${roleConfig.textClass}`}>
+              {roleConfig.label}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row flex-wrap gap-2 text-caption text-text-muted">
+          <Text>{user.email}</Text>
+          {user.phone && <Text>· {user.phone}</Text>}
+          <Text>· Joined {formatDate(user.createdAt)}</Text>
+        </View>
+      </View>
+
+      {/* Status & Actions */}
+      <View className="flex-col items-end gap-2">
+        <View className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full`}>
+          <View className="flex-row items-center gap-1">
+            <Ionicons name={statusConfig.icon} size={11} className={statusConfig.textClass} />
+            <Text className={`text-micro font-medium ${statusConfig.textClass}`}>
+              {statusConfig.label}
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row gap-1">
+          {user.status !== "deleted" && (
+            <Pressable
+              onPress={onSuspend}
+              className={`px-2.5 py-1.5 rounded ${user.status === "active" ? "bg-danger/10" : "bg-success/10"} active:opacity-80`}
+              accessibilityLabel={user.status === "active" ? "Suspend user" : "Reinstate user"}
+            >
+              <Text
+                className={`text-micro font-medium ${
+                  user.status === "active" ? "text-danger" : "text-success"
+                }`}
+              >
+                {user.status === "active" ? "Suspend" : "Reinstate"}
+              </Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={onDelete}
+            className="px-2.5 py-1.5 rounded bg-danger/10 active:opacity-80"
+            accessibilityLabel="Delete user"
+          >
+            <Text className="text-micro font-medium text-danger">Delete</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function EmptyState({
+  title,
+  subtitle,
+  icon,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  children?: ReactNode;
+}) {
+  return (
+    <View className="items-center justify-center px-8 pt-20">
+      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
+        <Ionicons name={icon} size={26} color="#B45309" />
+      </View>
+      <Text className="text-card-title font-medium text-text-primary text-center">
+        {title}
+      </Text>
+      <Text className="text-body text-text-secondary text-center mt-1.5">
+        {subtitle}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Empty-state copy is branched on four states:
+ *   - filters narrowed the result to nothing → "No matching users"
+ *   - live read failed → "Couldn't load users" with the error code
+ *   - no users in the collection yet → "No users yet"
+ *   - dev fallback is showing mock data → "Demo data loaded" hint
+ *
+ * We return the title and subtitle separately so the same EmptyState
+ * can render the dev "Show demo data" pill as a child of the body.
+ */
+function deriveEmptyTitle({
+  search,
+  roleFilter,
+  statusFilter,
+  loadError,
+  usingMock,
+}: {
+  search: string;
+  roleFilter: RoleFilter;
+  statusFilter: StatusFilter;
+  loadError: string | null;
+  usingMock: boolean;
+}): string {
+  if (loadError && !usingMock) return "Couldn't load users";
+  if (search || roleFilter !== "All" || statusFilter !== "All")
+    return "No matching users";
+  if (usingMock) return "Demo data loaded";
+  return "No users yet";
+}
+
+function deriveEmptySubtitle({
+  loadError,
+  usingMock,
+}: {
+  loadError: string | null;
+  usingMock: boolean;
+}): string {
+  if (loadError && !usingMock) {
+    return `${loadError}\nTap "Show demo data" to populate the screen in dev.`;
+  }
+  if (usingMock) {
+    return "Showing local demo entries. Live data will replace them on the next refresh.";
+  }
+  return "Users will appear here after they sign up";
+}
+
+/* ---------- Helpers ---------- */
+
+function getStatusConfig(status: UserStatus): {
+  label: string;
+  bgClass: string;
+  textClass: string;
+  icon: keyof typeof Ionicons.glyphMap;
+} {
+  switch (status) {
+    case "active":
+      return { label: "Active", bgClass: "bg-success-bg", textClass: "text-success-text", icon: "checkmark-circle" };
+    case "suspended":
+      return { label: "Suspended", bgClass: "bg-warning-bg", textClass: "text-warning-text", icon: "pause-circle" };
+    case "deleted":
+      return { label: "Deleted", bgClass: "bg-danger-bg", textClass: "text-danger-text", icon: "trash" };
+  }
+}
+
+function getRoleConfig(role: UserRole): {
+  label: string;
+  bgClass: string;
+  textClass: string;
+} {
+  switch (role) {
+    case "admin":
+      return { label: "Admin", bgClass: "bg-ai-light", textClass: "text-ai" };
+    case "tutor":
+      return { label: "Tutor", bgClass: "bg-verification-light", textClass: "text-verification" };
+    case "student":
+    default:
+      return { label: "Student", bgClass: "bg-amber-light", textClass: "text-amber" };
+  }
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+/* ---------- Mock fallback (used if Firestore read fails) ---------- */
+
+const MOCK_USERS: AdminUser[] = [
+  {
+    id: "u1",
+    name: "Aarav Sharma",
+    email: "aarav@example.com",
+    phone: "+977 9841234567",
+    role: "student",
+    status: "active",
+    createdAt: "2026-01-15T10:30:00Z",
+    verified: true,
+  },
+  {
+    id: "u2",
+    name: "Bishal Acharya",
+    email: "bishal@example.com",
+    phone: "+977 9851122334",
+    role: "tutor",
+    status: "active",
+    createdAt: "2026-02-20T14:00:00Z",
+    verified: true,
+  },
+  {
+    id: "u3",
+    name: "Sushma Adhikari",
+    email: "sushma@example.com",
+    phone: "+977 9867788990",
+    role: "tutor",
+    status: "suspended",
+    createdAt: "2026-03-10T09:15:00Z",
+    verified: true,
+  },
+  {
+    id: "u4",
+    name: "Riya Maharjan",
+    email: "riya@example.com",
+    phone: "+977 9801122334",
+    role: "student",
+    status: "active",
+    createdAt: "2026-04-05T16:45:00Z",
+    verified: false,
+  },
+  {
+    id: "u5",
+    name: "Admin User",
+    email: "asimdkt63@gmail.com",
+    phone: "",
+    role: "admin",
+    status: "active",
+    createdAt: "2026-01-01T00:00:00Z",
+    verified: true,
+  },
+  {
+    id: "u6",
+    name: "Deleted User",
+    email: "deleted@example.com",
+    role: "student",
+    status: "deleted",
+    createdAt: "2025-12-01T12:00:00Z",
+    deletedAt: "2026-05-15T10:00:00Z",
+    verified: false,
+  },
+];

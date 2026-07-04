@@ -28,15 +28,16 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 // the layout guard, dashboards, and tests all agree.
 //
 // IMPORTANT: this must return the dashboard routes (`/student-home`,
-// `/tutor-home`), NOT the profile-setup routes (`/profile-student`,
-// `/profile-tutor`). The profile-setup routes are reachable via
-// `RoleSelection.tsx` after a brand-new user picks a role — that's the
-// only legitimate path. Returning the profile-setup routes from this
-// helper would bounce every returning user back to the profile-setup
-// screen on re-login ("re-login profile-setup flash"). The dashboards
-// are the correct destination for `user && verified && role`.
-function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" {
+// `/tutor-home`, `/admin-home`), NOT the profile-setup routes
+// (`/profile-student`, `/profile-tutor`). The profile-setup routes are
+// reachable via `RoleSelection.tsx` after a brand-new user picks a role
+// — that's the only legitimate path. Returning the profile-setup routes
+// from this helper would bounce every returning user back to the
+// profile-setup screen on re-login ("re-login profile-setup flash").
+// The dashboards are the correct destination for `user && verified && role`.
+function dashboardPathForRole(role: UserRole): "/student-home" | "/tutor-home" | "/admin-home" {
   if (role === "tutor") return "/tutor-home";
+  if (role === "admin") return "/admin-home";
   return "/student-home";
 }
 
@@ -51,9 +52,11 @@ export default function RootLayout() {
   const isNavigatorReady = navState?.key != null;
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.role);
+  const hasAdminProfile = useAuthStore((state) => state.hasAdminProfile);
   const isLoading = useAuthStore((state) => state.isLoading);
   const setUser = useAuthStore((state) => state.setUser);
   const setRole = useAuthStore((state) => state.setRole);
+  const setHasAdminProfile = useAuthStore((state) => state.setHasAdminProfile);
   const setLoading = useAuthStore((state) => state.setLoading);
 
   // Track the currently-signed-in uid so we only fetch the user doc when it
@@ -74,8 +77,9 @@ export default function RootLayout() {
   /**
    * Source-of-Truth routing.
    *
-   * Every render where `user` / `role` / `segments` change, this hook
-   * decides which route the user belongs on. The decision tree:
+   * Every render where `user` / `role` / `hasAdminProfile` / `segments`
+   * change, this hook decides which route the user belongs on. The
+   * decision tree:
    *
    *   0. Wait for the root navigator to mount (otherwise expo-router
    *      throws "Attempted to navigate before mounting the Root Layout
@@ -86,12 +90,24 @@ export default function RootLayout() {
    *      force onto /email-signup (the "check your inbox" pending
    *      state — the EmailSignUp screen already has the
    *      `reload()`-then-recheck handler).
-   *   4. If signed in + verified + role is set → force onto the
-   *      matching dashboard.
-   *   5. If signed in + verified + no role → /role-selection (first
-   *      time setup).
+   *   4. If signed in + verified + role is "admin" and the user has no
+   *      `adminProfile` doc yet → /admin-profile (first-time admin
+   *      setup). Otherwise, route admins to /admin-home.
+   *   5. If signed in + verified + role is set (student/tutor/admin
+   *      with profile) → force onto the matching dashboard.
+   *   6. If signed in + verified + no role → /role-selection (first
+   *      time setup for a non-admin user).
    *
-   * Step 4 is the "Amnesia Login Loop" fix: an existing user who logs
+   * Step 4 is the "first-time admin" branch. It is intentionally
+   * separated from step 5: a brand-new admin (one whose `admins/{uid}`
+   * doc was just created by the seed script, but who has never filled
+   * in their adminProfile) needs to be funneled into the same
+   * setup-and-save screen we built for admins. The setup screen
+   * saves the profile, then `router.replace("/admin-home")` advances
+   * them. The flag is updated by both the auth listener (when the doc
+   * already exists) and the setup screen on save.
+   *
+   * Step 5 is the "Amnesia Login Loop" fix: an existing user who logs
    * back in sees their `role` already populated in the local Zustand
    * store (we read `users/{uid}` immediately after
    * `onAuthStateChanged` fires below) and is sent straight to the
@@ -155,6 +171,20 @@ export default function RootLayout() {
       return;
     }
 
+    // First-time admin: a user whose role resolves to "admin" but who
+    // has not yet saved an `adminProfile` doc. Funnel them through
+    // /admin-profile so they fill in their display name, role title,
+    // and phone before reaching the admin dashboard. The setup
+    // screen's save handler sets `hasAdminProfile = true` and
+    // `router.replace("/admin-home")`, which clears this branch on
+    // the next render.
+    if (role === "admin" && !hasAdminProfile) {
+      if (currentRoute !== "admin-profile") {
+        router.replace("/admin-profile");
+      }
+      return;
+    }
+
     // Signed in + verified + has role → route to the matching
     // dashboard. We allow the auth-flow screens and the student
     // dashboard sub-screens through so a signed-in student can move
@@ -168,6 +198,13 @@ export default function RootLayout() {
     // sees them there, finds them in the allowlist, and refuses to
     // advance them. Drop them from the list so the next render
     // pushes them to the dashboard.
+    //
+    // We DO allow `admin-profile`: a returning admin with a populated
+    // profile is allowed to view and edit their profile from the
+    // "My profile" pill on /admin-home. The first-time branch above
+    // is what sends new admins here on their initial sign-in; once
+    // they save, we never bounce them off the page on subsequent
+    // visits.
     const target = dashboardPathForRole(role);
     const allowedForSignedIn = new Set<string>([
       "role-selection",
@@ -175,6 +212,7 @@ export default function RootLayout() {
       "profile-tutor",
       "student-home",
       "tutor-home",
+      "admin-home",
       // Student sub-screens (Phase 4 dashboard shell). These are
       // reachable via the BottomNav; the guard must allow them or
       // it will replace them back to the dashboard on the next
@@ -193,6 +231,14 @@ export default function RootLayout() {
       // /notification).
       "notification",
       "filters-sheet",
+      // Admin sub-screens (AdminNav targets)
+      "platform-statistics",
+      "verification-queue",
+      "user-management",
+      // Admin profile — first-time setup and view/edit. The first-time
+      // branch above forces brand-new admins here; returning admins
+      // reach it via the "My profile" pill on /admin-home.
+      "admin-profile",
     ]);
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
@@ -200,6 +246,7 @@ export default function RootLayout() {
   }, [
     user,
     role,
+    hasAdminProfile,
     isLoading,
     isNavigatorReady,
     segments,
@@ -230,12 +277,11 @@ export default function RootLayout() {
   function normalizeRole(raw: unknown): UserRole {
     if (typeof raw !== "string") return null;
     const v = raw.trim().toLowerCase();
-    if (v === "student" || v === "tutor") return v;
+    if (v === "student" || v === "tutor" || v === "admin") return v;
     // Legacy display labels from earlier role-pick screens.
     if (v === "student / parent") return "student";
     if (v === "tutor / teacher") return "tutor";
-    // Anything else (e.g. null, "admin" granted out-of-band, garbage)
-    // is treated as "no role yet".
+    // Anything else (e.g. null, garbage) is treated as "no role yet".
     return null;
   }
 
@@ -281,6 +327,7 @@ export default function RootLayout() {
         if (!nextUser) {
           lastUidRef.current = null;
           setRole(null);
+          setHasAdminProfile(false);
           setLoading(false);
           return;
         }
@@ -309,10 +356,64 @@ export default function RootLayout() {
           const roleValue = normalizeRole(data?.role);
           setRole(roleValue);
 
+          // Admin status check — UNCONDITIONAL. The `admins/{uid}`
+          // doc is the source of truth for admin rights, not
+          // `users/{uid}.role`. An admin may have previously signed
+          // in as a student/tutor (a stale user doc with `role:
+          // "student"`), or the seed script may have created their
+          // admin doc before they ever opened the app. Either way,
+          // if `admins/{uid}` exists, role MUST be `"admin"`.
+          //
+          // We used to skip this check when `roleValue` was non-null
+          // (treating the user doc as authoritative), but that meant
+          // an existing user with a stale `role: "student"` field
+          // would always be routed to /student-home — even after the
+          // admin seed ran. This is the regression reported on
+          // July 4, 2026. The fix is to read the admin doc on every
+          // auth-state-change and let it override the user doc.
+          //
+          // Performance note: the admin doc read is cheap (single
+          // `getDoc`) and only happens on auth state change, not on
+          // every render. Non-admins take the `adminSnap.exists()
+          // === false` path in a few ms.
+          //
+          // `finalRole` is the role we are *committing* to for this
+          // session. It is also the value the heal block must use to
+          // rewrite the user doc — using the pre-admin `roleValue`
+          // here would silently leave the user doc out of sync with
+          // `admins/{uid}` (e.g. `data?.role === "student"` on the
+          // doc, `"admin"` everywhere else). That stale value
+          // matters: any future read against the user doc by a
+          // student/tutor-facing query would see "student" and treat
+          // this account as a normal user.
+          const isAdmin = await checkAdminStatus(nextUser.uid);
+          const finalRole: UserRole = isAdmin ? "admin" : roleValue;
+          if (isAdmin) {
+            setRole("admin");
+          }
+
+          // If this user is now an admin, look up their
+          // `users/{uid}/adminProfile/default` doc to determine
+          // whether they have completed first-time setup. The flag
+          // is what the routing guard reads to decide between
+          // /admin-profile (setup) and /admin-home (dashboard).
+          //
+          // For non-admins we leave the flag at its default
+          // (`false`); the guard only consults it on the
+          // `role === "admin"` branch, so the value is irrelevant
+          // for them.
+          if (isAdmin) {
+            await checkAdminProfileFlag(nextUser.uid);
+          } else {
+            // Defensive: a non-admin signing in shouldn't have a
+            // stale `true` lying around from a prior session.
+            setHasAdminProfile(false);
+          }
+
           // ---- One-time heal of the `users/{uid}` root doc ----
           //
-          // Two historical shapes can leave the user stuck on
-          // /role-selection even though they completed signup:
+          // Three historical shapes can leave the user stuck or
+          // inconsistent:
           //
           //   (a) The doc was created by an older version of the
           //       code that wrote a *display label* (e.g. "Tutor")
@@ -327,20 +428,29 @@ export default function RootLayout() {
           //       guard in firestore.rules, which silently blocks
           //       every future write from the profile screens.
           //
-          // If either condition holds, normalize the doc in place
+          //   (c) An admin's `users/{uid}.role` field is still a
+          //       stale `"student"` (or `"tutor"`) from a previous
+          //       sign-in, because the admin seed script writes
+          //       `admins/{uid}` and never touches the user doc. We
+          //       now know the user is an admin (from
+          //       `checkAdminStatus`) — heal the user doc to match
+          //       so downstream queries that read the user doc
+          //       agree.
+          //
+          // If any of (a)/(b)/(c) holds, normalize the doc in place
           // so subsequent reads / writes are clean. The write goes
           // through the same owner-only rule, so this is safe.
           if (snap.exists()) {
             const needsUidHeal = data?.uid !== nextUser.uid;
             const needsRoleHeal =
-              roleValue !== null && data?.role !== roleValue;
+              finalRole !== null && data?.role !== finalRole;
             if (needsUidHeal || needsRoleHeal) {
               try {
                 await setDoc(
                   userDocRef,
                   {
                     uid: nextUser.uid,
-                    role: roleValue ?? data?.role ?? null,
+                    role: finalRole ?? data?.role ?? null,
                     email: data?.email ?? nextUser.email ?? null,
                     updatedAt: serverTimestamp(),
                   },
@@ -374,7 +484,59 @@ export default function RootLayout() {
       },
     );
     return subscriber;
-  }, [setUser, setRole, setLoading]);
+  }, [setUser, setRole, setHasAdminProfile, setLoading]);
+
+  /**
+   * Check if the current user is an admin by looking up `admins/{uid}`.
+   * This runs after the user doc is read in onAuthStateChanged.
+   * The admin status overrides any role from users/{uid}.
+   */
+  async function checkAdminStatus(uid: string): Promise<boolean> {
+    try {
+      const app = getApp();
+      const firebaseDb = getFirestore(app);
+      const adminDocRef = doc(firebaseDb, "admins", uid);
+      const adminSnap = await getDoc(adminDocRef);
+      return adminSnap.exists();
+    } catch (err) {
+      console.warn("RootLayout: failed to read admins/{uid}", err);
+      return false;
+    }
+  }
+
+  /**
+   * For an admin user, read `users/{uid}/adminProfile/default` and
+   * write `hasAdminProfile` to the store. The routing guard uses
+   * this flag to decide between /admin-profile (first-time setup)
+   * and /admin-home (dashboard).
+   *
+   * "Has a profile" = the doc exists AND has a non-empty `fullName`.
+   * The full-name check is defensive: a half-written doc (e.g.
+   * created by a third party or a botched client migration) should
+   * still trigger the setup flow rather than landing the admin on an
+   * empty dashboard.
+   *
+   * Read failures are non-fatal — we leave the flag at its previous
+   * value so the admin isn't bounced to a profile screen when the
+   * real problem is a transient network blip. The next auth-state
+   * change will retry.
+   */
+  async function checkAdminProfileFlag(uid: string): Promise<void> {
+    try {
+      const app = getApp();
+      const firebaseDb = getFirestore(app);
+      const profileRef = doc(firebaseDb, "users", uid, "adminProfile", "default");
+      const profileSnap = await getDoc(profileRef);
+      const data = profileSnap.data() as
+        | { fullName?: string | null }
+        | undefined;
+      const fullName =
+        typeof data?.fullName === "string" ? data.fullName.trim() : "";
+      setHasAdminProfile(profileSnap.exists() && fullName.length > 0);
+    } catch (err) {
+      console.warn("RootLayout: failed to read adminProfile/{default}", err);
+    }
+  }
 
   // CRITICAL: always render the Stack, even while loading. Conditionally
   // returning a different tree from the same component (the loading View
@@ -397,6 +559,7 @@ export default function RootLayout() {
           {/* Dashboards */}
           <Stack.Screen name="student-home" />
           <Stack.Screen name="tutor-home" />
+          <Stack.Screen name="admin-home" />
           {/* Student sub-screens (BottomNav targets) */}
           <Stack.Screen name="map-search" />
           <Stack.Screen name="AI-chat" />
@@ -409,6 +572,14 @@ export default function RootLayout() {
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />
+          {/*Admin sub-screens*/}
+          <Stack.Screen name="platform-statistics" />
+          <Stack.Screen name="verification-queue" />
+          <Stack.Screen name="user-management" />
+          {/* Admin profile — first-time setup + view/edit. The auth
+              guard routes brand-new admins here automatically; returning
+              admins reach it via the "My profile" pill on /admin-home. */}
+          <Stack.Screen name="admin-profile" />
         </Stack>
         {isLoading ? (
           <View

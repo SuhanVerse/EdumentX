@@ -10,11 +10,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // The root user doc — created by `RoleSelection` and read by
     // `app/_layout.tsx` to decide which dashboard to show.
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) && request.resource.data.uid == userId;
       allow delete: if false;
 
@@ -27,6 +32,44 @@ service cloud.firestore {
       match /{subcollection}/{document=**} {
         allow read, write: if isOwner(userId);
       }
+    }
+
+    // Admins collection — bootstrap is locked to the Firebase Admin SDK
+    // (see scripts/seedAdmin.ts) or the Firebase Console. Clients can
+    // *read their own* admin doc so the auth guard can detect admin
+    // status on sign-in. Writes are server-only — there's no client
+    // path that creates an admin document, which prevents
+    // self-promotion.
+    match /admins/{adminId} {
+      allow read: if isOwner(adminId);
+      allow write: if false;
+    }
+
+    // Tutor verification queue. Tutors write a pending doc when they
+    // submit their profile for review; admins update the status when
+    // they decide. Status transitions are gated to admins so a tutor
+    // can't approve their own application.
+    match /tutorVerifications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.status == "pending";
+      // Only admins can mutate status. We diff against the existing
+      // doc so an admin can move pending → approved / rejected /
+      // more_info but a tutor cannot self-approve.
+      allow update: if isAdmin() &&
+        request.resource.data.status != resource.data.status;
+      allow delete: if false;
+    }
+
+    // Pending edit queue — when a verified tutor edits their profile
+    // (full name, rate, location, etc.) the changes go here for admin
+    // review instead of writing straight to `tutorProfile`. While a
+    // doc is `pending`, the tutor's `hasPendingUpdate` flag is set
+    // and student search/map queries filter the tutor out entirely.
+    match /tutorProfileUpdates/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.status == "pending";
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // Everything else stays locked down. The app's MVP only touches
