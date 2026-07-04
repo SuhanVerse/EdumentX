@@ -435,7 +435,7 @@ export function VerificationQueue() {
         ) : null}
       </ScrollView>
 
-      <AdminNav current="/verification-queue" />
+      <AdminNav />
 
       {/* Reject reason dialog — captured locally, would be persisted
           to the verification doc's `adminNotes` in Phase 5. */}

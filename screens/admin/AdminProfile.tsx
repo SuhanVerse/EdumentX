@@ -240,6 +240,34 @@ export function AdminProfile() {
   }
 
   /**
+   * Sign-out confirmation wrapper.
+   *
+   * `Alert.alert` is a native confirm dialog on both iOS and
+   * Android — pressing the destructive button is the only path
+   * to the real `handleSignOut`. This matches the pattern used
+   * in `StudentHome.tsx` and `tutor/edit_profile.tsx` so admins
+   * get the same "Are you sure?" affordance students and tutors
+   * see. A misplaced tap should never end a session.
+   */
+  function handleSignOutConfirm() {
+    if (isSigningOut) return;
+    Alert.alert(
+      "Sign out?",
+      "You'll need to sign in again next time.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: () => {
+            void handleSignOut();
+          },
+        },
+      ],
+    );
+  }
+
+  /**
    * Sign out and route back to the auth entry screen.
    *
    * Why this exists here (and not just in a sidebar): an admin who
@@ -304,7 +332,7 @@ export function AdminProfile() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sign out"
-              onPress={handleSignOut}
+              onPress={handleSignOutConfirm}
               disabled={isSigningOut}
               className="flex-row items-center gap-1.5 px-3 py-2 rounded-pill bg-white/10 active:opacity-70 disabled:opacity-50"
             >
@@ -479,7 +507,7 @@ export function AdminProfile() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign out"
-            onPress={handleSignOut}
+            onPress={handleSignOutConfirm}
             disabled={isSigningOut}
             className="min-h-pill-sm items-center justify-center mt-2 active:opacity-70 disabled:opacity-50"
           >

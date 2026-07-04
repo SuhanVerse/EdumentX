@@ -1,11 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getApp } from "@react-native-firebase/app";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
+import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Admin Home Dashboard
@@ -15,9 +23,46 @@ import { MOCK_ADMIN_STATS } from "@/data/adminStats";
  * and User Management. Each card surfaces a live count badge so
  * the admin can see the work backlog at a glance (Phase 5 will
  * replace the mock counts with real Firestore aggregations).
+ *
+ * The hero greets the admin by name — we read
+ * `users/{uid}/adminProfile/default.fullName` via `onSnapshot`
+ * (same pattern as `StudentHome`) so it re-renders the moment
+ * the admin saves their profile. The right-hand side of the
+ * hero used to host a "My profile" pill, but Profile is now a
+ * bottom-nav tab (see `AdminNav.tsx`), so the slot stays empty.
  */
 export function AdminHome() {
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+
+  // Live display name. Resolved in the same priority order as
+  // `StudentHome`: profile.fullName → user.displayName → email
+  // localpart → "Admin". The `onSnapshot` re-reads on every
+  // profile save, so editing the name on `/admin-profile` and
+  // returning here shows the new name without a hard reload.
+  const [displayName, setDisplayName] = useState<string>(() =>
+    resolveDisplayName(null, user?.displayName ?? null, user?.email ?? null),
+  );
+
+  useEffect(() => {
+    if (!user) {
+      setDisplayName("Admin");
+      return;
+    }
+    const db = getFirestore(getApp());
+    const profileRef = doc(db, "users", user.uid, "adminProfile", "default");
+    const unsub = onSnapshot(profileRef, (snap) => {
+      const data = snap.data() as { fullName?: string | null } | undefined;
+      setDisplayName(
+        resolveDisplayName(
+          data?.fullName ?? null,
+          user.displayName ?? null,
+          user.email ?? null,
+        ),
+      );
+    });
+    return unsub;
+  }, [user]);
 
   // Count badges are derived from MOCK_ADMIN_STATS for now. Phase 5
   // will swap this for a `useEffect` reading Firestore count
@@ -79,35 +124,21 @@ export function AdminHome() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <StatusBar style="dark" />
 
-      {/* Hero header */}
+      {/* Hero header — mirrors StudentHome.tsx's "Good morning, {name}"
+          pattern. The right-hand slot is intentionally empty; profile
+          is reachable from the bottom nav. */}
       <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-start justify-between mt-2">
-          <View className="flex-1 min-w-0">
-            <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
-            <Text className="text-screen-title font-medium text-white">
-              Admin Home
-            </Text>
-            <Text className="text-caption text-white/70 mt-1">
-              Manage platform, verifications & users
-            </Text>
-          </View>
-          {/* "My profile" pill — top-right of the hero. Routes to
-              /admin-profile where the admin can view/edit their
-              fullName, roleTitle, and phone. We expose this in the
-              header (not the AdminNav) because profile is a
-              secondary destination and the bottom nav is already
-              loaded with the 3 work surfaces. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="My admin profile"
-            onPress={() => router.push("/admin-profile" as any)}
-            className="flex-row items-center gap-1.5 px-3 py-2 rounded-pill bg-white/10 active:opacity-70"
+        <View className="mt-2">
+          <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
+          <Text
+            className="text-screen-title font-medium text-white"
+            numberOfLines={1}
           >
-            <Ionicons name="person-circle-outline" size={16} color="#FFFFFF" />
-            <Text className="text-button-sm font-medium text-white">
-              My profile
-            </Text>
-          </Pressable>
+            {displayName}
+          </Text>
+          <Text className="text-caption text-white/70 mt-1">
+            Manage platform, verifications & users
+          </Text>
         </View>
       </View>
 
@@ -161,7 +192,37 @@ export function AdminHome() {
         ))}
       </ScrollView>
 
-      <AdminNav current="/admin-home" />
+      <AdminNav />
     </SafeAreaView>
   );
+}
+
+/**
+ * Resolve the display name shown in the dashboard greeting.
+ *   1. `profile.fullName` from the adminProfile subcollection.
+ *   2. `user.displayName` from Firebase Auth (set by Google Sign-In).
+ *   3. The local part of the email address (e.g. "asimdkt63" from
+ *      "asimdkt63@gmail.com").
+ *   4. The literal string "Admin" as a last resort.
+ *
+ * This is the same priority chain used by `StudentHome.tsx` and
+ * `PlatformStatistics.tsx` — keeping the resolution rules in sync
+ * means an admin sees the same name in every header across the
+ * app.
+ */
+function resolveDisplayName(
+  profileFullName: string | null,
+  authDisplayName: string | null,
+  email: string | null,
+): string {
+  if (profileFullName && profileFullName.trim().length > 0) {
+    return profileFullName.trim();
+  }
+  if (authDisplayName && authDisplayName.trim().length > 0) {
+    return authDisplayName.trim();
+  }
+  if (email && email.includes("@")) {
+    return email.split("@")[0];
+  }
+  return "Admin";
 }

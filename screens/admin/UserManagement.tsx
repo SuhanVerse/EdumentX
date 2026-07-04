@@ -244,7 +244,15 @@ export function UserManagement() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <StatusBar style="dark" />
 
-      {/* Header */}
+      {/* Header — dark navy hero with the title and search bar only.
+          The status + role filter pills were moved out of the hero
+          into a separate filter card below (see next block) — they
+          were too cramped stacked inside the dark hero, and the
+          `Text` element they used had `flex-row flex-wrap` styling
+          that doesn't actually work (RN's `<Text>` ignores flex on
+          non-text siblings), so the layout rendered as a single
+          jagged line. Splitting them out gives them room to breathe
+          and lets us lay them out with a proper `<View>`. */}
       <View className="bg-night px-5 pb-6 shrink-0">
         <View className="flex-row items-center justify-between mt-2 mb-4">
           <View>
@@ -278,14 +286,23 @@ export function UserManagement() {
             </Pressable>
           )}
         </View>
+      </View>
 
-        {/* Filter Tabs */}
+      {/* Filter card — single horizontal scroll containing the
+          status group, a thin vertical divider, and the role group.
+          This sits in `bg-background` (not the dark hero) so the
+          pills have visual breathing room and the group dividers
+          read as separators. Each pill is a flex row containing a
+          label and an optional count badge; we use `View` (not
+          `Text`) for the pill itself so the `flex-row gap-1.5`
+          actually lays out the badge inline with the label. */}
+      <View className="bg-background border-b border-border-subtle">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4 flex-row gap-2 pb-1"
-          contentContainerStyle={{ paddingRight: 16 }}
+          contentContainerClassName="px-5 py-3 gap-2 items-center"
         >
+          {/* Status group */}
           {(["All", "Active", "Suspended", "Deleted"] as StatusFilter[]).map((f) => {
             const count =
               f === "All"
@@ -295,52 +312,25 @@ export function UserManagement() {
                   : visibleUsers.filter((u) => u.status === f.toLowerCase()).length;
             const isActive = statusFilter === f;
             return (
-              <Pressable
-                key={f}
-                accessibilityRole="tab"
-                accessibilityLabel={`${f} users`}
-                accessibilityState={{ selected: isActive }}
+              <FilterPill
+                key={`status-${f}`}
+                label={f}
+                count={count}
+                active={isActive}
+                activeBg="bg-amber"
+                activeText="text-text-inverse"
+                inactiveBg="bg-sand"
+                inactiveText="text-text-secondary"
                 onPress={() => setStatusFilter(f)}
-                className={
-                  isActive
-                    ? "px-3 py-1.5 rounded-pill bg-amber active:opacity-80"
-                    : "px-3 py-1.5 rounded-pill bg-sand active:opacity-80"
-                }
-              >
-                <Text
-                  className={
-                    isActive
-                      ? "text-button-sm font-medium text-text-inverse"
-                      : "text-button-sm font-medium text-text-secondary"
-                  }
-                >
-                  {f}
-                </Text>
-                {count > 0 && (
-                  <View className={`ml-1.5 ${isActive ? "bg-surface/30" : "bg-white/50"} px-1.5 py-0.5 rounded-full`}>
-                    <Text
-                      className={
-                        isActive
-                          ? "text-micro font-semibold text-text-inverse"
-                          : "text-micro font-semibold text-text-muted"
-                      }
-                    >
-                      {count}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
+                accessibilityLabel={`${f} users`}
+              />
             );
           })}
-        </ScrollView>
 
-        {/* Role Filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-2 flex-row gap-2 pb-1"
-          contentContainerStyle={{ paddingRight: 16 }}
-        >
+          {/* Divider between groups */}
+          <View className="w-px h-6 bg-border-subtle mx-1" />
+
+          {/* Role group */}
           {(["All", "Student", "Tutor", "Admin"] as RoleFilter[]).map((r) => {
             const count =
               r === "All"
@@ -348,41 +338,18 @@ export function UserManagement() {
                 : visibleUsers.filter((u) => u.role === r.toLowerCase()).length;
             const isActive = roleFilter === r;
             return (
-              <Pressable
-                key={r}
-                accessibilityRole="tab"
-                accessibilityLabel={`${r} users`}
-                accessibilityState={{ selected: isActive }}
+              <FilterPill
+                key={`role-${r}`}
+                label={r === "All" ? "All roles" : r === "Student" ? "Students" : r === "Tutor" ? "Tutors" : "Admins"}
+                count={count}
+                active={isActive}
+                activeBg="bg-ai"
+                activeText="text-text-inverse"
+                inactiveBg="bg-sand"
+                inactiveText="text-text-secondary"
                 onPress={() => setRoleFilter(r)}
-                className={
-                  isActive
-                    ? "px-3 py-1.5 rounded-pill bg-ai-light active:opacity-80"
-                    : "px-3 py-1.5 rounded-pill bg-sand active:opacity-80"
-                }
-              >
-                <Text
-                  className={
-                    isActive
-                      ? "text-button-sm font-medium text-ai"
-                      : "text-button-sm font-medium text-text-secondary"
-                  }
-                >
-                  {r}
-                </Text>
-                {count > 0 && (
-                  <View className={`ml-1.5 ${isActive ? "bg-ai/30" : "bg-white/50"} px-1.5 py-0.5 rounded-full`}>
-                    <Text
-                      className={
-                        isActive
-                          ? "text-micro font-semibold text-ai"
-                          : "text-micro font-semibold text-text-muted"
-                      }
-                    >
-                      {count}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
+                accessibilityLabel={`${r} users`}
+              />
             );
           })}
         </ScrollView>
@@ -391,7 +358,7 @@ export function UserManagement() {
       {/* List */}
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-5 pt-4 pb-8"
+        contentContainerClassName="px-5 pt-5 pb-24"
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
@@ -436,7 +403,7 @@ export function UserManagement() {
             ) : null}
           </EmptyState>
         ) : (
-          <View className="gap-3">
+          <View className="gap-3.5">
             {activeUsers.map((user) => (
               <UserRow
                 key={user.id}
@@ -467,7 +434,7 @@ export function UserManagement() {
         ) : null}
       </ScrollView>
 
-      <AdminNav current="/user-management" />
+      <AdminNav />
 
       {/* Soft Delete Confirmation Overlay */}
       <ConfirmDialog
@@ -496,6 +463,75 @@ export function UserManagement() {
   );
 }
 
+/**
+ * Filter pill — a single tab in the status / role group. Renders
+ * the label + an optional count badge as a flex row, so the
+ * badge actually sits inline with the text (the old `<Text>`
+ * + `flex-row flex-wrap` approach didn't lay out non-text siblings
+ * correctly, so the badge was crammed onto a new line).
+ *
+ * `activeBg` / `activeText` are passed in by the parent so the
+ * status group and the role group can use different accent
+ * colors (amber for status, indigo for role) without duplicating
+ * the pill component.
+ */
+function FilterPill({
+  label,
+  count,
+  active,
+  activeBg,
+  activeText,
+  inactiveBg,
+  inactiveText,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  activeBg: string;
+  activeText: string;
+  inactiveBg: string;
+  inactiveText: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-pill active:opacity-80 ${
+        active ? activeBg : inactiveBg
+      }`}
+    >
+      <Text
+        className={`text-button-sm font-medium ${
+          active ? activeText : inactiveText
+        }`}
+      >
+        {label}
+      </Text>
+      {count > 0 ? (
+        <View
+          className={`px-1.5 py-0.5 rounded-full ${
+            active ? "bg-white/20" : "bg-white/60"
+          }`}
+        >
+          <Text
+            className={`text-micro font-semibold ${
+              active ? activeText : "text-text-muted"
+            }`}
+          >
+            {count}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 function UserRow({
   user,
   onSuspend,
@@ -509,91 +545,119 @@ function UserRow({
   const roleConfig = getRoleConfig(user.role);
 
   return (
-    <Pressable
-      className="bg-surface border border-border-subtle rounded-card p-4 flex-row gap-3 items-center active:opacity-80"
-      accessibilityRole="button"
+    <View
+      className="bg-surface border border-border-subtle rounded-card p-4 gap-3"
       accessibilityLabel={`${user.name}, ${roleConfig.label}, ${statusConfig.label}`}
     >
-      {/* Avatar */}
-      <View className="relative">
-        <View className="w-12 h-12 rounded-full bg-sand items-center justify-center overflow-hidden">
-          {user.avatar ? (
-            <Image
-              source={{ uri: user.avatar }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
-          ) : (
-            <Text className="text-card-title font-medium text-amber">
-              {user.name.charAt(0).toUpperCase()}
-            </Text>
-          )}
-        </View>
-        {user.verified && (
-          <View className="absolute -bottom-0.5 -right-0.5">
-            <Ionicons name="checkmark-circle" size={16} color="#047857" />
-          </View>
-        )}
-      </View>
-
-      {/* Info */}
-      <View className="flex-1 min-w-0">
-        <View className="flex-row items-center gap-2 mb-1">
-          <Text className="text-card-title font-medium text-text-primary" numberOfLines={1}>
-            {user.name}
-          </Text>
-          <View
-            className={`px-2 py-0.5 rounded-full ${roleConfig.bgClass}`}
-          >
-            <Text className={`text-micro font-medium ${roleConfig.textClass}`}>
-              {roleConfig.label}
-            </Text>
-          </View>
-        </View>
-        <View className="flex-row flex-wrap gap-2 text-caption text-text-muted">
-          <Text>{user.email}</Text>
-          {user.phone && <Text>· {user.phone}</Text>}
-          <Text>· Joined {formatDate(user.createdAt)}</Text>
-        </View>
-      </View>
-
-      {/* Status & Actions */}
-      <View className="flex-col items-end gap-2">
-        <View className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full`}>
-          <View className="flex-row items-center gap-1">
-            <Ionicons name={statusConfig.icon} size={11} className={statusConfig.textClass} />
-            <Text className={`text-micro font-medium ${statusConfig.textClass}`}>
-              {statusConfig.label}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row gap-1">
-          {user.status !== "deleted" && (
-            <Pressable
-              onPress={onSuspend}
-              className={`px-2.5 py-1.5 rounded ${user.status === "active" ? "bg-danger/10" : "bg-success/10"} active:opacity-80`}
-              accessibilityLabel={user.status === "active" ? "Suspend user" : "Reinstate user"}
-            >
-              <Text
-                className={`text-micro font-medium ${
-                  user.status === "active" ? "text-danger" : "text-success"
-                }`}
-              >
-                {user.status === "active" ? "Suspend" : "Reinstate"}
+      {/* Top row — avatar + identity block (name, role chip, meta).
+          The identity block uses a flex column with explicit gap
+          instead of mb-* tricks; that keeps spacing consistent
+          regardless of which fields are populated (e.g. phone
+          is optional, so the meta line may have one or two
+          items). */}
+      <View className="flex-row gap-3 items-start">
+        <View className="relative shrink-0">
+          <View className="w-12 h-12 rounded-full bg-sand items-center justify-center overflow-hidden">
+            {user.avatar ? (
+              <Image
+                source={{ uri: user.avatar }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            ) : (
+              <Text className="text-card-title font-medium text-amber">
+                {user.name.charAt(0).toUpperCase()}
               </Text>
-            </Pressable>
+            )}
+          </View>
+          {user.verified && (
+            <View className="absolute -bottom-0.5 -right-0.5">
+              <Ionicons name="checkmark-circle" size={16} color="#047857" />
+            </View>
           )}
-          <Pressable
-            onPress={onDelete}
-            className="px-2.5 py-1.5 rounded bg-danger/10 active:opacity-80"
-            accessibilityLabel="Delete user"
+        </View>
+
+        <View className="flex-1 min-w-0 gap-1.5">
+          <View className="flex-row items-center gap-2 flex-wrap">
+            <Text
+              className="text-card-title font-medium text-text-primary"
+              numberOfLines={1}
+            >
+              {user.name}
+            </Text>
+            <View className={`px-2 py-0.5 rounded-full ${roleConfig.bgClass}`}>
+              <Text className={`text-micro font-medium ${roleConfig.textClass}`}>
+                {roleConfig.label}
+              </Text>
+            </View>
+          </View>
+          <Text
+            className="text-caption text-text-secondary"
+            numberOfLines={1}
           >
-            <Text className="text-micro font-medium text-danger">Delete</Text>
-          </Pressable>
+            {user.email}
+          </Text>
+          <View className="flex-row flex-wrap gap-x-2 gap-y-0.5">
+            {user.phone ? (
+              <Text className="text-caption text-text-muted">{user.phone}</Text>
+            ) : null}
+            {user.phone ? (
+              <Text className="text-caption text-text-muted">·</Text>
+            ) : null}
+            <Text className="text-caption text-text-muted">
+              Joined {formatDate(user.createdAt)}
+            </Text>
+          </View>
         </View>
       </View>
-    </Pressable>
+
+      {/* Bottom row — status chip + actions. Wraps to a new line
+          on narrow screens so the chip and action pills never
+          collide. */}
+      <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border-subtle">
+        <View
+          className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full flex-row items-center gap-1`}
+        >
+          <Ionicons
+            name={statusConfig.icon}
+            size={11}
+            className={statusConfig.textClass}
+          />
+          <Text className={`text-micro font-medium ${statusConfig.textClass}`}>
+            {statusConfig.label}
+          </Text>
+        </View>
+
+        <View className="flex-1" />
+
+        {user.status !== "deleted" ? (
+          <Pressable
+            onPress={onSuspend}
+            className={`px-3 py-1.5 rounded-pill ${
+              user.status === "active" ? "bg-danger/10" : "bg-success/10"
+            } active:opacity-80`}
+            accessibilityLabel={user.status === "active" ? "Suspend user" : "Reinstate user"}
+          >
+            <Text
+              className={`text-button-sm font-medium ${
+                user.status === "active" ? "text-danger" : "text-success"
+              }`}
+            >
+              {user.status === "active" ? "Suspend" : "Reinstate"}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onDelete}
+          className="px-3 py-1.5 rounded-pill bg-danger/10 active:opacity-80"
+          accessibilityLabel="Delete user"
+        >
+          <Text className="text-button-sm font-medium text-danger">
+            Delete
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
