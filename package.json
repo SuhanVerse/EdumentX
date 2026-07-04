@@ -13,7 +13,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "deploy:rules": "firebase deploy --only firestore:rules",
-    "deploy:all": "firebase deploy --only firestore,storage"
+    "deploy:all": "firebase deploy --only firestore,storage",
+    "seed:admin:build": "npx tsc scripts/seedAdmin.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "seed:admin": "npm run seed:admin:build && node dist/scripts/seedAdmin.js",
+    "seed:admin:list": "npm run seed:admin:build && node dist/scripts/seedAdmin.js -- --list"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -39,6 +42,7 @@
     "expo-router": "~6.0.24",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "firebase-admin": "^14.1.0",
     "lucide-react-native": "^1.21.0",
     "nativewind": "^4.2.5",
     "prettier-plugin-tailwindcss": "^0.5.14",

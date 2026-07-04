@@ -17,6 +17,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { TutorBottomBar } from "@/components/TutorBottomBar";
+import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -44,6 +45,14 @@ interface TutorDashboardData {
   responseRate: number;
   profileCompletion: number;
   thisMonthEarningsNpr: number;
+  // `verificationStatus` and `hasPendingUpdate` come from the same
+  // tutorProfile doc and drive the under-review banner above the
+  // dashboard. They are kept as raw strings / booleans (not narrowed
+  // enums) so a doc that hasn't been migrated yet still renders
+  // cleanly — the banner stays hidden when these fields are absent.
+  verificationStatus?: "pending" | "approved" | "rejected" | "more_info";
+  hasPendingUpdate?: boolean;
+  rejectionReason?: string | null;
 }
 
 const FALLBACK: TutorDashboardData = {
@@ -56,6 +65,9 @@ const FALLBACK: TutorDashboardData = {
   responseRate: 0,
   profileCompletion: 0,
   thisMonthEarningsNpr: 0,
+  verificationStatus: undefined,
+  hasPendingUpdate: false,
+  rejectionReason: null,
 };
 
 function toNum(value: unknown): number {
@@ -263,6 +275,18 @@ export function TutorDashboard() {
           thisMonthEarningsNpr: toNum(
             (d as { thisMonthEarningsNpr?: number }).thisMonthEarningsNpr,
           ),
+          // Verification state — read but not yet written by the
+          // tutor-side flows (those land in the next phase). The
+          // dashboard uses these to render the ReviewBanner and to
+          // disable new enrollment requests when the profile is
+          // hidden from discovery.
+          verificationStatus:
+            (d as { verificationStatus?: TutorDashboardData["verificationStatus"] })
+              .verificationStatus,
+          hasPendingUpdate: !!(d as { hasPendingUpdate?: boolean })
+            .hasPendingUpdate,
+          rejectionReason:
+            (d as { rejectionReason?: string | null }).rejectionReason ?? null,
         });
       },
       (err) => {
@@ -335,6 +359,43 @@ export function TutorDashboard() {
           </Pressable>
         </View>
       </View>
+
+      {/* Under-review banner — surfaces when (a) the tutor's signup
+          verification is still pending, (b) the admin requested more
+          info, (c) the admin rejected the submission, or (d) the
+          tutor has a `tutorProfileUpdates/{uid}` doc in `pending`
+          state (i.e. an edit is being reviewed). The banner sits
+          between the dark hero and the white dashboard body so the
+          amber/ai/danger accent stays visible above the metrics grid.
+          The banner manages its own `mx-5` gutter; the scroll content
+          below uses `px-4`, which is a 4-px wider banner on each
+          side. That's intentional — the banner reads as a distinct
+          full-width surface, not as a card. */}
+      {data.verificationStatus === "pending" ? (
+        <ReviewBanner
+          tone="pending"
+          message="Your account is being reviewed. You'll get full access once an admin approves your profile."
+        />
+      ) : data.verificationStatus === "more_info" ? (
+        <ReviewBanner
+          tone="info"
+          message="An admin has asked for more information. Please update your profile and re-submit."
+        />
+      ) : data.verificationStatus === "rejected" ? (
+        <ReviewBanner
+          tone="rejected"
+          message={
+            data.rejectionReason
+              ? `Reason: ${data.rejectionReason}. Please update your profile and re-submit.`
+              : "Your submission was rejected. Please update your profile and re-submit."
+          }
+        />
+      ) : data.hasPendingUpdate ? (
+        <ReviewBanner
+          tone="pending"
+          message="Your recent profile changes are under review. Your profile isn't being shown to students right now."
+        />
+      ) : null}
 
       <ScrollView
         className="flex-1 bg-background"
