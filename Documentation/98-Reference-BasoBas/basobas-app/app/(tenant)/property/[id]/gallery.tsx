@@ -8,7 +8,7 @@ export default function GalleryModal() {
 
   return (
     <View className="flex-1 bg-black">
-      <View className="flex-row items-center justify-between px-6 pt-14 pb-4">
+      <View className="flex-row items-center justify-between px-6 pb-4 pt-14">
         <Pressable onPress={() => router.back()}>
           <X size={24} color="#FFFFFF" />
         </Pressable>
@@ -16,7 +16,9 @@ export default function GalleryModal() {
         <View className="w-6" />
       </View>
       <View className="flex-1 items-center justify-center">
-        <Text className="font-sans text-body text-white/50">Zoomable photo pager · Property {id}</Text>
+        <Text className="font-sans text-body text-white/50">
+          Zoomable photo pager · Property {id}
+        </Text>
       </View>
       {/* Thumbnail strip */}
       <View className="h-[80px] flex-row items-center px-6 pb-6">

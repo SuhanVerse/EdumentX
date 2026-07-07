@@ -8,7 +8,8 @@ export default function AIPreferencesScreen() {
       <ScreenHeader title="AI Preferences" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
         <Text className="font-sans text-body text-ink2">
-          Customize how our AI recommends properties to you. Fine-tune your preferences for smarter suggestions.
+          Customize how our AI recommends properties to you. Fine-tune your preferences for smarter
+          suggestions.
         </Text>
       </ScrollView>
     </SafeAreaView>

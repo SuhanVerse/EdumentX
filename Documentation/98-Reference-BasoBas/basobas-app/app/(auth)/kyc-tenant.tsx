@@ -14,13 +14,17 @@ import { Upload, X, Zap, Shield, Check } from 'lucide-react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as Haptics from 'expo-haptics'
+import { useUser } from '@clerk/expo'
 
 import { OnboardingHeader } from '@/src/components/onboarding/OnboardingHeader'
 import { StepProgressBar } from '@/src/components/onboarding/StepProgressBar'
 import { OnboardingEyebrow } from '@/src/components/onboarding/OnboardingEyebrow'
-import { PrimaryButton } from '@/src/components/form/PrimaryButton'
+import { PrimaryButton } from '@/src/components/shared/PrimaryButton'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
+import { completeOnboarding } from '@/src/services/onboarding.service'
 import { tokens } from '@/src/theme/tokens'
+import type { DocumentType } from '@/src/types/onboarding.types'
 
 const { color, space, radius, font, size } = tokens
 
@@ -63,6 +67,32 @@ const DocumentUploadZone: React.FC<DocumentUploadZoneProps> = ({
         <Text style={styles.uploadSub}>Tap to upload</Text>
       </>
     )}
+  </TouchableOpacity>
+)
+
+// ─── Document Type Chip ────────────────────────────────────────────────────────
+
+interface DocTypeChipProps {
+  label: string
+  active: boolean
+  onPress: () => void
+}
+
+const DocTypeChip: React.FC<DocTypeChipProps> = ({ label, active, onPress }) => (
+  <TouchableOpacity
+    style={[styles.docTypeChip, active && styles.docTypeChipActive]}
+    onPress={async () => {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      onPress()
+    }}
+    accessibilityRole="radio"
+    accessibilityLabel={label}
+    accessibilityState={{ selected: active }}
+  >
+    {active && <Check size={12} color={color.bg} strokeWidth={3} />}
+    <Text style={[styles.docTypeText, active && styles.docTypeTextActive]}>
+      {label}
+    </Text>
   </TouchableOpacity>
 )
 
@@ -132,21 +162,69 @@ const useDocumentPicker = () => {
 
 export default function KYCTenantScreen() {
   const router = useRouter()
-  const { setFrontImage, setBackImage, isSubmitting } = useOnboardingStore()
+  const { user } = useUser()
+  const supabase = useClerkSupabase()
+
+  const {
+    roles,
+    profile,
+    kyc,
+    setFrontImage,
+    setBackImage,
+    setDocumentType,
+    setSubmitting,
+    setSubmitError,
+    setOnboardingComplete,
+    isSubmitting,
+  } = useOnboardingStore()
 
   const { pickImage, frontUri, backUri } = useDocumentPicker()
 
-  const canSubmit = !!(frontUri && backUri)
+  const { documentType } = kyc
+
+  const canSubmit = !!(documentType && frontUri && backUri)
 
   const handleSkip = useCallback(() => {
     router.replace('/(auth)/confirmation')
   }, [router])
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit) return
+    if (!canSubmit || !user) return
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
+    setSubmitting(true)
+
+    const result = await completeOnboarding({
+      clerkId: user.id,
+      phone: user.phoneNumbers?.[0]?.phoneNumber ?? '',
+      roles,
+      fullName: profile.fullName,
+      city: profile.city,
+      avatarLocalUri: profile.avatarUri,
+      preferences: profile.preferences as any,
+      supabase,
+      kyc: {
+        documentType: documentType ?? 'CITIZENSHIP',
+        frontLocalUri: kyc.frontImageUri!,
+        backLocalUri: kyc.backImageUri!,
+      },
+    })
+
+    setSubmitting(false)
+
+    if (!result.success) {
+      setSubmitError(result.error)
+      Alert.alert(
+        'Verification Failed',
+        result.error,
+        [{ text: 'Try Again' }]
+      )
+      return
+    }
+
+    setOnboardingComplete(true)
     router.replace('/(auth)/confirmation')
-  }, [canSubmit, router])
+  }, [canSubmit, user, roles, profile, kyc, documentType, supabase, router, setSubmitting, setSubmitError, setOnboardingComplete])
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -219,8 +297,33 @@ export default function KYCTenantScreen() {
           ))}
         </View>
 
+        {/* ── Document Type Selector ── */}
+        <Text style={styles.uploadTitle}>
+          Document type <Text style={styles.required}>*</Text>
+        </Text>
+        <View style={styles.docTypeRow}>
+          {(['CITIZENSHIP', 'NATIONAL_ID'] as DocumentType[]).map((type) => (
+            <DocTypeChip
+              key={type}
+              label={type === 'CITIZENSHIP' ? 'Citizenship' : 'NID Card'}
+              active={documentType === type}
+              onPress={() => setDocumentType(type)}
+            />
+          ))}
+        </View>
+
+        {!documentType && (
+          <Text style={styles.validationText}>Select a document type</Text>
+        )}
+
         {/* Document upload */}
         <Text style={styles.uploadTitle}>Upload your document</Text>
+
+        {documentType && !frontUri && !backUri && (
+          <Text style={styles.validationText}>
+            Please upload both front and back of your document
+          </Text>
+        )}
 
         <View style={styles.uploadRow}>
           <DocumentUploadZone
@@ -355,6 +458,43 @@ const styles = StyleSheet.create({
     fontSize: size.bodySm,
     color: color.ink2,
     lineHeight: 18,
+  },
+
+  // Document type selector
+  docTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  docTypeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: space.cardPad,
+    paddingVertical: 10,
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: color.line,
+    backgroundColor: color.bg,
+  },
+  docTypeChipActive: {
+    backgroundColor: color.ink,
+    borderColor: color.ink,
+  },
+  docTypeText: {
+    fontFamily: font.medium,
+    fontSize: size.bodySm,
+    color: color.ink2,
+  },
+  docTypeTextActive: { color: color.bg },
+  required: { color: color.danger },
+
+  validationText: {
+    fontFamily: font.sans,
+    fontSize: size.caption,
+    color: color.danger,
+    marginBottom: 12,
+    marginTop: -12,
   },
 
   // Upload

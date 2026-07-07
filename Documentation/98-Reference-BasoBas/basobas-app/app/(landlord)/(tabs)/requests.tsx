@@ -29,7 +29,7 @@ export default function RequestsTab() {
 
       <ScrollView
         className="flex-1 px-6"
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 16 }}>
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 120 }}>
         {/* Request Cards */}
         {[
           {

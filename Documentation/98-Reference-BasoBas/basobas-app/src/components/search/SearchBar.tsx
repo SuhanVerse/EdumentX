@@ -31,11 +31,11 @@ export const SearchBar = ({
           onChangeText={onChangeText}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="flex-1 font-sans text-body text-ink ml-2"
+          className="ml-2 flex-1 font-sans text-body text-ink"
           placeholderTextColor="#C0C0C0"
         />
       ) : (
-        <Pressable onPress={onPress} className="flex-1 ml-2">
+        <Pressable onPress={onPress} className="ml-2 flex-1">
           <View pointerEvents="none">
             <TextInput
               placeholder={placeholder}

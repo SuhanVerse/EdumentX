@@ -1,74 +1,157 @@
+import { useState } from 'react';
 import { ScrollView, View, Text, Pressable } from 'react-native';
 import { useRouter, Link } from 'expo-router';
-import { Bell } from 'lucide-react-native';
+import { Bell, Search } from 'lucide-react-native';
 
 import { ScreenBody } from '@/src/components/layout/ScreenBody';
+import { usePropertyStore } from '@/src/store/propertyStore';
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const CITIES = ['Kathmandu', 'Lalitpur', 'Bhaktapur'] as const;
+type City = (typeof CITIES)[number];
+
+// ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function HomeTab() {
   const router = useRouter();
+  const [activeCity, setActiveCity] = useState<City>('Kathmandu');
+
+  const { properties, setFilter } = usePropertyStore((state) => ({
+    properties: state.properties,
+    setFilter: state.setFilter,
+  }));
+
+  // Select featured property (e.g. highest rated in Kathmandu)
+  const featuredProperty = properties.find((p) => p.id === 'p1') || properties[0];
+
+  // Select recommended properties (e.g. p2, p3, p4)
+  const recommendedProperties = properties.filter((p) => p.id !== featuredProperty.id).slice(0, 3);
+
+  const handleCityPress = (city: City) => {
+    setActiveCity(city);
+    setFilter('city', city);
+    router.push('/(tenant)/(tabs)/search' as any);
+  };
+
+  const handlePropertyPress = (id: string) => {
+    router.push({ pathname: '/(tenant)/property/[id]' as any, params: { id } });
+  };
 
   return (
     <ScreenBody>
-      <ScrollView className="flex-1 px-6" contentContainerStyle={{ paddingTop: 16 }}>
-        {/* Header */}
-        <View className="h-[56px] flex-row items-center justify-between">
-          <Text className="font-display text-h2 text-ink">BasoBas</Text>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}>
+        {/* Status bar / safe-top spacer */}
+        <View className="h-12" />
+
+        {/* Greeting + bell */}
+        <View className="flex-row items-center justify-between px-[24px] py-4">
+          <View>
+            <Text className="font-sans text-body-sm text-ink2">Namaste</Text>
+            <Text className="mt-1 font-display text-h1 leading-tight text-ink">
+              Find a rental in Nepal
+            </Text>
+          </View>
           <Link href={'/(tenant)/notifications' as any} asChild>
-            <Pressable className="h-10 w-10 items-center justify-center rounded-pill bg-input">
-              <Bell size={18} color="#0A0A0A" />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              className="h-[48px] w-[48px] items-center justify-center rounded-pill bg-input">
+              <Bell size={20} color="#0A0A0A" />
             </Pressable>
           </Link>
         </View>
 
-        {/* City pill */}
-        <Pressable className="mb-4 mt-4 self-start rounded-pill bg-canvas px-4 py-2">
-          <Text className="font-medium text-body-sm text-ink">Kathmandu ▾</Text>
-        </Pressable>
-
         {/* Search bar */}
-        <Pressable
-          onPress={() => router.push('/(tenant)/(tabs)/search' as any)}
-          className="mb-6 h-[48px] flex-row items-center rounded-lg bg-input px-4">
-          <Text className="font-sans text-body text-placeholder">Search properties...</Text>
-        </Pressable>
-
-        {/* Greeting */}
-        <Text className="mb-1 font-display text-h2 text-ink">Good afternoon 👋</Text>
-        <Text className="mb-5 font-sans text-body text-ink2">Find your next home.</Text>
-
-        {/* Quick filter chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
-          {['All', '1 BHK', '2 BHK', '3 BHK', 'Studio', 'Flat'].map((chip) => (
-            <Pressable key={chip} className="mr-2 rounded-pill bg-canvas px-4 py-2">
-              <Text className="font-medium text-body-sm text-ink">{chip}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* AI Picks section */}
-        <Text className="mb-3 font-semibold text-h3 text-ink">AI Picks for you</Text>
-        <View className="mb-5 h-[180px] items-center justify-center rounded-card bg-canvas">
-          <Text className="font-sans text-body-sm text-ink3">Property carousel placeholder</Text>
+        <View className="px-[24px] pt-2">
+          <Pressable
+            onPress={() => router.push('/(tenant)/(tabs)/search' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Open search"
+            className="h-input-h flex-row items-center gap-3 rounded-pill bg-input px-5">
+            <Search size={20} color="#888888" />
+            <Text className="font-sans text-body text-ink2">Search city, area, or property</Text>
+          </Pressable>
         </View>
 
-        {/* Newly verified */}
-        <Text className="mb-3 font-semibold text-h3 text-ink">Newly verified</Text>
-        <View className="mb-5 h-[180px] items-center justify-center rounded-card bg-canvas">
-          <Text className="font-sans text-body-sm text-ink3">Property carousel placeholder</Text>
+        {/* City filter chips */}
+        <View className="flex-row flex-wrap gap-3 px-[24px] pt-6">
+          {CITIES.map((city) => {
+            const isActive = city === activeCity;
+            return (
+              <Pressable
+                key={city}
+                onPress={() => handleCityPress(city)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`Filter by ${city}`}
+                className={`h-[42px] items-center justify-center rounded-pill px-5 ${
+                  isActive ? 'bg-ink' : 'bg-input'
+                }`}>
+                <Text className={`font-sans text-body-sm ${isActive ? 'text-bg' : 'text-ink'}`}>
+                  {city}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* Browse by area */}
-        <Text className="mb-3 font-semibold text-h3 text-ink">Browse by area</Text>
-        <View className="flex-row flex-wrap">
-          {['Thamel', 'Lazimpat', 'Baluwatar', 'Jhamsikhel'].map((area) => (
-            <View
-              key={area}
-              className="mb-3 mr-3 h-[80px] w-[48%] items-center justify-center rounded-card bg-canvas">
-              <Text className="font-medium text-body-sm text-ink">{area}</Text>
+        {/* Featured property card */}
+        <View className="px-[24px] pt-6">
+          <Pressable
+            onPress={() => handlePropertyPress(featuredProperty.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Featured: ${featuredProperty.title}`}
+            className="w-full overflow-hidden rounded-hero bg-canvas pb-2">
+            <View className="h-[210px] w-full bg-placeholder-image" />
+            <View className="px-5 py-4">
+              <Text numberOfLines={1} className="font-semibold text-h3 text-ink">
+                {featuredProperty.title}
+              </Text>
+              <Text className="mt-1 font-sans text-body text-brand">
+                {featuredProperty.currency} {featuredProperty.priceMonthly.toLocaleString()} / month
+              </Text>
+              <Text className="mt-[6px] font-sans text-body-sm text-ink2">
+                {featuredProperty.area} · Verified
+              </Text>
             </View>
+          </Pressable>
+        </View>
+
+        {/* Recommended heading */}
+        <View className="px-[24px] pt-8">
+          <Text className="font-semibold text-h2 text-ink">Recommended</Text>
+        </View>
+
+        {/* Recommended rows */}
+        <View className="px-[24px] pt-4">
+          {recommendedProperties.map((row, idx) => (
+            <Pressable
+              key={row.id}
+              onPress={() => handlePropertyPress(row.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Recommended: ${row.title}`}
+              className={`flex-row items-center gap-4 py-4 ${
+                idx < recommendedProperties.length - 1 ? 'border-b border-divider' : ''
+              }`}>
+              <View className="h-[72px] w-[72px] rounded-lg bg-placeholder-image" />
+              <View className="flex-1">
+                <Text numberOfLines={1} className="font-semibold text-body text-ink">
+                  {row.title}
+                </Text>
+                <Text className="mt-1 font-sans text-body-sm text-ink2">
+                  {row.currency} {row.priceMonthly.toLocaleString()} / month
+                </Text>
+                <Text className="mt-1 font-sans text-caption text-placeholder">{row.area}</Text>
+              </View>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
     </ScreenBody>
   );
 }
+

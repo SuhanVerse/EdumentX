@@ -9,7 +9,9 @@ export default function LandlordDashboard() {
 
   return (
     <ScreenBody>
-      <ScrollView className="flex-1 px-6" contentContainerStyle={{ paddingTop: 16 }}>
+      <ScrollView
+        className="flex-1 px-6"
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 120 }}>
         {/* Header */}
         <View className="h-[56px] flex-row items-center justify-between">
           <Text className="font-display text-h2 text-ink">BasoBas</Text>

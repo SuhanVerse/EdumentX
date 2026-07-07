@@ -17,7 +17,9 @@ export const ScreenHeader = ({ title, showBack, centerTitle, rightIcon, rightTex
   return (
     <View className="h-[56px] flex-row items-center justify-between border-b border-line bg-bg px-6">
       {showBack ? (
-        <Pressable onPress={() => router.back()} className="h-11 w-11 items-center justify-center rounded-pill bg-input">
+        <Pressable
+          onPress={() => router.back()}
+          className="h-11 w-11 items-center justify-center rounded-pill bg-input">
           <ArrowLeft size={18} color="#0A0A0A" strokeWidth={2.2} />
         </Pressable>
       ) : (
@@ -30,9 +32,12 @@ export const ScreenHeader = ({ title, showBack, centerTitle, rightIcon, rightTex
 
       {rightIcon === 'settings' ? (
         <Pressable
-          onPress={() => router.push(inLandlord ? '/(landlord)/settings' as any : '/(tenant)/settings' as any)}
-          className="h-10 w-10 items-center justify-center rounded-pill bg-input"
-        >
+          onPress={() =>
+            router.push(
+              inLandlord ? ('/(landlord)/settings' as any) : ('/(tenant)/settings' as any)
+            )
+          }
+          className="h-10 w-10 items-center justify-center rounded-pill bg-input">
           <Settings size={18} color="#0A0A0A" />
         </Pressable>
       ) : rightText ? (
@@ -45,4 +50,3 @@ export const ScreenHeader = ({ title, showBack, centerTitle, rightIcon, rightTex
     </View>
   );
 };
-

@@ -1,1 +1,28 @@
-{"nodes": [{"id": "listing__id__listingdetailscreen", "label": "ListingDetailScreen", "file_type": "code", "source_file": "app/(landlord)/listing/[id].tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "listing__id__listingdetailscreen", "target": "request__id__requestdetailscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(landlord)/listing/[id].tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "listing__id__listingdetailscreen",
+      "label": "ListingDetailScreen",
+      "file_type": "code",
+      "source_file": "app/(landlord)/listing/[id].tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "listing__id__listingdetailscreen",
+      "target": "request__id__requestdetailscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(landlord)/listing/[id].tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

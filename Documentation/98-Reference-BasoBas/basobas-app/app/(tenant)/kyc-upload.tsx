@@ -7,11 +7,11 @@ export default function KYCUploadScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <ScreenHeader title="KYC Upload" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
-        <Text className="font-semibold text-h3 text-ink mb-2">Verify your identity</Text>
-        <Text className="font-sans text-body-sm text-ink2 mb-6">
+        <Text className="mb-2 font-semibold text-h3 text-ink">Verify your identity</Text>
+        <Text className="mb-6 font-sans text-body-sm text-ink2">
           Upload your documents to complete verification.
         </Text>
-        <View className="h-[120px] items-center justify-center rounded-card border-2 border-dashed border-line bg-canvas mb-4">
+        <View className="mb-4 h-[120px] items-center justify-center rounded-card border-2 border-dashed border-line bg-canvas">
           <Text className="font-medium text-body-sm text-ink2">Upload ID Document</Text>
         </View>
       </ScrollView>

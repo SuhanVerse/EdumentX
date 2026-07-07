@@ -1,1 +1,38 @@
-{"nodes": [{"id": "assets_splash", "label": "Splash Screen (basobas-app)", "file_type": "image", "source_file": "assets/splash.png", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "assets_splash", "target": "expo_project_assets", "relation": "references", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "assets/splash.png", "source_location": null, "weight": 1.0}, {"source": "assets_splash", "target": "assets_favicon", "relation": "semantically_similar_to", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "assets/splash.png", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "assets_splash",
+      "label": "Splash Screen (basobas-app)",
+      "file_type": "image",
+      "source_file": "assets/splash.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "assets_splash",
+      "target": "expo_project_assets",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "assets/splash.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "assets_splash",
+      "target": "assets_favicon",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "assets/splash.png",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -8,17 +8,18 @@ export default function SearchResultsScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      <View className="h-[56px] flex-row items-center justify-between px-6 border-b border-line">
-        <Pressable onPress={() => router.back()} className="h-11 w-11 items-center justify-center rounded-pill bg-input">
+      <View className="h-[56px] flex-row items-center justify-between border-b border-line px-6">
+        <Pressable
+          onPress={() => router.back()}
+          className="h-11 w-11 items-center justify-center rounded-pill bg-input">
           <Text className="font-semibold text-body text-ink">←</Text>
         </Pressable>
-        <View className="flex-1 mx-3 h-[40px] rounded-lg bg-input px-3 justify-center">
+        <View className="mx-3 h-[40px] flex-1 justify-center rounded-lg bg-input px-3">
           <Text className="font-sans text-body-sm text-ink">Kathmandu apartments</Text>
         </View>
         <Pressable
           onPress={() => router.push('/(tenant)/_modal/filter' as any)}
-          className="h-10 w-10 items-center justify-center rounded-pill bg-input"
-        >
+          className="h-10 w-10 items-center justify-center rounded-pill bg-input">
           <SlidersHorizontal size={18} color="#0A0A0A" />
         </Pressable>
       </View>
@@ -32,8 +33,7 @@ export default function SearchResultsScreen() {
           </Pressable>
           <Pressable
             onPress={() => router.push('/(tenant)/map' as any)}
-            className="rounded-pill bg-canvas px-3 py-1"
-          >
+            className="rounded-pill bg-canvas px-3 py-1">
             <Text className="font-medium text-caption text-ink">Map</Text>
           </Pressable>
         </View>
@@ -44,14 +44,15 @@ export default function SearchResultsScreen() {
           <Pressable
             key={i}
             onPress={() => router.push(`/(tenant)/property/${i}` as any)}
-            className="mb-4 rounded-card border border-line bg-bg overflow-hidden"
-          >
-            <View className="h-[160px] bg-canvas items-center justify-center">
+            className="mb-4 overflow-hidden rounded-card border border-line bg-bg">
+            <View className="h-[160px] items-center justify-center bg-canvas">
               <Text className="font-sans text-body-sm text-ink3">Photo</Text>
             </View>
             <View className="p-4">
-              <Text className="font-semibold text-body text-ink mb-1">Beautiful Apartment in Thamel</Text>
-              <Text className="font-sans text-body-sm text-ink2 mb-1">Thamel, Kathmandu</Text>
+              <Text className="mb-1 font-semibold text-body text-ink">
+                Beautiful Apartment in Thamel
+              </Text>
+              <Text className="mb-1 font-sans text-body-sm text-ink2">Thamel, Kathmandu</Text>
               <Text className="font-bold text-body text-brand">NPR 25,000/mo</Text>
             </View>
           </Pressable>

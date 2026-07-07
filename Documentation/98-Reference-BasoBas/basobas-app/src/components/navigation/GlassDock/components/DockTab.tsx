@@ -4,8 +4,8 @@ import type { LucideIcon } from 'lucide-react-native';
 
 import type { DockItem } from '../types/dock';
 
-const ICON_SIZE = 22;
-const INACTIVE_COLOR = 'rgba(75, 75, 75, 0.78)';
+const ICON_SIZE = 24;
+const INACTIVE_COLOR = '#0A0A0A';
 const ACTIVE_COLOR = '#FFFFFF';
 
 interface DockTabProps {
@@ -20,7 +20,7 @@ interface DockTabProps {
  * Layout: `flex-1 self-stretch` — takes an equal share of the row width
  * and stretches to the full dock height, giving a large tap target.
  *
- * Active  → 44 × 44 black circle (w-11 h-11 bg-ink rounded-full) + white icon
+ * Active  → 52 × 52 black circle (w-[52px] h-[52px] bg-ink rounded-full) + white icon
  * Inactive → no background, dark-gray icon
  */
 export const DockTab = React.memo(({ item, isActive, onPress }: DockTabProps) => {
@@ -36,7 +36,7 @@ export const DockTab = React.memo(({ item, isActive, onPress }: DockTabProps) =>
       className="flex-1 items-center justify-center self-stretch"
       style={({ pressed }) => (pressed ? { opacity: 0.5 } : undefined)}>
       {/* Black circle — shown only for the active tab */}
-      {isActive && <View className="absolute h-11 w-11 rounded-full bg-ink" />}
+      {isActive && <View className="absolute h-[52px] w-[52px] rounded-pill bg-ink" />}
 
       {/* Icon sits above the circle via normal stacking order */}
       <Icon

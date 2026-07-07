@@ -43,190 +43,193 @@ export type Database = {
         Row: {
           attempt_number: number
           back_image_path: string
-          document_type: Database["public"]["Enums"]["document_type_type"]
+          clerk_id: string
+          document_type: string
+          electricity_bill_path: string | null
           front_image_path: string
           id: string
           rejection_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
-          status: Database["public"]["Enums"]["kyc_status_type"]
+          status: string
           submitted_at: string
-          user_id: string
         }
         Insert: {
           attempt_number?: number
           back_image_path: string
-          document_type: Database["public"]["Enums"]["document_type_type"]
+          clerk_id: string
+          document_type: string
+          electricity_bill_path?: string | null
           front_image_path: string
           id?: string
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["kyc_status_type"]
+          status?: string
           submitted_at?: string
-          user_id: string
         }
         Update: {
           attempt_number?: number
           back_image_path?: string
-          document_type?: Database["public"]["Enums"]["document_type_type"]
+          clerk_id?: string
+          document_type?: string
+          electricity_bill_path?: string | null
           front_image_path?: string
           id?: string
           rejection_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["kyc_status_type"]
+          status?: string
           submitted_at?: string
-          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "kyc_submissions_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "kyc_submissions_clerk_id_fkey"
+            columns: ["clerk_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["clerk_id"]
           },
         ]
       }
       landlord_profiles: {
         Row: {
           avg_rating: number
+          clerk_id: string
           created_at: string
           is_phone_shared_default: boolean
           total_reviews: number
           updated_at: string
-          user_id: string
           verification_reject_reason: string | null
           verification_reviewed_at: string | null
-          verification_status: Database["public"]["Enums"]["verification_status_type"]
+          verification_status: string
           verification_submitted_at: string | null
         }
         Insert: {
           avg_rating?: number
+          clerk_id: string
           created_at?: string
           is_phone_shared_default?: boolean
           total_reviews?: number
           updated_at?: string
-          user_id: string
           verification_reject_reason?: string | null
           verification_reviewed_at?: string | null
-          verification_status?: Database["public"]["Enums"]["verification_status_type"]
+          verification_status?: string
           verification_submitted_at?: string | null
         }
         Update: {
           avg_rating?: number
+          clerk_id?: string
           created_at?: string
           is_phone_shared_default?: boolean
           total_reviews?: number
           updated_at?: string
-          user_id?: string
           verification_reject_reason?: string | null
           verification_reviewed_at?: string | null
-          verification_status?: Database["public"]["Enums"]["verification_status_type"]
+          verification_status?: string
           verification_submitted_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "landlord_profiles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "landlord_profiles_clerk_id_fkey"
+            columns: ["clerk_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["clerk_id"]
           },
         ]
       }
       profiles: {
         Row: {
-          active_role: Database["public"]["Enums"]["user_role_type"] | null
+          active_role: string | null
           avatar_path: string | null
           avatar_url: string | null
           city: string | null
+          clerk_id: string
           created_at: string
           full_name: string | null
-          id: string
           onboarding_complete: boolean
-          phone: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
-          active_role?: Database["public"]["Enums"]["user_role_type"] | null
+          active_role?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
           city?: string | null
+          clerk_id: string
           created_at?: string
           full_name?: string | null
-          id: string
           onboarding_complete?: boolean
-          phone: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
-          active_role?: Database["public"]["Enums"]["user_role_type"] | null
+          active_role?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
           city?: string | null
+          clerk_id?: string
           created_at?: string
           full_name?: string | null
-          id?: string
           onboarding_complete?: boolean
-          phone?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: []
       }
       user_preferences: {
         Row: {
-          property_types: Database["public"]["Enums"]["property_type_enum"][]
+          clerk_id: string
+          property_types: string[]
           updated_at: string
-          user_id: string
         }
         Insert: {
-          property_types?: Database["public"]["Enums"]["property_type_enum"][]
+          clerk_id: string
+          property_types?: string[]
           updated_at?: string
-          user_id: string
         }
         Update: {
-          property_types?: Database["public"]["Enums"]["property_type_enum"][]
+          clerk_id?: string
+          property_types?: string[]
           updated_at?: string
-          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_preferences_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "user_preferences_clerk_id_fkey"
+            columns: ["clerk_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["clerk_id"]
           },
         ]
       }
       user_roles: {
         Row: {
+          clerk_id: string
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["user_role_type"]
-          user_id: string
+          role: string
         }
         Insert: {
+          clerk_id: string
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["user_role_type"]
-          user_id: string
+          role: string
         }
         Update: {
+          clerk_id?: string
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["user_role_type"]
-          user_id?: string
+          role?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "user_roles_clerk_id_fkey"
+            columns: ["clerk_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["clerk_id"]
           },
         ]
       }
@@ -241,12 +244,13 @@ export type Database = {
               p_avatar_path?: string
               p_avatar_url?: string
               p_city: string
+              p_clerk_id: string
               p_full_name: string
               p_has_landlord_role: boolean
               p_kyc_submission_id?: string
+              p_phone: string
               p_property_types: string[]
               p_roles: string[]
-              p_user_id: string
             }
             Returns: Json
           }
@@ -266,22 +270,24 @@ export type Database = {
       insert_kyc_submission: {
         Args: {
           p_back_image_path: string
+          p_clerk_id: string
           p_document_type: string
+          p_electricity_bill_path?: string | null
           p_front_image_path: string
-          p_user_id: string
         }
         Returns: {
           attempt_number: number
           back_image_path: string
-          document_type: Database["public"]["Enums"]["document_type_type"]
+          clerk_id: string
+          document_type: string
+          electricity_bill_path: string | null
           front_image_path: string
           id: string
           rejection_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
-          status: Database["public"]["Enums"]["kyc_status_type"]
+          status: string
           submitted_at: string
-          user_id: string
         }
         SetofOptions: {
           from: "*"
@@ -290,29 +296,9 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      requesting_user_id: { Args: never; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      upsert_profile_on_auth: {
-        Args: { p_phone: string; p_user_id: string }
-        Returns: {
-          active_role: Database["public"]["Enums"]["user_role_type"] | null
-          avatar_path: string | null
-          avatar_url: string | null
-          city: string | null
-          created_at: string
-          full_name: string | null
-          id: string
-          onboarding_complete: boolean
-          phone: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "profiles"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
     }
     Enums: {
       document_type_type: "CITIZENSHIP" | "NATIONAL_ID"
@@ -447,14 +433,6 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
-// ─── Convenience type aliases ──────────────────────────────────────────────
-export type Profile        = Tables<'profiles'>
-export type ProfileInsert  = TablesInsert<'profiles'>
-export type ProfileUpdate  = TablesUpdate<'profiles'>
-export type KYCSubmission   = Tables<'kyc_submissions'>
-export type UserRole        = Enums<'user_role_type'>
-export type DocumentType    = Enums<'document_type_type'>
 
 export const Constants = {
   graphql_public: {

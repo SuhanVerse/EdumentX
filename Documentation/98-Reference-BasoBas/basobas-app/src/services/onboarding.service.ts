@@ -1,105 +1,101 @@
-import { supabase } from '@/src/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { uploadAvatar } from './storage.service'
 import { submitKYC } from './kyc.service'
-import { ok, err, getErrorMessage, type Result } from '@/src/lib/result'
+import { ok, err, type Result } from '@/src/lib/result'
+import type { Database } from '@/src/types/database.types'
 
 export interface OnboardingInput {
-  userId:         string
+  clerkId:        string        // user.id from Clerk
+  phone:          string        // user.phoneNumbers[0].phoneNumber from Clerk
   roles:          ('tenant' | 'landlord')[]
-
   fullName:       string
   city:           string
   avatarLocalUri: string | null
   preferences:    string[]
   kyc: {
-    documentType:  'CITIZENSHIP' | 'NATIONAL_ID'
-    frontLocalUri: string
-    backLocalUri:  string
+    documentType:            'CITIZENSHIP' | 'NATIONAL_ID'
+    frontLocalUri:           string
+    backLocalUri:            string
+    electricityBillLocalUri?: string  // Landlord-only
   } | null
-}
-
-export interface OnboardingResult {
-  onboardingComplete: true
-  kycSubmitted:       boolean
-  kycSubmissionId:    string | null
+  supabase: SupabaseClient<Database>
 }
 
 export async function completeOnboarding(
   input: OnboardingInput
-): Promise<Result<OnboardingResult>> {
-  const { userId, roles, fullName, city, avatarLocalUri, preferences, kyc } = input
-
-  console.log('[completeOnboarding] Starting for user:', userId)
+): Promise<Result<{ onboardingComplete: true; kycSubmitted: boolean }>> {
+  const {
+    clerkId, phone, roles, fullName, city,
+    avatarLocalUri, preferences, kyc, supabase,
+  } = input
 
   let avatarUrl:       string | null = null
   let avatarPath:      string | null = null
   let kycSubmissionId: string | null = null
 
-  // ── Step 1: Upload avatar (optional) ───────────────────────────────────
+  // 1. Upload avatar (non-fatal — do not fail onboarding for this)
   if (avatarLocalUri) {
-    console.log('[completeOnboarding] Uploading avatar...')
-    const avatarResult = await uploadAvatar(userId, avatarLocalUri)
-    if (avatarResult.success) {
-      avatarUrl  = avatarResult.data.publicUrl
-      avatarPath = avatarResult.data.path
-      console.log('[completeOnboarding] Avatar uploaded:', avatarUrl)
+    const r = await uploadAvatar(clerkId, avatarLocalUri, supabase)
+    if (r.success) {
+      avatarUrl  = r.data.publicUrl
+      avatarPath = r.data.path
     } else {
-      // Avatar failure is non-fatal — log and continue
-      console.warn('[completeOnboarding] Avatar upload failed (non-fatal):', avatarResult.error)
+      console.warn('[Onboarding] Avatar upload skipped:', r.error)
     }
   }
 
-  // ── Step 2: Upload KYC documents (if provided) ────────────────────────
-  if (kyc) {
-    console.log('[completeOnboarding] Uploading KYC documents...')
-    const kycResult = await submitKYC({
-      userId,
-      documentType:  kyc.documentType,
-      frontLocalUri: kyc.frontLocalUri,
-      backLocalUri:  kyc.backLocalUri,
-    })
-
-    if (!kycResult.success) {
-      console.error('[completeOnboarding] KYC upload failed:', kycResult.error)
-      return err(kycResult.error)
-    }
-
-    kycSubmissionId = kycResult.data.submissionId
-    console.log('[completeOnboarding] KYC submitted:', kycSubmissionId)
-  }
-
-  // ── Step 3: Complete onboarding via atomic RPC ────────────────────────
-  console.log('[completeOnboarding] Calling complete_onboarding RPC...')
-
-  const { data, error } = await supabase.rpc('complete_onboarding', {
-    p_user_id:           userId,
+  // 2. Create profile FIRST via complete_onboarding RPC (no KYC ID yet).
+  //    This ensures the profile row exists BEFORE we try to insert KYC records
+  //    that reference profiles(clerk_id) as a foreign key.
+  const { data: profileResult, error: profileError } = await supabase.rpc('complete_onboarding', {
+    p_clerk_id:          clerkId,
+    p_phone:             phone,
     p_full_name:         fullName,
     p_city:              city,
     p_roles:             roles,
-    p_property_types:    preferences.length > 0 ? preferences : [],
+    p_property_types:    preferences,
     p_has_landlord_role: roles.includes('landlord'),
-    p_kyc_submission_id: kycSubmissionId ?? undefined,
+    p_kyc_submission_id: undefined,
     p_avatar_url:        avatarUrl ?? undefined,
     p_avatar_path:       avatarPath ?? undefined,
   })
 
-  if (error) {
-    console.error('[completeOnboarding] RPC error:', error)
-    return err(`Account setup failed: ${error.message}`)
+  if (profileError) return err(`Database error: ${profileError.message}`)
+
+  const profileResultData = profileResult as { success: boolean; error?: string }
+  if (!profileResultData?.success) return err(profileResultData?.error ?? 'Onboarding failed.')
+
+  // 3. Now that the profile exists, submit KYC (FK constraint satisfied).
+  if (kyc) {
+    const r = await submitKYC({
+      clerkId, supabase,
+      documentType:           kyc.documentType,
+      frontLocalUri:          kyc.frontLocalUri,
+      backLocalUri:           kyc.backLocalUri,
+      electricityBillLocalUri: kyc.electricityBillLocalUri,
+    })
+    if (!r.success) return err(r.error)
+    kycSubmissionId = r.data.submissionId
+
+    // 4. If landlord, update verification status now that KYC has been submitted.
+    //    Calling complete_onboarding again is safe — it uses ON CONFLICT DO UPDATE,
+    //    so the landlord profile's verification_status gets upgraded to UNDER_REVIEW.
+    if (roles.includes('landlord')) {
+      const { error: updateError } = await supabase.rpc('complete_onboarding', {
+        p_clerk_id:          clerkId,
+        p_phone:             phone,
+        p_full_name:         fullName,
+        p_city:              city,
+        p_roles:             roles,
+        p_property_types:    preferences,
+        p_has_landlord_role: true,
+        p_kyc_submission_id: kycSubmissionId,
+        p_avatar_url:        avatarUrl ?? undefined,
+        p_avatar_path:       avatarPath ?? undefined,
+      })
+      if (updateError) return err(`Landlord verification update failed: ${updateError.message}`)
+    }
   }
 
-  const result = data as { success: boolean; error?: string }
-
-  if (!result?.success) {
-    console.error('[completeOnboarding] RPC returned failure:', result?.error)
-    return err(result?.error ?? 'Account setup failed. Please try again.')
-  }
-
-  console.log('[completeOnboarding] Complete! Result:', result)
-
-  return ok({
-    onboardingComplete: true,
-    kycSubmitted:       kyc !== null,
-    kycSubmissionId,
-  })
+  return ok({ onboardingComplete: true, kycSubmitted: kyc !== null })
 }

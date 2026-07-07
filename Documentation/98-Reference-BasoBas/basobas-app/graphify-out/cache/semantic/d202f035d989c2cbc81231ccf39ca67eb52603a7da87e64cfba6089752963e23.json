@@ -1,1 +1,49 @@
-{"nodes": [{"id": "molecules_screenheader_screenheader", "label": "ScreenHeader molecule (role-aware back/settings)", "file_type": "code", "source_file": "src/components/molecules/ScreenHeader.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "concept_role_based_routing", "label": "Role-based routing (tenant/landlord segments)", "file_type": "rationale", "source_file": "src/components/molecules/ScreenHeader.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "molecules_screenheader_screenheader", "target": "store_authstore_role_type", "relation": "references", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/components/molecules/ScreenHeader.tsx", "source_location": null, "weight": 1.0}, {"source": "concept_role_based_routing", "target": "molecules_screenheader_screenheader", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "src/components/molecules/ScreenHeader.tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "molecules_screenheader_screenheader",
+      "label": "ScreenHeader molecule (role-aware back/settings)",
+      "file_type": "code",
+      "source_file": "src/components/molecules/ScreenHeader.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "concept_role_based_routing",
+      "label": "Role-based routing (tenant/landlord segments)",
+      "file_type": "rationale",
+      "source_file": "src/components/molecules/ScreenHeader.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "molecules_screenheader_screenheader",
+      "target": "store_authstore_role_type",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/components/molecules/ScreenHeader.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "concept_role_based_routing",
+      "target": "molecules_screenheader_screenheader",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "src/components/molecules/ScreenHeader.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

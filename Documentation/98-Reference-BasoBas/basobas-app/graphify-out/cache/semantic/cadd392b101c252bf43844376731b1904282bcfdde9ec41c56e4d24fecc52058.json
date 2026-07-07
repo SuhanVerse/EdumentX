@@ -1,1 +1,101 @@
-{"nodes": [{"id": "store_authstore_useauth", "label": "useAuth (Zustand hook)", "file_type": "code", "source_file": "src/store/authStore.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "store_authstore_useauth", "label": "useAuth Zustand store (isAuthenticated, role)", "file_type": "code", "source_file": "src/store/authStore.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "store_authstore_authstate", "label": "AuthState interface", "file_type": "concept", "source_file": "src/store/authStore.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "store_authstore_role_type", "label": "Role type: tenant | landlord | null", "file_type": "concept", "source_file": "src/store/authStore.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "store_authstore_useauth", "target": "auth_role_rolescreen", "relation": "shares_data_with", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/store/authStore.ts", "source_location": null, "weight": 1.0}, {"source": "store_authstore_useauth", "target": "landlord_settings_settingsscreen", "relation": "shares_data_with", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/store/authStore.ts", "source_location": null, "weight": 1.0}, {"source": "store_authstore_useauth", "target": "store_authstore_authstate", "relation": "implements", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "src/store/authStore.ts", "source_location": null, "weight": 1.0}, {"source": "store_authstore_authstate", "target": "store_authstore_role_type", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "src/store/authStore.ts", "source_location": null, "weight": 1.0}, {"source": "concept_role_based_routing", "target": "store_authstore_role_type", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "src/store/authStore.ts", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "store_authstore_useauth",
+      "label": "useAuth (Zustand hook)",
+      "file_type": "code",
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "store_authstore_useauth",
+      "label": "useAuth Zustand store (isAuthenticated, role)",
+      "file_type": "code",
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "store_authstore_authstate",
+      "label": "AuthState interface",
+      "file_type": "concept",
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "store_authstore_role_type",
+      "label": "Role type: tenant | landlord | null",
+      "file_type": "concept",
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "store_authstore_useauth",
+      "target": "auth_role_rolescreen",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "store_authstore_useauth",
+      "target": "landlord_settings_settingsscreen",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "store_authstore_useauth",
+      "target": "store_authstore_authstate",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "store_authstore_authstate",
+      "target": "store_authstore_role_type",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "concept_role_based_routing",
+      "target": "store_authstore_role_type",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "src/store/authStore.ts",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -6,7 +6,7 @@ type Props = {
 };
 
 export const MenuCard = ({ children, className = '' }: Props) => (
-  <View className={`rounded-card border border-line bg-bg overflow-hidden ${className}`}>
+  <View className={`overflow-hidden rounded-card border border-line bg-bg ${className}`}>
     {children}
   </View>
 );

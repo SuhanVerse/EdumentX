@@ -1,1 +1,28 @@
-{"nodes": [{"id": "config_babel_config", "label": "babel.config.js - nativewind/reanimated preset", "file_type": "code", "source_file": "babel.config.js", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "config_babel_config", "target": "config_nativewind_env", "relation": "conceptually_related_to", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "babel.config.js", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "config_babel_config",
+      "label": "babel.config.js - nativewind/reanimated preset",
+      "file_type": "code",
+      "source_file": "babel.config.js",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "config_babel_config",
+      "target": "config_nativewind_env",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "babel.config.js",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

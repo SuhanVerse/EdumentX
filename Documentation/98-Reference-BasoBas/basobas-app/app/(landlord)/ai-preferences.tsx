@@ -8,7 +8,8 @@ export default function AIPreferencesScreen() {
       <ScreenHeader title="AI Preferences" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
         <Text className="font-sans text-body text-ink2">
-          Customize how our AI matches potential tenants to your listings. Fine-tune tenant filters, preferences, and automated replies.
+          Customize how our AI matches potential tenants to your listings. Fine-tune tenant filters,
+          preferences, and automated replies.
         </Text>
       </ScrollView>
     </SafeAreaView>

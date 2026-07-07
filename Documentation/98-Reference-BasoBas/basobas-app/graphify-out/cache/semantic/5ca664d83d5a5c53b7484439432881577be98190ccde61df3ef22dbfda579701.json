@@ -1,1 +1,39 @@
-{"nodes": [{"id": "atoms_statuspill_statuspill", "label": "StatusPill atom component", "file_type": "code", "source_file": "src/components/atoms/StatusPill.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "atoms_statuspill_status_type", "label": "Status type union (8 states)", "file_type": "concept", "source_file": "src/components/atoms/StatusPill.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "atoms_statuspill_statuspill", "target": "atoms_statuspill_status_type", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "src/components/atoms/StatusPill.tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "atoms_statuspill_statuspill",
+      "label": "StatusPill atom component",
+      "file_type": "code",
+      "source_file": "src/components/atoms/StatusPill.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "atoms_statuspill_status_type",
+      "label": "Status type union (8 states)",
+      "file_type": "concept",
+      "source_file": "src/components/atoms/StatusPill.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "atoms_statuspill_statuspill",
+      "target": "atoms_statuspill_status_type",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/atoms/StatusPill.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

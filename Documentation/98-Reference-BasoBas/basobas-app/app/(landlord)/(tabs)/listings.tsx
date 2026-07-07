@@ -35,7 +35,7 @@ export default function ListingsTab() {
 
       <ScrollView
         className="flex-1 px-6"
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 16 }}>
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 120 }}>
         {/* 2-column PropertyCard grid */}
         <View className="flex-row flex-wrap justify-between">
           {[

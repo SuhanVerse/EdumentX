@@ -26,12 +26,11 @@ export const MenuRow = ({
 }: Props) => (
   <Pressable
     onPress={onPress}
-    className={`flex-row items-center px-4 ${tall ? 'h-16' : 'h-[52px]'} ${!isLast ? 'border-b border-row-divider' : ''} ${className}`}
-  >
+    className={`flex-row items-center px-4 ${tall ? 'h-16' : 'h-[52px]'} ${!isLast ? 'border-b border-row-divider' : ''} ${className}`}>
     {icon && <View className="mr-3">{icon}</View>}
     <View className="flex-1">
       <Text className="font-medium text-body text-ink">{label}</Text>
-      {subtitle && <Text className="font-sans text-caption text-ink2 mt-0.5">{subtitle}</Text>}
+      {subtitle && <Text className="mt-0.5 font-sans text-caption text-ink2">{subtitle}</Text>}
     </View>
     {rightSlot || (showChevron && <ChevronRight size={18} color="#AAAAAA" />)}
   </Pressable>

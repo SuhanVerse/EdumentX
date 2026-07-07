@@ -1,1 +1,114 @@
-{"nodes": [{"id": "tenant_property_propertydetailscreen", "label": "PropertyDetailScreen", "file_type": "code", "source_file": "app/(tenant)/property/[id].tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_property_propertydetailscreen", "target": "tenant_property_gallery_gallerymodal", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push /property/${id}/gallery line 32", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_schedulevisit_schedulevisitscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push /schedule-visit/${id} line 113", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_landlord_publiclandlordprofilescreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push /landlord/1 line 79", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_reviews_propertyreviewsscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push /reviews/property/${id} line 94", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_property_gallery_gallerymodal", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push line 32", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_schedulevisit_schedulevisitscreen", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push line 113", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_landlord_publiclandlordprofilescreen", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push line 79", "weight": 1.0}, {"source": "tenant_property_propertydetailscreen", "target": "tenant_reviews_propertyreviewsscreen", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/property/[id].tsx", "source_location": "router.push line 94", "weight": 1.0}], "hyperedges": [{"id": "tenant_visit_engagement_flow", "label": "Tenant Visit Engagement Flow", "nodes": ["tenant_property_propertydetailscreen", "tenant_schedulevisit_schedulevisitscreen", "tenant_visit_visitdetailscreen", "tenant_reviews_writereviewscreen", "tenant_reviews_propertyreviewsscreen"], "relation": "participate_in", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "app/(tenant)/property/[id].tsx"}]}
+{
+  "nodes": [
+    {
+      "id": "tenant_property_propertydetailscreen",
+      "label": "PropertyDetailScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_property_gallery_gallerymodal",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push /property/${id}/gallery line 32",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_schedulevisit_schedulevisitscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push /schedule-visit/${id} line 113",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_landlord_publiclandlordprofilescreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push /landlord/1 line 79",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_reviews_propertyreviewsscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push /reviews/property/${id} line 94",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_property_gallery_gallerymodal",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push line 32",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_schedulevisit_schedulevisitscreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push line 113",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_landlord_publiclandlordprofilescreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push line 79",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_property_propertydetailscreen",
+      "target": "tenant_reviews_propertyreviewsscreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/property/[id].tsx",
+      "source_location": "router.push line 94",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "tenant_visit_engagement_flow",
+      "label": "Tenant Visit Engagement Flow",
+      "nodes": [
+        "tenant_property_propertydetailscreen",
+        "tenant_schedulevisit_schedulevisitscreen",
+        "tenant_visit_visitdetailscreen",
+        "tenant_reviews_writereviewscreen",
+        "tenant_reviews_propertyreviewsscreen"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "app/(tenant)/property/[id].tsx"
+    }
+  ]
+}

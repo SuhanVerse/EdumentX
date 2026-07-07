@@ -1,612 +1,642 @@
 {
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/.claude/settings.json": {
-    "mtime": 1781963167.7253656,
-    "ast_hash": "e1073342e958ac9f00716938c8f165e3",
-    "semantic_hash": "e1073342e958ac9f00716938c8f165e3"
+  ".claude/settings.json": {
+    "mtime": 1782531906.4712074,
+    "ast_hash": "9407857a459524a8e9b7d4e8301b66cb",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app.json": {
-    "mtime": 1782043034.7348645,
-    "ast_hash": "945fb245b88dd7a85fbd74bcf581efff",
-    "semantic_hash": "945fb245b88dd7a85fbd74bcf581efff"
+  ".claude/settings.local.json": {
+    "mtime": 1782234288.9149303,
+    "ast_hash": "cc9f3eb9367f25af19846553127155e6",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/_layout.tsx": {
-    "mtime": 1782056522.815016,
+  "app.json": {
+    "mtime": 1782531906.4721296,
+    "ast_hash": "ed4b701ddcaba121fa18a7e572642130",
+    "semantic_hash": ""
+  },
+  "app/(auth)/_layout.tsx": {
+    "mtime": 1782217958.7717686,
     "ast_hash": "32680aee60042a3a141dbf017a36d1d2",
-    "semantic_hash": "32680aee60042a3a141dbf017a36d1d2"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/kyc-landlord.tsx": {
-    "mtime": 1782092529.4158287,
-    "ast_hash": "db0f12ab17e0c425bf30b5fba4bbb451",
-    "semantic_hash": "db0f12ab17e0c425bf30b5fba4bbb451"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/kyc-tenant.tsx": {
-    "mtime": 1782056099.7390444,
-    "ast_hash": "91e80913703bb91a853474932b59e17e",
-    "semantic_hash": "91e80913703bb91a853474932b59e17e"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/loading.tsx": {
-    "mtime": 1782035144.8067324,
-    "ast_hash": "e27c442d96770f25b0c9abdbcfbd73dd",
-    "semantic_hash": "e27c442d96770f25b0c9abdbcfbd73dd"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/otp.tsx": {
-    "mtime": 1782035144.8045945,
-    "ast_hash": "119138394da1567fbe3c3b88b1a41824",
-    "semantic_hash": "119138394da1567fbe3c3b88b1a41824"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/phone.tsx": {
-    "mtime": 1782035144.7995799,
-    "ast_hash": "36151d7220a03ebff0e6725dc4ad1ea9",
-    "semantic_hash": "36151d7220a03ebff0e6725dc4ad1ea9"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/profile-setup.tsx": {
-    "mtime": 1782055469.4835572,
-    "ast_hash": "f68849f8f06e0bb1615b10612c1dffc0",
-    "semantic_hash": "f68849f8f06e0bb1615b10612c1dffc0"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/role.tsx": {
-    "mtime": 1782055343.1604238,
-    "ast_hash": "e60e8bbb3923d330a9e91ca8aaa1e327",
-    "semantic_hash": "e60e8bbb3923d330a9e91ca8aaa1e327"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/(tabs)/_layout.tsx": {
-    "mtime": 1782014537.2168837,
-    "ast_hash": "b8be87e8b8b580684340ee3aa84cb36e",
-    "semantic_hash": "b8be87e8b8b580684340ee3aa84cb36e"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/(tabs)/index.tsx": {
-    "mtime": 1782046507.5589323,
-    "ast_hash": "e670d59a363ca094681dbb027bcbb8d9",
-    "semantic_hash": "e670d59a363ca094681dbb027bcbb8d9"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/(tabs)/listings.tsx": {
-    "mtime": 1782014940.2412403,
-    "ast_hash": "e0428f79e6073fecf83b71177e821b39",
-    "semantic_hash": "e0428f79e6073fecf83b71177e821b39"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/(tabs)/profile.tsx": {
-    "mtime": 1782014940.2493393,
-    "ast_hash": "3194b7b069789c60985ed90907bb7746",
-    "semantic_hash": "3194b7b069789c60985ed90907bb7746"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/(tabs)/requests.tsx": {
-    "mtime": 1782046507.5594783,
-    "ast_hash": "84a00f0adcb91d790a3843911505ee0d",
-    "semantic_hash": "84a00f0adcb91d790a3843911505ee0d"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/_layout.tsx": {
-    "mtime": 1782046507.5600593,
-    "ast_hash": "19ebee8a1cde0a54bc54c5477a374083",
-    "semantic_hash": "19ebee8a1cde0a54bc54c5477a374083"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/ai-preferences.tsx": {
-    "mtime": 1781445199.4969122,
-    "ast_hash": "2ef62a48b94b8dad898e6127700c4f89",
-    "semantic_hash": "2ef62a48b94b8dad898e6127700c4f89"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/edit-profile.tsx": {
-    "mtime": 1781444975.3297634,
-    "ast_hash": "363944acae782b399ebd146b57e83c62",
-    "semantic_hash": "363944acae782b399ebd146b57e83c62"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/listing/[id].tsx": {
-    "mtime": 1782046507.5604634,
-    "ast_hash": "765afe3eb56e9c2f203d0fbbc3fc935a",
-    "semantic_hash": "765afe3eb56e9c2f203d0fbbc3fc935a"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/listing/new/step-1.tsx": {
-    "mtime": 1782046507.5609972,
-    "ast_hash": "bbba7f00ade13ad89ccbe9c6cf5907be",
-    "semantic_hash": "bbba7f00ade13ad89ccbe9c6cf5907be"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/listing/new/step-2.tsx": {
-    "mtime": 1782046507.561495,
-    "ast_hash": "1bd6b0b33ae4f6587358e0551c51e557",
-    "semantic_hash": "1bd6b0b33ae4f6587358e0551c51e557"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/listing/new/step-3.tsx": {
-    "mtime": 1782046507.5619648,
-    "ast_hash": "c481ccfd9f4d4c9da70aea72ab7ede9b",
-    "semantic_hash": "c481ccfd9f4d4c9da70aea72ab7ede9b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/listing/new/step-4.tsx": {
-    "mtime": 1782046507.5625405,
-    "ast_hash": "7064bd5278b640dcafd6d4e427eed3ef",
-    "semantic_hash": "7064bd5278b640dcafd6d4e427eed3ef"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/notifications.tsx": {
-    "mtime": 1782046507.563158,
-    "ast_hash": "5d64925b62a4e81c3ae848aff36453bf",
-    "semantic_hash": "5d64925b62a4e81c3ae848aff36453bf"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/request/[id].tsx": {
-    "mtime": 1782046507.5634835,
-    "ast_hash": "7af60437bdd58664823cb54602c22778",
-    "semantic_hash": "7af60437bdd58664823cb54602c22778"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/settings.tsx": {
-    "mtime": 1781444979.8704636,
-    "ast_hash": "1b380fd5b0b973ee006e9d521be70deb",
-    "semantic_hash": "1b380fd5b0b973ee006e9d521be70deb"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/tenant/[id].tsx": {
-    "mtime": 1782046507.5642989,
-    "ast_hash": "017084d3d132078a2230fd8e8b86f700",
-    "semantic_hash": "017084d3d132078a2230fd8e8b86f700"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/verification.tsx": {
-    "mtime": 1782046507.564717,
-    "ast_hash": "efbeb919f1ab07a610a3f41c086173c8",
-    "semantic_hash": "efbeb919f1ab07a610a3f41c086173c8"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(landlord)/visits.tsx": {
-    "mtime": 1782046507.5650449,
-    "ast_hash": "981024b708c1e4ee8065574b22c2a6e0",
-    "semantic_hash": "981024b708c1e4ee8065574b22c2a6e0"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/(tabs)/_layout.tsx": {
-    "mtime": 1782014537.211844,
-    "ast_hash": "7387053ef3683af61339b2854e43349d",
-    "semantic_hash": "7387053ef3683af61339b2854e43349d"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/(tabs)/index.tsx": {
-    "mtime": 1782014940.1847672,
-    "ast_hash": "5d5782180a31d92384f72ed22db22ab8",
-    "semantic_hash": "5d5782180a31d92384f72ed22db22ab8"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/(tabs)/profile.tsx": {
-    "mtime": 1782014940.201018,
-    "ast_hash": "85c01e5a212164c39167d8147f1892ff",
-    "semantic_hash": "85c01e5a212164c39167d8147f1892ff"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/(tabs)/search.tsx": {
-    "mtime": 1782016690.5418932,
-    "ast_hash": "0cb9cfbefde1d48537c45a61854b606a",
-    "semantic_hash": "0cb9cfbefde1d48537c45a61854b606a"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/(tabs)/visits.tsx": {
-    "mtime": 1782014940.194906,
-    "ast_hash": "1257dce0d146f01c887fd0b5a8c2addd",
-    "semantic_hash": "1257dce0d146f01c887fd0b5a8c2addd"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/_layout.tsx": {
-    "mtime": 1782046507.5656757,
-    "ast_hash": "879b287c7d2f7fb1661f1d15075ad3cd",
-    "semantic_hash": "879b287c7d2f7fb1661f1d15075ad3cd"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/_modal/filter.tsx": {
-    "mtime": 1782046507.5662036,
-    "ast_hash": "65cc25756a39e799eb540dd8d8aa1ed2",
-    "semantic_hash": "65cc25756a39e799eb540dd8d8aa1ed2"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/_modal/notifications-prefs.tsx": {
-    "mtime": 1781445994.1668334,
-    "ast_hash": "1de1612f37756efc441e46badba771ed",
-    "semantic_hash": "1de1612f37756efc441e46badba771ed"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/ai-preferences.tsx": {
-    "mtime": 1781445257.6757812,
-    "ast_hash": "74ae2e3a9d4896419d78f72d0fd35c4b",
-    "semantic_hash": "74ae2e3a9d4896419d78f72d0fd35c4b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/edit-profile.tsx": {
-    "mtime": 1781444523.0317078,
-    "ast_hash": "104605abe56f35a3046402bdc149a125",
-    "semantic_hash": "104605abe56f35a3046402bdc149a125"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/kyc-upload.tsx": {
-    "mtime": 1781444512.795546,
-    "ast_hash": "e70a7012705f047ebcc405e1b6bacbe5",
-    "semantic_hash": "e70a7012705f047ebcc405e1b6bacbe5"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/landlord/[id].tsx": {
-    "mtime": 1781445265.1802003,
-    "ast_hash": "657e67e1ddd1de155710443100653ff8",
-    "semantic_hash": "657e67e1ddd1de155710443100653ff8"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/list-property.tsx": {
-    "mtime": 1781444517.5944738,
-    "ast_hash": "61a0f392f271fca9970f49d949b07501",
-    "semantic_hash": "61a0f392f271fca9970f49d949b07501"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/map.tsx": {
-    "mtime": 1781444411.4324164,
-    "ast_hash": "ecd1c3ec2e9ab34de0d9571d3feebef7",
-    "semantic_hash": "ecd1c3ec2e9ab34de0d9571d3feebef7"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/notifications.tsx": {
-    "mtime": 1781444539.0081449,
-    "ast_hash": "e60581114f20caf95a66d59b0a3f5ef7",
-    "semantic_hash": "e60581114f20caf95a66d59b0a3f5ef7"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/preferences.tsx": {
-    "mtime": 1781445271.6962147,
-    "ast_hash": "94b54cafa4c18f84f42850a898651337",
-    "semantic_hash": "94b54cafa4c18f84f42850a898651337"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/property/[id].tsx": {
-    "mtime": 1781445292.424151,
-    "ast_hash": "9a91af982d7caf6faeeda2d6c6c6dfc2",
-    "semantic_hash": "9a91af982d7caf6faeeda2d6c6c6dfc2"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/property/[id]/gallery.tsx": {
-    "mtime": 1781444430.267932,
-    "ast_hash": "47317c4c5785f456fcd091702ba0fcae",
-    "semantic_hash": "47317c4c5785f456fcd091702ba0fcae"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/report.tsx": {
-    "mtime": 1781444541.0273223,
-    "ast_hash": "885e82006f86a4d9c20c95b3b73ae05b",
-    "semantic_hash": "885e82006f86a4d9c20c95b3b73ae05b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/reviews/index.tsx": {
-    "mtime": 1781445300.0325189,
-    "ast_hash": "ecaf91d7c60e812e1d17a4339d248091",
-    "semantic_hash": "ecaf91d7c60e812e1d17a4339d248091"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/reviews/property/[id].tsx": {
-    "mtime": 1781445307.4694726,
-    "ast_hash": "c1955873b16ae3cccfd54c2d8200e62c",
-    "semantic_hash": "c1955873b16ae3cccfd54c2d8200e62c"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/reviews/write/[visitId].tsx": {
-    "mtime": 1781445315.0514085,
-    "ast_hash": "5ddcc521f29356711703d9cb79df23da",
-    "semantic_hash": "5ddcc521f29356711703d9cb79df23da"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/saved.tsx": {
-    "mtime": 1781445322.2408185,
-    "ast_hash": "4fb80c5d3839b2bef7dae66029c3a669",
-    "semantic_hash": "4fb80c5d3839b2bef7dae66029c3a669"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/schedule-visit/[propertyId].tsx": {
-    "mtime": 1781445329.054351,
-    "ast_hash": "741d69f5fe073229f95fa9b8f7c87cf5",
-    "semantic_hash": "741d69f5fe073229f95fa9b8f7c87cf5"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/search-results.tsx": {
-    "mtime": 1781445336.1146848,
-    "ast_hash": "e9b6c059efd8449af76e8ca8aa0e9a1c",
-    "semantic_hash": "e9b6c059efd8449af76e8ca8aa0e9a1c"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/settings.tsx": {
-    "mtime": 1781444531.2036238,
-    "ast_hash": "1b380fd5b0b973ee006e9d521be70deb",
-    "semantic_hash": "1b380fd5b0b973ee006e9d521be70deb"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(tenant)/visit/[id].tsx": {
-    "mtime": 1781445343.2545276,
-    "ast_hash": "4996076635e9a3a77874354f1b7567ff",
-    "semantic_hash": "4996076635e9a3a77874354f1b7567ff"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/_layout.tsx": {
-    "mtime": 1782046507.5669143,
-    "ast_hash": "91887cb640740de3be4120568006f41f",
-    "semantic_hash": "91887cb640740de3be4120568006f41f"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/index.tsx": {
-    "mtime": 1782046507.5681798,
-    "ast_hash": "9e0a4134825dadf5c88d325b20759980",
-    "semantic_hash": "9e0a4134825dadf5c88d325b20759980"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/babel.config.js": {
-    "mtime": 1781449457.442956,
-    "ast_hash": "23da646c91232408f58f0d16c3ec252b",
-    "semantic_hash": "23da646c91232408f58f0d16c3ec252b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/eslint.config.js": {
-    "mtime": 1781068006.389277,
-    "ast_hash": "770ca308364a328621db7a5a954bd3f6",
-    "semantic_hash": "770ca308364a328621db7a5a954bd3f6"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/metro.config.js": {
-    "mtime": 1781068006.3919842,
-    "ast_hash": "dcb5d6305afce631e9df229a6693f679",
-    "semantic_hash": "dcb5d6305afce631e9df229a6693f679"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/nativewind-env.d.ts": {
-    "mtime": 1781067947.550908,
-    "ast_hash": "cf9f3aa159ffdc363a88fc4d27dfc4fa",
-    "semantic_hash": "cf9f3aa159ffdc363a88fc4d27dfc4fa"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/package.json": {
-    "mtime": 1782051825.0048375,
-    "ast_hash": "53e556f0b914f50a98234b99c00a005c",
-    "semantic_hash": "53e556f0b914f50a98234b99c00a005c"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/prettier.config.js": {
-    "mtime": 1781068006.4538794,
-    "ast_hash": "7103564e156522f05ba8c5e05017c2a9",
-    "semantic_hash": "7103564e156522f05ba8c5e05017c2a9"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/atoms/Avatar.tsx": {
-    "mtime": 1781446058.5029392,
-    "ast_hash": "80d97428d06bc33f91cb816fd6ba6cab",
-    "semantic_hash": "80d97428d06bc33f91cb816fd6ba6cab"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/atoms/SectionLabel.tsx": {
-    "mtime": 1781445921.0941288,
-    "ast_hash": "514962177439e83d6b5139682da0853a",
-    "semantic_hash": "514962177439e83d6b5139682da0853a"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/atoms/StatusPill.tsx": {
-    "mtime": 1782046507.5790222,
-    "ast_hash": "c51617864753f751090ea43fd340b3e1",
-    "semantic_hash": "c51617864753f751090ea43fd340b3e1"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/atoms/Toggle.tsx": {
-    "mtime": 1781445921.0949447,
-    "ast_hash": "5a28858bce870ee8bdecd7f99644abe5",
-    "semantic_hash": "5a28858bce870ee8bdecd7f99644abe5"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/FilterChip.tsx": {
-    "mtime": 1781445955.8769937,
-    "ast_hash": "e7d23f867ba17e223dfe68ba362c1f7b",
-    "semantic_hash": "e7d23f867ba17e223dfe68ba362c1f7b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/FormField.tsx": {
-    "mtime": 1781445955.8753645,
-    "ast_hash": "e5eef0ca2970d2694c7183b5f1e294b8",
-    "semantic_hash": "e5eef0ca2970d2694c7183b5f1e294b8"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/MenuCard.tsx": {
-    "mtime": 1781445955.8680677,
-    "ast_hash": "d1e7abaa2fbe3a03a000fa26907c6f64",
-    "semantic_hash": "d1e7abaa2fbe3a03a000fa26907c6f64"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/MenuRow.tsx": {
-    "mtime": 1781445955.8725128,
-    "ast_hash": "57069e610690f26197e2d00b2beb774b",
-    "semantic_hash": "57069e610690f26197e2d00b2beb774b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/PropertyCard.tsx": {
-    "mtime": 1781445955.8736932,
-    "ast_hash": "27f3fbc819bd5a3c539cf57ec180f170",
-    "semantic_hash": "27f3fbc819bd5a3c539cf57ec180f170"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/ReviewCard.tsx": {
-    "mtime": 1781445955.8746197,
-    "ast_hash": "3612ce8c929282ff5dc77d7ce245c333",
-    "semantic_hash": "3612ce8c929282ff5dc77d7ce245c333"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/ScreenHeader.tsx": {
-    "mtime": 1781444917.7132225,
-    "ast_hash": "36ce21922ba9b89d92e5d14f0de6b2a5",
-    "semantic_hash": "36ce21922ba9b89d92e5d14f0de6b2a5"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/SearchBar.tsx": {
-    "mtime": 1781446070.623378,
-    "ast_hash": "b7e11742b78a3b87cf6d90d446d78e9a",
-    "semantic_hash": "b7e11742b78a3b87cf6d90d446d78e9a"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/organisms/FloatingDock.tsx": {
-    "mtime": 1782016064.7867634,
-    "ast_hash": "45b8e8b32b6b71c7fa7911cff5214ebe",
-    "semantic_hash": "45b8e8b32b6b71c7fa7911cff5214ebe"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/organisms/ListingComposer.tsx": {
-    "mtime": 1781446058.5087945,
-    "ast_hash": "2983605efcd86c74123a65a3d403fcc4",
-    "semantic_hash": "2983605efcd86c74123a65a3d403fcc4"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/organisms/PropertyHero.tsx": {
-    "mtime": 1781445975.6587863,
-    "ast_hash": "8b2036cea8af902202a97d1b320b7d7e",
-    "semantic_hash": "8b2036cea8af902202a97d1b320b7d7e"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/organisms/PropertyMapPin.tsx": {
-    "mtime": 1781446058.507473,
-    "ast_hash": "640dcb36815f9763c767b9f193dc458b",
-    "semantic_hash": "640dcb36815f9763c767b9f193dc458b"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/store/authStore.ts": {
-    "mtime": 1781443997.8849518,
-    "ast_hash": "74b794f7f5b72c2cc705606359cec651",
-    "semantic_hash": "74b794f7f5b72c2cc705606359cec651"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/tailwind.config.js": {
-    "mtime": 1781444178.5798044,
-    "ast_hash": "aa62c2c515272522a88484732bc56dea",
-    "semantic_hash": "aa62c2c515272522a88484732bc56dea"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/tsconfig.json": {
-    "mtime": 1781449245.8781905,
-    "ast_hash": "3f8ad2303aa79fefe25fce0648a11f29",
-    "semantic_hash": "3f8ad2303aa79fefe25fce0648a11f29"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/CLAUDE.md": {
-    "mtime": 1781963167.7251444,
-    "ast_hash": "82efb97a359f5c7290bf2513d14686be",
-    "semantic_hash": "82efb97a359f5c7290bf2513d14686be"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/README.md": {
-    "mtime": 1781067877.4264572,
-    "ast_hash": "89a6686473a26291768911797452e7f1",
-    "semantic_hash": "89a6686473a26291768911797452e7f1"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/adaptive-icon.png": {
-    "mtime": 1781067947.5763295,
-    "ast_hash": "97dae5a0e62ad8551d8a31897b425e63",
-    "semantic_hash": "97dae5a0e62ad8551d8a31897b425e63"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/favicon.png": {
-    "mtime": 1781067947.5763087,
-    "ast_hash": "4f1cb2cac2370cd5050681232e8575a8",
-    "semantic_hash": "4f1cb2cac2370cd5050681232e8575a8"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/icon.png": {
-    "mtime": 1781067947.576817,
-    "ast_hash": "4e3f888fc8475f69fd5fa32f1ad5216a",
-    "semantic_hash": "4e3f888fc8475f69fd5fa32f1ad5216a"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/splash.png": {
-    "mtime": 1781067947.5769587,
-    "ast_hash": "4dc203c1f48ad8b1e9734613e88be661",
-    "semantic_hash": "4dc203c1f48ad8b1e9734613e88be661"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/.claude/settings.local.json": {
-    "mtime": 1782014466.5659106,
-    "ast_hash": "ddcbe99d60512cf86158a1c0d469e439",
-    "semantic_hash": "ddcbe99d60512cf86158a1c0d469e439"
-  },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/confirmation.tsx": {
-    "mtime": 1782056619.981471,
+  "app/(auth)/confirmation.tsx": {
+    "mtime": 1782217958.7718925,
     "ast_hash": "5b0813f4df1c4966aa1db33de11e5ae5",
-    "semantic_hash": "5b0813f4df1c4966aa1db33de11e5ae5"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/app/(auth)/onboarding.tsx": {
-    "mtime": 1782057015.9012353,
-    "ast_hash": "235f1329248b20b9a0e555f913ffdad1",
-    "semantic_hash": "235f1329248b20b9a0e555f913ffdad1"
+  "app/(auth)/kyc-landlord.tsx": {
+    "mtime": 1782217972.5545864,
+    "ast_hash": "db0f12ab17e0c425bf30b5fba4bbb451",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/GlassDock.tsx": {
-    "mtime": 1782017310.6991558,
-    "ast_hash": "6e087c6d1d78f3e5e558ace98d368ad9",
-    "semantic_hash": "6e087c6d1d78f3e5e558ace98d368ad9"
+  "app/(auth)/kyc-tenant.tsx": {
+    "mtime": 1782218001.2018192,
+    "ast_hash": "91e80913703bb91a853474932b59e17e",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/components/DockTab.tsx": {
-    "mtime": 1782017284.16894,
-    "ast_hash": "46a3b5d33f4e903d727a44c21e9ec334",
-    "semantic_hash": "46a3b5d33f4e903d727a44c21e9ec334"
+  "app/(auth)/loading.tsx": {
+    "mtime": 1782041407.968591,
+    "ast_hash": "e27c442d96770f25b0c9abdbcfbd73dd",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/constants/landlordDockItems.ts": {
-    "mtime": 1782015969.1828794,
+  "app/(auth)/onboarding.tsx": {
+    "mtime": 1782531906.4724207,
+    "ast_hash": "842bc8484974310eedac50174f585418",
+    "semantic_hash": ""
+  },
+  "app/(auth)/otp.tsx": {
+    "mtime": 1782041407.9689298,
+    "ast_hash": "119138394da1567fbe3c3b88b1a41824",
+    "semantic_hash": ""
+  },
+  "app/(auth)/phone.tsx": {
+    "mtime": 1782041407.9691348,
+    "ast_hash": "36151d7220a03ebff0e6725dc4ad1ea9",
+    "semantic_hash": ""
+  },
+  "app/(auth)/profile-setup.tsx": {
+    "mtime": 1782218095.4761813,
+    "ast_hash": "f68849f8f06e0bb1615b10612c1dffc0",
+    "semantic_hash": ""
+  },
+  "app/(auth)/role.tsx": {
+    "mtime": 1782218131.9342883,
+    "ast_hash": "e60e8bbb3923d330a9e91ca8aaa1e327",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/(tabs)/_layout.tsx": {
+    "mtime": 1782041407.9692867,
+    "ast_hash": "b8be87e8b8b580684340ee3aa84cb36e",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/(tabs)/index.tsx": {
+    "mtime": 1782531906.4726567,
+    "ast_hash": "f7c31618d51fc8bb361dd251fed8e712",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/(tabs)/listings.tsx": {
+    "mtime": 1782531906.4728754,
+    "ast_hash": "3298f782c30920ce2902c55ef2bca7f4",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/(tabs)/profile.tsx": {
+    "mtime": 1782531906.473088,
+    "ast_hash": "5846d3b53313dd3588f9e3faac3cec27",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/(tabs)/requests.tsx": {
+    "mtime": 1782531906.4732893,
+    "ast_hash": "fc0d387ad06eefd9b7508d30d326093e",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/_layout.tsx": {
+    "mtime": 1782057465.5718205,
+    "ast_hash": "19ebee8a1cde0a54bc54c5477a374083",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/ai-preferences.tsx": {
+    "mtime": 1782531906.4734902,
+    "ast_hash": "65f66a31ff11d0a048ba5a9e6ce665d1",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/edit-profile.tsx": {
+    "mtime": 1782531906.4736922,
+    "ast_hash": "dc8ff9c6a29b18c4ecf555bfc039a825",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/listing/[id].tsx": {
+    "mtime": 1782057465.5719821,
+    "ast_hash": "765afe3eb56e9c2f203d0fbbc3fc935a",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/listing/new/step-1.tsx": {
+    "mtime": 1782057465.5721786,
+    "ast_hash": "bbba7f00ade13ad89ccbe9c6cf5907be",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/listing/new/step-2.tsx": {
+    "mtime": 1782057465.5723188,
+    "ast_hash": "1bd6b0b33ae4f6587358e0551c51e557",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/listing/new/step-3.tsx": {
+    "mtime": 1782057465.572454,
+    "ast_hash": "c481ccfd9f4d4c9da70aea72ab7ede9b",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/listing/new/step-4.tsx": {
+    "mtime": 1782057465.572607,
+    "ast_hash": "7064bd5278b640dcafd6d4e427eed3ef",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/notifications.tsx": {
+    "mtime": 1782057465.5728083,
+    "ast_hash": "5d64925b62a4e81c3ae848aff36453bf",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/request/[id].tsx": {
+    "mtime": 1782057465.5730467,
+    "ast_hash": "7af60437bdd58664823cb54602c22778",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/settings.tsx": {
+    "mtime": 1782531906.4739058,
+    "ast_hash": "7e573887f1cd213feabff53cb7ef528d",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/tenant/[id].tsx": {
+    "mtime": 1782057465.5732403,
+    "ast_hash": "017084d3d132078a2230fd8e8b86f700",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/verification.tsx": {
+    "mtime": 1782057465.5734928,
+    "ast_hash": "efbeb919f1ab07a610a3f41c086173c8",
+    "semantic_hash": ""
+  },
+  "app/(landlord)/visits.tsx": {
+    "mtime": 1782057465.5736957,
+    "ast_hash": "981024b708c1e4ee8065574b22c2a6e0",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/(tabs)/_layout.tsx": {
+    "mtime": 1782232034.544328,
+    "ast_hash": "7387053ef3683af61339b2854e43349d",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/(tabs)/index.tsx": {
+    "mtime": 1782534254.8373501,
+    "ast_hash": "423284af30cc8d7eab442fe56271fbc4",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/(tabs)/profile.tsx": {
+    "mtime": 1782705341.9777029,
+    "ast_hash": "c190b5a6476b872c9f60484ae9cbab2a",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/(tabs)/search.tsx": {
+    "mtime": 1782534272.3917134,
+    "ast_hash": "ad9a086cdf24fcd2cebe5f525ed11072",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/(tabs)/visits.tsx": {
+    "mtime": 1782705355.6551304,
+    "ast_hash": "008688dfa19270f1fcc881b7b41a7a1d",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/_layout.tsx": {
+    "mtime": 1782234065.459614,
+    "ast_hash": "879b287c7d2f7fb1661f1d15075ad3cd",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/_modal/filter.tsx": {
+    "mtime": 1782534300.205519,
+    "ast_hash": "96415b5694458eebb6ffa6f7d5c7a86f",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/_modal/notifications-prefs.tsx": {
+    "mtime": 1782531906.4753447,
+    "ast_hash": "7baa685cc8255889f1bf85d275c6f0c9",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/ai-preferences.tsx": {
+    "mtime": 1782531906.4756353,
+    "ast_hash": "d143dcbf52686c6be70b21f4ec25a598",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/edit-profile.tsx": {
+    "mtime": 1782531906.4760358,
+    "ast_hash": "6c1a62d4e2541b7ea56fdf8f7c3cc299",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/kyc-upload.tsx": {
+    "mtime": 1782531906.4763074,
+    "ast_hash": "8540a5a34d9201d40af9b3c429d60626",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/landlord/[id].tsx": {
+    "mtime": 1782531906.4765742,
+    "ast_hash": "3f32ff89465087adce0ec1cbe272a140",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/list-property.tsx": {
+    "mtime": 1782531906.4768097,
+    "ast_hash": "ad22084979646ee7a245e18feb417b9d",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/map.tsx": {
+    "mtime": 1782533378.1810846,
+    "ast_hash": "6811f978433d4ab8104b3182bf08ff1b",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/notifications.tsx": {
+    "mtime": 1782531906.477239,
+    "ast_hash": "50ea6ef089530d1c9f718ca98e074de2",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/preferences.tsx": {
+    "mtime": 1782531906.477436,
+    "ast_hash": "b64e9c85df87bbd9f946ceb41af9f5ee",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/property/[id].tsx": {
+    "mtime": 1782533378.181486,
+    "ast_hash": "d4b7c076da7015b005b924cbd85a3732",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/property/[id]/gallery.tsx": {
+    "mtime": 1782531906.477851,
+    "ast_hash": "f7efcee06ed2bc2a8928a96d724b1bd2",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/report.tsx": {
+    "mtime": 1782531906.4780774,
+    "ast_hash": "3b1d4419ff9a99db5da6dde184eea761",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/reviews/index.tsx": {
+    "mtime": 1782531906.4782755,
+    "ast_hash": "252537151df21efa8cb90f2484d22e1e",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/reviews/property/[id].tsx": {
+    "mtime": 1782531906.478481,
+    "ast_hash": "54b2163c81387803c2bccc6b1abbc3a2",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/reviews/write/[visitId].tsx": {
+    "mtime": 1782531906.4787028,
+    "ast_hash": "e5cda3dc9ebf68b66b49116b4a290f50",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/saved.tsx": {
+    "mtime": 1782531906.478925,
+    "ast_hash": "56cdf5dd73e9179a04883c07cff0a943",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/search-results.tsx": {
+    "mtime": 1782531906.4793472,
+    "ast_hash": "2738df23b963d52f7543080da7124bc1",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/settings.tsx": {
+    "mtime": 1782531906.479547,
+    "ast_hash": "7e573887f1cd213feabff53cb7ef528d",
+    "semantic_hash": ""
+  },
+  "app/(tenant)/visit/[id].tsx": {
+    "mtime": 1782533378.1819375,
+    "ast_hash": "f5c753758c53f940383456edff6c42f1",
+    "semantic_hash": ""
+  },
+  "app/_layout.tsx": {
+    "mtime": 1782057465.5748842,
+    "ast_hash": "91887cb640740de3be4120568006f41f",
+    "semantic_hash": ""
+  },
+  "app/index.tsx": {
+    "mtime": 1782057465.575137,
+    "ast_hash": "9e0a4134825dadf5c88d325b20759980",
+    "semantic_hash": ""
+  },
+  "babel.config.js": {
+    "mtime": 1781538926.2468498,
+    "ast_hash": "23da646c91232408f58f0d16c3ec252b",
+    "semantic_hash": ""
+  },
+  "eslint.config.js": {
+    "mtime": 1781538926.2469347,
+    "ast_hash": "770ca308364a328621db7a5a954bd3f6",
+    "semantic_hash": ""
+  },
+  "metro.config.js": {
+    "mtime": 1781538926.2471151,
+    "ast_hash": "dcb5d6305afce631e9df229a6693f679",
+    "semantic_hash": ""
+  },
+  "nativewind-env.d.ts": {
+    "mtime": 1781538926.2471974,
+    "ast_hash": "cf9f3aa159ffdc363a88fc4d27dfc4fa",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1782217958.774916,
+    "ast_hash": "53e556f0b914f50a98234b99c00a005c",
+    "semantic_hash": ""
+  },
+  "prettier.config.js": {
+    "mtime": 1781538926.248556,
+    "ast_hash": "7103564e156522f05ba8c5e05017c2a9",
+    "semantic_hash": ""
+  },
+  "src/components/GlassDock/GlassDock.tsx": {
+    "mtime": 1782531906.5014794,
+    "ast_hash": "2f016051909550fea3d064356653309d",
+    "semantic_hash": ""
+  },
+  "src/components/GlassDock/components/DockTab.tsx": {
+    "mtime": 1782531906.5016756,
+    "ast_hash": "46004b62a62c8fa625ec5ee6433f4b2a",
+    "semantic_hash": ""
+  },
+  "src/components/GlassDock/constants/landlordDockItems.ts": {
+    "mtime": 1782041407.9860165,
     "ast_hash": "e8ac7bc53e26622d317fd75663b64f35",
-    "semantic_hash": "e8ac7bc53e26622d317fd75663b64f35"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/constants/layout.ts": {
-    "mtime": 1782014783.260987,
+  "src/components/GlassDock/constants/layout.ts": {
+    "mtime": 1782041407.9860961,
     "ast_hash": "57785810ee054cd6091f8248c2f10e6d",
-    "semantic_hash": "57785810ee054cd6091f8248c2f10e6d"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/constants/tenantDockItems.ts": {
-    "mtime": 1782015961.0129387,
+  "src/components/GlassDock/constants/tenantDockItems.ts": {
+    "mtime": 1782041407.9861734,
     "ast_hash": "21272ab9c15d36d353d9231087488669",
-    "semantic_hash": "21272ab9c15d36d353d9231087488669"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/hooks/useDockState.ts": {
-    "mtime": 1782015980.5596547,
-    "ast_hash": "16e416684881c868ff71575c364edb71",
-    "semantic_hash": "16e416684881c868ff71575c364edb71"
+  "src/components/GlassDock/hooks/useDockState.ts": {
+    "mtime": 1782531906.5018666,
+    "ast_hash": "5c06c7d416ee291caced3547f4448a91",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/GlassDock/types/dock.ts": {
-    "mtime": 1782016091.8711097,
+  "src/components/GlassDock/types/dock.ts": {
+    "mtime": 1782041407.9864275,
     "ast_hash": "762a77358cb6c865aac0b47c1dc0480d",
-    "semantic_hash": "762a77358cb6c865aac0b47c1dc0480d"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/molecules/OTPInput.tsx": {
-    "mtime": 1782029570.1651542,
-    "ast_hash": "97f5a6858477d24376a9977aa024125a",
-    "semantic_hash": "97f5a6858477d24376a9977aa024125a"
+  "src/components/atoms/Avatar.tsx": {
+    "mtime": 1782531906.5020697,
+    "ast_hash": "ad91f932eb160e54e19c32b50fd1cfba",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/MapIllustration.tsx": {
-    "mtime": 1782021870.5890493,
+  "src/components/atoms/SectionLabel.tsx": {
+    "mtime": 1782531906.5022683,
+    "ast_hash": "1183bce4310cf2f2c6e2ac7cd64c045b",
+    "semantic_hash": ""
+  },
+  "src/components/atoms/StatusPill.tsx": {
+    "mtime": 1782057465.5774338,
+    "ast_hash": "c51617864753f751090ea43fd340b3e1",
+    "semantic_hash": ""
+  },
+  "src/components/atoms/Toggle.tsx": {
+    "mtime": 1782531906.5024462,
+    "ast_hash": "a47f715156fc799e78d0db2371368f59",
+    "semantic_hash": ""
+  },
+  "src/components/atoms/VisitStatusBadge.tsx": {
+    "mtime": 1782533378.18742,
+    "ast_hash": "34d6af3ee0ade2887d04f0571153df66",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/FilterChip.tsx": {
+    "mtime": 1782531906.5026588,
+    "ast_hash": "20b944f658bf2e690a30ddc492e7fb6b",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/FormField.tsx": {
+    "mtime": 1782531906.5028408,
+    "ast_hash": "94819620f7d48562d0d6509fdf2e5ca3",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/MenuCard.tsx": {
+    "mtime": 1782531906.5030267,
+    "ast_hash": "8a97ddbbed389facd615402a948f0eda",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/MenuRow.tsx": {
+    "mtime": 1782531906.503215,
+    "ast_hash": "e90b61c5bf50cba0edf46d25178999ba",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/OTPInput.tsx": {
+    "mtime": 1782531906.5034344,
+    "ast_hash": "25a5313b1f64e8cf4adcba3a69785139",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/PropertyCard.tsx": {
+    "mtime": 1782531906.503641,
+    "ast_hash": "a93d9d2835089bcab946f2c6ded7cba2",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/ReviewCard.tsx": {
+    "mtime": 1782531906.5038204,
+    "ast_hash": "5d47e9a55190656f202a5e3541491a22",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/ScreenHeader.tsx": {
+    "mtime": 1782531906.5040333,
+    "ast_hash": "555a60a7510c412cd469d9c70a625bce",
+    "semantic_hash": ""
+  },
+  "src/components/molecules/SearchBar.tsx": {
+    "mtime": 1782531906.5042548,
+    "ast_hash": "5970b00304dc730d3d0221fd76275e1d",
+    "semantic_hash": ""
+  },
+  "src/components/onboarding/MapIllustration.tsx": {
+    "mtime": 1782041407.9867258,
     "ast_hash": "038fbc7be189e4763cbc8b8b4fe846a3",
-    "semantic_hash": "038fbc7be189e4763cbc8b8b4fe846a3"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/NextButton.tsx": {
-    "mtime": 1782020885.5430715,
+  "src/components/onboarding/NextButton.tsx": {
+    "mtime": 1782041407.9868095,
     "ast_hash": "bc83afd89b10531d76b0c0f2a8fb1328",
-    "semantic_hash": "bc83afd89b10531d76b0c0f2a8fb1328"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/OnboardingEyebrow.tsx": {
-    "mtime": 1782052052.5500686,
+  "src/components/onboarding/OnboardingEyebrow.tsx": {
+    "mtime": 1782217958.7750235,
     "ast_hash": "55e21c40ae4e853759a814206cd21242",
-    "semantic_hash": "55e21c40ae4e853759a814206cd21242"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/OnboardingHeader.tsx": {
-    "mtime": 1782052052.5260158,
+  "src/components/onboarding/OnboardingHeader.tsx": {
+    "mtime": 1782217958.7751167,
     "ast_hash": "80d04347016fb9657a37f1eb3b4cf5b2",
-    "semantic_hash": "80d04347016fb9657a37f1eb3b4cf5b2"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/OnboardingLayout.tsx": {
-    "mtime": 1782035144.8079946,
+  "src/components/onboarding/OnboardingLayout.tsx": {
+    "mtime": 1782041407.9868975,
     "ast_hash": "f02423327e810f041745bf1959710ecd",
-    "semantic_hash": "f02423327e810f041745bf1959710ecd"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/PaginationDots.tsx": {
-    "mtime": 1782034120.4210713,
+  "src/components/onboarding/PaginationDots.tsx": {
+    "mtime": 1782041407.9869769,
     "ast_hash": "ee07bd2f292a771133c1679cc9a52980",
-    "semantic_hash": "ee07bd2f292a771133c1679cc9a52980"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/SkipButton.tsx": {
-    "mtime": 1782020821.5219758,
-    "ast_hash": "856bb579b8be2e737dd4a12065c3e4b8",
-    "semantic_hash": "856bb579b8be2e737dd4a12065c3e4b8"
+  "src/components/onboarding/SkipButton.tsx": {
+    "mtime": 1782531906.5044463,
+    "ast_hash": "fba8b13f58fd67bb597a5dfd3fecb576",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/StepProgressBar.tsx": {
-    "mtime": 1782052052.5273182,
+  "src/components/onboarding/StepProgressBar.tsx": {
+    "mtime": 1782217958.7752104,
     "ast_hash": "ddce7ce2145a0588423873350194cb68",
-    "semantic_hash": "ddce7ce2145a0588423873350194cb68"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/VerifiedIllustration.tsx": {
-    "mtime": 1782021831.0072439,
+  "src/components/onboarding/VerifiedIllustration.tsx": {
+    "mtime": 1782041407.9871504,
     "ast_hash": "417d3bfb28f4e29a011f4e4408e7894e",
-    "semantic_hash": "417d3bfb28f4e29a011f4e4408e7894e"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/onboarding/VisitIllustration.tsx": {
-    "mtime": 1782021849.628993,
+  "src/components/onboarding/VisitIllustration.tsx": {
+    "mtime": 1782041407.987249,
     "ast_hash": "d63d6d220da0b0710048db29714e471b",
-    "semantic_hash": "d63d6d220da0b0710048db29714e471b"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/organisms/ScreenBody.tsx": {
-    "mtime": 1782014940.1665204,
-    "ast_hash": "32596f489fe1cdce34f02b89ac56c302",
-    "semantic_hash": "32596f489fe1cdce34f02b89ac56c302"
+  "src/components/organisms/FilterDrawer.tsx": {
+    "mtime": 1782534287.9306848,
+    "ast_hash": "47209455e6943cfebcec14f6bb818e51",
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/components/shared/PrimaryButton.tsx": {
-    "mtime": 1782052052.5623426,
+  "src/components/organisms/FloatingDock.tsx": {
+    "mtime": 1782041407.987397,
+    "ast_hash": "45b8e8b32b6b71c7fa7911cff5214ebe",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/ListingComposer.tsx": {
+    "mtime": 1782531906.5047941,
+    "ast_hash": "511814227f8ffc9b744c64a57454009b",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/PropertyHero.tsx": {
+    "mtime": 1782533378.1877697,
+    "ast_hash": "ffc964e3ea87fc948bd2008ad481dfe4",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/PropertyMapPin.tsx": {
+    "mtime": 1782531906.5051675,
+    "ast_hash": "3f82ffc4dda04bd49ec3daa19a77ab47",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/ScheduleVisitDrawer.tsx": {
+    "mtime": 1782533378.1883883,
+    "ast_hash": "f5a7bad5f869f21253ea37bbc7ccbcb0",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/ScreenBody.tsx": {
+    "mtime": 1782531906.5053716,
+    "ast_hash": "f34f90baf627daaf6afc8ae8119e019c",
+    "semantic_hash": ""
+  },
+  "src/components/shared/PrimaryButton.tsx": {
+    "mtime": 1782217958.7753394,
     "ast_hash": "2da608f38e487c17a495bdb1fe548aa4",
-    "semantic_hash": "2da608f38e487c17a495bdb1fe548aa4"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/config/devMode.ts": {
-    "mtime": 1782046507.585412,
+  "src/config/devMode.ts": {
+    "mtime": 1782057465.577836,
     "ast_hash": "4f72ebca9ebc23699ef1eef6ba830540",
-    "semantic_hash": "4f72ebca9ebc23699ef1eef6ba830540"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/store/onboardingStore.ts": {
-    "mtime": 1782055523.158349,
+  "src/store/authStore.ts": {
+    "mtime": 1781538926.2504482,
+    "ast_hash": "74b794f7f5b72c2cc705606359cec651",
+    "semantic_hash": ""
+  },
+  "src/store/onboardingStore.ts": {
+    "mtime": 1782217958.7754388,
     "ast_hash": "d6b9d605f9f9f96e96f64f4dd4b348c7",
-    "semantic_hash": "d6b9d605f9f9f96e96f64f4dd4b348c7"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/src/types/onboarding.types.ts": {
-    "mtime": 1782055309.2200897,
+  "src/types/onboarding.types.ts": {
+    "mtime": 1782217958.77556,
     "ast_hash": "9d87805b76076f70e338291611029631",
-    "semantic_hash": "9d87805b76076f70e338291611029631"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/APP_VISION.md": {
-    "mtime": 1782010298.5074224,
+  "tailwind.config.js": {
+    "mtime": 1782531906.5055757,
+    "ast_hash": "4e316ca0ab3e5367faba89177dbad60e",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1782531906.5057747,
+    "ast_hash": "a52f45233893f9bf495b79aa14ab3b86",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1782531906.4717484,
+    "ast_hash": "1439efdbd2e2ea180df554ce43c3a5f6",
+    "semantic_hash": ""
+  },
+  "DESIGN.md": {
+    "mtime": 1782531906.4719226,
+    "ast_hash": "10f9af33a2e8919e9308fdee04108de3",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1781538926.2380106,
+    "ast_hash": "89a6686473a26291768911797452e7f1",
+    "semantic_hash": ""
+  },
+  "docs/APP_VISION.md": {
+    "mtime": 1782297470.1220417,
     "ast_hash": "e82c4c2879593ef9afb9643e67742bde",
-    "semantic_hash": "e82c4c2879593ef9afb9643e67742bde"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/AUTH_FLOW.md": {
-    "mtime": 1782010097.405505,
+  "docs/AUTH_FLOW.md": {
+    "mtime": 1782041407.971229,
     "ast_hash": "baa1b798cfca8549b8e7ae4b60879505",
-    "semantic_hash": "baa1b798cfca8549b8e7ae4b60879505"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/FEATURES.md": {
-    "mtime": 1782010097.406745,
+  "docs/FEATURES.md": {
+    "mtime": 1782041407.9715157,
     "ast_hash": "35d356c1415421a860a39e00657baadd",
-    "semantic_hash": "35d356c1415421a860a39e00657baadd"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/LANDLORD_EXPERIENCE.md": {
-    "mtime": 1782010097.4025834,
+  "docs/LANDLORD_EXPERIENCE.md": {
+    "mtime": 1782041407.9717023,
     "ast_hash": "34c5582d1a8481dc33acad69973982fb",
-    "semantic_hash": "34c5582d1a8481dc33acad69973982fb"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/OVERALL.md": {
-    "mtime": 1782010161.135321,
+  "docs/OVERALL.md": {
+    "mtime": 1782041407.971823,
     "ast_hash": "75b2a9aae0fda565614606a62f9e644e",
-    "semantic_hash": "75b2a9aae0fda565614606a62f9e644e"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/TENANT_EXPERIENCE.md": {
-    "mtime": 1782010097.404153,
+  "docs/TENANT_EXPERIENCE.md": {
+    "mtime": 1782041407.972016,
     "ast_hash": "fe9c1d0379940e574470c29fb89a444c",
-    "semantic_hash": "fe9c1d0379940e574470c29fb89a444c"
+    "semantic_hash": ""
   },
-  "/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/docs/VISIT_WORKFLOW.md": {
-    "mtime": 1782010097.3972647,
+  "docs/VISIT_WORKFLOW.md": {
+    "mtime": 1782041407.9722402,
     "ast_hash": "e92d1a41a6164e83de90511395e2a601",
-    "semantic_hash": "e92d1a41a6164e83de90511395e2a601"
+    "semantic_hash": ""
+  },
+  "assets/adaptive-icon.png": {
+    "mtime": 1781538926.2461693,
+    "ast_hash": "97dae5a0e62ad8551d8a31897b425e63",
+    "semantic_hash": ""
+  },
+  "assets/favicon.png": {
+    "mtime": 1781538926.246273,
+    "ast_hash": "4f1cb2cac2370cd5050681232e8575a8",
+    "semantic_hash": ""
+  },
+  "assets/icon.png": {
+    "mtime": 1781538926.2464578,
+    "ast_hash": "4e3f888fc8475f69fd5fa32f1ad5216a",
+    "semantic_hash": ""
+  },
+  "assets/splash.png": {
+    "mtime": 1781538926.2467225,
+    "ast_hash": "4dc203c1f48ad8b1e9734613e88be661",
+    "semantic_hash": ""
+  },
+  "src/components/organisms/RadiusMapView.tsx": {
+    "mtime": 1782533378.188082,
+    "ast_hash": "d877f3569f68f8e5871120a225fb2c89",
+    "semantic_hash": ""
+  },
+  "src/store/propertyStore.ts": {
+    "mtime": 1782534241.5300632,
+    "ast_hash": "6abb3c8bfdca701071d7f04064b9cdf6",
+    "semantic_hash": ""
+  },
+  "src/store/userStore.ts": {
+    "mtime": 1782705297.5501916,
+    "ast_hash": "790a1547a596700296318279289c5a34",
+    "semantic_hash": ""
   }
 }

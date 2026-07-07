@@ -1,228 +1,432 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ShieldCheck } from 'lucide-react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSignIn, useSignUp, getClerkInstance } from '@clerk/expo';
+import { ArrowLeft, Lock } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { tokens } from '@/src/theme/tokens';
+import { createClerkSupabaseClient } from '@/src/lib/supabase'
+import { useAuthStore } from '@/src/store/authStore'
+import { getProfile } from '@/src/services/profile.service'
 
-import { OTPInput } from '@/src/components/form/OTPInput';
-import { verifyOTP, resendOTP } from '@/src/services/auth.service';
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
-
-const OTP_LENGTH = 6;
-const TIMER_START = 42; // seconds
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Formats seconds as MM:SS */
-function fmtTimer(sec: number): string {
-  const m = Math.floor(sec / 60)
-    .toString()
-    .padStart(2, '0');
-  const s = (sec % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+/** Masks a phone number for display: +9779812345678 → +97798XXXX78 */
+function maskPhone(p: string): string {
+  if (!p || p.length < 6) return p;
+  const keep = 4;
+  return `${p.slice(0, keep)}${'X'.repeat(p.length - keep * 2)}${p.slice(-keep)}`;
 }
 
-/** Masks a Nepal phone: 9812345678 → 98XXXXXX78 */
-function maskPhone(phone: string): string {
-  if (!phone || phone.length < 4) return phone;
-  const visible = 2;
-  return `${phone.slice(0, visible)}${'X'.repeat(phone.length - visible * 2)}${phone.slice(-visible)}`;
-}
-
-// ─── Screen ────────────────────────────────────────────────────────────────────
-
-export default function OTPScreen() {
+export default function OTPVerificationScreen() {
   const router = useRouter();
-  const { phone = '' } = useLocalSearchParams<{ phone: string }>();
+  const params = useLocalSearchParams<{ phone: string; flow: 'sign-in' | 'sign-up' }>();
+  const phone = params.phone ?? '';
+  const flow = params.flow ?? 'sign-in';
 
-  const [otp, setOtp] = useState('');
-  const [timer, setTimer] = useState(TIMER_START);
-  const [error, setError] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const { setProfile } = useAuthStore()
 
-  const isComplete = otp.length === OTP_LENGTH;
-  const masked = `+977 ${maskPhone(phone)}`;
+  const [code, codeSet] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(RESEND_SECONDS);
+  const [busy, setBusy] = useState(false);
 
-  // ── Countdown timer ─────────────────────────────────────────────────────────
+  const inputRef = useRef<TextInput>(null);
+  const isLoading = busy;
+
+  // Countdown for resend button
   useEffect(() => {
-    if (timer <= 0) return;
-    const id = setInterval(() => setTimer((t) => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [timer]);
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
-  const handleResend = async () => {
-    if (timer > 0) return;
-    setOtp('');
-    setError('');
-    setTimer(TIMER_START);
+  // Auto-submit when all digits entered
+  useEffect(() => {
+    if (code.length === CODE_LENGTH && !busy) verify(code);
+  }, [code]);
 
-    const result = await resendOTP(phone);
-    if (!result.success) {
-      Alert.alert('Failed to resend', result.error);
+  const verify = async (otp: string) => {
+    setError(null);
+    setBusy(true);
+
+    try {
+      if (flow === 'sign-in') {
+        // Step 1: Verify the code (Future API)
+        const { error: verifyError } = await signIn!.phoneCode.verifyCode({ code: otp });
+        if (verifyError) {
+          console.error('[OTP] sign-in verifyCode error:', {
+            code: verifyError.code,
+            message: verifyError.longMessage ?? verifyError.message,
+          });
+          handleClerkCode(verifyError.code);
+          return;
+        }
+
+        // Step 2: Finalize the sign-in to create a Clerk session
+        const { error: finalizeError } = await signIn!.finalize();
+        if (finalizeError) {
+          console.error('[OTP] sign-in finalize error:', {
+            code: finalizeError.code,
+            message: finalizeError.longMessage ?? finalizeError.message,
+          });
+          setError(finalizeError.longMessage ?? 'Could not complete sign in.');
+          codeSet('');
+          return;
+        }
+
+        // Step 3: Activate the session so Clerk knows the user is signed in
+        const clerk = getClerkInstance();
+        if (signIn!.createdSessionId && clerk) {
+          console.log('[OTP] Activating session:', signIn!.createdSessionId);
+          await clerk.setActive({ session: signIn!.createdSessionId });
+        }
+
+        // Step 4: Check if the user has already completed onboarding.
+        // IMPORTANT: After setActive, we must use getClerkInstance() to get the
+        // current user — useUser() from the hook still has the stale pre-render value.
+        // We also create a fresh supabase client so the getToken closure captures
+        // the newly activated session, not the stale one from the previous render.
+        const currentUserId = clerk?.user?.id
+        if (currentUserId) {
+          console.log('[OTP] Checking onboarding status for user:', currentUserId);
+          const freshSupabase = createClerkSupabaseClient(
+            () => clerk.session?.getToken() ?? Promise.resolve(null)
+          )
+          const profileResult = await getProfile(currentUserId, freshSupabase)
+          if (profileResult.success && profileResult.data.onboarding_complete) {
+            setProfile(profileResult.data as any)
+            const role = profileResult.data.active_role ?? 'tenant'
+            const target = role === 'landlord' ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
+            console.log('[OTP] Onboarding complete — routing to home:', target)
+            router.replace(target as any)
+            return
+          }
+        }
+
+        // User is new or onboarding not complete → go through onboarding
+        console.log('[OTP] Onboarding not complete — routing to role selection')
+        router.replace('/(auth)/role');
+      } else {
+        // sign-up flow — use the underlying SignUp resource directly via clerk.client
+        // This bypasses the Future API (which has a broken finalize) and uses the
+        // Standard API which handles verification + session creation in one call.
+        const clerk = getClerkInstance();
+        if (!clerk?.client?.signUp) {
+          console.error('[OTP] No sign-up found on clerk.client');
+          setError('Session expired. Please restart.');
+          codeSet('');
+          return;
+        }
+
+        const result = await clerk.client.signUp.attemptPhoneNumberVerification({
+          code: otp,
+        });
+
+        console.log('[OTP] sign-up result:', {
+          status: result.status,
+          hasSessionId: !!result.createdSessionId,
+        });
+
+        if (result.status === 'complete' && result.createdSessionId) {
+          await clerk.setActive({ session: result.createdSessionId });
+
+          // Step 5: For sign-up, also check if a profile already exists
+          // (covers edge case where user partially completed onboarding before).
+          const newUser = clerk.user
+          if (newUser?.id) {
+            const freshSupabase = createClerkSupabaseClient(
+              () => clerk.session?.getToken() ?? Promise.resolve(null)
+            )
+            const profileResult = await getProfile(newUser.id, freshSupabase)
+            if (profileResult.success && profileResult.data.onboarding_complete) {
+              setProfile(profileResult.data as any)
+              const role = profileResult.data.active_role ?? 'tenant'
+              const target = role === 'landlord' ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
+              router.replace(target as any)
+              return
+            }
+          }
+
+          router.replace('/(auth)/role');
+        } else {
+          console.error('[OTP] sign-up not complete:', result.status);
+          setError('Verification incomplete. Please try again.');
+          codeSet('');
+        }
+      }
+    } catch (e: unknown) {
+      const clerkErr = e as Record<string, unknown>;
+      const code =
+        (clerkErr?.code as string) ??
+        ((clerkErr?.errors as Array<Record<string, unknown>>)?.[0]?.code as string) ??
+        '';
+      const message =
+        (clerkErr?.longMessage as string) ??
+        ((clerkErr?.errors as Array<Record<string, unknown>>)?.[0]?.longMessage as string) ??
+        (clerkErr?.message as string) ??
+        '';
+
+      console.error('[OTP] Verification exception:', { code, message }, e);
+
+      if (code) {
+        handleClerkCode(code);
+      } else {
+        setError(message || 'Verification failed. Please try again.');
+      }
+      codeSet('');
+    } finally {
+      setBusy(false);
     }
   };
 
-  // ── Screen enter animation ───────────────────────────────────────────────────
-  const enterOpacity = useSharedValue(0);
-  const enterY = useSharedValue(18);
+  const handleClerkCode = (clerkCode: string) => {
+    console.error('[OTP] Clerk error code:', clerkCode);
+    const messages: Record<string, string> = {
+      form_code_incorrect: 'Incorrect code. Please try again.',
+      verification_failed: 'Incorrect code. Please try again.',
+      verification_expired: 'Code expired. Tap Resend for a new one.',
+      too_many_requests: 'Too many attempts. Please wait.',
+    };
+    setError(messages[clerkCode] ?? `Verification failed (${clerkCode}). Try again.`);
+    codeSet('');
+  };
 
-  useEffect(() => {
-    enterOpacity.value = withTiming(1, { duration: 420 });
-    enterY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const enterStyle = useAnimatedStyle(() => ({
-    opacity: enterOpacity.value,
-    transform: [{ translateY: enterY.value }],
-  }));
-
-  // ── Verify handler ──────────────────────────────────────────────────────────
-  const handleVerify = useCallback(async () => {
-    if (!isComplete || isVerifying) return;
-
-    setIsVerifying(true);
-    setError('');
-
-    const result = await verifyOTP(phone, otp);
-    setIsVerifying(false);
-
-    if (!result.success) {
-      setError(result.error);
-      setOtp('');
-      return;
-    }
-
-    // Navigate to role selection (or onboarding if new user, or home if existing)
-    if (result.data.isNewUser) {
-      router.replace('/(auth)/role');
-    } else {
-      // Existing user — navigate to their main app
-      // The auth store's onAuthStateChange will handle redirect
-      router.replace('/(auth)/role');
-    }
-  }, [isComplete, isVerifying, otp, phone, router]);
-
-  const handleOTPComplete = useCallback(
-    (val: string) => {
-      // Auto-verify once all 6 digits are entered
-      if (val.length === OTP_LENGTH && !isVerifying) {
-        setTimeout(() => {
-          handleVerify();
-        }, 300);
+  const handleResend = async () => {
+    if (countdown > 0) return;
+    setError(null);
+    codeSet('');
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      if (flow === 'sign-in') {
+        await signIn!.phoneCode.sendCode();
+      } else {
+        // Use the Standard API via clerk.client for consistency
+        const clerk = getClerkInstance();
+        if (clerk?.client?.signUp) {
+          await clerk.client.signUp.preparePhoneNumberVerification({
+            strategy: 'phone_code',
+          });
+        } else {
+          throw new Error('Sign-up not in progress');
+        }
       }
-    },
-    [handleVerify, isVerifying]
-  );
+      setCountdown(RESEND_SECONDS);
+    } catch {
+      setError('Could not resend. Please try again.');
+    }
+  };
+
+  const handleCodeChange = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, CODE_LENGTH);
+    codeSet(digits);
+    if (error) setError(null);
+  };
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-bg">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Animated.View className="flex-1" style={enterStyle}>
-          {/* ── Content ──────────────────────────────────────────────── */}
-          <View className="flex-1 px-6 pt-4">
-            {/* Back button */}
-            <Pressable
-              onPress={() => router.back()}
-              className="mb-7 h-10 w-10 items-center justify-center rounded-full bg-canvas"
-              hitSlop={8}>
-              <ArrowLeft size={18} color="#0A0A0A" strokeWidth={2.2} />
-            </Pressable>
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity style={s.back} onPress={() => router.back()}>
+          <ArrowLeft size={20} color={tokens.color.ink} strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
 
-            {/* Overline */}
-            <Text className="mb-2 font-semibold text-label uppercase tracking-widest text-brand">
-              Enter your code
-            </Text>
+      <View style={s.content}>
+        <Text style={s.eyebrow}>ENTER YOUR CODE</Text>
+        <Text style={s.headline}>{'Enter the\n6-digit code'}</Text>
 
-            {/* Headline */}
-            <Text className="mb-3 font-display text-[30px] text-ink" style={{ lineHeight: 37 }}>
-              Enter the code
-            </Text>
+        <Text style={s.body}>
+          Sent to <Text style={s.phone}>{maskPhone(phone)}</Text>
+        </Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={s.wrong}>Wrong number?</Text>
+        </TouchableOpacity>
 
-            {/* Subtitle */}
-            <Text className="mb-1 font-sans text-body text-ink2" style={{ lineHeight: 22 }}>
-              We sent a 6-digit code to <Text className="font-semibold text-ink">{masked}</Text>
-            </Text>
-            <Pressable onPress={() => router.back()} className="mb-8">
-              <Text className="font-medium text-body-sm text-brand">Wrong number?</Text>
-            </Pressable>
-
-            {/* OTP boxes */}
-            <OTPInput
-              length={OTP_LENGTH}
-              value={otp}
-              onChange={(val) => {
-                setOtp(val);
-                if (error) setError('');
-              }}
-              onComplete={handleOTPComplete}
-              autoFocus
-            />
-
-            {/* Error */}
-            {!!error && <Text className="mt-2 text-caption text-danger">{error}</Text>}
-
-            {/* Resend row */}
-            <View className="mt-4 flex-row items-center justify-center gap-1">
-              <Text className="text-caption text-ink3">{"Didn't get it?"}</Text>
-              {timer > 0 ? (
-                <Text className="font-medium text-caption text-ink2">
-                  {' '}
-                  Resend in {fmtTimer(timer)}
-                </Text>
-              ) : (
-                <Pressable onPress={handleResend}>
-                  <Text className="font-semibold text-caption text-brand"> Resend</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {/* Security notice card */}
-            <View className="mt-6 flex-row gap-3 rounded-lg border border-line bg-canvas p-4">
-              <ShieldCheck size={18} color="#6B6B6B" strokeWidth={1.8} />
-              <View className="flex-1">
-                <Text className="font-semibold text-body-sm text-ink">Keep your code private</Text>
-                <Text
-                  className="mt-0.5 font-sans text-caption text-ink2"
-                  style={{ lineHeight: 18 }}>
-                  BasoBas will never call or message you asking for this code.
-                </Text>
+        {/* OTP boxes */}
+        <TouchableOpacity
+          style={s.boxes}
+          onPress={() => inputRef.current?.focus()}
+          activeOpacity={1}>
+          {Array.from({ length: CODE_LENGTH }, (_, i) => {
+            const filled = i < code.length;
+            const active = i === code.length && !isLoading;
+            return (
+              <View
+                key={i}
+                style={[s.box, active && s.boxActive, filled && s.boxFilled, error && s.boxError]}>
+                {filled ? <View style={s.dot} /> : null}
+                {active ? <View style={s.cursor} /> : null}
               </View>
-            </View>
-          </View>
+            );
+          })}
+          <TextInput
+            ref={inputRef}
+            value={code}
+            onChangeText={handleCodeChange}
+            keyboardType="number-pad"
+            maxLength={CODE_LENGTH}
+            style={s.hidden}
+            autoFocus
+            caretHidden
+          />
+        </TouchableOpacity>
 
-          {/* ── Bottom CTA ─────────────────────────────────────────────── */}
-          <View className="px-6 pb-2">
-            <Pressable
-              onPress={handleVerify}
-              disabled={!isComplete || isVerifying}
-              className="h-14 items-center justify-center rounded-pill bg-ink"
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.75 : isComplete && !isVerifying ? 1 : 0.45,
-              })}>
-              <Text className="font-semibold text-body text-white">
-                {isVerifying ? 'Verifying...' : 'Verify & Continue'}
-              </Text>
-            </Pressable>
-            <Text className="mt-2 text-center text-caption text-ink3">
-              Code auto-verifies when all 6 digits are entered.
-            </Text>
+        {error ? <Text style={s.error}>{error}</Text> : null}
+
+        {/* Resend */}
+        <View style={s.resendRow}>
+          <Text style={s.resendBody}>Didn't get it? </Text>
+          {countdown > 0 ? (
+            <Text style={s.resendTimer}>Resend in {countdown}s</Text>
+          ) : (
+            <TouchableOpacity onPress={handleResend}>
+              <Text style={s.resendLink}>Resend Code</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Security note */}
+        <View style={s.secCard}>
+          <Lock size={15} color={tokens.color.ink3} strokeWidth={2} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.secTitle}>Keep this code private</Text>
+            <Text style={s.secBody}>BasoBas will never ask for your code.</Text>
           </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
+        </View>
+      </View>
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <View style={s.overlay}>
+          <ActivityIndicator color={tokens.color.brand} size="large" />
+          <Text style={s.overlayText}>Verifying...</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
-// Ensure no unused import warning
-const _styles = StyleSheet.create({});
-void _styles;
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: tokens.color.bg },
+  header: { paddingHorizontal: tokens.space.screenH, paddingTop: 16 },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 40,
+    backgroundColor: tokens.color.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { flex: 1, paddingHorizontal: tokens.space.screenH, paddingTop: 24 },
+  eyebrow: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.label,
+    color: tokens.color.brand,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  headline: {
+    fontFamily: tokens.font.display,
+    fontSize: 30,
+    color: tokens.color.ink,
+    lineHeight: 38,
+    marginBottom: 8,
+  },
+  body: { fontFamily: tokens.font.sans, fontSize: tokens.size.body, color: tokens.color.ink2 },
+  phone: { fontFamily: tokens.font.semibold, color: tokens.color.ink },
+  wrong: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.bodySm,
+    color: tokens.color.brand,
+    marginTop: 4,
+    marginBottom: 32,
+  },
+  boxes: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    position: 'relative',
+  },
+  box: {
+    width: 48,
+    height: 58,
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.canvas,
+    borderWidth: 1.5,
+    borderColor: tokens.color.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxActive: { borderColor: tokens.color.ink, backgroundColor: tokens.color.bg },
+  boxFilled: { backgroundColor: tokens.color.ink, borderColor: tokens.color.ink },
+  boxError: { borderColor: tokens.color.danger },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.color.bg },
+  cursor: { width: 2, height: 22, backgroundColor: tokens.color.ink },
+  hidden: {
+    position: 'absolute',
+    opacity: 0,
+    width: '100%',
+    height: '100%',
+  },
+  error: {
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.bodySm,
+    color: tokens.color.danger,
+    marginBottom: 8,
+  },
+  resendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  resendBody: {
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.body,
+    color: tokens.color.ink3,
+  },
+  resendTimer: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.body,
+    color: tokens.color.ink,
+  },
+  resendLink: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.body,
+    color: tokens.color.brand,
+  },
+  secCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: tokens.color.canvas,
+    borderRadius: tokens.radius.md,
+    padding: 16,
+  },
+  secTitle: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.bodySm,
+    color: tokens.color.ink,
+  },
+  secBody: { fontFamily: tokens.font.sans, fontSize: tokens.size.body, color: tokens.color.ink2 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  overlayText: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.body,
+    color: tokens.color.ink,
+  },
+});

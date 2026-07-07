@@ -1,143 +1,190 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, View, Text, Pressable } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { SlidersHorizontal } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, MapPin, ChevronDown, SlidersHorizontal, Heart, Map } from 'lucide-react-native';
 
-import { SearchBar } from '@/src/components/search/SearchBar';
 import { tokens } from '@/src/theme/tokens';
+import { FilterDrawer } from '@/src/components/property/FilterDrawer';
 import { DOCK_BOTTOM_GAP } from '@/src/components/navigation/GlassDock/GlassDock';
+import { usePropertyStore } from '@/src/store/propertyStore';
 
-// Height of the "Show results" floating pill button + its gap above the dock.
-const RESULTS_BTN_HEIGHT = 52;
-const RESULTS_BTN_GAP = 10;
+const BHK_FILTERS = ['All', '1BHK', '2BHK', '3BHK', 'Studio'] as const;
+type BhkFilter = (typeof BHK_FILTERS)[number];
 
-export default function SearchTab() {
+const FAB_SIZE = 56;
+
+export default function SearchResults() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
 
-  /**
-   * The dock's top edge sits at: insets.bottom + DOCK_BOTTOM_GAP + dockH
-   * The floating button lives RESULTS_BTN_GAP above that edge.
-   *
-   *  ┌──────────────────────────────────────────────┐ ← top of screen
-   *  │  scroll content                              │
-   *  │                                              │
-   *  │  ╔══════════════════════════════╗  ← button  │ bottom = dockTop + gap
-   *  │  ║  Show 240 results            ║            │
-   *  │  ╚══════════════════════════════╝            │
-   *  │  ╔══════════╗  ← dock (64 px)                │
-   *  │  ║ ● ○ ○ ○  ║                                │
-   *  │  ╚══════════╝                                │
-   *  └──────────────────────────────────────────────┘ ← screen bottom
-   */
+  const { filters, setFilter, toggleSaved, savedPropertyIds, getFilteredProperties } = usePropertyStore();
+  const filteredProperties = getFilteredProperties();
+
   const dockTopEdge = insets.bottom + DOCK_BOTTOM_GAP + tokens.space.dockH;
-  const buttonBottom = dockTopEdge + RESULTS_BTN_GAP;
+  const fabBottom = dockTopEdge + 16; // 16px gap above the floating dock
 
-  // Scroll content needs enough bottom padding so the last item isn't hidden
-  // behind the floating button + dock stack.
-  const scrollPaddingBottom = buttonBottom + RESULTS_BTN_HEIGHT + 16;
+  const handleBhkPress = (chip: BhkFilter) => {
+    setFilter('type', chip);
+  };
+
+  const handleSortPress = () => {
+    const nextSort = filters.sortBy === 'Newest' ? 'Price: Low to High' : 'Newest';
+    setFilter('sortBy', nextSort);
+  };
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View className="h-[56px] flex-row items-center justify-between border-b border-line px-6">
-        <Text className="font-display text-[22px] text-ink">Search</Text>
-        <Pressable className="h-9 w-9 items-center justify-center rounded-pill bg-input">
-          <SlidersHorizontal size={17} color="#0A0A0A" strokeWidth={2} />
-        </Pressable>
+      <View className="bg-bg">
+        <View className="pt-4">
+          {/* ── Header ─────────────────────────────────────────────────────── */}
+          <View className="flex-row items-center gap-3 px-[24px]">
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              className="h-[48px] w-[48px] items-center justify-center rounded-pill bg-input">
+              <ArrowLeft size={20} color="#0A0A0A" strokeWidth={2} />
+            </Pressable>
+
+            <View className="h-[48px] flex-1 flex-row items-center gap-2 rounded-pill bg-input px-4">
+              <MapPin size={18} color="#0A0A0A" />
+              <Text className="font-sans text-body text-ink">
+                {filters.city === 'All' ? 'All Nepal' : filters.city}
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={() => setIsFilterVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Filters"
+              className="h-[48px] w-[48px] items-center justify-center rounded-pill bg-input">
+              <SlidersHorizontal size={20} color="#0A0A0A" strokeWidth={2} />
+            </Pressable>
+          </View>
+
+          {/* ── BHK filter chips ───────────────────────────────────────────── */}
+          <View className="py-4 pl-[24px]">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingRight: 24 }}>
+              {BHK_FILTERS.map((chip) => {
+                const isActive = chip === filters.type;
+                return (
+                  <Pressable
+                    key={chip}
+                    onPress={() => handleBhkPress(chip)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={`Filter ${chip}`}
+                    className={`h-[42px] items-center justify-center rounded-pill px-5 ${
+                      isActive ? 'bg-ink' : 'bg-input'
+                    }`}>
+                    <Text
+                      className={`font-sans text-body-sm ${isActive ? 'text-bg' : 'text-ink2'}`}>
+                      {chip}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* ── Results count + sort bar ───────────────────────────────────── */}
+        <View className="flex-row items-center justify-between border-t border-canvas px-[24px] py-4">
+          <Text className="font-semibold text-body-sm text-ink2">
+            {filteredProperties.length} results
+          </Text>
+          <Pressable
+            onPress={handleSortPress}
+            accessibilityRole="button"
+            accessibilityLabel="Sort"
+            className="flex-row items-center gap-1.5">
+            <ChevronDown size={16} color="#888888" strokeWidth={2} />
+            <Text className="font-sans text-body-sm text-ink2">Sort: {filters.sortBy}</Text>
+          </Pressable>
+        </View>
       </View>
 
-      {/* ── Scrollable content ─────────────────────────────────────────── */}
+      {/* ── Results list ───────────────────────────────────────────────── */}
       <ScrollView
-        className="flex-1 px-6"
-        contentContainerStyle={{ paddingTop: 20, paddingBottom: scrollPaddingBottom }}
-        keyboardShouldPersistTaps="handled"
+        className="flex-1 bg-canvas"
+        contentContainerStyle={{
+          paddingTop: 16,
+          paddingBottom: fabBottom + FAB_SIZE + 24, // Enough padding to scroll past the FAB
+          paddingHorizontal: 24,
+          gap: 16,
+        }}
         showsVerticalScrollIndicator={false}>
-        {/* Search input */}
-        <SearchBar
-          autoFocus
-          placeholder="Location, property name…"
-          showFilterIcon
-          onFilterPress={() => router.push('/(tenant)/_modal/filter' as any)}
-        />
-
-        {/* Recent searches */}
-        <Text className="mb-3 mt-7 font-semibold text-h3 text-ink">Recent</Text>
-        {['Thamel apartments', 'Jhamsikhel 2BHK', 'Near Durbar Marg'].map((item, i, arr) => (
-          <Pressable
-            key={item}
-            className={`flex-row items-center py-3.5 ${
-              i < arr.length - 1 ? 'border-b border-row-divider' : ''
-            }`}>
-            <View className="mr-3 h-8 w-8 items-center justify-center rounded-pill bg-canvas">
-              <Text className="text-body-sm text-ink3">↗</Text>
-            </View>
-            <Text className="font-sans text-body text-ink">{item}</Text>
-          </Pressable>
-        ))}
-
-        {/* Popular filters */}
-        <Text className="mb-3 mt-7 font-semibold text-h3 text-ink">Popular</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {['Pet Friendly', 'Furnished', 'With Parking', 'Near School', 'Studio', '2 BHK'].map(
-            (chip) => (
-              <Pressable key={chip} className="rounded-pill border border-line bg-bg px-4 py-2">
-                <Text className="font-medium text-body-sm text-ink">{chip}</Text>
-              </Pressable>
-            )
-          )}
-        </View>
-
-        {/* Price range section */}
-        <Text className="mb-3 mt-7 font-semibold text-h3 text-ink">Price range</Text>
-        <View className="flex-row gap-2">
-          {['Under 20K', '20K – 40K', '40K – 70K', '70K+'].map((range) => (
+        {filteredProperties.map((row) => {
+          const isSaved = savedPropertyIds.includes(row.id);
+          return (
             <Pressable
-              key={range}
-              className="flex-1 items-center rounded-lg border border-line bg-bg py-3">
-              <Text className="font-medium text-caption text-ink">{range}</Text>
+              key={row.id}
+              onPress={() => router.push({ pathname: '/(tenant)/property/[id]' as any, params: { id: row.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`${row.title}, ${row.currency} ${row.priceMonthly.toLocaleString()} / month`}
+              className="flex-row items-start gap-4 rounded-card bg-bg p-4">
+              <View className="h-[80px] w-[80px] shrink-0 rounded-lg bg-placeholder-image" />
+              <View className="flex-1 justify-center py-1">
+                <Text numberOfLines={1} className="font-semibold text-body text-ink">
+                  {row.title}
+                </Text>
+                <View className="mt-1">
+                  <Text className="font-sans text-body-sm text-brand">
+                    {row.currency} {row.priceMonthly.toLocaleString()} / month
+                  </Text>
+                </View>
+                <View className="mt-1.5 flex-row items-center gap-1">
+                  <MapPin size={12} color="#888888" />
+                  <Text className="font-sans text-caption text-ink3">
+                    {row.area}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleSaved(row.id);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isSaved ? 'Remove from saved' : 'Save property'}
+                className="h-[24px] w-[24px] items-center justify-center">
+                <Heart
+                  size={20}
+                  color={isSaved ? '#E53E3E' : '#AAAAAA'}
+                  fill={isSaved ? '#E53E3E' : 'transparent'}
+                  strokeWidth={1.5}
+                />
+              </Pressable>
             </Pressable>
-          ))}
-        </View>
+          );
+        })}
       </ScrollView>
 
-      {/*
-       * ── Floating "Show results" button ─────────────────────────────────
-       *
-       * Positioned above the dock using calculated `buttonBottom`.
-       * Does NOT live inside a sticky footer bar — that pattern overlapped
-       * with the floating dock and hid the button entirely.
-       *
-       * pointerEvents="box-none" on the wrapper lets taps on the transparent
-       * region below (between button and dock) fall through to the dock.
-       */}
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: 'absolute',
-          left: 24,
-          right: 24,
-          bottom: buttonBottom,
-        }}>
+      {/* ── Floating map FAB ────────────────────────────────────────────── */}
+      <View pointerEvents="box-none" style={{ position: 'absolute', right: 24, bottom: fabBottom }}>
         <Pressable
-          onPress={() => router.push('/(tenant)/search-results' as any)}
-          style={({ pressed }) => ({
-            height: RESULTS_BTN_HEIGHT,
-            borderRadius: 999,
-            backgroundColor: pressed ? '#1a1a1a' : '#0A0A0A',
-            alignItems: 'center',
-            justifyContent: 'center',
-            // Soft shadow so the button reads clearly above scroll content
-            shadowColor: '#000',
+          onPress={() => router.push('/(tenant)/map' as any)}
+          accessibilityRole="button"
+          accessibilityLabel="Show on map"
+          className="h-[56px] w-[56px] items-center justify-center rounded-pill bg-ink"
+          style={{
+            shadowColor: '#0A0A0A',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.22,
+            shadowOpacity: 0.3,
             shadowRadius: 12,
             elevation: 8,
-          })}>
-          <Text className="font-semibold text-body text-white">Show 240 results</Text>
+          }}>
+          <Map size={24} color="#FFFFFF" />
         </Pressable>
       </View>
+
+      <FilterDrawer visible={isFilterVisible} onClose={() => setIsFilterVisible(false)} />
     </SafeAreaView>
   );
 }
+

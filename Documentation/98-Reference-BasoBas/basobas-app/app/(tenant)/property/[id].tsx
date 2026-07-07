@@ -1,121 +1,270 @@
-import { ScrollView, View, Text, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback } from 'react';
+import { ScrollView, View, Text, Pressable, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Share2, Heart } from 'lucide-react-native';
+import {
+  MapPin,
+  Star,
+  Heart,
+  Bed,
+  Bath,
+  Wifi,
+  Car,
+} from 'lucide-react-native';
+
+import { PropertyHero } from '@/src/components/property/PropertyHero';
+import { Avatar } from '@/src/components/user/Avatar';
+import { ScheduleVisitDrawer } from '@/src/components/property/ScheduleVisitDrawer';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Amenity {
+  icon: string;
+  label: string;
+}
+
+interface Owner {
+  name: string;
+  avatarUrl?: string;
+  verified: boolean;
+  listingsCount: number;
+}
+
+interface PropertyDetail {
+  id: string;
+  title: string;
+  location: string;
+  rating: number;
+  priceMonthly: number;
+  currency: string;
+  images: string[];
+  amenities: Amenity[];
+  about: string;
+  owner: Owner;
+}
+
+// ─── Mock Data ───────────────────────────────────────────────────────────────
+
+const MOCK_PROPERTY: PropertyDetail = {
+  id: '1',
+  title: '2BHK Apartment in Kupondole',
+  location: 'Lalitpur, Nepal',
+  rating: 4.8,
+  priceMonthly: 32000,
+  currency: 'Rs.',
+  images: Array.from({ length: 12 }, (_, i) => `photo-${i + 1}`),
+  amenities: [
+    { icon: 'bed', label: '2 Bed' },
+    { icon: 'bath', label: '1 Bath' },
+    { icon: 'wifi', label: 'Wi-Fi' },
+    { icon: 'car', label: 'Parking' },
+  ],
+  about:
+    'Sunlit 2BHK with balcony, walking distance to UN Park. Newly renovated with modern fittings.',
+  owner: {
+    name: 'Sita Sharma',
+    verified: true,
+    listingsCount: 12,
+  },
+};
+
+// ─── Amenity Icon Map ────────────────────────────────────────────────────────
+
+const AMENITY_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
+  bed: Bed,
+  bath: Bath,
+  wifi: Wifi,
+  car: Car,
+};
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [showScheduleDrawer, setShowScheduleDrawer] = useState(false);
+
+  const property = MOCK_PROPERTY;
+  const ownerInitials = property.owner.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('');
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleShare = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: property.title,
+          text: `${property.title} — ${property.currency} ${property.priceMonthly.toLocaleString()}/mo`,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+        });
+      } catch {
+        // user cancelled or API not available
+      }
+    } else {
+      // TODO: wire up copy-link toast/snackbar when the app has one
+      console.log('Share:', property.title);
+    }
+  }, [property]);
+
+  const handleToggleSave = useCallback(() => {
+    setSaved((prev) => !prev);
+  }, []);
+
+  const handleScheduleVisit = useCallback(() => {
+    setShowScheduleDrawer(true);
+  }, []);
+
+  const handleScheduleClose = useCallback(() => {
+    setShowScheduleDrawer(false);
+  }, []);
+
+  const handleScheduleConfirm = useCallback(
+    async (selection: { date: Date; time: string }) => {
+      // TODO: send visit request to API
+      console.log('Visit confirmed:', { selection, propertyId: id });
+    },
+    [id],
+  );
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Hero */}
-        <View className="h-[280px] bg-canvas relative">
-          <View className="absolute top-4 left-6 right-6 flex-row justify-between z-10">
-            <Pressable onPress={() => router.back()} className="h-10 w-10 items-center justify-center rounded-pill bg-white/80">
-              <ArrowLeft size={18} color="#0A0A0A" />
-            </Pressable>
-            <View className="flex-row">
-              <Pressable className="mr-2 h-10 w-10 items-center justify-center rounded-pill bg-white/80">
-                <Share2 size={18} color="#0A0A0A" />
-              </Pressable>
-              <Pressable className="h-10 w-10 items-center justify-center rounded-pill bg-white/80">
-                <Heart size={18} color="#0A0A0A" />
-              </Pressable>
-            </View>
-          </View>
-          <View className="flex-1 items-center justify-center">
-            <Text className="font-sans text-body-sm text-ink3">Photo carousel · Property {id}</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push(`/(tenant)/property/${id}/gallery` as any)}
-            className="absolute bottom-3 right-6 rounded-pill bg-white/80 px-3 py-1"
-          >
-            <Text className="font-medium text-caption text-ink">View all</Text>
-          </Pressable>
-        </View>
+    <View className="flex-1 bg-bg">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingBottom: 100 + insets.bottom,
+        }}
+        showsVerticalScrollIndicator={false}>
+        {/* ═══ Hero Image Area ═══ */}
+        <PropertyHero
+          height={HERO_HEIGHT}
+          images={property.images}
+          onBack={handleBack}
+          onShare={handleShare}
+          currentIndex={currentImageIndex}
+          onIndexChange={setCurrentImageIndex}
+        />
 
+        {/* ═══ Content ═══ */}
         <View className="px-6 pt-4">
-          {/* Title block */}
-          <Text className="font-semibold text-h2 text-ink mb-1">Modern 2BHK in Thamel</Text>
-          <Text className="font-sans text-body text-ink2 mb-1">Thamel, Kathmandu</Text>
-          <Text className="font-bold text-h3 text-brand mb-4">NPR 25,000/mo</Text>
-
-          {/* Verified pill */}
-          <View className="self-start rounded-pill bg-brand-light px-3 py-1 mb-4">
-            <Text className="font-medium text-caption text-brand">✓ Verified</Text>
-          </View>
-
-          {/* Quick stats */}
-          <View className="flex-row justify-between mb-5 rounded-card bg-canvas p-4">
-            {[['2', 'Beds'], ['1', 'Bath'], ['850', 'sqft'], ['3', 'Floor']].map(([val, label]) => (
-              <View key={label} className="items-center">
-                <Text className="font-bold text-body text-ink">{val}</Text>
-                <Text className="font-sans text-caption text-ink2">{label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Description */}
-          <Text className="font-semibold text-h3 text-ink mb-2">Description</Text>
-          <Text className="font-sans text-body text-ink2 mb-5">
-            A beautiful, well-maintained apartment in the heart of Thamel. Walking distance to restaurants, shops, and public transport. The apartment features modern amenities and natural lighting.
+          {/* Title — serif */}
+          <Text className="font-display text-h1 leading-tight text-ink">
+            {property.title}
           </Text>
 
-          {/* Amenities */}
-          <Text className="font-semibold text-h3 text-ink mb-2">Amenities</Text>
-          <View className="flex-row flex-wrap mb-5">
-            {['WiFi', 'Parking', 'Water 24/7', 'Balcony', 'Kitchen', 'Laundry'].map((a) => (
-              <View key={a} className="mr-2 mb-2 rounded-pill bg-canvas px-3 py-1.5">
-                <Text className="font-sans text-body-sm text-ink">{a}</Text>
-              </View>
-            ))}
+          {/* Location + Rating row */}
+          <View className="mt-2 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <MapPin size={14} color="#6B6B6B" />
+              <Text className="ml-1 font-sans text-body-sm text-ink2">
+                {property.location}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Star size={14} color="#F5A623" fill="#F5A623" />
+              <Text className="ml-1 font-medium text-body-sm text-ink">
+                {property.rating}
+              </Text>
+            </View>
           </View>
 
-          {/* Landlord card */}
-          <Text className="font-semibold text-h3 text-ink mb-2">Landlord</Text>
-          <Pressable
-            onPress={() => router.push('/(tenant)/landlord/1' as any)}
-            className="flex-row items-center rounded-card border border-line p-4 mb-5"
-          >
-            <View className="h-12 w-12 rounded-pill bg-canvas items-center justify-center mr-3">
-              <Text className="font-sans text-body text-ink3">L</Text>
-            </View>
-            <View>
-              <Text className="font-semibold text-body text-ink">Ram Sharma</Text>
-              <Text className="font-sans text-body-sm text-ink2">5 properties · Verified</Text>
-            </View>
-          </Pressable>
-
-          {/* Reviews preview */}
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="font-semibold text-h3 text-ink">Reviews</Text>
-            <Pressable onPress={() => router.push(`/(tenant)/reviews/property/${id}` as any)}>
-              <Text className="font-medium text-body-sm text-brand">See all</Text>
-            </Pressable>
-          </View>
-          <View className="rounded-card bg-canvas p-4 mb-5">
-            <Text className="font-sans text-body-sm text-ink2">
-              {'"Great location and well-maintained property. Landlord is very responsive."'}
+          {/* Price row */}
+          <Text className="mt-3 font-bold text-h2 text-brand">
+            {property.currency} {property.priceMonthly.toLocaleString()}
+            <Text className="font-sans text-body text-ink2">
+              {' '}/ month
             </Text>
-            <Text className="font-sans text-caption text-ink3 mt-1">— Tenant, 2 weeks ago</Text>
+          </Text>
+
+          {/* ═══ Amenities Card ═══ */}
+          <View className="mt-5 flex-row items-center rounded-card bg-canvas px-4 py-4">
+            {property.amenities.map((amenity, i) => {
+              const IconComponent = AMENITY_ICONS[amenity.icon];
+              return (
+                <View key={amenity.label} className="flex-1 flex-row items-center">
+                  <View className="flex-1 items-center">
+                    {IconComponent && <IconComponent size={20} color="#6B6B6B" />}
+                    <Text className="mt-1.5 font-sans text-caption text-ink2">
+                      {amenity.label}
+                    </Text>
+                  </View>
+                  {i < property.amenities.length - 1 && (
+                    <View className="h-8 w-[1px] bg-line" />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* ═══ About Section ═══ */}
+          <Text className="mt-6 font-semibold text-h3 text-ink">About</Text>
+          <Text className="mt-2 font-sans text-body leading-relaxed text-ink2">
+            {property.about}
+          </Text>
+
+          {/* ═══ Owner Card ═══ */}
+          <View className="mt-5 flex-row items-center rounded-card bg-canvas p-4">
+            <Avatar size={48} initials={ownerInitials} />
+            <View className="ml-3 flex-1">
+              <Text className="font-semibold text-body text-ink">
+                {property.owner.name}
+              </Text>
+              <Text className="mt-0.5 font-sans text-body-sm text-ink2">
+                Verified owner · {property.owner.listingsCount} listings
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Sticky bottom CTA */}
-      <View className="absolute bottom-0 left-0 right-0 flex-row items-center border-t border-line bg-bg px-6 py-4">
-        <Pressable className="mr-3 h-[48px] w-[48px] items-center justify-center rounded-pill border border-line">
-          <Heart size={20} color="#0A0A0A" />
-        </Pressable>
+      {/* ═══ Sticky Bottom Action Bar ═══ */}
+      <View
+        className="flex-row items-center border-t border-line bg-bg px-6 pb-2 pt-4"
+        style={{ paddingBottom: Math.max(insets.bottom + 8, 12) }}>
+        {/* Heart / Save toggle */}
         <Pressable
-          onPress={() => router.push(`/(tenant)/schedule-visit/${id}` as any)}
-          className="flex-1 h-[48px] items-center justify-center rounded-pill bg-ink"
-        >
-          <Text className="font-semibold text-body text-white">Schedule Visit</Text>
+          onPress={handleToggleSave}
+          className="mr-3 h-[48px] w-[48px] items-center justify-center rounded-pill border border-line"
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove from saved' : 'Save property'}>
+          <Heart
+            size={20}
+            color={saved ? '#E53E3E' : '#0A0A0A'}
+            fill={saved ? '#E53E3E' : 'transparent'}
+          />
+        </Pressable>
+
+        {/* Schedule a Visit */}
+        <Pressable
+          onPress={handleScheduleVisit}
+          className="h-[48px] flex-1 items-center justify-center rounded-pill bg-ink"
+          accessibilityRole="button"
+          accessibilityLabel="Schedule a Visit">
+          <Text className="font-semibold text-body text-white">Schedule a Visit</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+
+      {/* ═══ Schedule Visit Drawer ═══ */}
+      <ScheduleVisitDrawer
+        propertyTitle={property.title}
+        propertyLocation={property.location.split(',')[0]}
+        isOpen={showScheduleDrawer}
+        onClose={handleScheduleClose}
+        onConfirm={handleScheduleConfirm}
+      />
+    </View>
   );
 }
