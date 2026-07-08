@@ -133,8 +133,18 @@ export async function uploadAvatar(
   });
 
   if (error) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[uploadAvatar] full error", error);
+    }
+    const hint =
+      error.message === "Bucket not found"
+        ? " — create the bucket in Supabase Storage (name: " +
+          BUCKET.AVATARS +
+          ") before retrying"
+        : "";
     throw new Error(
-      `[uploadAvatar] ${error.message} (bucket=${BUCKET.AVATARS}, path=${path})`,
+      `[uploadAvatar] ${error.message}${hint} (bucket=${BUCKET.AVATARS}, path=${path})`,
     );
   }
 
@@ -183,8 +193,41 @@ export async function uploadVerificationDoc(
     });
 
   if (error) {
+    // The Storage SDK surfaces two failure shapes:
+    //   - `StorageApiError`     — HTTP responded but with 4xx/5xx
+    //                              (e.g. "Bucket not found", RLS denied).
+    //                              Carries `status` and `statusCode`.
+    //   - `StorageUnknownError` — transport-level failure
+    //                              (DNS, TLS, paused Supabase project,
+    //                              captive portal). Message is usually
+    //                              "Network request failed", no status.
+    //
+    // Both come back through the same `{ error }` field. We log the
+    // full error in `__DEV__` so the device console has the
+    // `originalError` / status, and we include the bucket + path in
+    // the thrown message so the user can copy-paste into an issue
+    // tracker. For the most common failure (bucket missing) we
+    // also surface a one-liner in the thrown message that points
+    // the user at the Supabase dashboard — saves the next 20
+    // minutes of debugging.
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[uploadVerificationDoc] full error", error);
+    }
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? (error as { status?: number }).status
+        : undefined;
+    const hint =
+      error.message === "Bucket not found"
+        ? " — create the bucket in Supabase Storage (name: " +
+          BUCKET.VERIFICATION_DOCS +
+          ") before retrying"
+        : status === 401 || status === 403
+          ? " — the Supabase anon key does not have permission; check RLS policies in SQL Editor"
+          : "";
     throw new Error(
-      `[uploadVerificationDoc] ${error.message} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,
+      `[uploadVerificationDoc] ${error.message}${hint} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,
     );
   }
 

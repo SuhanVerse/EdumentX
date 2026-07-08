@@ -57,31 +57,48 @@ export function RoleSelectionScreen() {
     }
     setIsSaving(true);
     try {
-      // Modular RNFirebase v22+ API: getFirestore + doc + writeBatch +
-      // serverTimestamp, not firestore().collection().doc().set(). The
-      // namespaced form logs a deprecation warning on every call.
+      // Modular RNFirebase v22+ API: getFirestore + doc + getDoc +
+      // serverTimestamp, not firestore().collection().doc().set().
+      // The namespaced form logs a deprecation warning on every call.
       const db = getFirestore(getApp());
       const userRef = doc(db, "users", user.uid);
       const now = serverTimestamp();
-      // Two writes, committed atomically via `writeBatch`:
+
+      // **Role is no longer written here.** Previously this screen
+      // stamped `role: "tutor"` (or `"student"`) on the user doc the
+      // moment the user tapped Continue. That left a half-state on
+      // the doc: `users/{uid}.role === "tutor"` but no
+      // `users/{uid}/tutorProfile/default` and no
+      // `tutorVerifications/{uid}`. If the user closed the app
+      // between "I picked tutor" and "I hit Finish Setup" on
+      // `/profile-tutor`, the layout guard saw a tutor role and
+      // routed them straight to `/tutor-home` — a screen that
+      // rendered with the `FALLBACK.fullName = "Tutor"` literal and
+      // zero metrics. The user was never a valid tutor (no profile
+      // was ever submitted), but the system treated them as one.
       //
-      //   1. Read `users/{uid}` once to detect re-picks (an existing
-      //      role) and preserve the original `createdAt`. Without
-      //      this check, every visit to /role-selection would reset
-      //      `createdAt` to "now" because `merge: true` overwrites
-      //      fields we include in the payload — including
-      //      `createdAt`.
+      // The fix moves the role write to the *only* place the user
+      // becomes a valid tutor: inside
+      // `screens/auth/TutorProfileScreen.tsx`'s `handleSubmit`
+      // `writeBatch`, atomically with the profile + verification
+      // docs. So a tutor enters the system exactly when their
+      // profile lands.
       //
-      //   2. Write the doc with the canonical shape (`uid`, `email`,
-      //      `displayName`, `username`, `role`, `createdAt`,
-      //      `updatedAt`). Including `uid` is critical — it satisfies
-      //      the `request.resource.data.uid == userId` rule guard so
-      //      *updates* to this doc (from the profile screens, role
-      //      re-pick, or layout heal) don't get silently denied.
+      // What we *do* write here:
+      //   - `uid`, `email`, `displayName`, `username`: auth metadata
+      //     that downstream screens (the student profile, the
+      //     student home, the marketplace) read.
+      //   - `createdAt`: only on first write, never on re-pick.
+      //   - `updatedAt`: bumped every time.
+      // We deliberately omit `role` so the user doc's `role` field
+      // is exclusively written by the profile-submission flow.
       //
-      // We only set `createdAt` if the doc doesn't already have one;
-      // otherwise we leave it untouched. `updatedAt` is bumped every
-      // time so we always know when the role was last changed.
+      // Read the doc once to detect re-picks (preserve
+      // `createdAt`) and so the post-write branch can decide
+      // whether to send the user to the profile-completion flow
+      // (role not yet committed anywhere) or to the matching
+      // dashboard (role already on the doc — submitted
+      // previously, just landed here on re-login).
       const existing = await getDoc(userRef);
       const existingData = existing.data() as
         | { createdAt?: unknown; role?: string | null }
@@ -97,7 +114,6 @@ export function RoleSelectionScreen() {
           // null on email/password accounts, but we copy them through
           // so the user doc reflects what Auth knows about the user.
           username: (user as { username?: string | null }).username ?? null,
-          role,
           // Preserve the original `createdAt` if the doc already has
           // one. Without this guard, a re-pick of the role would
           // reset `createdAt` to the new timestamp — wrong, because
@@ -113,11 +129,13 @@ export function RoleSelectionScreen() {
       await batch.commit();
       // Commit to local store so the root layout guard sees the role
       // immediately on the next render and stops redirecting back here.
+      // The role lives in the in-memory store *only* until the user
+      // successfully submits the matching profile screen — at which
+      // point the role lands on the user doc and the layout guard
+      // picks it up from there on the next sign-in.
       setRole(role);
       // If the user is *changing* their role (re-pick), log it so we
-      // can spot abnormal flows. This is the path that, before the
-      // heal step in `app/_layout.tsx`, would loop the user back to
-      // /role-selection if the doc's role value was non-canonical.
+      // can spot abnormal flows.
       const isRoleChange =
         existingData?.role && existingData.role !== role;
       if (isRoleChange) {

@@ -26,6 +26,18 @@
 \usepackage{multirow}
 \usepackage{tabularx}
 
+% --- Inline diagrams (TikZ) -----------------------------------------
+% The SDLC figure in §3.1 is drawn inline as a TikZ diagram so the
+% build does not depend on a raster asset. We pull in the `arrows.meta`
+% library for the Stealth arrow tip, and define three brand-aligned
+% colors (`night`, `sand`, `amber`) that match the design tokens used
+% elsewhere in the EdumentX project.
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+\definecolor{night}{HTML}{0F172A}
+\definecolor{sand}{HTML}{FAF7F2}
+\definecolor{amber}{HTML}{B45309}
+
 % --- Color & hyperref -----------------------------------------------
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
@@ -133,7 +145,7 @@
 \begin{tabbing}
     \hspace*{3.5cm}\=\kill
     \abbrlabel{API}  \> Application Programming Interface \\
-    \abbrlabel{ASCI\-LITE} \> Australasian Society for Computers in
+    \abbrlabel{ASCILITE} \> Australasian Society for Computers in
         Learning in Tertiary Education \\
     \abbrlabel{CBS} \> Central Bureau of Statistics (Nepal) \\
     \abbrlabel{DFD} \> Data Flow Diagram \\
@@ -503,8 +515,8 @@ summarized in Table~\ref{tab:knn-weights}.
 Retrieval-Augmented Generation combines information retrieval
 with text generation to produce responses grounded in actual
 data rather than relying solely on a language model's training
-corpus. The original RAG framework was introduced by
-\citet{lewis2021rag}, who showed that combining a pre-trained
+corpus. The original RAG framework was introduced by Lewis
+et~al.~\citep{lewis2021rag}, who showed that combining a pre-trained
 retriever with a sequence-to-sequence generator significantly
 improves accuracy on knowledge-intensive tasks. In EdumentX,
 RAG is used to retrieve matching tutor profiles from Firestore
@@ -577,7 +589,33 @@ iterative-incremental model.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.75\textwidth]{Images/sdlc.png}
+    % Inline TikZ diagram of the iterative-incremental SDLC. We
+    % draw it here instead of relying on a raster image so the
+    % build is asset-free and the diagram stays editable in source.
+    \begin{tikzpicture}[
+        node distance=0.55cm and 0.9cm,
+        every node/.style={font=\small},
+        phase/.style={
+            rounded corners=2pt, draw=night, very thick,
+            minimum width=2.6cm, minimum height=0.85cm,
+            align=center, fill=sand
+        },
+        arrow/.style={-{Stealth[length=2mm]}, thick, draw=amber}
+    ]
+        \node[phase] (p1) {Plan};
+        \node[phase, right=of p1] (p2) {Design};
+        \node[phase, right=of p2] (p3) {Code};
+        \node[phase, right=of p3] (p4) {Test};
+        \node[phase, right=of p4] (p5) {Review};
+        \draw[arrow] (p1) -- (p2);
+        \draw[arrow] (p2) -- (p3);
+        \draw[arrow] (p3) -- (p4);
+        \draw[arrow] (p4) -- (p5);
+        % Loop-back arc from Review to Plan
+        \draw[arrow, dashed] (p5.south) to[bend right=35]
+            node[midway, below, font=\footnotesize, text=night]
+            {next sprint} (p1.south);
+    \end{tikzpicture}
     \caption{Phases of the Iterative-Incremental Model}
     \label{fig:sdlc}
 \end{figure}
@@ -592,7 +630,7 @@ layers: \textbf{Client Side}, \textbf{Serverless Backend}, and
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.95\textwidth]{Images/system-arch.png}
+    \includegraphics[width=0.95\textwidth]{Images/sysarc.png}
     \caption{System Architecture of EdumentX}
     \label{fig:arch}
 \end{figure}
@@ -636,7 +674,7 @@ accounts, and grant Blue Tick badges.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.95\textwidth]{Images/use-case.png}
+    \includegraphics[width=0.95\textwidth]{Images/usecase.png}
     \caption{Use Case Diagram of EdumentX}
     \label{fig:use-case}
 \end{figure}
@@ -653,7 +691,7 @@ Firestore.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.85\textwidth]{Images/dfd0.png}
+    \includegraphics[width=0.85\textwidth]{Images/Level_0_DFD.png}
     \caption{Level 0 Data Flow Diagram}
     \label{fig:dfd0}
 \end{figure}
@@ -665,7 +703,7 @@ management, tutor verification, and rating handling.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.95\textwidth]{Images/dfd1.png}
+    \includegraphics[width=0.95\textwidth]{Images/Level_1_DFD.png}
     \caption{Level 1 Data Flow Diagram}
     \label{fig:dfd1}
 \end{figure}

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
@@ -55,8 +56,15 @@ interface TutorDashboardData {
   rejectionReason?: string | null;
 }
 
+// `FALLBACK.fullName` is the empty string rather than a placeholder
+// like "Tutor" — the dashboard renders a "Complete your profile"
+// empty state when the name is empty, so a brand-new tutor (or any
+// tutor whose profile hasn't been read yet) never sees a fake
+// first-name as if it were real data. (Previously the literal
+// "Tutor" was rendered, which masked the "user has no profile"
+// bug as a cosmetic issue.)
 const FALLBACK: TutorDashboardData = {
-  fullName: "Tutor",
+  fullName: "",
   isVerifiedProfessional: false,
   capacity: 0,
   currentStudents: 0,
@@ -241,10 +249,19 @@ export function TutorDashboard() {
   // the dashboard without a reload. The student's home screen uses
   // the same pattern (see `StudentHome.tsx`).
   const [data, setData] = useState<TutorDashboardData>(FALLBACK);
+  // `hasLoaded` flips true once the first `onSnapshot` callback has
+  // returned (with any data — even `undefined`). It distinguishes
+  // "we're still waiting for the first read" from "we read the
+  // doc and it's empty / missing". The dashboard's empty-state
+  // branch (further down) only renders when `hasLoaded && data has
+  // no name`, so a fresh mount doesn't flash a "Complete your
+  // profile" CTA while the read is still in flight.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setData(FALLBACK);
+      setHasLoaded(true);
       return;
     }
     const db = getFirestore(getApp());
@@ -255,13 +272,21 @@ export function TutorDashboard() {
         const d = snap.data() as Partial<TutorDashboardData> | undefined;
         if (!d) {
           setData(FALLBACK);
+          setHasLoaded(true);
           return;
         }
         setData({
+          // Empty string is intentional: the dashboard's empty-state
+          // branch (line 320 / 372) detects `fullName === ""` and
+          // renders a "Complete your profile" CTA instead of
+          // pretending an empty profile is a real tutor. The
+          // previous fallback to "Tutor" was a placeholder from the
+          // mock-data era that masked the "no profile yet" bug as
+          // a cosmetic glitch.
           fullName:
             typeof d.fullName === "string" && d.fullName.trim().length > 0
               ? d.fullName.trim()
-              : "Tutor",
+              : "",
           isVerifiedProfessional: !!(d as { isVerifiedProfessional?: boolean })
             .isVerifiedProfessional,
           capacity: toNum((d as { capacity?: number }).capacity),
@@ -288,10 +313,12 @@ export function TutorDashboard() {
           rejectionReason:
             (d as { rejectionReason?: string | null }).rejectionReason ?? null,
         });
+        setHasLoaded(true);
       },
       (err) => {
         console.warn("TutorDashboard: profile read failed", err);
         setData(FALLBACK);
+        setHasLoaded(true);
       },
     );
     return () => unsub();
@@ -307,6 +334,24 @@ export function TutorDashboard() {
         ? "bg-warning"
         : "bg-verification";
 
+  // **Empty-state guard.** The dashboard only renders its full
+  // content once we have a profile doc with a populated `fullName`.
+  // If the snapshot fired but the doc is missing or has no name,
+  // the user is "not a real tutor yet" (e.g. they closed the app
+  // mid-onboarding, or a partial write lost atomicity). Show a
+  // "Complete your profile" CTA instead of an empty dashboard
+  // with placeholder zeros.
+  //
+  // We deliberately do *not* redirect to /profile-tutor from
+  // here — the layout guard already handles the
+  // `verificationStatus === "pending"` case by routing to
+  // /tutor-pending, and that screen's back-button takes the tutor
+  // to the role-selection or profile-tutor flow. This empty state
+  // is the last line of defense.
+  if (hasLoaded && data.fullName === "") {
+    return <TutorDashboardEmptyState />;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
       <StatusBar style="light" />
@@ -317,7 +362,7 @@ export function TutorDashboard() {
           <View>
             <Text className="text-body text-white/70">Welcome back,</Text>
             <Text className="text-screen-title font-medium text-white mt-0.5">
-              {data.fullName || "Tutor"}
+              {data.fullName}
             </Text>
             {data.isVerifiedProfessional ? (
               <View className="flex-row items-center gap-1 px-2.5 py-1 rounded-pill bg-verification-light mt-2 self-start">
@@ -919,5 +964,50 @@ function AvatarCircle({ uri }: AvatarCircleProps) {
             <Image source={{ uri }} className="w-10 h-10 rounded-full" /> */}
       <Text className="sr-only">{uri}</Text>
     </View>
+  );
+}
+
+/**
+ * Empty-state shown when the dashboard's `onSnapshot` returned but
+ * the profile doc is missing or has no `fullName`. The layout
+ * guard's primary fix is to route these users to /tutor-pending
+ * (which the user navigates back through to re-submit), but this
+ * is the last line of defense in case the guard ever lets a
+ * partially-onboarded user slip through to /tutor-home. The
+ * "Complete your profile" CTA takes them to /profile-tutor.
+ */
+function TutorDashboardEmptyState() {
+  const router = useRouter();
+  return (
+    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <StatusBar style="dark" />
+      <View className="flex-1 items-center justify-center px-8">
+        <View className="w-16 h-16 rounded-pill bg-amber-light items-center justify-center mb-4">
+          <Ionicons name="document-text-outline" size={28} color="#B45309" />
+        </View>
+        <Text className="text-section-title font-medium text-text-primary text-center">
+          Your tutor profile isn&apos;t set up yet
+        </Text>
+        <Text className="text-body text-text-secondary text-center mt-2 leading-relaxed">
+          Finish your tutor profile to unlock the dashboard. You&apos;ll
+          add your subjects, rate, location, and verification
+          documents.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Complete your tutor profile"
+          onPress={() => router.replace("/profile-tutor")}
+          className="mt-6 min-h-btn-lg rounded-card bg-amber items-center justify-center px-8 active:opacity-90"
+        >
+          <Text className="text-button text-text-inverse font-semibold">
+            Complete your profile
+          </Text>
+        </Pressable>
+        <Text className="text-caption text-text-muted text-center mt-5">
+          Already submitted? You may be under admin review — check
+          the &quot;Under review&quot; page.
+        </Text>
+      </View>
+    </SafeAreaView>
   );
 }

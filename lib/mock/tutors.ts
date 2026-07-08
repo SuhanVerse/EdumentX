@@ -19,6 +19,14 @@
  * `monthlyRateNpr` spans 8,000–25,000 to exercise the format range.
  * `verified: true` on 9 of 12 entries — the rest are unverified tutors
  * still in onboarding.
+ *
+ * NOTE — the `verified` flag here is hand-typed for the seed. In
+ * production the marketplace / map queries the `tutors/{uid}`
+ * denormalized collection and applies the filter in
+ * `lib/verification/discovery.ts` (`verificationStatus === "approved"`
+ * AND `hasPendingUpdate === false`). The seed mimics that filter by
+ * setting `verified: false` on 3 entries so the local `StudentHome`
+ * preview reflects the same 9-of-12 split a real query would yield.
  */
 export type TutorLocation = {
   neighborhood: string;

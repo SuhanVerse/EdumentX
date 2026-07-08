@@ -1,0 +1,60 @@
+\begin{thebibliography}{10}
+
+\bibitem{bray2007shadow}
+M.~Bray, {\em The {Shadow Education System}: Private Tutoring and Its
+  Implications for Planners}.
+\newblock Paris: UNESCO, International Institute for Educational Planning,
+  2007.
+
+\bibitem{bray2012shadow}
+M.~Bray and C.~Lykins, {\em Shadow Education: Private Supplementary Tutoring
+  and Its Implications for Policy Makers in {Asia}}.
+\newblock CERC Monograph Series in Comparative and International Education and
+  Development, Manila: Asian Development Bank, 2012.
+
+\bibitem{kim2019shadow}
+Y.~C. Kim and J.~H. Jung, ``Shadow education as worldwide curriculum studies,''
+  {\em Curriculum Studies Worldwide}, vol.~1, pp.~1--15, Apr. 2019.
+
+\bibitem{cbs2021}
+{Central Bureau of Statistics}, ``National population and housing census 2021:
+  National report.'' Government of Nepal, National Planning Commission, 2023.
+\newblock Census report.
+
+\bibitem{thapa2013private}
+A.~Thapa, ``Does private school competition improve public school performance?
+  the case of nepal,'' {\em International Journal of Educational Development},
+  vol.~33, no.~4, pp.~358--366, 2013.
+
+\bibitem{chung2022mentor}
+S.-H. Chung and S.~C. Tan, ``{MENTOR} -- intelligent mobile online peer
+  tutoring application for face-to-face and remote peer tutoring,'' in {\em
+  ASCILITE Publications}, pp.~386--391, Sept. 2022.
+
+\bibitem{sharma2026local}
+R.~K. Sharma, A.~Patel, and M.~Singh, ``Local tutor finder application using
+  flutter,'' {\em Journal of Emerging Technologies and Innovative Research
+  (JETIR)}, vol.~13, pp.~267--275, Feb. 2026.
+
+\bibitem{nhari2025iteachu}
+N.~Shari, F.~Ahmad, and R.~Hassan, ``{iTeachU}: {AI}-driven tutor matching with
+  geolocation integration,'' {\em International Journal of Research in Science
+  and Innovation (IJRSI)}, vol.~12, pp.~145--158, Mar. 2025.
+
+\bibitem{shevchenko2023geofencing}
+Y.~Shevchenko and U.-D. Reips, ``Geofencing in location-based behavioural
+  research: Methodology, challenges, and implementation,'' {\em Behavior
+  Research Methods}, vol.~56, Aug. 2023.
+
+\bibitem{lewis2021rag}
+P.~Lewis, E.~Perez, A.~Piktus, F.~Petroni, V.~Karpukhin, N.~Goyal,
+  H.~K{\"u}ttler, M.~Lewis, W.~tau Yih, T.~Rockt{\"a}schel, S.~Riedel, and
+  D.~Kiela, ``Retrieval-augmented generation for knowledge-intensive {NLP}
+  tasks.'' arXiv preprint arXiv:2005.11401, 2021.
+
+\bibitem{swacha2025rag}
+J.~Swacha and M.~Gracel, ``Retrieval-augmented generation ({RAG}) chatbots for
+  education: A survey of applications,'' {\em Applied Sciences}, vol.~15,
+  no.~8, p.~4234, 2025.
+
+\end{thebibliography}

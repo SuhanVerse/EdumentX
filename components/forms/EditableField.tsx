@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 /**
@@ -7,8 +7,15 @@ import { Pressable, Text, TextInput, View } from "react-native";
  * small pencil chip on the right; tapping it flips the field into
  * edit mode (autoFocus, keyboard pops, Confirm + Cancel buttons).
  *
- * Used by StudentProfile for name + phone. Phone uses
+ * Used by StudentProfile for name + phone, and by the tutor edit
+ * profile screen for fullName / headline / bio. Phone uses
  * `keyboardType="phone-pad"` via the `keyboardType` prop.
+ *
+ * The `editable` prop lets the parent disable the field without
+ * changing the underlying state (e.g. while the tutor's account is
+ * under admin review). The `trailing` prop lets the parent render
+ * a spinner / status icon next to the "Edit" chip in display mode
+ * (e.g. mid-save indicator).
  */
 export function EditableField({
   label,
@@ -19,6 +26,8 @@ export function EditableField({
   autoCapitalize = "sentences",
   error,
   placeholder,
+  editable = true,
+  trailing,
 }: {
   label: string;
   value: string;
@@ -28,11 +37,14 @@ export function EditableField({
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   error?: string | null;
   placeholder?: string;
+  editable?: boolean;
+  trailing?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
   function startEdit() {
+    if (!editable) return;
     setDraft(value);
     setEditing(true);
   }
@@ -58,8 +70,13 @@ export function EditableField({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Edit ${label}`}
+          accessibilityState={{ disabled: !editable }}
           onPress={startEdit}
-          className="flex-row items-center justify-between bg-surface border border-border rounded-card h-input px-4 active:opacity-80"
+          className={`flex-row items-center justify-between bg-surface border rounded-card h-input px-4 ${
+            editable
+              ? "border-border active:opacity-80"
+              : "border-border-subtle opacity-60"
+          }`}
         >
           <Text
             className={
@@ -71,12 +88,14 @@ export function EditableField({
           >
             {value || placeholder || "Not set"}
           </Text>
-          <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
-            <Ionicons name="pencil" size={11} color="#475569" />
-            <Text className="text-micro text-text-secondary font-medium">
-              Edit
-            </Text>
-          </View>
+          {trailing ?? (
+            <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
+              <Ionicons name="pencil" size={11} color="#475569" />
+              <Text className="text-micro text-text-secondary font-medium">
+                Edit
+              </Text>
+            </View>
+          )}
         </Pressable>
       ) : (
         <View className="gap-2">

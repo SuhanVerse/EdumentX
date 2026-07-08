@@ -29,9 +29,41 @@ service cloud.firestore {
       // any field — the form-level validation is the source of truth
       // for shape, and the security rules just enforce "you can only
       // touch your own profile."
+      //
+      // Admins get read+write access too so the admin queue can
+      // mirror verification status flags (verificationStatus,
+      // isVerifiedProfessional, hasPendingUpdate, rejectionReason)
+      // onto the profile doc atomically with the source-of-truth
+      // tutorVerifications/{uid}.status change. The admin can NOT
+      // edit the personal fields (fullName, headline, bio, etc.)
+      // because they don't carry those keys in the batch update.
       match /{subcollection}/{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
+    }
+
+    // Admin-managed denormalized tutor record. The student-side
+    // marketplace / map query reads from this collection via
+    // `lib/verification/discovery.ts`. The denormalized flags are
+    // kept in lockstep with `users/{uid}/tutorProfile/default` by
+    // the admin queue's approve / reject handlers, so the filter
+    // `verificationStatus === "approved" AND hasPendingUpdate === false`
+    // is a flat `where(...)` against this single doc.
+    //
+    // Both the tutor (owner) and the admin can read their own row
+    // so the marketplace preview / "is this me?" flows work in
+    // the tutor's own dashboard. Writes are admin-only because
+    // this is a denormalized cache and the client should never
+    // touch it directly — Phase 5 (Firestore functions or admin
+    // SDK trigger) will own the writes once we add real student
+    // discovery. For the demo, the admin queue's approve / reject
+    // handler also writes here so a tutor approved on day N shows
+    // up in the marketplace the next time it loads.
+    match /tutors/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     // Admins collection — bootstrap is locked to the Firebase Admin SDK
@@ -49,14 +81,18 @@ service cloud.firestore {
     // submit their profile for review; admins update the status when
     // they decide. Status transitions are gated to admins so a tutor
     // can't approve their own application.
+    //
+    // The `update` rule is intentionally permissive on `adminNotes` /
+    // `reviewedBy` / `reviewedAt` because the admin often appends a
+    // follow-up reason or corrects a prior decision. Status itself
+    // is still gated to admins (no client-side toggle), and the
+    // status change must be one of the four legal values.
     match /tutorVerifications/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
-      // Only admins can mutate status. We diff against the existing
-      // doc so an admin can move pending → approved / rejected /
-      // more_info but a tutor cannot self-approve.
       allow update: if isAdmin() &&
-        request.resource.data.status != resource.data.status;
+        request.resource.data.status in
+          ["pending", "approved", "rejected", "more_info"];
       allow delete: if false;
     }
 
@@ -69,6 +105,31 @@ service cloud.firestore {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
       allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Notifications — one document per notification, addressed to a
+    // user. The notification center reads them via `onSnapshot`.
+    //
+    // Two writers:
+    //   - Admins can `create` (e.g. when a verification decision is
+    //     made, the admin's batch handler writes a doc here so the
+    //     tutor sees it in their inbox).
+    //   - The owning user can `update` only the `read` flag (a
+    //     client-side tap on a notification). Everything else is
+    //     server-only — no client can mutate the title / body /
+    //     timestamp of a notification it didn't author.
+    match /notifications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.recipientUid == uid;
+      allow update: if isOwner(uid) &&
+        // The only mutable field on a notification is `read`.
+        // The diff check below is the closest Firestore gets to
+        // "this update only touched the read flag" — every other
+        // field must round-trip to its current value.
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["read", "readAt"]);
       allow delete: if false;
     }
 

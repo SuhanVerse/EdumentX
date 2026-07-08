@@ -23,10 +23,12 @@ import {
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
+import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
+import type { TutorDocument } from "@/lib/verification/documents";
 import { useAuthStore } from "@/store/authStore";
 
 const SUBJECTS = [
@@ -93,6 +95,26 @@ export function TutorProfileScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
 
+  /**
+   * Three verification documents. Two required (citizenship,
+   * academic certificate) and one optional (demo teaching video).
+   * Stored as `TutorDocument[]` and persisted to both
+   * `tutorVerifications/{uid}.documents` (the source of truth) and
+   * `users/{uid}/tutorProfile/default.documents` (the cache the
+   * tutor's own edit screen reads from). Both writes happen in the
+   * same `writeBatch` so the two never disagree.
+   *
+   * We keep docs in a `Map` keyed by `kind` so re-uploading one
+   * kind doesn't disturb the others. The Map serializes to a flat
+   * array for the Firestore write.
+   */
+  const [documents, setDocuments] = useState<Map<string, TutorDocument>>(
+    () => new Map(),
+  );
+  const citizenshipDoc = documents.get("citizenship") ?? null;
+  const certificateDoc = documents.get("certificate") ?? null;
+  const demoDoc = documents.get("demo") ?? null;
+
   function toggleSubject(option: string) {
     setSubjects((prev) =>
       prev.includes(option) ? prev.filter((s) => s !== option) : [...prev, option],
@@ -111,6 +133,11 @@ export function TutorProfileScreen() {
     !Number.isNaN(monthlyRateNumber) &&
     monthlyRateNumber >= 0;
 
+  // Two verification docs are required before submit; the demo
+  // video is optional so it doesn't block the user.
+  const hasCitizenship = documents.has("citizenship");
+  const hasCertificate = documents.has("certificate");
+
   const canSubmit =
     fullName.trim().length >= 3 &&
     EMAIL_REGEX.test(authEmail.trim()) &&
@@ -121,7 +148,9 @@ export function TutorProfileScreen() {
     gradesTeaching.length >= 1 &&
     isValidRate &&
     location !== null &&
-    location.city.trim().length > 0;
+    location.city.trim().length > 0 &&
+    hasCitizenship &&
+    hasCertificate;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
@@ -146,8 +175,20 @@ export function TutorProfileScreen() {
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
     if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";
     if (!isValidRate) validationErrors.monthlyRate = "Enter your monthly rate in NPR.";
+    if (!hasCitizenship) {
+      Alert.alert(
+        "Citizenship ID required",
+        "Please upload a clear photo of your citizenship card before submitting.",
+      );
+    }
+    if (!hasCertificate) {
+      Alert.alert(
+        "Academic certificate required",
+        "Please upload a degree, transcript, or enrollment letter before submitting.",
+      );
+    }
     setErrors(validationErrors);
-
+    if (!hasCitizenship || !hasCertificate) return;
     if (Object.keys(validationErrors).length > 0) return;
 
     const phoneDisplay = phone.trim() ? `+977 ${phone.trim()}` : "";
@@ -185,11 +226,10 @@ export function TutorProfileScreen() {
       // serverTimestamp, not firestore().collection().doc().set(). The
       // namespaced form logs a deprecation warning on every call.
       const db = getFirestore(getApp());
-      // Two writes, committed atomically so the user is never in a
-      // half-saved state (root doc says "tutor" but subcollection is
-      // empty, or vice versa). `writeBatch` commits all writes
-      // together or fails the whole batch — there is no partial
-      // success. We include `uid` on the root doc so the
+      // Three writes, committed atomically so the user is never in a
+      // half-saved state. `writeBatch` commits all writes together
+      // or fails the whole batch — there is no partial success. We
+      // include `uid` on the root doc so the
       // `request.resource.data.uid == userId` guard in
       // firestore.rules passes on first-create AND on update.
       //
@@ -206,11 +246,28 @@ export function TutorProfileScreen() {
       //      profile lives at `users/{uid}/tutorProfile/default` (not
       //      on the user doc itself, so it can be re-written cheaply
       //      on every "Edit profile" save without touching auth
-      //      metadata).
+      //      metadata). This doc also carries the denormalized
+      //      `verificationStatus` / `hasPendingUpdate` flags so the
+      //      layout guard and the tutor dashboard can read everything
+      //      they need in a single `onSnapshot` without joining across
+      //      collections. The source of truth for admin actions is
+      //      `tutorVerifications/{uid}` (write 3 below); the flags
+      //      here are a cache.
+      //
+      //   3. Verification doc — a `pending` entry in
+      //      `tutorVerifications/{uid}`. The admin queue reads this
+      //      collection (filtered by `status in {pending, more_info}`)
+      //      to list new tutor signups awaiting review. Creating it
+      //      atomically with the profile means the admin sees the
+      //      tutor the moment they finish onboarding — there is no
+      //      race where a tutor has a profile but no verification
+      //      doc (which would silently fall off the admin's radar).
       const userRef = doc(db, "users", user.uid);
       const profileRef = doc(db, "users", user.uid, "tutorProfile", "default");
+      const verificationRef = doc(db, "tutorVerifications", user.uid);
       const now = serverTimestamp();
       const batch = writeBatch(db);
+      const documentsArray = Array.from(documents.values());
       batch.set(
         userRef,
         {
@@ -249,15 +306,72 @@ export function TutorProfileScreen() {
           // picked so we never write `null` (which would clobber a
           // real URL on a subsequent edit).
           ...(avatarUri ? { photoUrl: avatarUri } : {}),
+          // Verification docs (citizenship / certificate / demo).
+          // Persisted on the profile doc as a denormalized cache so
+          // the tutor's own edit screen can show "you already
+          // uploaded X" without a second `getDoc`. The source of
+          // truth is `tutorVerifications/{uid}.documents` (the
+          // admin queue reads from that).
+          documents: documentsArray,
+          // Denormalized verification flags. The admin's
+          // `tutorVerifications/{uid}` doc is the source of truth
+          // for the status; these flags are a cache so the layout
+          // guard and the tutor dashboard don't need a second
+          // `getDoc` per render. Mirrored in `app/_layout.tsx`'s
+          // boot-migration block and in the admin queue's
+          // approve / reject handlers.
+          verificationStatus: "pending",
+          isVerifiedProfessional: false,
+          rejectionReason: null,
+          hasPendingUpdate: false,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+      batch.set(
+        verificationRef,
+        {
+          uid: user.uid,
+          email: authEmail.trim(),
+          fullName: fullName.trim(),
+          subjects,
+          gradesTeaching,
+          yearsExperience,
+          monthlyRateNpr: monthlyRateNumber,
+          location,
+          headline: headline.trim(),
+          bio: bio.trim(),
+          phone: phone.trim(),
+          phoneDisplay,
+          status: "pending",
+          // `adminNotes` is the rejection reason / info-request
+          // text captured by the admin from the RejectReasonDialog
+          // (see `screens/admin/VerificationQueue.tsx`). Empty on
+          // first submission.
+          adminNotes: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          // Source-of-truth list of uploaded verification documents.
+          // Mirrored onto the profile doc above so the tutor's
+          // own dashboard can render it without a second `getDoc`.
+          documents: documentsArray,
+          createdAt: now,
           updatedAt: now,
         },
         { merge: true },
       );
       await batch.commit();
-      // Mirror the role into the local store so the layout guard
-      // advances to the dashboard on the next render.
+      // Mirror the role + verification status into the local store
+      // so the layout guard in `app/_layout.tsx` keeps the tutor
+      // on `/tutor-pending` (NOT `/tutor-home`) until the admin
+      // approves. Without this, a brand-new tutor who just finished
+      // onboarding would land on the real dashboard and see the
+      // dashboard's `ReviewBanner` — which the mid-term spec
+      // explicitly disallows (we want them fully gated out of
+      // /tutor-home until they're a verified professional).
       useAuthStore.getState().setRole("tutor");
-      router.replace("/tutor-home");
+      useAuthStore.getState().setTutorVerificationStatus("pending");
+      router.replace("/tutor-pending");
     } catch (error: any) {
       console.error("TutorProfileScreen: failed to save profile", error);
       // Surface the actual Firebase error code so the user (and any
@@ -491,6 +605,60 @@ export function TutorProfileScreen() {
           </View>
 
           <LocationField value={location} onChange={setLocation} />
+
+          {/* Verification documents — two required (citizenship +
+              academic certificate) and one optional (demo video).
+              Each `DocumentUploader` writes directly to Supabase
+              Storage via `lib/verification/documents.ts`; the
+              returned `TutorDocument` lands in the local `documents`
+              Map and is persisted to Firestore on submit. */}
+          <View className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-overline text-text-muted uppercase">
+                Verification documents
+              </Text>
+              <Text className="text-caption text-text-muted">
+                {documents.size} of 3
+              </Text>
+            </View>
+            <DocumentUploader
+              kind="citizenship"
+              existing={citizenshipDoc}
+              onUploaded={(d) =>
+                setDocuments((prev) => {
+                  const next = new Map(prev);
+                  next.set(d.kind, d);
+                  return next;
+                })
+              }
+            />
+            <DocumentUploader
+              kind="certificate"
+              existing={certificateDoc}
+              onUploaded={(d) =>
+                setDocuments((prev) => {
+                  const next = new Map(prev);
+                  next.set(d.kind, d);
+                  return next;
+                })
+              }
+            />
+            <DocumentUploader
+              kind="demo"
+              existing={demoDoc}
+              onUploaded={(d) =>
+                setDocuments((prev) => {
+                  const next = new Map(prev);
+                  next.set(d.kind, d);
+                  return next;
+                })
+              }
+            />
+            <Text className="text-caption text-text-muted">
+              Your documents are private. Only the EdumentX verification
+              team can view them.
+            </Text>
+          </View>
 
           <Pressable
             accessibilityRole="button"
