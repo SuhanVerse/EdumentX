@@ -1,12 +1,11 @@
-\contentsline {chapter}{Approval Page}{i}{chapter*.1}%
-\contentsline {chapter}{Acknowledgement}{ii}{chapter*.2}%
-\contentsline {chapter}{Abstract}{iii}{chapter*.3}%
-\contentsline {chapter}{List of Abbreviations}{iv}{chapter*.4}%
-\contentsline {chapter}{\numberline {1}Introduction}{2}{chapter.1}%
-\contentsline {section}{\numberline {1.1}Background}{2}{section.1.1}%
-\contentsline {section}{\numberline {1.2}Problem Statement}{3}{section.1.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Figures}{iii}{chapter*.1}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Tables}{iv}{chapter*.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Abbreviations}{vii}{chapter*.4}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Background}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Problem Statement}{2}{section.1.2}%
 \contentsline {section}{\numberline {1.3}Objectives}{3}{section.1.3}%
-\contentsline {section}{\numberline {1.4}Scope}{4}{section.1.4}%
+\contentsline {section}{\numberline {1.4}Scope}{3}{section.1.4}%
 \contentsline {chapter}{\numberline {2}Literature Review}{5}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Related Work}{5}{section.2.1}%
 \contentsline {section}{\numberline {2.2}Related Theory}{6}{section.2.2}%
@@ -14,38 +13,48 @@
 \contentsline {subsection}{\numberline {2.2.2}Haversine Distance Formula}{6}{subsection.2.2.2}%
 \contentsline {subsection}{\numberline {2.2.3}Geofencing and Radius-Based Filtering}{7}{subsection.2.2.3}%
 \contentsline {subsection}{\numberline {2.2.4}K-Nearest Neighbors Algorithm}{7}{subsection.2.2.4}%
-\contentsline {subsection}{\numberline {2.2.5}Retrieval-Augmented Generation}{7}{subsection.2.2.5}%
+\contentsline {subsection}{\numberline {2.2.5}Retrieval-Augmented Generation}{8}{subsection.2.2.5}%
 \contentsline {subsection}{\numberline {2.2.6}React Native and Expo}{8}{subsection.2.2.6}%
-\contentsline {subsection}{\numberline {2.2.7}Firebase Platform}{8}{subsection.2.2.7}%
-\contentsline {subsection}{\numberline {2.2.8}OpenStreetMap and Open Geocoders}{8}{subsection.2.2.8}%
-\contentsline {chapter}{\numberline {3}Methodology}{9}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Software Development Model}{9}{section.3.1}%
-\contentsline {section}{\numberline {3.2}System Architecture}{9}{section.3.2}%
-\contentsline {section}{\numberline {3.3}Use Case Diagram}{10}{section.3.3}%
-\contentsline {section}{\numberline {3.4}Data Flow Diagram}{10}{section.3.4}%
-\contentsline {section}{\numberline {3.5}RAG Chatbot Workflow}{11}{section.3.5}%
-\contentsline {section}{\numberline {3.6}Implementation Details}{11}{section.3.6}%
-\contentsline {subsection}{\numberline {3.6.1}Frontend Development}{11}{subsection.3.6.1}%
-\contentsline {subsection}{\numberline {3.6.2}Backend Development}{12}{subsection.3.6.2}%
-\contentsline {subsection}{\numberline {3.6.3}Testing Strategy}{12}{subsection.3.6.3}%
-\contentsline {chapter}{\numberline {4}Task Accomplished}{15}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Stage 0 — Project Setup and Documentation Scaffolding}{15}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Stage 1 — Design System: ``Night \& Sand'' Premium Palette}{15}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Stage 1.5 — NativeWind Migration (Tamagui Removal)}{15}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Stage 2 — Native Firebase Auth (RNFirebase Pivot)}{16}{section.4.4}%
-\contentsline {section}{\numberline {4.5}Stage 2b — Onboarding and Profile Subcollection Writes}{16}{section.4.5}%
-\contentsline {section}{\numberline {4.6}Stage 3 — Dashboards and Live Firestore Reads}{17}{section.4.6}%
-\contentsline {section}{\numberline {4.7}Stage A — Auth UX Polish, Bottom Nav, and Parity Foundations}{17}{section.4.7}%
-\contentsline {section}{\numberline {4.8}Stage A.5 — Tutor Profile Parity, Avatar Persistence, and Logout}{17}{section.4.8}%
-\contentsline {section}{\numberline {4.9}Stage B — 3D Onboarding Polish}{18}{section.4.9}%
-\contentsline {section}{\numberline {4.10}Verification Summary}{18}{section.4.10}%
-\contentsline {chapter}{\numberline {5}Tasks Remaining}{20}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Stage C — Live Tutor Query and KNN Ranking}{20}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Stage D — RAG Chatbot End-to-End}{20}{section.5.2}%
-\contentsline {section}{\numberline {5.3}Stage E — Map Search and Service-Area Visualization}{20}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Stage F — Verification Queue and Blue Tick Pipeline}{20}{section.5.4}%
-\contentsline {section}{\numberline {5.5}Stage G — Enrollment Request and Response Flow}{20}{section.5.5}%
-\contentsline {section}{\numberline {5.6}Stage H — Rating and Review System}{20}{section.5.6}%
-\contentsline {section}{\numberline {5.7}Stage I — Admin Statistics, User Management, and Polish}{20}{section.5.7}%
-\contentsline {section}{\numberline {5.8}Stage J — Final Hardening, Performance Pass, and Demo}{21}{section.5.8}%
-\contentsline {chapter}{References}{22}{chapter*.15}%
+\contentsline {subsection}{\numberline {2.2.7}Firebase Platform and Supabase Storage}{8}{subsection.2.2.7}%
+\contentsline {subsection}{\numberline {2.2.8}OpenStreetMap and Open Geocoders}{9}{subsection.2.2.8}%
+\contentsline {chapter}{\numberline {3}Proposed Methodology}{10}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Software Development Model}{10}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Feasibility Study}{10}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Technical Feasibility}{11}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Economic Feasibility}{11}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Operational Feasibility}{12}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Legal and Ethical Feasibility}{12}{subsection.3.2.4}%
+\contentsline {subsection}{\numberline {3.2.5}Scalability}{13}{subsection.3.2.5}%
+\contentsline {section}{\numberline {3.3}Requirement Analysis}{13}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Functional Requirements}{13}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Non-Functional Requirements}{15}{subsection.3.3.2}%
+\contentsline {section}{\numberline {3.4}Proposed System Design}{16}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}System Architecture}{16}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}Use Case Diagram}{16}{subsection.3.4.2}%
+\contentsline {subsection}{\numberline {3.4.3}Data Flow Diagram}{17}{subsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.4.4}RAG Chatbot Workflow}{18}{subsection.3.4.4}%
+\contentsline {section}{\numberline {3.5}Implementation Details}{19}{section.3.5}%
+\contentsline {subsection}{\numberline {3.5.1}Frontend Development}{19}{subsection.3.5.1}%
+\contentsline {subsection}{\numberline {3.5.2}Backend Development}{19}{subsection.3.5.2}%
+\contentsline {subsection}{\numberline {3.5.3}Testing Strategy}{20}{subsection.3.5.3}%
+\contentsline {chapter}{\numberline {4}Task Accomplished}{21}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Stage 0 — Project Setup and Documentation Scaffolding}{21}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Stage 1 — Design System: ``Night \& Sand'' Premium Palette}{21}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Stage 1.5 — NativeWind Migration (Tamagui Removal)}{22}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Stage 2 — Native Firebase Auth (RNFirebase Pivot)}{22}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Stage 2b — Onboarding and Profile Subcollection Writes}{22}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Stage 3 — Dashboards and Live Firestore Reads}{23}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Stage A — Auth UX Polish, Bottom Nav, and Parity Foundations}{23}{section.4.7}%
+\contentsline {section}{\numberline {4.8}Stage A.5 — Tutor Profile Parity, Avatar Persistence, and Logout}{24}{section.4.8}%
+\contentsline {section}{\numberline {4.9}Stage B — 3D Onboarding Polish}{25}{section.4.9}%
+\contentsline {section}{\numberline {4.10}Verification Summary}{25}{section.4.10}%
+\contentsline {chapter}{\numberline {5}Tasks Remaining}{26}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Stage C — Live Tutor Query and KNN Ranking}{26}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Stage D — RAG Chatbot End-to-End}{26}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Stage E — Map Search and Service-Area Visualization}{27}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Stage F — Verification Queue and Blue Tick Pipeline}{27}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Stage G — Enrollment Request and Response Flow}{27}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Stage H — Rating and Review System}{28}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Stage I — Admin Statistics, User Management, and Polish}{28}{section.5.7}%
+\contentsline {section}{\numberline {5.8}Stage J — Final Hardening, Performance Pass, and Demo}{28}{section.5.8}%
+\contentsline {section}{References}{28}{section*.5}%
