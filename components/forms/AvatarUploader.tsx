@@ -89,7 +89,7 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
         accessibilityRole="button"
         accessibilityLabel={value ? "Change profile photo" : "Upload profile photo"}
         onPress={handlePick}
-        className="w-24 h-24 rounded-full border-4 border-surface bg-border items-center justify-center active:opacity-80"
+        className="w-24 h-24 rounded-full border-2 border-border bg-surface-muted items-center justify-center active:opacity-80"
       >
         {value ? (
           <Image

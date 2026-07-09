@@ -148,7 +148,7 @@ export function OnboardingScreen() {
             mounts inside. pointerEvents none on the GL scenes lets
             taps fall through to the button below. */}
         <View
-          className="items-center justify-center rounded-[20px] mb-6 overflow-hidden"
+          className="items-center justify-center rounded-xl mb-6 overflow-hidden"
           style={{
             height: illustrationHeight,
             backgroundColor: slide.backgroundColor,
@@ -158,10 +158,13 @@ export function OnboardingScreen() {
         </View>
 
         <Animated.View style={textStyle} className="flex-1">
-          <Text className="text-hero text-text-primary mb-3">
-            {slide.title}
-          </Text>
-          <Text className="text-body text-text-secondary">
+          {/* Signature underline motif on the slide title */}
+          <View className="self-start border-b-2 border-accent pb-0.5 mb-3">
+            <Text className="text-display text-ink">
+              {slide.title}
+            </Text>
+          </View>
+          <Text className="text-body text-ink-muted">
             {slide.subtitle}
           </Text>
         </Animated.View>

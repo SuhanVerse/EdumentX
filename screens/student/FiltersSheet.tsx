@@ -138,7 +138,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View className="py-4 border-b border-border-subtle">
+    <View className="py-4 border-b border-border">
       <Text className="text-overline text-text-muted uppercase mb-3">
         {title}
       </Text>
@@ -162,16 +162,21 @@ function Pill({
   // (the legacy behavior, kept for recognition), level/mode get a
   // simpler outlined-pill treatment.
   const classes =
-    active
+    active && variant === "subject"
       ? "bg-amber border-amber"
-      : variant === "subject"
-        ? "bg-verification-light border-verification-light"
-        : "bg-surface border-border";
-  const textClasses = active
-    ? "text-text-inverse"
-    : variant === "subject"
-      ? "text-verification-dark"
-      : "text-text-secondary";
+      : active
+        ? "bg-primary border-primary"
+        : variant === "subject"
+          ? "bg-verification-light border-verification-light"
+          : "bg-surface border-border";
+  const textClasses =
+    active && variant === "subject"
+      ? "text-text-inverse"
+      : active
+        ? "text-white"
+        : variant === "subject"
+          ? "text-verification-dark"
+          : "text-text-secondary";
   return (
     <Pressable
       accessibilityRole="button"
@@ -297,11 +302,11 @@ export function FiltersSheet({
             bottom: 0,
             maxHeight: "90%",
             backgroundColor: "#FFFFFF",
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             transform: [{ translateY: Animated.add(translateY, dragY) }],
-            shadowColor: "#000",
-            shadowOpacity: 0.18,
+            shadowColor: "#26302B",
+            shadowOpacity: 0.10,
             shadowRadius: 18,
             shadowOffset: { width: 0, height: -4 },
             elevation: 24,
@@ -309,7 +314,7 @@ export function FiltersSheet({
         >
           {/* Handle */}
           <View className="items-center pt-2.5 pb-1">
-            <View className="w-10 h-1 rounded-pill bg-border" />
+            <View className="w-10 h-1 rounded-pill bg-surface-muted" />
           </View>
 
           {/* Header */}
@@ -323,7 +328,7 @@ export function FiltersSheet({
               onPress={onClose}
               className="w-9 h-9 items-center justify-center rounded-pill active:opacity-70"
             >
-              <Ionicons name="close" size={20} color="#64748B" />
+              <Ionicons name="close" size={20} color="#6B7268" />
             </Pressable>
           </View>
 
@@ -433,7 +438,7 @@ export function FiltersSheet({
           </ScrollView>
 
           {/* Footer */}
-          <View className="flex-row gap-3 px-5 pt-3 pb-6 border-t border-border-subtle">
+          <View className="flex-row gap-3 px-5 pt-3 pb-6 border-t border-border">
             <Pressable
               onPress={reset}
               className="flex-1 h-12 rounded-card bg-surface border border-border items-center justify-center active:opacity-80"

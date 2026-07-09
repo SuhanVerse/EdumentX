@@ -400,7 +400,7 @@ export function TutorProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+        <View className="gap-1 px-5 pt-4 pb-8 bg-night">
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
@@ -410,9 +410,11 @@ export function TutorProfileScreen() {
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
             <Text className="text-body text-white opacity-80">Back</Text>
           </Pressable>
-          <Text className="text-header-title text-white">
-            Set up your tutor profile
-          </Text>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
+            <Text className="text-display text-white">
+              Set up your tutor profile
+            </Text>
+          </View>
           <Text className="text-body text-white opacity-70 mt-0.5">
             This is what parents will see on the map. You can update everything later.
           </Text>
@@ -437,15 +439,15 @@ export function TutorProfileScreen() {
           />
 
           {/* Username + phone (editable — for parent-initiated contact) */}
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-            <Text className="text-overline text-text-muted uppercase">
+          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+            <Text className="text-label text-ink-muted">
               Username & phone
             </Text>
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
                 <Ionicons color={colors.text.muted} name="at-outline" size={18} />
                 <TextInput
                   className="flex-1 text-text-primary text-body"
@@ -465,7 +467,7 @@ export function TutorProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Phone (digits only — parents can request a call from inside the app)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
                 <Ionicons color={colors.text.muted} name="call-outline" size={18} />
                 <TextInput
                   className="flex-1 text-text-primary text-body"
@@ -483,9 +485,9 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Headline */}
-          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          <View className="gap-1 p-5 border border-border rounded-card bg-surface">
             <View className="flex-row items-center justify-between">
-              <Text className="text-overline text-text-muted uppercase">Headline</Text>
+              <Text className="text-label text-ink-muted">Headline</Text>
               <Text className="text-caption text-text-muted">
                 {headline.length}/{HEADLINE_MAX}
               </Text>
@@ -505,9 +507,9 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Bio */}
-          <View className="gap-1 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          <View className="gap-1 p-5 border border-border rounded-card bg-surface">
             <View className="flex-row items-center justify-between">
-              <Text className="text-overline text-text-muted uppercase">
+              <Text className="text-label text-ink-muted">
                 About you (optional)
               </Text>
               <Text className="text-caption text-text-muted">
@@ -521,7 +523,7 @@ export function TutorProfileScreen() {
               placeholderTextColor={colors.text.muted}
               multiline
               numberOfLines={4}
-              className="min-h-bio-area px-4 py-3 border-emphasis border-border rounded-card bg-surface text-text-primary text-body-lg"
+              className="min-h-bio-area px-4 py-3 border border-border rounded-card bg-surface text-text-primary text-body-lg"
               style={{ textAlignVertical: "top" }}
             />
           </View>
@@ -543,9 +545,9 @@ export function TutorProfileScreen() {
           />
 
           {/* Stepper + rate */}
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
             <View className="gap-1">
-              <Text className="text-overline text-text-muted uppercase">
+              <Text className="text-label text-ink-muted">
                 Years of experience
               </Text>
               <View className="flex-row items-center gap-3">
@@ -554,7 +556,7 @@ export function TutorProfileScreen() {
                   accessibilityLabel="Decrease years of experience"
                   onPress={() => adjustExperience(-1)}
                   disabled={yearsExperience === 0}
-                  className="w-11 h-11 rounded-full bg-background border-emphasis border-border items-center justify-center active:opacity-70"
+                  className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons color={colors.text.primary} name="remove" size={20} />
                 </Pressable>
@@ -571,7 +573,7 @@ export function TutorProfileScreen() {
                   accessibilityLabel="Increase years of experience"
                   onPress={() => adjustExperience(1)}
                   disabled={yearsExperience === 50}
-                  className="w-11 h-11 rounded-full bg-background border-emphasis border-border items-center justify-center active:opacity-70"
+                  className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons color={colors.text.primary} name="add" size={20} />
                 </Pressable>
@@ -579,11 +581,11 @@ export function TutorProfileScreen() {
             </View>
 
             <View className="gap-1">
-              <Text className="text-overline text-text-muted uppercase">
+              <Text className="text-label text-ink-muted">
                 Monthly rate (NPR)
               </Text>
               <View
-                className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-1 ${
+                className={`flex-row items-center h-rate-row px-3 border rounded-card bg-surface gap-1 ${
                   errors.monthlyRate ? "border-danger" : "border-border"
                 }`}
               >
@@ -614,7 +616,7 @@ export function TutorProfileScreen() {
               Map and is persisted to Firestore on submit. */}
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
-              <Text className="text-overline text-text-muted uppercase">
+              <Text className="text-label text-ink-muted">
                 Verification documents
               </Text>
               <Text className="text-caption text-text-muted">
@@ -664,7 +666,7 @@ export function TutorProfileScreen() {
             accessibilityRole="button"
             disabled={!canSubmit || isSaving}
             onPress={handleSubmit}
-            className="min-h-btn-lg mt-4 rounded-card items-center justify-center shadow-md bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
+            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 w-full"
           >
             <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               {isSaving ? "Saving..." : "Finish setup"}

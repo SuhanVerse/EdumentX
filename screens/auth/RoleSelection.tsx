@@ -22,6 +22,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { colors } from "@/constants/colors";
+import { theme } from "@/constants/theme";
 import { useAuthStore, type UserRole } from "@/store/authStore";
 
 // Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
@@ -202,12 +203,14 @@ export function RoleSelectionScreen() {
           </Pressable>
 
           <View className="gap-2 mb-6">
-            <Text className="text-overline text-text-primary uppercase">
+            <Text className="text-label text-ink-muted">
               Step 1 of 2
             </Text>
-            <Text className="text-hero text-text-primary">
-              How will you use EdumentX?
-            </Text>
+            <View className="self-start border-b-2 border-accent pb-0.5 mb-1">
+              <Text className="text-hero text-text-primary">
+                How will you use EdumentX?
+              </Text>
+            </View>
           </View>
 
           <View className="gap-4">
@@ -241,7 +244,7 @@ export function RoleSelectionScreen() {
             accessibilityLabel="Continue"
             disabled={!canContinue}
             onPress={handleContinue}
-            className="min-h-btn items-center justify-center rounded-card bg-night active:opacity-90 disabled:bg-border-strong disabled:opacity-60"
+            className={`min-h-btn items-center justify-center rounded-card bg-primary active:opacity-80 disabled:bg-border-strong disabled:opacity-60`}
           >
             <Text className="text-button text-white disabled:text-text-muted">
               {isSaving ? "Saving..." : "Continue"}
@@ -280,9 +283,11 @@ function RoleCard({
       accessibilityState={{ selected: active }}
       onPress={onPress}
       className={`min-h-role-card flex-row items-center gap-4 p-4 rounded-lg bg-surface active:opacity-85 ${
-        active ? "border border-night" : "border border-border"
+        active ? "border border-primary" : "border border-border"
       }`}
-      style={active ? { borderColor: activeBorder } : undefined}
+      style={[
+        active ? { borderColor: activeBorder, ...theme.shadow.card } : undefined,
+      ]}
     >
       <View
         className="w-role-icon h-role-icon shrink-0 items-center justify-center rounded-card"

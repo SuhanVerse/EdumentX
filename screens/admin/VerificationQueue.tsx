@@ -738,7 +738,7 @@ export function VerificationQueue() {
               <Ionicons
                 name={decidedExpanded ? "chevron-down" : "chevron-forward"}
                 size={16}
-                color="#64748B"
+                color="#6B7268"
               />
               <Text className="text-section-title font-medium text-text-primary">
                 Decided
@@ -853,7 +853,7 @@ function VerificationCard({
   onRequestInfo: () => void;
 }) {
   return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
+    <View className="bg-surface border border-border rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
         {/*
@@ -973,7 +973,7 @@ function VerificationCard({
                       <Ionicons
                         name={isImage ? "image-outline" : "play-circle"}
                         size={28}
-                        color="#B45309"
+                        color="#E5A03B"
                       />
                     </View>
                   )}
@@ -1011,14 +1011,14 @@ function VerificationCard({
 
       {/* Actions */}
       {status === "pending" || status === "more_info" ? (
-        <View className="flex-row gap-2 pt-2 border-t border-border-subtle">
-          <Pressable
-            onPress={onApprove}
-            disabled={busy}
-            className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
-            accessibilityRole="button"
-            accessibilityLabel="Approve"
-          >
+        <View className="flex-row gap-2 pt-2 border-t border-border">
+            <Pressable
+              onPress={onApprove}
+              disabled={busy}
+              className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
+              accessibilityRole="button"
+              accessibilityLabel="Approve"
+            >
             <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
           </Pressable>
@@ -1069,7 +1069,7 @@ function PendingEditCard({
   onReject: () => void;
 }) {
   return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
+    <View className="bg-surface border border-border rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
         {typeof edit.avatar === "string" && edit.avatar.length > 0 ? (
@@ -1119,7 +1119,7 @@ function PendingEditCard({
                 >
                   {f.oldValue}
                 </Text>
-                <Ionicons name="arrow-forward" size={12} color="#94A3B8" />
+                <Ionicons name="arrow-forward" size={12} color="#6B7268" />
                 <Text
                   className="text-body-sm font-medium text-amber"
                   numberOfLines={1}
@@ -1139,7 +1139,7 @@ function PendingEditCard({
       )}
 
       {/* Actions */}
-      <View className="flex-row gap-2 pt-2 border-t border-border-subtle">
+      <View className="flex-row gap-2 pt-2 border-t border-border">
         <Pressable
           onPress={onApprove}
           disabled={busy}
@@ -1171,7 +1171,7 @@ function DecidedRow({ item }: { item: Verification }) {
   const config = getStatusConfig(item.status);
   return (
     <Pressable
-      className="bg-surface border border-border-subtle rounded-card p-3 mb-2 flex-row items-center gap-3 opacity-80 active:opacity-60"
+      className="bg-surface border border-border rounded-card p-3 mb-2 flex-row items-center gap-3 opacity-80 active:opacity-60"
     >
       {typeof item.avatar === "string" && item.avatar.length > 0 ? (
         <Image
@@ -1238,7 +1238,7 @@ function EmptyState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name="shield-checkmark" size={26} color="#B45309" />
+        <Ionicons name="shield-checkmark" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         Queue is clear
@@ -1292,7 +1292,7 @@ function RejectReasonDialog({
         >
           <View className="items-center mb-3">
             <View className="w-12 h-12 rounded-pill bg-danger-bg items-center justify-center">
-              <Ionicons name="close-circle" size={24} color="#DC2626" />
+              <Ionicons name="close-circle" size={24} color="#C1503D" />
             </View>
           </View>
 
@@ -1307,7 +1307,7 @@ function RejectReasonDialog({
             value={reason}
             onChangeText={onChangeReason}
             placeholder="e.g. Documents are unclear. Please re-upload a clearer citizenship scan."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#6B7268"
             multiline
             numberOfLines={4}
             className="mt-4 bg-sand rounded-card p-3 text-body text-text-primary min-h-[96px]"

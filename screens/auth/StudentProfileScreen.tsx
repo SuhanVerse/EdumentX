@@ -239,7 +239,7 @@ export function StudentProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+        <View className="gap-1 px-5 pt-4 pb-8 bg-night">
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
@@ -249,9 +249,11 @@ export function StudentProfileScreen() {
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
             <Text className="text-body text-white opacity-80">Back</Text>
           </Pressable>
-          <Text className="text-header-title text-white">
-            Set up your profile
-          </Text>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
+            <Text className="text-display text-white">
+              Set up your profile
+            </Text>
+          </View>
           <Text className="text-body text-white opacity-70 mt-0.5">
             This helps tutors understand your learning needs.
           </Text>
@@ -275,15 +277,15 @@ export function StudentProfileScreen() {
             }}
           />
 
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-            <Text className="text-overline text-text-muted uppercase">
+          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+            <Text className="text-label text-ink-muted">
               Username & phone
             </Text>
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
                 <Ionicons color={colors.text.muted} name="at-outline" size={18} />
                 <TextInput
                   className="flex-1 text-text-primary text-body"
@@ -303,7 +305,7 @@ export function StudentProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Phone (digits only — for parents to reach tutors)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
                 <Ionicons color={colors.text.muted} name="call-outline" size={18} />
                 <TextInput
                   className="flex-1 text-text-primary text-body"
@@ -320,8 +322,8 @@ export function StudentProfileScreen() {
             </View>
           </View>
 
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-            <Text className="text-overline text-text-muted uppercase">
+          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+            <Text className="text-label text-ink-muted">
               Grade / class
             </Text>
             <View className="flex-row flex-wrap gap-2">
@@ -333,8 +335,8 @@ export function StudentProfileScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => setGrade(item)}
-                    className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-85 ${
-                      active ? "bg-night border-night" : "bg-surface border-border"
+                    className={`min-h-btn-sm px-4 py-2 rounded-sm border active:opacity-85 ${
+                      active ? "bg-primary border-primary" : "bg-surface-muted border-border"
                     }`}
                   >
                     <Text
@@ -367,7 +369,7 @@ export function StudentProfileScreen() {
             accessibilityRole="button"
             disabled={!canSubmit || isSaving}
             onPress={handleSubmit}
-            className="min-h-btn-lg mt-4 rounded-card items-center justify-center shadow-md bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
+            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 w-full"
           >
             <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
               {isSaving ? "Saving..." : "Finish setup"}

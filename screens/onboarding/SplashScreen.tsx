@@ -104,17 +104,37 @@ export function SplashScreen() {
       <View className="flex-1 items-center justify-center">
         <Animated.View
           style={logoStyle}
-          className="w-16 h-16 items-center justify-center rounded-2xl bg-surface mb-4"
+          className="w-16 h-16 items-center justify-center rounded-2xl mb-4"
+          // Logo tile uses the brand primary for background and white for
+          // the mark — this reads as a stamp/seal rather than a float
+          // surface chip.
+          // Future: swap the two-letter mark for the real vector logo.
         >
-          {/* Future custom-logo slot — keep the 64×64 surface tile;
-              replace this `<Text>` with the real logo asset when it
-              ships. */}
-          <Text
-            className="text-splash-mark"
-            style={{ color: colors.brand.primary }}
+          {/* Outer tile — chalkboard green with a warm offset border */}
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 16,
+              backgroundColor: '#254B41', // primary-pressed — darker so the ring shows
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 2,
+              borderColor: 'rgba(229, 160, 59, 0.40)', // accent/40
+            }}
           >
-            E
-          </Text>
+            <Text
+              style={{
+                fontSize: 28,
+                fontWeight: '700',
+                color: '#FBF8F2',
+                letterSpacing: -0.5,
+                lineHeight: 34,
+              }}
+            >
+              Ex
+            </Text>
+          </View>
         </Animated.View>
 
         <Animated.Text
@@ -126,9 +146,9 @@ export function SplashScreen() {
 
         <Animated.Text
           style={taglineStyle}
-          className="text-splash-text text-tagline mb-12"
+          className="text-splash-text text-tagline mb-12 opacity-80"
         >
-          Find your perfect tutor nearby
+          Your classroom, your neighbourhood
         </Animated.Text>
       </View>
 

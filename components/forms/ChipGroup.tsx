@@ -21,8 +21,8 @@ export function ChipGroup({
   error,
 }: ChipGroupProps) {
   return (
-    <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-      <Text className="text-overline text-text-muted uppercase">
+    <View className="gap-4 p-5 border border-border rounded-card bg-surface shadow-sm">
+      <Text className="text-label text-ink-muted">
         {label}
       </Text>
       <View className="flex-row flex-wrap gap-2">
@@ -34,10 +34,10 @@ export function ChipGroup({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               onPress={() => onToggle(option)}
-              className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-80 ${
+              className={`min-h-btn-sm px-4 py-2 rounded-sm border-emphasis active:opacity-80 ${
                 active
-                  ? "bg-night border-night"
-                  : "bg-surface border-border"
+                  ? "bg-primary border-primary"
+                  : "bg-surface-muted border-border"
               }`}
             >
               <Text

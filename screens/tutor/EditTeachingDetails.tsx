@@ -460,7 +460,7 @@ export function EditTeachingDetails() {
       >
         {!loaded ? (
           <View className="items-center pt-12">
-            <ActivityIndicator color={colors.brand.primary ?? "#0F172A"} />
+            <ActivityIndicator color={colors.brand.primary ?? "#26302B"} />
           </View>
         ) : initial ? (
           <>
@@ -485,7 +485,7 @@ export function EditTeachingDetails() {
             {/* Monthly rate — same shape as the onboarding form,
                 but no stepper. We use a TextInput directly so
                 the user can type any value within the cap. */}
-            <View className="mt-4 gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+            <View className="mt-4 gap-4 p-5 border border-border rounded-card bg-surface">
               <Text className="text-overline text-text-muted uppercase">
                 Monthly rate (NPR)
               </Text>

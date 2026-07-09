@@ -47,9 +47,11 @@ export function MapSearch() {
         <View className="flex-row items-center justify-between mt-2 mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Find a tutor</Text>
-            <Text className="text-screen-title font-medium text-white">
-              Near you
-            </Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+                <Text className="text-screen-title font-medium text-white">
+                  Near you
+                </Text>
+              </View>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -65,13 +67,13 @@ export function MapSearch() {
             same row as the search input so it's visually grouped — per
             the Stage 1 spec ("top-right, beside the search bar"). */}
         <View className="flex-row gap-2">
-          <View className="flex-1 bg-surface rounded-xl h-12 flex-row items-center px-3 gap-2.5">
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+          <View className="flex-1 bg-surface rounded-card h-12 flex-row items-center px-3 gap-2.5">
+            <Ionicons name="search-outline" size={18} color="#6B7268" />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search tutors, subjects…"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#6B7268"
               className="flex-1 text-body-lg text-text-primary"
             />
             {search.length > 0 && (
@@ -80,7 +82,7 @@ export function MapSearch() {
                 onPress={() => setSearch("")}
                 className="active:opacity-70"
               >
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={18} color="#6B7268" />
               </Pressable>
             )}
           </View>
@@ -105,9 +107,9 @@ export function MapSearch() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-10">
-          <View className="bg-surface border border-border-subtle rounded-card p-6 items-center">
-            <View className="w-16 h-16 rounded-pill bg-amber-light items-center justify-center mb-4">
-              <Ionicons name="map-outline" size={30} color="#B45309" />
+          <View className="bg-surface border border-border rounded-card p-6 items-center">
+            <View className="w-16 h-16 rounded-pill bg-primary-light items-center justify-center mb-4">
+              <Ionicons name="navigate-circle-outline" size={30} color="#2F5D50" />
             </View>
             <Text className="text-card-title font-medium text-text-primary text-center">
               Google Maps integration coming soon
@@ -122,7 +124,7 @@ export function MapSearch() {
               around your saved location.
             </Text>
             <View className="flex-row items-center gap-2 mt-5">
-              <Ionicons name="navigate-outline" size={14} color="#64748B" />
+              <Ionicons name="navigate-outline" size={14} color="#6B7268" />
               <Text className="text-caption text-text-muted">
                 Phase 5.2 · Map tiles via OpenStreetMap
               </Text>
@@ -146,16 +148,16 @@ export function MapSearch() {
             {[1, 2, 3].map((i) => (
               <View
                 key={i}
-                className="bg-surface border border-border-subtle rounded-card p-4 flex-row items-center gap-3"
+                className="bg-surface border border-border rounded-card p-4 flex-row items-center gap-3"
               >
-                <View className="w-avatar-card h-avatar-card rounded-pill bg-sand" />
+                <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted" />
                 <View className="flex-1 gap-2">
-                  <View className="h-3 w-2/3 rounded bg-sand" />
-                  <View className="h-2.5 w-1/2 rounded bg-sand" />
-                  <View className="h-2.5 w-1/3 rounded bg-sand" />
+                  <View className="h-3 w-2/3 rounded bg-surface-muted" />
+                  <View className="h-2.5 w-1/2 rounded bg-surface-muted" />
+                  <View className="h-2.5 w-1/3 rounded bg-surface-muted" />
                 </View>
-                <View className="w-10 h-10 rounded-pill bg-sand items-center justify-center">
-                  <Ionicons name="ellipsis-horizontal" size={16} color="#9CA3AF" />
+                <View className="w-10 h-10 rounded-pill bg-surface-muted items-center justify-center">
+                  <Ionicons name="ellipsis-horizontal" size={16} color="#6B7268" />
                 </View>
               </View>
             ))}

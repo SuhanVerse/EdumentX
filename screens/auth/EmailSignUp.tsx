@@ -219,7 +219,7 @@ export function EmailSignUp() {
   // ---- "pending" state — email sent, waiting for the user to click the link
   if (pendingEmail !== null) {
     return (
-      <SafeAreaView className="flex-1 bg-surface">
+      <SafeAreaView className="flex-1 bg-background">
         <StatusBar style="dark" />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -244,16 +244,18 @@ export function EmailSignUp() {
             </Pressable>
 
             <View className="items-center gap-2 pt-4 mb-7">
-              <View className="w-16 h-16 items-center justify-center rounded-pill bg-primary-light mb-2">
+              <View className="w-16 h-16 items-center justify-center rounded-pill bg-surface-muted mb-2">
                 <Ionicons
-                  color={colors.brand.primary}
+                  color={colors.brand.accent}
                   name="mail-open-outline"
                   size={28}
                 />
               </View>
-              <Text className="text-hero text-text-primary text-center">
-                Check your inbox
-              </Text>
+              <View className="self-start border-b-2 border-accent pb-0.5 mb-1">
+                <Text className="text-hero text-text-primary text-center">
+                  Check your inbox
+                </Text>
+              </View>
               <Text
                 className="text-body text-text-secondary text-center"
                 style={{ maxWidth: 320 }}
@@ -294,7 +296,7 @@ export function EmailSignUp() {
   // ---- "form" state — collect email + password (and offer Google as
   // an alternative for users who'd rather not type a password)
   return (
-    <SafeAreaView className="flex-1 bg-surface">
+    <SafeAreaView className="flex-1 bg-background">
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -305,9 +307,11 @@ export function EmailSignUp() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="gap-2 mb-6">
-            <Text className="text-hero text-text-primary">
-              {mode === "signup" ? "Create your account" : "Welcome back"}
-            </Text>
+            <View className="self-start border-b-2 border-accent pb-0.5 mb-1">
+              <Text className="text-hero text-text-primary">
+                {mode === "signup" ? "Create your account" : "Welcome back"}
+              </Text>
+            </View>
             <Text
               className="text-body text-text-secondary"
               style={{ maxWidth: 320 }}
@@ -319,7 +323,7 @@ export function EmailSignUp() {
           </View>
 
           {/* Mode toggle — Sign up / Log in pill at the top. */}
-          <View className="gap-1 p-1 rounded-md bg-background mb-6 flex-row">
+          <View className="gap-1 p-1 rounded-md bg-surface-muted mb-6 flex-row">
             {(["signup", "login"] as Mode[]).map((item) => {
               const active = item === mode;
               return (
@@ -328,7 +332,7 @@ export function EmailSignUp() {
                   accessibilityRole="button"
                   onPress={() => setMode(item)}
                   className={`flex-1 h-chip-sm rounded-sm items-center justify-center active:opacity-80 ${
-                    active ? "bg-surface" : "bg-transparent"
+                    active ? "bg-surface border border-border shadow-sm" : "bg-transparent"
                   }`}
                 >
                   <Text
@@ -346,10 +350,10 @@ export function EmailSignUp() {
           {/* Email + password form */}
           <View className="gap-4">
             <View className="gap-1">
-              <Text className="text-overline text-text-secondary uppercase">
+              <Text className="text-label text-ink-muted">
                 Email
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3">
                 <Ionicons color={colors.text.muted} name="mail-outline" size={18} />
                 <TextInput
                   className="flex-1 ml-2 text-text-primary text-body-lg"
@@ -371,10 +375,10 @@ export function EmailSignUp() {
             </View>
 
             <View className="gap-1">
-              <Text className="text-overline text-text-secondary uppercase">
+              <Text className="text-label text-ink-muted">
                 Password
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3">
+              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3">
                 <TextInput
                   className="flex-1 text-text-primary text-body-lg"
                   autoCapitalize="none"
@@ -435,7 +439,7 @@ export function EmailSignUp() {
             accessibilityRole="button"
             disabled={isGoogleLoading}
             onPress={handleGoogle}
-            className="min-h-btn flex-row items-center justify-center gap-2 rounded-card bg-surface border border-border active:opacity-80"
+            className="min-h-btn flex-row items-center justify-center gap-2 rounded-card bg-surface border-2 border-border active:opacity-80"
           >
             <Ionicons color={colors.brand.primary} name="logo-google" size={18} />
             <Text className="text-button text-text-primary">

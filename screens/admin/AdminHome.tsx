@@ -151,7 +151,7 @@ export function AdminHome() {
           <Pressable
             key={section.route}
             onPress={() => router.push(section.route as any)}
-            className="bg-surface border border-border-subtle rounded-card p-4 flex-row items-center gap-4 mb-4 active:opacity-80"
+            className="bg-surface border border-border rounded-card p-4 flex-row items-center gap-4 mb-4 active:opacity-80"
             accessibilityRole="button"
             accessibilityLabel={
               section.count
@@ -187,7 +187,7 @@ export function AdminHome() {
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={20} color="#6B7268" />
           </Pressable>
         ))}
       </ScrollView>

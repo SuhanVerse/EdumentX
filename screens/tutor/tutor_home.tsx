@@ -360,13 +360,15 @@ export function TutorDashboard() {
       <View className="bg-night px-4 pb-5 shrink-0">
         <View className="flex-row justify-between items-start pt-2">
           <View>
-            <Text className="text-body text-white/70">Welcome back,</Text>
-            <Text className="text-screen-title font-medium text-white mt-0.5">
-              {data.fullName}
-            </Text>
+            <Text className="text-body text-white/70">Good to see you,</Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+              <Text className="text-screen-title font-medium text-white mt-0.5">
+                {data.fullName}
+              </Text>
+            </View>
             {data.isVerifiedProfessional ? (
               <View className="flex-row items-center gap-1 px-2.5 py-1 rounded-pill bg-verification-light mt-2 self-start">
-                <Ionicons name="shield-checkmark" size={12} color="#A7F3D0" />
+                <Ionicons name="shield-checkmark" size={12} color="#3F8A5A" />
                 <Text className="text-caption text-success font-medium">
                   Verified Professional
                 </Text>
@@ -376,7 +378,7 @@ export function TutorDashboard() {
         </View>
 
         {/* Availability toggle */}
-        <View className="bg-white/15 rounded-lg px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center">
+        <View className="bg-white/12 rounded-card px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center">
           <View className="flex-1 pr-3">
             <Text className="text-body font-medium text-white">
               {available ? "Available for new students" : "Hidden from search"}
@@ -489,7 +491,7 @@ export function TutorDashboard() {
           className="bg-surface border border-border rounded-card p-4 mb-3.5 active:opacity-70"
         >
           <View className="flex-row items-center gap-2 mb-2.5">
-            <Ionicons name="people" size={16} color="#B45309" />
+            <Ionicons name="people" size={16} color="#2F5D50" />
             <Text className="flex-1 text-button-sm font-medium text-text-primary">
               Capacity
             </Text>
@@ -500,7 +502,7 @@ export function TutorDashboard() {
             >
               {currentStudents} of {capacity} filled
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="#64748B" />
+            <Ionicons name="chevron-forward" size={16} color="#6B7268" />
           </View>
           <View className="h-2 rounded-full bg-background overflow-hidden">
             <View
@@ -532,9 +534,9 @@ export function TutorDashboard() {
             land in Phase 5 alongside the collections that back
             them. We deliberately don't show fake names or stats
             here. */}
-        <View className="bg-surface border border-border-subtle rounded-card p-6 mb-3.5 items-center">
-          <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-            <Ionicons name="briefcase-outline" size={26} color="#B45309" />
+        <View className="bg-surface border border-border rounded-card p-6 mb-3.5 items-center">
+          <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
+            <Ionicons name="briefcase-outline" size={26} color="#E5A03B" />
           </View>
           {TODAY_SESSIONS.length === 0 ? (
             <Text className="text-caption text-text-muted py-2">
@@ -545,7 +547,7 @@ export function TutorDashboard() {
               <View
                 key={s.time}
                 className={`flex-row items-center gap-3 py-2.5 ${
-                  i > 0 ? "border-t border-border-subtle" : ""
+                  i > 0 ? "border-t border-border" : ""
                 }`}
               >
                 <Text className="w-[60px] text-caption font-medium text-amber">{s.time}</Text>
@@ -570,8 +572,8 @@ export function TutorDashboard() {
               onPress={() => showComingSoon("Inbox")}
               className="flex-row items-center gap-0.5 active:opacity-70"
             >
-              <Text className="text-button-sm text-amber">See all</Text>
-              <Ionicons name="chevron-forward" size={14} color="amber" />
+              <Text className="text-button-sm text-primary">See all</Text>
+              <Ionicons name="chevron-forward" size={14} color="#2F5D50" />
             </Pressable>
           </View>
 
@@ -589,7 +591,7 @@ export function TutorDashboard() {
                   key={t.key}
                   onPress={() => setReqTab(t.key)}
                   className={`flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                    on ? "bg-night" : "bg-transparent"
+                    on ? "bg-primary" : "bg-transparent"
                   }`}
                 >
                   <Text
@@ -685,7 +687,7 @@ export function TutorDashboard() {
                       style={{ opacity: action ? 0.85 : 1 }}
                     >
                       <View
-                        className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-pill border mb-2.5 ${accent.bg} ${accent.border}`}
+                        className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-sm border mb-2.5 ${accent.bg} ${accent.border}`}
                       >
                         <Ionicons name={accent.icon} size={11} color={accent.iconColor} />
                         <Text className={`text-micro font-semibold tracking-wider ${accent.color}`}>
@@ -706,7 +708,7 @@ export function TutorDashboard() {
                           {br.kind === "join" && slot ? (
                             <View className="mt-2 bg-background border border-border rounded-lg px-2.5 py-1.5">
                               <View className="flex-row items-center gap-1.5">
-                                <Ionicons name="lock-closed" size={11} color="#4F46E5" />
+                                <Ionicons name="lock-closed" size={11} color="#4A7FA5" />
                                 <Text className="text-caption font-medium text-text-secondary">
                                   {slot.label}
                                 </Text>
@@ -749,7 +751,7 @@ export function TutorDashboard() {
                             <Ionicons
                               name="checkmark"
                               size={13}
-                              color={blocked ? "#9CA3AF" : "#FFFFFF"}
+                              color={blocked ? "#6B7268" : "#FFFFFF"}
                             />
                             <Text
                               className={`text-caption font-medium ${
@@ -765,7 +767,7 @@ export function TutorDashboard() {
                             }
                             className="flex-1 h-9 bg-surface border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
                           >
-                            <Ionicons name="close" size={13} color="#DC2626" />
+                            <Ionicons name="close" size={13} color="#C1503D" />
                             <Text className="text-caption font-medium text-danger">Decline</Text>
                           </Pressable>
                         </View>
@@ -804,7 +806,7 @@ export function TutorDashboard() {
               Combine 2–6 students into a shared batch
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#4F46E5" />
+          <Ionicons name="chevron-forward" size={18} color="#4A7FA5" />
         </Pressable>
 
         {/* Quick actions row */}
@@ -854,7 +856,7 @@ function statusAccent(kind: "join" | "conversion") {
       bg: "bg-amber/10",
       border: "border-amber/30",
       icon: "person-add-outline" as const,
-      iconColor: "#B45309",
+      iconColor: "#E5A03B",
       color: "text-amber",
       label: "Join request",
     };
@@ -863,7 +865,7 @@ function statusAccent(kind: "join" | "conversion") {
     bg: "bg-verification/10",
     border: "border-verification/30",
     icon: "swap-horizontal-outline" as const,
-    iconColor: "#047857",
+    iconColor: "#3F8A5A",
     color: "text-verification",
     label: "Conversion",
   };
@@ -876,12 +878,12 @@ function statusAccent(kind: "join" | "conversion") {
  * `colorClass` token we use for the tile background.
  */
 const ICON_COLOR_MAP = {
-  amber: "#B45309",
-  verification: "#047857",
-  warning: "#B45309",
-  danger: "#DC2626",
-  ai: "#4F46E5",
-  success: "#047857",
+  amber: "#E5A03B",
+  verification: "#3F8A5A",
+  warning: "#E5A03B",
+  danger: "#C1503D",
+  ai: "#4A7FA5",
+  success: "#3F8A5A",
 } as const;
 
 function Metric({ iconName, colorClass, iconColor, label, value, trend, trendUp }: MetricProps) {
@@ -900,10 +902,10 @@ function Metric({ iconName, colorClass, iconColor, label, value, trend, trendUp 
             color={ICON_COLOR_MAP[iconColor]}
           />
         </View>
-        {trendUp ? <Ionicons name="trending-up" size={14} color="#047857" /> : null}
+        {trendUp ? <Ionicons name="trending-up" size={14} color="#3F8A5A" /> : null}
       </View>
-      <Text className="text-caption text-text-muted uppercase tracking-wider mb-1">{label}</Text>
-      <Text className="text-section-title font-medium text-text-primary leading-tight">{value}</Text>
+      <Text className="text-label text-ink-muted mb-1">{label}</Text>
+      <Text className="text-heading text-text-primary leading-tight">{value}</Text>
       <Text
         className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}
       >
@@ -924,7 +926,7 @@ type SubjectChipProps = {
  */
 function SubjectChip({ label }: SubjectChipProps) {
   return (
-    <View className="px-2 py-0.5 rounded-pill bg-amber-light">
+    <View className="px-2 py-0.5 rounded-sm bg-amber-light">
       <Text className="text-micro text-amber font-medium">{label}</Text>
     </View>
   );
@@ -942,7 +944,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
   };
   const { bg, text, label } = palette[status];
   return (
-    <View className={`px-2 py-0.5 rounded-pill ${bg}`}>
+    <View className={`px-2 py-0.5 rounded-sm ${bg}`}>
       <Text className={`text-micro font-semibold ${text}`}>{label}</Text>
     </View>
   );
@@ -958,8 +960,8 @@ type AvatarCircleProps = { uri: string };
  */
 function AvatarCircle({ uri }: AvatarCircleProps) {
   return (
-    <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
-      <Ionicons name="person-outline" size={20} color="#B45309" />
+    <View className="w-10 h-10 rounded-full bg-surface-muted items-center justify-center">
+      <Ionicons name="person-outline" size={20} color="#6B7268" />
       {/* Network image would render here in the wired version:
             <Image source={{ uri }} className="w-10 h-10 rounded-full" /> */}
       <Text className="sr-only">{uri}</Text>
@@ -982,8 +984,8 @@ function TutorDashboardEmptyState() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <StatusBar style="dark" />
       <View className="flex-1 items-center justify-center px-8">
-        <View className="w-16 h-16 rounded-pill bg-amber-light items-center justify-center mb-4">
-          <Ionicons name="document-text-outline" size={28} color="#B45309" />
+        <View className="w-16 h-16 rounded-pill bg-accent-soft items-center justify-center mb-4">
+          <Ionicons name="document-text-outline" size={28} color="#E5A03B" />
         </View>
         <Text className="text-section-title font-medium text-text-primary text-center">
           Your tutor profile isn&apos;t set up yet

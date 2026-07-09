@@ -82,16 +82,18 @@ export function MyEnrollments() {
         <Text className="text-body text-white/70 mb-0.5 mt-2">
           Your learning
         </Text>
-        <Text className="text-screen-title font-medium text-white">
-          My Enrollments
-        </Text>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+          <Text className="text-screen-title font-medium text-white">
+            My Enrollments
+          </Text>
+        </View>
         <Text className="text-caption text-white/70 mt-1">
           {ENROLLMENTS.length} total enrollments
         </Text>
       </View>
 
       {/* Tabs */}
-      <View className="flex-row bg-surface border-b border-border-subtle shrink-0">
+      <View className="flex-row bg-surface border-b border-border shrink-0">
         {(["active", "pending", "past"] as Tab[]).map((t) => {
           const isActive = tab === t;
           const count = counts[t];
@@ -104,14 +106,14 @@ export function MyEnrollments() {
               onPress={() => setTab(t)}
               className={
                 isActive
-                  ? "flex-1 h-12 flex-row items-center justify-center gap-1.5 border-b-2 border-amber active:opacity-70"
-                  : "flex-1 h-12 flex-row items-center justify-center gap-1.5 border-b-2 border-transparent active:opacity-70"
+                  ? "flex-1 h-12 flex-row items-center justify-center gap-1.5 bg-primary active:opacity-70"
+                  : "flex-1 h-12 flex-row items-center justify-center gap-1.5 bg-transparent active:opacity-70"
               }
             >
               <Text
                 className={
                   isActive
-                    ? "text-button font-medium text-text-primary"
+                    ? "text-button font-medium text-white"
                     : "text-button font-medium text-text-muted"
                 }
               >
@@ -121,15 +123,15 @@ export function MyEnrollments() {
                 <View
                   className={
                     isActive
-                      ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-amber items-center justify-center"
-                      : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
+                        ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/20 items-center justify-center"
+                        : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
                   }
                 >
                   <Text
                     className={
                       isActive
-                        ? "text-micro text-text-inverse font-semibold"
-                        : "text-micro text-text-muted font-semibold"
+                            ? "text-micro text-white font-semibold"
+                            : "text-micro text-text-muted font-semibold"
                     }
                   >
                     {count}
@@ -222,12 +224,19 @@ function EnrollmentCard({
   const { tutor, subjects, startDate, endDate, schedule, plan, rate, status } =
     enrollment;
 
+  const statusStripe =
+    status === "active"
+      ? "border-l-4 border-l-verification"
+      : status === "pending"
+        ? "border-l-4 border-l-accent"
+        : "border-l-4 border-l-border";
+
   return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4">
+    <View className={`bg-surface border border-border rounded-card p-4 ${statusStripe}`}>
       <View className="flex-row gap-3 items-start">
         {/* Initials avatar */}
-        <View className="w-avatar-card h-avatar-card rounded-pill bg-amber-light items-center justify-center">
-          <Text className="text-section-title font-medium text-amber">
+        <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted border border-border items-center justify-center">
+          <Text className="text-section-title font-medium text-primary">
             {initials(tutor.name)}
           </Text>
         </View>
@@ -242,7 +251,7 @@ function EnrollmentCard({
                 {tutor.name}
               </Text>
               {tutor.verified && (
-                <Ionicons name="checkmark-circle" size={14} color="#047857" />
+                <Ionicons name="checkmark-circle" size={14} color="#3F8A5A" />
               )}
             </View>
             <StatusBadge status={status} />
@@ -257,7 +266,7 @@ function EnrollmentCard({
 
           {/* Dates */}
           <View className="flex-row items-center gap-1.5 mb-1">
-            <Ionicons name="calendar-outline" size={12} color="#64748B" />
+            <Ionicons name="calendar-outline" size={12} color="#6B7268" />
             <Text className="text-caption text-text-muted">
               {startDate} → {endDate}
             </Text>
@@ -265,14 +274,14 @@ function EnrollmentCard({
 
           {/* Schedule */}
           <View className="flex-row items-center gap-1.5">
-            <Ionicons name="time-outline" size={12} color="#64748B" />
+            <Ionicons name="time-outline" size={12} color="#6B7268" />
             <Text className="text-caption text-text-muted" numberOfLines={1}>
               {schedule} · {plan}
             </Text>
           </View>
 
           {/* Rate */}
-          <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-border-subtle">
+          <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-border">
             <Text className="text-caption text-text-muted">Monthly rate</Text>
             <Text className="text-button font-semibold text-amber">
               Rs {rate.toLocaleString()}
@@ -304,7 +313,7 @@ function EnrollmentCard({
 
       {status === "past" && enrollment.outcomeNote && (
         <View className="mt-3 flex-row items-center gap-1.5 bg-success-bg rounded-md px-3 py-2">
-          <Ionicons name="checkmark-circle" size={14} color="#047857" />
+          <Ionicons name="checkmark-circle" size={14} color="#3F8A5A" />
           <Text className="text-caption text-success-text font-medium">
             {enrollment.outcomeNote}
           </Text>
@@ -340,7 +349,7 @@ function BatchInvitationCard({
           </Text>
         </View>
         <View className="flex-row items-center gap-1 bg-warning-bg px-2 py-1 rounded-pill">
-          <Ionicons name="time-outline" size={11} color="#B45309" />
+          <Ionicons name="time-outline" size={11} color="#E5A03B" />
           <Text className="text-micro text-warning-text font-medium">
             {invitation.expiresIn}
           </Text>
@@ -465,8 +474,8 @@ function EmptyState({
 }) {
   return (
     <View className="items-center justify-center pt-16 px-6">
-      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name={icon} size={26} color="#B45309" />
+      <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
+        <Ionicons name={icon} size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}
@@ -517,7 +526,7 @@ function StatusBadge({ status }: { status: EnrollmentStatus }) {
   const m = map[status];
   return (
     <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-pill ${m.bg}`}>
-      <Ionicons name={m.icon} size={11} color={m.fg === "text-text-secondary" ? "#475569" : m.fg === "text-warning-text" ? "#92400E" : "#064E3B"} />
+      <Ionicons name={m.icon} size={11} color={m.fg === "text-text-secondary" ? "#6B7268" : m.fg === "text-warning-text" ? "#92400E" : "#3F8A5A"} />
       <Text className={`text-micro font-medium ${m.fg}`}>{m.label}</Text>
     </View>
   );

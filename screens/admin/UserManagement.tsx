@@ -282,12 +282,12 @@ export function UserManagement() {
 
         {/* Search */}
         <View className="bg-surface rounded-xl h-11 flex-row items-center px-3 gap-2.5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+          <Ionicons name="search-outline" size={18} color="#6B7268" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search users..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#6B7268"
             className="flex-1 text-body-lg text-text-primary"
           />
           {search.length > 0 && (
@@ -296,7 +296,7 @@ export function UserManagement() {
               onPress={() => setSearch("")}
               className="active:opacity-70"
             >
-              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              <Ionicons name="close-circle" size={18} color="#6B7268" />
             </Pressable>
           )}
         </View>
@@ -310,7 +310,7 @@ export function UserManagement() {
           label and an optional count badge; we use `View` (not
           `Text`) for the pill itself so the `flex-row gap-1.5`
           actually lays out the badge inline with the label. */}
-      <View className="bg-background border-b border-border-subtle">
+      <View className="bg-background border-b border-border">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -342,7 +342,7 @@ export function UserManagement() {
           })}
 
           {/* Divider between groups */}
-          <View className="w-px h-6 bg-border-subtle mx-1" />
+          <View className="w-px h-6 bg-border mx-1" />
 
           {/* Role group */}
           {(["All", "Student", "Tutor", "Admin"] as RoleFilter[]).map((r) => {
@@ -434,7 +434,7 @@ export function UserManagement() {
             non-empty array. */}
         {showMock && users.length === 0 ? (
           <View className="mt-4 bg-warning-bg border border-amber rounded-card p-3 flex-row items-start gap-2">
-            <Ionicons name="alert-circle" size={16} color="#B45309" />
+            <Ionicons name="alert-circle" size={16} color="#E5A03B" />
             <View className="flex-1">
               <Text className="text-button-sm font-medium text-warning-text">
                 Demo data
@@ -560,7 +560,7 @@ function UserRow({
 
   return (
     <View
-      className="bg-surface border border-border-subtle rounded-card p-4 gap-3"
+      className="bg-surface border border-border rounded-card p-4 gap-3"
       accessibilityLabel={`${user.name}, ${roleConfig.label}, ${statusConfig.label}`}
     >
       {/* Top row — avatar + identity block (name, role chip, meta).
@@ -586,7 +586,7 @@ function UserRow({
           </View>
           {user.verified && (
             <View className="absolute -bottom-0.5 -right-0.5">
-              <Ionicons name="checkmark-circle" size={16} color="#047857" />
+              <Ionicons name="checkmark-circle" size={16} color="#3F8A5A" />
             </View>
           )}
         </View>
@@ -628,7 +628,7 @@ function UserRow({
       {/* Bottom row — status chip + actions. Wraps to a new line
           on narrow screens so the chip and action pills never
           collide. */}
-      <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border-subtle">
+      <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border">
         <View
           className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full flex-row items-center gap-1`}
         >
@@ -689,7 +689,7 @@ function EmptyState({
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name={icon} size={26} color="#B45309" />
+        <Ionicons name={icon} size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}

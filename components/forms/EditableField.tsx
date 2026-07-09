@@ -62,7 +62,7 @@ export function EditableField({
 
   return (
     <View>
-      <Text className="text-overline text-text-muted uppercase mb-2">
+      <Text className="text-label text-ink-muted mb-2">
         {label}
       </Text>
 
@@ -75,7 +75,7 @@ export function EditableField({
           className={`flex-row items-center justify-between bg-surface border rounded-card h-input px-4 ${
             editable
               ? "border-border active:opacity-80"
-              : "border-border-subtle opacity-60"
+              : "border-border opacity-60"
           }`}
         >
           <Text
@@ -90,7 +90,7 @@ export function EditableField({
           </Text>
           {trailing ?? (
             <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
-              <Ionicons name="pencil" size={11} color="#475569" />
+              <Ionicons name="pencil" size={11} color="#6B7268" />
               <Text className="text-micro text-text-secondary font-medium">
                 Edit
               </Text>
@@ -107,7 +107,7 @@ export function EditableField({
               autoCapitalize={autoCapitalize}
               autoFocus
               placeholder={placeholder}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor="#6B7268"
               className="flex-1 text-body-lg text-text-primary"
             />
           </View>
@@ -117,7 +117,7 @@ export function EditableField({
           <View className="flex-row gap-2">
             <Pressable
               onPress={cancel}
-              className="flex-1 h-10 bg-sand rounded-md items-center justify-center active:opacity-80"
+              className="flex-1 h-10 bg-surface-muted rounded-card items-center justify-center active:opacity-80"
             >
               <Text className="text-button-sm text-text-secondary font-medium">
                 Cancel
@@ -125,7 +125,7 @@ export function EditableField({
             </Pressable>
             <Pressable
               onPress={commit}
-              className="flex-1 h-10 bg-amber rounded-md items-center justify-center active:opacity-80"
+              className="flex-1 h-10 bg-primary rounded-card items-center justify-center active:opacity-80"
             >
               <Text className="text-button-sm text-text-inverse font-semibold">
                 Save

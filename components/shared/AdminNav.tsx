@@ -77,7 +77,7 @@ function TabButton({
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
-          color={active ? "#B45309" : "#64748B"}
+          color={active ? "#E5A03B" : "#6B7268"}
         />
       </View>
       <Text
@@ -128,7 +128,7 @@ export function AdminNav() {
 
   return (
     <View
-      className="bg-surface border-t border-border-subtle"
+      className="bg-surface border-t border-border"
       style={{ paddingBottom: 16, paddingTop: 6 }}
     >
       <View className="flex-row">

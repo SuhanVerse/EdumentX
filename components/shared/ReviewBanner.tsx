@@ -9,15 +9,15 @@ import { Text, View } from "react-native";
  *
  *   - `tone="pending"` (default, amber): their submission is being
  *     reviewed; profile is hidden from student discovery.
- *   - `tone="info"` (purple): the admin asked for more info and is
+ *   - `tone="info"` (blue): the admin asked for more info and is
  *     waiting on the tutor to re-submit.
- *   - `tone="rejected"` (red): the admin rejected the submission;
- *     profile is hidden until they fix and re-submit.
+ *   - `tone="rejected"` (terracotta-red): the admin rejected the
+ *     submission; profile is hidden until they fix and re-submit.
  *
- * Visual contract: amber-light background, amber border, clock icon,
- * bold "Under review" label, then a one-line user-facing message. The
- * card sits at the top of a tutor dashboard (above the metrics grid)
- * so the banner is the first thing they see on every session.
+ * Visual contract: tinted background, matching border, icon, bold
+ * title label, then a one-line user-facing message. The card sits at
+ * the top of a tutor dashboard (above the metrics grid) so the banner
+ * is the first thing they see on every session.
  *
  * Why a shared component and not an inline `<View>`:
  *   - The exact same affordance is also surfaced in admin screens
@@ -67,7 +67,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         borderClass: "border-ai",
         titleClass: "text-ai",
         icon: "information-circle" as const,
-        iconColor: "#4F46E5",
+        iconColor: "#4A7FA5",
       };
     case "rejected":
       return {
@@ -77,7 +77,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         borderClass: "border-danger",
         titleClass: "text-danger",
         icon: "close-circle" as const,
-        iconColor: "#DC2626",
+        iconColor: "#C1503D",
       };
     case "pending":
     default:
@@ -88,7 +88,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         borderClass: "border-amber",
         titleClass: "text-amber",
         icon: "time-outline" as const,
-        iconColor: "#B45309",
+        iconColor: "#E5A03B",
       };
   }
 }

@@ -215,9 +215,11 @@ export function StudentProfile() {
       {/* Hero header — slate, matches the other 4 student surfaces. */}
       <View className="bg-night px-5 pb-6 shrink-0">
         <Text className="text-body text-white/70 mb-0.5 mt-2">Profile</Text>
-        <Text className="text-screen-title font-medium text-white">
-          Your account
-        </Text>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+          <Text className="text-display text-white">
+            Your account
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -226,7 +228,7 @@ export function StudentProfile() {
         showsVerticalScrollIndicator={false}
       >
         {/* Identity card */}
-        <View className="bg-surface border border-border-subtle rounded-card p-5 items-center">
+        <View className="bg-surface border border-border rounded-card p-5 items-center">
           <AvatarBubble
             name={name || user?.email || "Student"}
             uri={avatarUri}
@@ -238,7 +240,7 @@ export function StudentProfile() {
           </Text>
           {user?.email && (
             <View className="flex-row items-center gap-1.5 mt-1">
-              <Ionicons name="mail-outline" size={12} color="#64748B" />
+              <Ionicons name="mail-outline" size={12} color="#6B7268" />
               <Text className="text-caption text-text-muted">
                 {user.email}
               </Text>
@@ -249,7 +251,7 @@ export function StudentProfile() {
             disabled={uploadingPhoto}
             accessibilityRole="button"
             accessibilityLabel="Upload or change profile photo"
-            className="mt-3 px-3 py-1.5 bg-sand rounded-pill active:opacity-80 disabled:opacity-50"
+            className="mt-3 px-3 py-1.5 bg-surface-muted rounded-sm active:opacity-80 disabled:opacity-50"
           >
             <Text className="text-micro text-text-secondary font-medium">
               {uploadingPhoto
@@ -288,18 +290,18 @@ export function StudentProfile() {
 
           {/* Read-only email row */}
           <View>
-            <Text className="text-overline text-text-muted uppercase mb-2">
-              Email
-            </Text>
-            <View className="flex-row items-center justify-between bg-sand border border-border rounded-card h-input px-4">
-              <Text
-                className="text-body-lg text-text-secondary flex-1"
-                numberOfLines={1}
-              >
-                {user?.email ?? "Not signed in"}
+            <Text className="text-label text-ink-muted mb-2">
+                Email
               </Text>
+            <View className="flex-row items-center justify-between bg-surface-muted border border-border rounded-card h-input px-4">
+                <Text
+                  className="text-body-lg text-text-secondary flex-1"
+                  numberOfLines={1}
+                >
+                  {user?.email ?? "Not signed in"}
+                </Text>
               <View className="flex-row items-center gap-1 bg-success-bg rounded-pill px-2 py-1">
-                <Ionicons name="checkmark-circle" size={11} color="#047857" />
+                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
                 <Text className="text-micro text-success-text font-medium">
                   Verified
                 </Text>
@@ -317,17 +319,17 @@ export function StudentProfile() {
             notification center"). The badge shows the unread count
             from the mock list so the affordance feels live. */}
         <View className="mt-7">
-          <Text className="text-overline text-text-muted uppercase mb-2">
+          <Text className="text-label text-ink-muted mb-2">
             Notifications
           </Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open notifications"
             onPress={() => router.push("/notification")}
-            className="flex-row items-center gap-3 bg-surface border border-border-subtle rounded-card px-4 py-3.5 active:opacity-80"
+            className="flex-row items-center gap-3 bg-surface border border-border rounded-card px-4 py-3.5 active:opacity-80"
           >
-            <View className="w-9 h-9 rounded-pill bg-amber-light items-center justify-center relative">
-              <Ionicons name="notifications-outline" size={18} color="#B45309" />
+            <View className="w-9 h-9 rounded-pill bg-accent-soft items-center justify-center relative">
+              <Ionicons name="notifications-outline" size={18} color="#E5A03B" />
               {/* Unread badge */}
               <View className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-pill bg-danger items-center justify-center">
                 <Text className="text-[9px] text-text-inverse font-bold">
@@ -343,16 +345,16 @@ export function StudentProfile() {
                 3 unread · messages, enrollment, AI
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={18} color="#6B7268" />
           </Pressable>
         </View>
 
         {/* Other menu rows — all alert "Coming soon". */}
         <View className="mt-7">
-          <Text className="text-overline text-text-muted uppercase mb-2">
+          <Text className="text-label text-ink-muted mb-2">
             More
           </Text>
-          <View className="bg-surface border border-border-subtle rounded-card overflow-hidden">
+          <View className="bg-surface border border-border rounded-card overflow-hidden">
             <MenuRow
               icon="heart-outline"
               label="Saved tutors"
@@ -372,12 +374,12 @@ export function StudentProfile() {
           accessibilityRole="button"
           accessibilityLabel="Log out"
           onPress={() => setConfirmLogout(true)}
-          className="mt-7 min-h-btn rounded-card bg-danger-bg border border-danger/30 flex-row items-center justify-center gap-2 active:opacity-80"
-        >
-          <Ionicons name="log-out-outline" size={18} color="#DC2626" />
-          <Text className="text-button font-semibold text-danger">
-            Log out
-          </Text>
+          className="mt-7 min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
+      >
+        <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+        <Text className="text-button font-semibold text-danger">
+          Log out
+        </Text>
         </Pressable>
 
         <Text className="text-caption text-text-muted text-center mt-6">

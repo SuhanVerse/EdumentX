@@ -222,9 +222,11 @@ export function TutorPendingReview() {
             Under review
           </Text>
         </View>
-        <Text className="text-screen-title font-medium text-white">
-          Your account is being reviewed
-        </Text>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+          <Text className="text-screen-title font-medium text-white">
+            Your account is being reviewed
+          </Text>
+        </View>
         <Text className="text-body text-white/65 mt-1.5">
           We&apos;re checking the details you submitted. You&apos;ll get
           full access to the tutor dashboard once an admin approves
@@ -243,7 +245,7 @@ export function TutorPendingReview() {
             across the app. */}
         <View className="flex-row items-start gap-3 p-4 rounded-card bg-warning-bg border border-warning/30 mb-5">
           <View className="w-9 h-9 rounded-pill bg-warning/20 items-center justify-center mt-0.5">
-            <Ionicons name="time-outline" size={18} color="#B45309" />
+            <Ionicons name="time-outline" size={18} color="#E5A03B" />
           </View>
           <View className="flex-1 min-w-0">
             <Text className="text-card-title font-medium text-warning-text">
@@ -258,21 +260,21 @@ export function TutorPendingReview() {
         </View>
 
         {/* What we're checking — documentation-as-UI. */}
-        <Text className="text-overline text-text-muted uppercase mb-2 px-1">
+        <Text className="text-label text-ink-muted mb-2 px-1">
           What we&apos;re checking
         </Text>
-        <View className="bg-surface border border-border-subtle rounded-card overflow-hidden mb-5">
+        <View className="bg-surface border border-border rounded-card overflow-hidden mb-5">
           {REVIEW_CHECKLIST.map((item, i) => (
             <View
               key={item.label}
               className={`flex-row items-start gap-3 px-4 py-3.5 ${
                 i < REVIEW_CHECKLIST.length - 1
-                  ? "border-b border-border-subtle"
+                  ? "border-b border-border"
                   : ""
               }`}
             >
-              <View className="w-8 h-8 rounded-pill bg-amber-light items-center justify-center mt-0.5">
-                <Ionicons name={item.icon} size={16} color="#B45309" />
+              <View className="w-9 h-9 rounded-pill bg-accent-soft items-center justify-center mt-0.5">
+                <Ionicons name={item.icon} size={16} color="#E5A03B" />
               </View>
               <View className="flex-1 min-w-0">
                 <Text className="text-body font-medium text-text-primary">
@@ -294,7 +296,7 @@ export function TutorPendingReview() {
           className="flex-row items-center gap-3 p-4 rounded-card bg-surface border border-border active:opacity-70"
         >
           <View className="w-9 h-9 rounded-pill bg-ai-light items-center justify-center">
-            <Ionicons name="mail-outline" size={18} color="#4F46E5" />
+            <Ionicons name="mail-outline" size={18} color="#4A7FA5" />
           </View>
           <View className="flex-1 min-w-0">
             <Text className="text-body font-medium text-text-primary">
@@ -305,7 +307,7 @@ export function TutorPendingReview() {
               within 24 hours.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#64748B" />
+          <Ionicons name="chevron-forward" size={16} color="#6B7268" />
         </Pressable>
 
         {/* Sign-out — last, visually separated. */}
@@ -315,7 +317,7 @@ export function TutorPendingReview() {
           onPress={() => setConfirmSignOut(true)}
           className="mt-7 min-h-btn rounded-card bg-danger-bg border border-danger/30 flex-row items-center justify-center gap-2 active:opacity-80"
         >
-          <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          <Ionicons name="log-out-outline" size={18} color="#C1503D" />
           <Text className="text-button font-semibold text-danger">
             Sign out
           </Text>
@@ -332,7 +334,7 @@ export function TutorPendingReview() {
           ConfirmDialog primitive stays in its single use site. */}
       {confirmSignOut ? (
         <View className="absolute inset-0 bg-black/50 items-center justify-center px-6">
-          <View className="bg-surface rounded-hero p-5 w-full max-w-[360px] shadow-lg">
+          <View className="bg-surface rounded-xl p-5 w-full max-w-[360px] shadow-lg">
             <Text className="text-section-title font-medium text-text-primary text-center">
               Sign out?
             </Text>

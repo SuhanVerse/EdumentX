@@ -176,10 +176,12 @@ export function StudentHome() {
       <View className="bg-night px-5 pb-6 shrink-0">
         <View className="flex-row items-start justify-between mb-4 mt-2">
           <View>
-            <Text className="text-body text-white/70 mb-0.5">Good morning,</Text>
-            <Text className="text-screen-title font-medium text-white">
-              {profile.fullName}
-            </Text>
+            <Text className="text-body text-white/70 mb-0.5">Good day,</Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+              <Text className="text-screen-title font-medium text-white">
+                {profile.fullName}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -190,13 +192,13 @@ export function StudentHome() {
         </View>
 
         {/* Search bar */}
-        <View className="bg-surface rounded-xl h-12 flex-row items-center px-3 gap-2.5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+        <View className="bg-surface rounded-card h-input flex-row items-center px-3 gap-2.5 border border-border">
+          <Ionicons name="search-outline" size={18} color="#6B7268" />
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search subjects, tutors..."
-            placeholderTextColor="#9CA3AF"
+            placeholder="Search subjects, tutors, locations…"
+            placeholderTextColor="#6B7268"
             className="flex-1 text-body-lg text-text-primary"
           />
         </View>
@@ -210,11 +212,11 @@ export function StudentHome() {
       >
         {/* Empty state — tutor discovery lands in Phase 5 */}
         <View className="px-5 pt-10">
-          <View className="bg-surface border border-border-subtle rounded-card p-6 items-center">
-            <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-              <Ionicons name="search-outline" size={26} color="#B45309" />
+          <View className="bg-surface border border-border rounded-card p-6 items-center">
+            <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
+              <Ionicons name="search-outline" size={26} color="#E5A03B" />
             </View>
-            <Text className="text-card-title font-medium text-text-primary text-center">
+            <Text className="text-heading text-text-primary text-center">
               Tutor discovery is coming soon
             </Text>
             <Text
@@ -226,7 +228,7 @@ export function StudentHome() {
               selected subjects.
             </Text>
             <View className="flex-row items-center gap-2 mt-4">
-              <Ionicons name="mail-outline" size={14} color="#64748B" />
+              <Ionicons name="mail-outline" size={14} color="#6B7268" />
               <Text className="text-caption text-text-muted">
                 We&apos;ll email {user?.email ?? "you"} when launches begin.
               </Text>
@@ -256,9 +258,9 @@ export function StudentHome() {
                 ],
               );
             }}
-            className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-danger/10 active:opacity-80"
+            className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-surface border border-border active:opacity-80"
           >
-            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            <Ionicons name="log-out-outline" size={18} color="#C1503D" />
             <Text className="text-button font-semibold text-danger">Log out</Text>
           </Pressable>
         </View>

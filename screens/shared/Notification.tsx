@@ -353,7 +353,7 @@ export function NotificationsCenter() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="bg-surface border-b border-border-subtle px-4 py-3 flex-grow-0"
+        className="bg-surface border-b border-border px-4 py-3 flex-grow-0"
       >
         {TABS.map((t) => {
           const isActive = tab === t;
@@ -426,8 +426,8 @@ function Row({ n, onPress }: { n: NotifRow; onPress: () => void }) {
       )}`}
       className={
         n.read
-          ? "flex-row gap-3 px-5 py-4 border-b border-border-subtle bg-surface active:opacity-80"
-          : "flex-row gap-3 px-5 py-4 border-b border-border-subtle bg-amber-light/30 active:opacity-80"
+          ? "flex-row gap-3 px-5 py-4 border-b border-border bg-surface active:opacity-80"
+          : "flex-row gap-3 px-5 py-4 border-b border-border bg-amber-light/30 active:opacity-80"
       }
     >
       <View
@@ -471,7 +471,7 @@ function LoadingState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-sand items-center justify-center mb-3">
-        <Ionicons name="sync" size={26} color="#64748B" />
+        <Ionicons name="sync" size={26} color="#6B7268" />
       </View>
       <Text className="text-body text-text-secondary">Loading your inbox…</Text>
     </View>
@@ -494,7 +494,7 @@ function EmptyState({ tab }: { tab: Tab }) {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name="sparkles" size={26} color="#B45309" />
+        <Ionicons name="sparkles" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}
@@ -560,7 +560,7 @@ function NotificationPreferences({
               onPress={onClose}
               className="w-9 h-9 items-center justify-center rounded-pill bg-sand active:opacity-70"
             >
-              <Ionicons name="close" size={18} color="#475569" />
+              <Ionicons name="close" size={18} color="#6B7268" />
             </Pressable>
           </View>
 
@@ -614,7 +614,7 @@ function PrefRow({
       accessibilityLabel={meta.label}
       accessibilityState={{ checked: on }}
       onPress={onToggle}
-      className="flex-row items-center gap-3 py-3 border-b border-border-subtle active:opacity-80"
+      className="flex-row items-center gap-3 py-3 border-b border-border active:opacity-80"
     >
       <View
         className={`w-10 h-10 rounded-pill items-center justify-center ${meta.bgClass}`}
@@ -666,19 +666,19 @@ function PrefRow({
 function iconColorForClass(fgClass: string): string {
   switch (fgClass) {
     case "text-ai":
-      return "#4F46E5";
+      return "#4A7FA5";
     case "text-amber":
-      return "#B45309";
+      return "#E5A03B";
     case "text-warning-text":
       return "#92400E";
     case "text-success":
-      return "#047857";
+      return "#3F8A5A";
     case "text-verification":
-      return "#047857";
+      return "#3F8A5A";
     case "text-danger":
-      return "#DC2626";
+      return "#C1503D";
     case "text-text-primary":
     default:
-      return "#0F172A";
+      return "#26302B";
   }
 }

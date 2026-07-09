@@ -158,9 +158,11 @@ export function AIChat() {
             <Ionicons name="sparkles" size={20} color="#FFFFFF" />
           </View>
           <View className="flex-1">
-            <Text className="text-section-title font-medium text-white">
-              AI Assistant
-            </Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+              <Text className="text-section-title font-medium text-white">
+                AI Assistant
+              </Text>
+            </View>
             <View className="flex-row items-center gap-1.5 mt-0.5">
               <View className="w-1.5 h-1.5 rounded-pill bg-success" />
               <Text className="text-caption text-white/70">
@@ -171,8 +173,8 @@ export function AIChat() {
         </View>
 
         {/* Backend-coming-soon banner */}
-        <View className="mt-4 flex-row items-start gap-2 bg-ai-light border border-ai-border rounded-card p-3">
-          <Ionicons name="information-circle" size={16} color="#4F46E5" />
+        <View className="mt-3 flex-row items-start gap-2 bg-ai-light border border-ai-border rounded-card p-3">
+          <Ionicons name="information-circle" size={16} color="#4A7FA5" />
           <Text className="flex-1 text-caption text-ai-dark">
             AI Assistant — Backend integration coming soon. Replies are
             placeholder UI for now.
@@ -195,7 +197,7 @@ export function AIChat() {
       </ScrollView>
 
       {/* Input dock */}
-      <View className="bg-surface border-t border-border-subtle px-4 pt-2 pb-3">
+      <View className="bg-surface border-t border-border px-4 pt-2 pb-3">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -221,7 +223,7 @@ export function AIChat() {
               value={input}
               onChangeText={setInput}
               placeholder="Ask about tutors, subjects, rates…"
-              placeholderTextColor="#64748B"
+              placeholderTextColor="#6B7268"
               onSubmitEditing={() => send(input)}
               editable={!isThinking}
               returnKeyType="send"
@@ -242,7 +244,7 @@ export function AIChat() {
             <Ionicons
               name="send"
               size={18}
-              color={input.trim() ? "#FFFFFF" : "#94A3B8"}
+              color={input.trim() ? "#FFFFFF" : "#6B7268"}
             />
           </Pressable>
         </View>
@@ -271,8 +273,8 @@ function Bubble({ message }: { message: Message }) {
       <View
         className={
           isUser
-            ? "max-w-[78%] bg-ai-light rounded-card rounded-tr-sm p-3"
-            : "max-w-[78%] bg-surface border border-border-subtle rounded-card rounded-tl-sm p-3"
+            ? "max-w-[78%] bg-primary-light rounded-card rounded-tr-sm p-3"
+            : "max-w-[78%] bg-surface border border-border rounded-card rounded-tl-sm p-3"
         }
       >
         <Text className="text-body-lg text-text-primary leading-[22px]">
@@ -289,8 +291,8 @@ function ThinkingBubble() {
       <View className="w-7 h-7 rounded-pill bg-ai items-center justify-center mt-1">
         <Ionicons name="sparkles" size={14} color="#FFFFFF" />
       </View>
-      <View className="bg-surface border border-border-subtle rounded-card rounded-tl-sm px-3 py-3 flex-row items-center gap-2">
-        <ActivityIndicator size="small" color="#4F46E5" />
+      <View className="bg-surface border border-border rounded-card rounded-tl-sm px-3 py-3 flex-row items-center gap-2">
+        <ActivityIndicator size="small" color="#2F5D50" />
         <Text className="text-caption text-text-muted">Thinking…</Text>
       </View>
     </View>

@@ -38,13 +38,13 @@ export function MenuRow({
       className={
         last
           ? `flex-row items-center gap-3 px-4 py-3.5 ${disabled ? "opacity-50" : "active:opacity-80"}`
-          : `flex-row items-center gap-3 px-4 py-3.5 border-b border-border-subtle ${disabled ? "opacity-50" : "active:opacity-80"}`
+          : `flex-row items-center gap-3 px-4 py-3.5 border-b border-border ${disabled ? "opacity-50" : "active:opacity-80"}`
       }
     >
       <Ionicons
         name={icon}
         size={20}
-        color={disabled ? "#94A3B8" : "#475569"}
+        color={disabled ? "#6B7268" : "#26302B"}
       />
       <Text
         className={
@@ -58,7 +58,7 @@ export function MenuRow({
       <Ionicons
         name="chevron-forward"
         size={18}
-        color={disabled ? "#CBD5E1" : "#94A3B8"}
+        color={disabled ? "#6B7268" : "#6B7268"}
       />
     </Pressable>
   );

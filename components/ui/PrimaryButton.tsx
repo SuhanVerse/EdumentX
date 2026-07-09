@@ -2,8 +2,8 @@
  * PrimaryButton — the project's only primary CTA shape.
  *
  * Three variants:
- *   - `primary`  : night fill, white label  → the default for "Continue",
- *                  "Next", "Get started", etc.
+ *   - `primary`  : chalkboard-green fill, white label  → the default for
+ *                  "Continue", "Next", "Get started", etc.
  *   - `accent`   : amber fill, white label  → highlights a single
  *                  upgrade / paid CTA on a screen.
  *   - `ghost`    : surface fill, primary border + label → secondary
@@ -15,8 +15,8 @@
  *
  * Tokens (no hardcoded hex):
  *   - heights via `min-h-btn` (52) or `min-h-btn-lg` (56)
- *   - radii via `rounded-card` (12)
- *   - colors via `bg-night` / `bg-amber` / `bg-surface`
+ *   - radii via `rounded-card` (14)
+ *   - colors via `bg-primary` / `bg-amber` / `bg-surface`
  */
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, {
@@ -33,7 +33,7 @@ export type PrimaryButtonProps = {
   /** Visible label. */
   label: string;
   onPress: () => void;
-  /** `'primary'` (night), `'accent'` (amber), or `'ghost'` (outline). */
+  /** `'primary'` (chalkboard green), `'accent'` (amber), or `'ghost'` (outline). */
   variant?: 'primary' | 'accent' | 'ghost';
   /** `'md'` (52) or `'lg'` (56). */
   size?: 'md' | 'lg';
@@ -51,9 +51,9 @@ export type PrimaryButtonProps = {
 // ─── Variant styles ──────────────────────────────────────────────────────────
 
 const VARIANT_BG: Record<'primary' | 'accent' | 'ghost', string> = {
-  primary: 'bg-night',
+  primary: 'bg-primary',
   accent: 'bg-amber',
-  ghost: 'bg-surface border border-border',
+  ghost: 'bg-surface border-2 border-border',
 };
 
 const VARIANT_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
@@ -109,12 +109,12 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'ghost' ? '#0F172A' : '#FFFFFF'}
+          color={variant === 'ghost' ? '#2F5D50' : '#FFFFFF'}
         />
       ) : (
         <View className="flex-row items-center gap-2">
           {leftIcon}
-          <Text className={`text-button ${VARIANT_LABEL[variant]}`}>
+          <Text className={`text-button tracking-wide ${VARIANT_LABEL[variant]}`}>
             {label}
           </Text>
         </View>

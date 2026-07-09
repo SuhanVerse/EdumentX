@@ -2,9 +2,9 @@
  * EdumentX — Tailwind/NativeWind migration note:
  *
  * With NativeWind, colors are no longer consumed as JS string constants
- * (no more `colors.brand.primary` -> `'#0F172A'`). They live in
+ * (no more `colors.brand.primary` -> `'#2F5D50'`). They live in
  * `tailwind.config.js` under `theme.extend.colors` and are referenced
- * via Tailwind classes (`bg-night`, `text-amber`, etc.).
+ * via Tailwind classes (`bg-primary`, `text-ink`, `bg-night`, etc.).
  *
  * This file is kept only for two narrow consumers that need raw hex
  * strings:
@@ -21,40 +21,51 @@
  */
 export const colors = {
   brand: {
-    primary: '#0F172A',
-    primaryLight: '#F1F5F9',
-    accent: '#B45309',
-    verification: '#047857',
-    verificationLight: '#ECFDF5',
-    ai: '#4F46E5',
-    aiDark: '#312E81',
-    splash: '#0F172A',
-    splashText: '#F1F5F9',
-    splashTrack: 'rgba(241, 245, 249, 0.12)',
+    primary: '#2F5D50',
+    primaryPressed: '#254B41',
+    primaryLight: '#F1ECE0',
+    accent: '#E5A03B',
+    accentSoft: '#FBEBCF',
+    verification: '#3F8A5A',
+    verificationLight: '#DCF0E4',
+    ai: '#4A7FA5',
+    aiDark: '#2D5F80',
+    splash: '#2F5D50',
+    splashText: '#FBF8F2',
+    splashTrack: 'rgba(251, 248, 242, 0.20)',
   },
   semantic: {
-    success: '#047857',
-    warning: '#B45309',
-    danger: '#DC2626',
+    success: '#3F8A5A',
+    successText: '#2D6B44',
+    successBg: '#DCF0E4',
+    warning: '#E5A03B',
+    warningText: '#8B5E10',
+    warningBg: '#FBEBCF',
+    danger: '#C1503D',
+    dangerText: '#8B3628',
+    dangerBg: '#F9E5E1',
   },
   background: {
-    page: '#F1F5F9',
+    page: '#FBF8F2',
     surface: '#FFFFFF',
+    surfaceMuted: '#F1ECE0',
+    admin: '#F6F3EC',
   },
   text: {
-    primary: '#0F172A',
-    secondary: '#475569',
-    muted: '#64748B',
+    primary: '#26302B',
+    secondary: '#6B7268',
+    muted: '#6B7268',
     inverse: '#FFFFFF',
+    link: '#2F5D50',
   },
   border: {
-    default: '#E2E8F0',
-    strong: '#64748B',
-    subtle: 'rgba(15, 23, 42, 0.04)',
+    default: '#E7E1D3',
+    strong: '#6B7268',
+    subtle: 'rgba(38, 48, 43, 0.05)',
   },
   onboarding: {
-    mapBackground: '#F1F5F9',
-    aiBackground: '#EEF2FF',
-    verifyBackground: '#ECFDF5',
+    mapBackground: '#F0EBE0',
+    aiBackground: '#EBF3F9',
+    verifyBackground: '#DCF0E4',
   },
 } as const;

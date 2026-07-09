@@ -101,7 +101,7 @@ export function DocumentUploader({
             </Text>
             {hasExisting ? (
               <View className="flex-row items-center gap-1 bg-verification-light px-2 py-0.5 rounded-pill">
-                <Ionicons name="checkmark-circle" size={11} color="#047857" />
+                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
                 <Text className="text-micro font-medium text-verification">
                   Uploaded
                 </Text>
@@ -147,12 +147,12 @@ export function DocumentUploader({
             } disabled:opacity-60`}
           >
             {uploading ? (
-              <ActivityIndicator size="small" color={hasExisting ? "#475569" : "#FFFFFF"} />
+              <ActivityIndicator size="small" color={hasExisting ? "#6B7268" : "#FFFFFF"} />
             ) : (
               <Ionicons
                 name={hasExisting ? "refresh" : "cloud-upload-outline"}
                 size={14}
-                color={hasExisting ? "#475569" : "#FFFFFF"}
+                color={hasExisting ? "#6B7268" : "#FFFFFF"}
               />
             )}
             <Text
@@ -257,13 +257,13 @@ function DocumentRow({
         <Ionicons
           name="checkmark-circle"
           size={18}
-          color="#047857"
+          color="#3F8A5A"
         />
       ) : (
         <Ionicons
           name="ellipse-outline"
           size={18}
-          color="#94A3B8"
+          color="#6B7268"
         />
       )}
     </View>
@@ -284,10 +284,10 @@ function kindIconName(kind: TutorDocKind): keyof typeof Ionicons.glyphMap {
 function kindAccent(kind: TutorDocKind): { bg: string; fg: string } {
   switch (kind) {
     case "citizenship":
-      return { bg: "bg-ai-light", fg: "#4F46E5" };
+      return { bg: "bg-ai-light", fg: "#4A7FA5" };
     case "certificate":
-      return { bg: "bg-verification-light", fg: "#047857" };
+      return { bg: "bg-verification-light", fg: "#3F8A5A" };
     case "demo":
-      return { bg: "bg-amber-light", fg: "#B45309" };
+      return { bg: "bg-amber-light", fg: "#E5A03B" };
   }
 }

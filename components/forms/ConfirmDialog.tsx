@@ -58,20 +58,20 @@ export function ConfirmDialog({
             only when the user taps outside the card. */}
         <Pressable
           onPress={() => {}}
-          className="bg-surface rounded-hero p-6 w-full max-w-[360px] shadow-lg"
+          className="bg-surface rounded-xl p-6 w-full max-w-[360px] shadow-lg"
         >
           <View className="items-center mb-3">
             <View
               className={
                 destructive
                   ? "w-12 h-12 rounded-pill bg-danger-bg items-center justify-center"
-                  : "w-12 h-12 rounded-pill bg-amber-light items-center justify-center"
+                  : "w-12 h-12 rounded-pill bg-accent-soft items-center justify-center"
               }
             >
               <Ionicons
                 name={destructive ? "log-out-outline" : "help-circle-outline"}
                 size={24}
-                color={destructive ? "#DC2626" : "#B45309"}
+                color={destructive ? "#C1503D" : "#E5A03B"}
               />
             </View>
           </View>

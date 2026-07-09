@@ -14,7 +14,7 @@
  * `<Image>` (or `<Svg>`) without z-fighting the 3D canvas.
  *
  * Pure RN primitives (`View`) — Tailwind `className` for styling.
- * Color: rgba(241, 245, 249, opacity) at 30–70% so the particles
+ * Color: rgba(251, 248, 242, opacity) at 30–70% so the particles
  * feel ambient and never compete with the logo.
  */
 import { useEffect, useMemo } from 'react';
@@ -125,7 +125,7 @@ function Particle({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: `rgba(241, 245, 249, ${opacity})`,
+          backgroundColor: `rgba(251, 248, 242, ${opacity})`,
         } as ViewStyle,
       ]}
     />

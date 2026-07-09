@@ -35,9 +35,9 @@ export function NameEmailFields({
   onChangeEmail,
 }: NameEmailFieldsProps) {
   return (
-    <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+    <View className="gap-4 p-5 border border-border rounded-card bg-surface shadow-sm">
       <View className="gap-1">
-        <Text className="text-overline text-text-muted uppercase">Full name</Text>
+        <Text className="text-label text-ink-muted">Full name</Text>
         <TextInput
           value={fullName}
           onChangeText={onChangeFullName}
@@ -56,9 +56,9 @@ export function NameEmailFields({
       </View>
 
       <View className="gap-1">
-        <Text className="text-overline text-text-muted uppercase">Email</Text>
+        <Text className="text-label text-ink-muted">Email</Text>
         {emailDisabled ? (
-          <View className="flex-row items-center justify-between min-h-btn px-4 border-emphasis border-border rounded-md bg-background">
+          <View className="flex-row items-center justify-between min-h-btn px-4 border-emphasis border-border rounded-card bg-surface-muted">
             <Text
               className="flex-1 text-body-lg text-text-primary"
               numberOfLines={1}

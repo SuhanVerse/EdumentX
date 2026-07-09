@@ -373,9 +373,11 @@ export function EditTutorProfile() {
       {/* Hero header — slate, matches the 5 other tutor surfaces. */}
       <View className="bg-night px-5 pb-6 shrink-0">
         <Text className="text-body text-white/70 mb-0.5 mt-2">Profile</Text>
-        <Text className="text-screen-title font-medium text-white">
-          Your account
-        </Text>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+          <Text className="text-display text-white">
+            Your account
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -432,7 +434,7 @@ export function EditTutorProfile() {
         ) : null}
 
         {/* Identity card */}
-        <View className="bg-surface border border-border-subtle rounded-card p-5 items-center">
+        <View className="bg-surface border border-border rounded-card p-5 items-center">
           <AvatarBubble
             name={form.fullName || form.email || "Tutor"}
             uri={photoUrl}
@@ -444,7 +446,7 @@ export function EditTutorProfile() {
           </Text>
           {form.email ? (
             <View className="flex-row items-center gap-1.5 mt-1">
-              <Ionicons name="mail-outline" size={12} color="#64748B" />
+              <Ionicons name="mail-outline" size={12} color="#6B7268" />
               <Text className="text-caption text-text-muted">{form.email}</Text>
             </View>
           ) : null}
@@ -479,13 +481,13 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "fullName" ? (
-                <ActivityIndicator size="small" color="#B45309" />
+                <ActivityIndicator size="small" color="#2F5D50" />
               ) : undefined
             }
           />
 
-          <EditableField
-            label="Headline"
+            <EditableField
+              label="Headline"
             value={form.headline}
             onChange={(headline) => setForm((p) => ({ ...p, headline }))}
             onCommit={() => commitField("headline", form.headline.trim())}
@@ -493,13 +495,13 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "headline" ? (
-                <ActivityIndicator size="small" color="#B45309" />
+                <ActivityIndicator size="small" color="#2F5D50" />
               ) : undefined
             }
           />
 
-          <EditableField
-            label="About me"
+            <EditableField
+              label="About me"
             value={form.bio}
             onChange={(bio) => setForm((p) => ({ ...p, bio }))}
             onCommit={() => commitField("bio", form.bio.trim())}
@@ -507,14 +509,14 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "bio" ? (
-                <ActivityIndicator size="small" color="#B45309" />
+                <ActivityIndicator size="small" color="#2F5D50" />
               ) : undefined
             }
           />
 
-          {/* Read-only email row */}
+            {/* Read-only email row */}
           <View>
-            <Text className="text-overline text-text-muted uppercase mb-2">
+            <Text className="text-label text-ink-muted mb-2">
               Email
             </Text>
             <View className="flex-row items-center justify-between bg-sand border border-border rounded-card h-input px-4">
@@ -524,8 +526,8 @@ export function EditTutorProfile() {
               >
                 {form.email || "Not signed in"}
               </Text>
-              <View className="flex-row items-center gap-1 bg-success-bg rounded-pill px-2 py-1">
-                <Ionicons name="checkmark-circle" size={11} color="#047857" />
+              <View className="flex-row items-center gap-1 bg-success-bg rounded-sm px-2 py-1">
+                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
                 <Text className="text-micro text-success-text font-medium">
                   Verified
                 </Text>
@@ -548,10 +550,10 @@ export function EditTutorProfile() {
             stack a second update on top of one that's still in
             the queue. */}
         <View className="mt-7">
-          <Text className="text-overline text-text-muted uppercase mb-2">
+          <Text className="text-label text-ink-muted mb-2">
             Teaching details
           </Text>
-          <View className="bg-surface border border-border-subtle rounded-card overflow-hidden">
+          <View className="bg-surface border border-border rounded-card overflow-hidden">
             <MenuRow
               icon="briefcase-outline"
               label="Subjects, rate & location"
@@ -578,7 +580,7 @@ export function EditTutorProfile() {
             already has its own action affordance. */}
         <View className="mt-7">
           <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-overline text-text-muted uppercase">
+            <Text className="text-label text-ink-muted">
               Verification documents
             </Text>
             <Pressable
@@ -597,17 +599,17 @@ export function EditTutorProfile() {
               </Text>
             </Pressable>
           </View>
-          <View className="bg-surface border border-border-subtle rounded-card p-3">
+          <View className="bg-surface border border-border rounded-card p-3">
             <TutorDocumentList documents={documents} />
           </View>
         </View>
 
         {/* More — Availability / My batches / Payouts / Help. */}
         <View className="mt-7">
-          <Text className="text-overline text-text-muted uppercase mb-2">
+          <Text className="text-label text-ink-muted mb-2">
             More
           </Text>
-          <View className="bg-surface border border-border-subtle rounded-card overflow-hidden">
+          <View className="bg-surface border border-border rounded-card overflow-hidden">
             <MenuRow
               icon="calendar-outline"
               label="Availability"
@@ -637,9 +639,9 @@ export function EditTutorProfile() {
           accessibilityRole="button"
           accessibilityLabel="Log out"
           onPress={() => setConfirmLogout(true)}
-          className="mt-7 min-h-btn rounded-card bg-danger-bg border border-danger/30 flex-row items-center justify-center gap-2 active:opacity-80"
+          className="mt-7 min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
         >
-          <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          <Ionicons name="log-out-outline" size={18} color="#C1503D" />
           <Text className="text-button font-semibold text-danger">
             Log out
           </Text>
@@ -684,7 +686,7 @@ function VerificationBanner({
       bg: "bg-warning-bg",
       border: "border-warning/30",
       icon: "time-outline" as const,
-      iconColor: "#B45309",
+      iconColor: "#E5A03B",
       text: "text-warning-text",
       label: "Under review",
     },
@@ -692,7 +694,7 @@ function VerificationBanner({
       bg: "bg-danger-bg",
       border: "border-danger/30",
       icon: "close-circle" as const,
-      iconColor: "#DC2626",
+      iconColor: "#C1503D",
       text: "text-danger",
       label: "Action needed",
     },
@@ -700,7 +702,7 @@ function VerificationBanner({
       bg: "bg-ai-light",
       border: "border-ai/30",
       icon: "information-circle" as const,
-      iconColor: "#4F46E5",
+      iconColor: "#4A7FA5",
       text: "text-ai",
       label: "More info needed",
     },

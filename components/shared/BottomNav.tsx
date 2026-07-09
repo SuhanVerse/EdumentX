@@ -8,12 +8,12 @@ import { Pressable, Text, View } from "react-native";
  * Stage 6 (June 27, 2026):
  *   - Renders a 5-tab nav used by every authenticated student screen
  *     (Home → Map → AI → Enrollments → Profile).
- *   - Active tab is visually distinct: amber pill behind the icon and
- *     amber-tinted label. Matches the design language used by the
- *     StudentHome CTA (`bg-amber` accent).
- *   - Tapping a tab calls `router.navigate(route)` — `navigate` (not
- *     `push`) so the back stack doesn't grow with every tab switch and
- *     users can't accidentally "back" into a screen they left.
+ *   - Active tab is visually distinct: chalkboard-green pill behind the
+ *     icon and green-tinted label. Amber is reserved for ratings and
+ *     highlights; the nav uses the primary green active state instead.
+ *   - Tapping a tab calls `router.replace(route)` — `replace` (not
+ *     `navigate`) so the back stack doesn't grow with every tab switch
+ *     and users can't accidentally "back" into a screen they left.
  *   - The `current` prop is optional: when omitted we fall back to
  *     `usePathname()` so the active state is correct without
  *     screens having to pass anything in.
@@ -67,20 +67,20 @@ function TabButton({
       <View
         className={
           active
-            ? "w-12 h-7 rounded-pill bg-amber-light items-center justify-center"
-            : "w-12 h-7 items-center justify-center"
+          ? "w-12 h-6 rounded-pill bg-primary-light items-center justify-center"
+          : "w-12 h-6 items-center justify-center"
         }
       >
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
-          color={active ? "#B45309" : "#64748B"}
+          color={active ? "#2F5D50" : "#6B7268"}
         />
       </View>
       <Text
         className={
           active
-            ? "text-micro mt-0.5 font-semibold text-amber"
+            ? "text-micro mt-0.5 font-semibold text-primary tracking-wide"
             : "text-micro mt-0.5 text-text-muted"
         }
       >
@@ -139,7 +139,7 @@ export function BottomNav({
 
   return (
     <View
-      className="bg-surface border-t border-border-subtle"
+      className="bg-surface border-t border-border"
       style={{ paddingBottom: 16, paddingTop: 6 }}
     >
       <View className="flex-row">

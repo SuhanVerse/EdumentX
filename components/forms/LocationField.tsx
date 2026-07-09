@@ -65,7 +65,7 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
     const summary = `${value?.neighborhood ? `${value.neighborhood}, ` : ""}${value?.city ?? ""}`;
     return (
       <View className="gap-2">
-        <Text className="text-overline text-text-muted uppercase">
+        <Text className="text-label text-ink-muted">
           Your location
         </Text>
         <Pressable
@@ -105,12 +105,12 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
   // ---- "unset" view — two TextInputs + Save button
   return (
     <View className="gap-3">
-      <Text className="text-overline text-text-muted uppercase">
+      <Text className="text-label text-ink-muted">
         Your location
       </Text>
 
       <View className="gap-2">
-        <View className="min-h-input px-3 justify-center border-2 border-border rounded-md bg-surface">
+        <View className="min-h-input px-3 justify-center border-2 border-border rounded-card bg-surface">
           <TextInput
             value={draft.neighborhood}
             onChangeText={(neighborhood) =>
@@ -121,7 +121,7 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
             className="text-body-lg text-text-primary"
           />
         </View>
-        <View className="min-h-input px-3 justify-center border-2 border-border rounded-md bg-surface">
+        <View className="min-h-input px-3 justify-center border-2 border-border rounded-card bg-surface">
           <TextInput
             value={draft.city}
             onChangeText={(city) =>
@@ -140,7 +140,7 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
         accessibilityState={{ disabled: !canSave }}
         disabled={!canSave}
         onPress={handleSave}
-        className="min-h-cta-amber rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:opacity-50 self-center w-full max-w-xs mt-1"
+        className="min-h-btn rounded-card items-center justify-center bg-primary active:opacity-90 disabled:opacity-50 w-full mt-1"
       >
         <Text className="text-button-sm text-white font-semibold">
           Save Location

@@ -26,8 +26,8 @@ const TUTOR_TABS: readonly TutorTabDef[] = [
   { key: "profile", label: "Profile", path: "/tutor_edit_profile", icon: User },
 ] as const;
 
-const ACTIVE_COLOR = "#2B6CB0";
-const INACTIVE_COLOR = "#94A3B8";
+const ACTIVE_COLOR = "#2F5D50";
+const INACTIVE_COLOR = "#6B7268";
 
 type TutorBottomBarProps = {
   inboxBadgeCount?: number;
@@ -37,7 +37,7 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
   const pathname = usePathname();
 
   return (
-    <View className="flex-row bg-surface border-t-[0.5px] border-border px-2 pt-1.5 pb-2.5">
+    <View className="flex-row bg-surface border-t border-border px-2 pt-1.5 pb-2.5">
       {TUTOR_TABS.map((tab) => {
         const isActive =
           pathname === tab.path || pathname.endsWith(`/${tab.key}`);
@@ -52,7 +52,7 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
           >
-            <View>
+            <View className={`w-12 h-7 rounded-pill items-center justify-center`} style={{ backgroundColor: isActive ? '#F1ECE0' : 'transparent' }}>
               <Icon color={color} size={22}></Icon>
               {tab.key === "inbox" && inboxBadgeCount > 0 && (
                 <BadgeDot count={inboxBadgeCount} />
@@ -63,7 +63,7 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
             </Text>
             {isActive && (
               <View
-                className="h-0.5 w-6 rounded-full mt-1"
+                className="h-hairline w-8 rounded-full mt-0.5"
                 style={{ backgroundColor: ACTIVE_COLOR }}
               />
             )}
