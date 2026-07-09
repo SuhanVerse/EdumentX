@@ -32,7 +32,14 @@ type AdminUser = {
   name: string;
   email: string;
   phone?: string;
-  avatar?: string;
+  /**
+   * Avatar URL. `null` (not `""`) when the user has no avatar — this
+   * matters because React Native's `<Image source={{ uri: "" }}>`
+   * throws "Cannot read property 'indexOf' of undefined" on Android
+   * for empty-string URIs. Coercing to `null` at the data layer
+   * keeps the truthy check at the render site unambiguous.
+   */
+  avatar?: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string; // ISO string
@@ -63,13 +70,16 @@ export function UserManagement() {
 
   // Fetch users from Firestore.
   //
-  // Important Firestore detail: `orderBy("createdAt", "desc")` requires
-  // a composite index on (createdAt) — without it the call fails with
-  // `failed-precondition: The query requires an index`. We keep the
-  // orderBy (newest-first is the right default) but on failure we
-  // fall back to an un-ordered query so the admin can still see *all*
-  // users. The index can be created from the error URL or via
-  // `firebase deploy --only firestore:indexes` (Phase 5).
+  // We deliberately do NOT call `orderBy("createdAt", "desc")` here.
+  // A `orderBy` on a non-key field requires a composite index; the
+  // project's `firebase/firestore.indexes.json` does not declare one
+  // for `users.createdAt`, so a sorted list call would fail with
+  // `failed-precondition: The query requires an index` and the screen
+  // would land on the empty-state error path. The `VerificationQueue`
+  // screen reads its `tutorVerifications` collection un-ordered and
+  // partitions client-side — we follow that same pattern: pull every
+  // doc, then sort the in-memory array by `createdAt` desc so the
+  // newest accounts land at the top.
   useEffect(() => {
     let cancelled = false;
     async function fetchUsers() {
@@ -77,29 +87,16 @@ export function UserManagement() {
         // Dynamic import to avoid circular deps
         const { getFirestore } = await import("@react-native-firebase/firestore");
         const { getApp } = await import("@react-native-firebase/app");
-        const { collection, getDocs, query, orderBy } = await import(
+        const { collection, getDocs } = await import(
           "@react-native-firebase/firestore"
         );
 
         const db = getFirestore(getApp());
-        const usersRef = collection(db, "users");
-
-        // Try the indexed query first; on `failed-precondition`, fall
-        // back to an un-ordered read so the screen still loads.
-        let snapshot;
-        try {
-          const q = query(usersRef, orderBy("createdAt", "desc"));
-          snapshot = await getDocs(q);
-        } catch (indexErr: any) {
-          if (indexErr?.code === "firestore/failed-precondition") {
-            console.warn(
-              "UserManagement: missing createdAt index, falling back to un-ordered read",
-            );
-            snapshot = await getDocs(usersRef);
-          } else {
-            throw indexErr;
-          }
-        }
+        // Plain un-ordered read — matches the working
+        // `VerificationQueue` pattern. No `orderBy` means no
+        // composite-index requirement, so the read always succeeds
+        // (subject to security rules) and the screen populates.
+        const snapshot = await getDocs(collection(db, "users"));
 
         if (cancelled) return;
 
@@ -111,7 +108,14 @@ export function UserManagement() {
             name: data.displayName || data.username || data.email?.split("@")[0] || "Unknown",
             email: data.email || "",
             phone: data.phone || "",
-            avatar: data.avatar || "",
+            // Map `undefined` / `""` to `null` so the avatar <Image>
+            // render path is unambiguous: a truthy avatar URL goes
+            // to <Image>; a null falls through to the initials
+            // fallback. <Image source={{ uri: "" }}> throws a
+            // "Cannot read property 'indexOf' of undefined" on
+            // Android when the URI is an empty string, so we must
+            // never let an empty string reach the <Image> source.
+            avatar: data.avatar || null,
             role: (data.role as UserRole) || "student",
             status: (data.status as UserStatus) || "active",
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -119,6 +123,16 @@ export function UserManagement() {
             verified: data.verified || false,
           });
         });
+
+        // Newest accounts first. Sort by `createdAt` ISO desc;
+        // entries that fell back to "now" (no parseable createdAt)
+        // sort to the bottom of the list.
+        fetched.sort((a, b) => {
+          const ta = new Date(a.createdAt).getTime();
+          const tb = new Date(b.createdAt).getTime();
+          return tb - ta;
+        });
+
         setUsers(fetched);
         setLoadError(null);
       } catch (err: any) {
@@ -566,7 +580,7 @@ function UserRow({
               />
             ) : (
               <Text className="text-card-title font-medium text-amber">
-                {user.name.charAt(0).toUpperCase()}
+                {(user.name?.charAt(0) ?? "?").toUpperCase()}
               </Text>
             )}
           </View>

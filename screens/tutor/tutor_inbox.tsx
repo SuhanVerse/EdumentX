@@ -180,7 +180,7 @@ function RequestCard({
         accessibilityRole="button"
         accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} request from ${request.student.name}`}
       >
-        <AvatarCircle uri={request.student.avatar} />
+        <AvatarCircle uri={request.student.avatar} name={request.student.name} />
         <View className="flex-1">
           <View className="flex-row justify-between items-center">
             <Text className="text-card-title font-medium text-text-primary">
@@ -232,11 +232,30 @@ function RequestCard({
               `location` + `serviceRadiusM` once wired. */}
           <View className="mt-3 rounded-lg overflow-hidden border border-border">
             <View className="relative">
-              <Image
-                source={{ uri: request.mapPreviewUri }}
-                className="w-full h-36"
-                resizeMode="cover"
-              />
+              {/*
+                Same guard as AvatarCircle above. A missing/empty
+                mapPreviewUri is plausible for brand-new enrollment
+                requests where the geocoding step hasn't completed;
+                <Image source={{ uri: undefined }}> crashes the
+                inbox on Android. Render a tinted placeholder tile
+                with the location pin so the request still reads
+                correctly.
+              */}
+              {typeof request.mapPreviewUri === "string" &&
+              request.mapPreviewUri.length > 0 ? (
+                <Image
+                  source={{ uri: request.mapPreviewUri }}
+                  className="w-full h-36"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="w-full h-36 bg-sand items-center justify-center gap-1.5">
+                  <MapPin size={22} color="#B45309" />
+                  <Text className="text-caption text-text-secondary">
+                    Map preview unavailable
+                  </Text>
+                </View>
+              )}
               <View className="absolute top-2 left-2 bg-night/80 rounded-sm px-2 py-1">
                 <Text className="text-micro text-white font-medium">
                   {request.serviceAreaLabel}
@@ -370,16 +389,37 @@ function StatusBadge({ action }: StatusBadgeProps) {
   );
 }
 
-type AvatarCircleProps = { uri: string };
+type AvatarCircleProps = { uri?: string | null; name?: string };
 
 /**
- * Same fallback pattern as `TutorDashboard.tsx`'s AvatarCircle — but
- * this one renders the actual network image (the dashboard's version
- * intentionally stubs it out). Swap back to an icon tile if you want
- * parity while offline-testing.
+ * Renders a network avatar image when `uri` is a truthy non-empty
+ * string; otherwise falls back to the first letter of `name` on a
+ * tinted tile.
+ *
+ * The truthy guard is required, not stylistic: React Native's
+ * `<Image source={{ uri: "" }}>` and `<Image source={{ uri: undefined }}>`
+ * throw "Cannot read property 'indexOf' of undefined" on Android
+ * because the native image factory tries to introspect the URI
+ * string with `.indexOf(...)` and bails when the value is not a
+ * non-empty string. The mock data in this file always sets `avatar`
+ * to a real URL, but real Firestore data (or a partially-saved
+ * profile) can leave it missing — and a single missing avatar would
+ * crash the whole inbox screen.
  */
-function AvatarCircle({ uri }: AvatarCircleProps) {
+function AvatarCircle({ uri, name }: AvatarCircleProps) {
+  const hasImage = typeof uri === "string" && uri.length > 0;
+  const initial = (name?.charAt(0) ?? "?").toUpperCase();
+  if (!hasImage) {
+    return (
+      <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
+        <Text className="text-card-title font-medium text-amber">{initial}</Text>
+      </View>
+    );
+  }
   return (
-    <Image source={{ uri }} className="w-10 h-10 rounded-full bg-amber-light" />
+    <Image
+      source={{ uri: uri as string }}
+      className="w-10 h-10 rounded-full bg-amber-light"
+    />
   );
 }

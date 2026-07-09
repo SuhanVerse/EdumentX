@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Image,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -30,6 +32,12 @@ import {
   writeNotification,
   notificationCopy,
 } from "@/lib/verification/notifications";
+import {
+  TUTOR_DOC_LABEL,
+  formatBytes,
+  type TutorDocument,
+} from "@/lib/verification/documents";
+import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 
 /**
  * EdumentX — Verification Queue (Admin)
@@ -91,7 +99,7 @@ type Verification = {
   rate: number;
   experience: string;
   bio: string;
-  documents: string[];
+  documents: TutorDocument[];
   status: QueueStatus;
   /** Rejection / info-request reason captured by the admin. Surfaced
    *  in the expanded card so reviewers can see context for past
@@ -319,7 +327,7 @@ export function VerificationQueue() {
           location?: string;
           headline?: string;
           bio?: string;
-          documents?: string[];
+          documents?: TutorDocument[];
           avatarUrl?: string | null;
           status?: QueueStatus;
           adminNotes?: string | null;
@@ -767,6 +775,34 @@ export function VerificationQueue() {
   );
 }
 
+/**
+ * Open a verification document in the system browser. Used by
+ * the tappable thumbnails in the verification card so the admin
+ * can review the full-resolution scan in a familiar viewer.
+ *
+ * The `url` parameter is a public-read Supabase Storage URL
+ * produced by `getVerificationDocPublicUrl`. We deliberately do
+ * NOT call `Linking.openURL` on the raw `TutorDocument.path`
+ * (e.g. `{uid}/id.jpg`) — that's a Supabase-internal path, not
+ * a browser addressable URL.
+ *
+ * On link failure (no network, no browser handler) we surface
+ * a friendly Alert instead of letting the error bubble up into
+ * the queue's `console.warn` stream.
+ */
+function openVerificationDoc(url: string, label: string): void {
+  Linking.openURL(url).catch((err) => {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[openVerificationDoc]", err);
+    }
+    Alert.alert(
+      "Could not open document",
+      `${label} couldn't be opened. Check the device's network and try again.`,
+    );
+  });
+}
+
 function SectionHeader({
   title,
   count,
@@ -820,11 +856,26 @@ function VerificationCard({
     <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
-        <Image
-          source={{ uri: item.avatar }}
-          className="w-12 h-12 rounded-full bg-sand"
-          resizeMode="cover"
-        />
+        {/*
+          The dicebear fallback in the snapshot handler always
+          produces a URL, but defensive-guard anyway: a missing
+          `avatarUrl` on a freshly-created verification doc, or a
+          malformed seed, would otherwise crash the queue with
+          "Cannot read property 'indexOf' of undefined" on Android.
+        */}
+        {typeof item.avatar === "string" && item.avatar.length > 0 ? (
+          <Image
+            source={{ uri: item.avatar }}
+            className="w-12 h-12 rounded-full bg-sand"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
+            <Text className="text-card-title font-medium text-amber">
+              {(item.name?.charAt(0) ?? "?").toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View className="flex-1 min-w-0">
           <Text className="text-card-title font-medium text-text-primary">{item.name}</Text>
           <View className="flex-row flex-wrap gap-1.5 mt-1">
@@ -859,23 +910,93 @@ function VerificationCard({
         </View>
       ) : null}
 
-      {/* Documents — placeholder thumbnails until Phase 5.1 (Supabase
-          Storage) ships. We render the label list so reviewers know
-          what was uploaded even without a real preview. */}
+      {/* Documents — tappable thumbnails. For image kinds
+          (citizenship / certificate) the thumbnail renders the
+          actual scan inline so reviewers can verify at a glance;
+          for video the label is shown and a tap opens the file in
+          the system browser. The `path` field on `TutorDocument`
+          is the Supabase Storage object path, which the
+          `getVerificationDocPublicUrl` helper turns into a
+          public-read URL on the (public-read) verification-docs
+          bucket. */}
       {item.documents.length > 0 ? (
         <View className="mb-3">
           <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">Documents</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
-            {item.documents.map((doc, i) => (
-              <View
-                key={i}
-                className="w-28 h-20 rounded-lg border border-border items-center justify-center bg-sand"
-              >
-                <Text className="text-[8px] font-medium text-text-secondary text-center px-1">
-                  {doc}
-                </Text>
-              </View>
-            ))}
+            {item.documents.map((doc, i) => {
+              const isImage = doc.kind === "citizenship" || doc.kind === "certificate";
+              // `doc.path` is required for the public-URL helper
+              // (see `getVerificationDocPublicUrl` in
+              // `services/supabase/storage.ts`). A document row
+              // without a path is a data-integrity bug, not a
+              // normal state — wrap in try/catch so the queue
+              // still renders the other docs and we surface the
+              // issue in `__DEV__` instead of crashing the whole
+              // card.
+              let publicUrl: string | null = null;
+              if (typeof doc.path === "string" && doc.path.length > 0) {
+                try {
+                  publicUrl = getVerificationDocPublicUrl(doc.path);
+                } catch (err) {
+                  if (__DEV__) {
+                    // eslint-disable-next-line no-console
+                    console.warn(
+                      "[VerificationQueue] getVerificationDocPublicUrl failed",
+                      err,
+                    );
+                  }
+                }
+              }
+              return (
+                <Pressable
+                  key={`${doc.kind}-${i}`}
+                  onPress={() =>
+                    publicUrl
+                      ? openVerificationDoc(publicUrl, TUTOR_DOC_LABEL[doc.kind])
+                      : Alert.alert(
+                          "Document unavailable",
+                          "This document's storage path is missing. The tutor needs to re-upload it.",
+                        )
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${TUTOR_DOC_LABEL[doc.kind]} for ${item.name}`}
+                  className="w-32 rounded-lg border border-border items-center bg-sand active:opacity-80 overflow-hidden"
+                >
+                  {isImage && publicUrl ? (
+                    <Image
+                      source={{ uri: publicUrl }}
+                      className="w-full h-20 bg-sand"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View className="w-full h-20 items-center justify-center bg-amber-light">
+                      <Ionicons
+                        name={isImage ? "image-outline" : "play-circle"}
+                        size={28}
+                        color="#B45309"
+                      />
+                    </View>
+                  )}
+                  <View className="w-full p-1.5">
+                    <Text
+                      className="text-[9px] font-semibold text-text-primary text-center"
+                      numberOfLines={1}
+                    >
+                      {TUTOR_DOC_LABEL[doc.kind]}
+                    </Text>
+                    <Text
+                      className="text-[8px] text-text-secondary text-center mt-0.5"
+                      numberOfLines={1}
+                    >
+                      {doc.name}
+                    </Text>
+                    <Text className="text-[8px] text-text-muted text-center mt-0.5">
+                      {formatBytes(doc.bytes)}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
       ) : null}
@@ -951,11 +1072,19 @@ function PendingEditCard({
     <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
-        <Image
-          source={{ uri: edit.avatar }}
-          className="w-12 h-12 rounded-full bg-sand"
-          resizeMode="cover"
-        />
+        {typeof edit.avatar === "string" && edit.avatar.length > 0 ? (
+          <Image
+            source={{ uri: edit.avatar }}
+            className="w-12 h-12 rounded-full bg-sand"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
+            <Text className="text-card-title font-medium text-amber">
+              {(edit.name?.charAt(0) ?? "?").toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View className="flex-1 min-w-0">
           <Text className="text-card-title font-medium text-text-primary">
             {edit.name}
@@ -1044,11 +1173,19 @@ function DecidedRow({ item }: { item: Verification }) {
     <Pressable
       className="bg-surface border border-border-subtle rounded-card p-3 mb-2 flex-row items-center gap-3 opacity-80 active:opacity-60"
     >
-      <Image
-        source={{ uri: item.avatar }}
-        className="w-10 h-10 rounded-full bg-sand"
-        resizeMode="cover"
-      />
+      {typeof item.avatar === "string" && item.avatar.length > 0 ? (
+        <Image
+          source={{ uri: item.avatar }}
+          className="w-10 h-10 rounded-full bg-sand"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
+          <Text className="text-card-title font-medium text-amber">
+            {(item.name?.charAt(0) ?? "?").toUpperCase()}
+          </Text>
+        </View>
+      )}
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-card-title font-medium text-text-primary">

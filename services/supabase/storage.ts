@@ -233,3 +233,35 @@ export async function uploadVerificationDoc(
 
   return { path };
 }
+
+/**
+ * Public read URL for a verification doc inside the
+ * `private-verification-docs` bucket.
+ *
+ * Why we expose a *public* URL on a *private*-named bucket: the
+ * EdumentX project is on the Supabase free tier (no card, no
+ * Cloud Functions). The only way for the admin client to render
+ * a tutor's citizenship scan / certificate is to make the file
+ * readable without a signed URL. Writes remain owner-only — a
+ * tutor can only upload to their own `{uid}/...` path because
+ * `uploadVerificationDoc` is called with the signed-in user's
+ * uid as the first segment. Reads are public so the admin queue
+ * can render an `<Image>` preview and the admin can tap to
+ * open the file in the system browser.
+ *
+ * If we ever add a Cloud Function on a paid plan, this helper
+ * becomes `getSignedUrl` (server-minted, time-limited) and the
+ * bucket is flipped back to private-read. Until then this is
+ * the cheapest path that keeps the admin flow working on the
+ * free tier.
+ *
+ * @param path Storage object path, e.g. `{uid}/id.jpg`.
+ */
+export function getVerificationDocPublicUrl(path: string): string {
+  if (!path) throw new Error("[getVerificationDocPublicUrl] path is required");
+  const supabase = getSupabase();
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET.VERIFICATION_DOCS).getPublicUrl(path);
+  return publicUrl;
+}
