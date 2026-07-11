@@ -70,6 +70,10 @@ type InitialValues = {
   monthlyRateNpr: number;
   location: LocationValue | null;
   documents: TutorDocument[];
+  /** Current avatar URL — propagated into the `current` snapshot
+   *  so the admin queue can render the tutor's profile picture
+   *  on the PendingEditCard. */
+  photoUrl: string | null;
 };
 
 /**
@@ -117,9 +121,6 @@ type InitialValues = {
 export function EditTeachingDetails() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const setTutorVerificationStatus = useAuthStore(
-    (s) => s.setTutorVerificationStatus,
-  );
 
   const [initial, setInitial] = useState<InitialValues | null>(null);
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -168,6 +169,12 @@ export function EditTeachingDetails() {
               monthlyRateNpr?: number;
               location?: LocationValue | null;
               documents?: TutorDocument[];
+              /** Avatar URL — included in the `current` snapshot so
+               *  the admin queue's PendingEditCard can render the
+               *  tutor's actual profile picture instead of a DiceBear
+               *  fallback. See `screens/admin/VerificationQueue.tsx`
+               *  `avatar: data.current?.photoUrl ?? dicebear`. */
+              photoUrl?: string | null;
             }
           | undefined;
         const docs = Array.isArray(d?.documents) ? d!.documents : [];
@@ -180,6 +187,9 @@ export function EditTeachingDetails() {
             typeof d?.monthlyRateNpr === "number" ? d!.monthlyRateNpr : 0,
           location: d?.location ?? null,
           documents: docs,
+          // Capture the current photoUrl so the `current` snapshot
+          // in tutorProfileUpdates includes it for the admin queue.
+          photoUrl: typeof d?.photoUrl === "string" ? d.photoUrl : null,
         };
         setInitial(init);
         setSubjects(init.subjects);
@@ -381,6 +391,12 @@ export function EditTeachingDetails() {
             monthlyRateNpr: initial.monthlyRateNpr,
             location: initial.location,
             documents: initial.documents,
+            // Include the current avatar URL so the admin queue's
+            // PendingEditCard can render the tutor's real photo
+            // instead of DiceBear. The `photoUrl` is a live-editable
+            // field (see `lib/verification/editableFields.ts`) and
+            // lives on the profile doc.
+            photoUrl: initial.photoUrl,
           },
           proposed,
           documents: proposedDocs,
@@ -405,8 +421,16 @@ export function EditTeachingDetails() {
       // render. The dashboard's `ReviewBanner` reads
       // `hasPendingUpdate` off the doc directly, so this is the
       // *guard* flip, not the *banner* flip.
-      setTutorVerificationStatus("pending");
-      router.replace("/tutor-pending");
+      // For a verified tutor submitting an update, we navigate back
+      // to the tutor dashboard instead of /tutor-pending. The profile
+      // doc already has `hasPendingUpdate: true` (written by the batch
+      // above), so the dashboard's `ReviewBanner` will show the
+      // "under review" message. We do NOT set the store's
+      // `tutorVerificationStatus` to "pending" — that would trigger
+      // the layout guard (app/_layout.tsx) to block the dashboard and
+      // route to /tutor-pending, creating a flicker. The tutor stays
+      // on the dashboard with a banner until the admin acts.
+      router.replace("/tutor-home");
     } catch (err) {
       console.error("EditTeachingDetails: writeBatch failed", err);
       const code =
@@ -603,9 +627,9 @@ export function EditTeachingDetails() {
                 accessibilityLabel="Discard changes"
                 onPress={handleDiscard}
                 disabled={saving}
-                className="flex-1 h-btn rounded-card bg-sand items-center justify-center active:opacity-80 disabled:opacity-60"
+                className="flex-1 h-btn rounded-card bg-sand border border-border items-center justify-center active:opacity-80 disabled:opacity-60"
               >
-                <Text className="text-button-sm font-medium text-text-secondary">
+                <Text className="text-button-sm font-medium text-text-primary">
                   Discard
                 </Text>
               </Pressable>
@@ -614,7 +638,7 @@ export function EditTeachingDetails() {
                 accessibilityLabel="Save changes and submit for review"
                 onPress={handleSave}
                 disabled={!canSubmit || saving}
-                className="flex-1 h-btn rounded-card bg-amber items-center justify-center flex-row gap-2 active:opacity-90 disabled:opacity-60"
+                className="flex-1 h-btn rounded-card bg-amber border border-warning/20 items-center justify-center flex-row gap-2 active:opacity-90 disabled:opacity-60"
               >
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />

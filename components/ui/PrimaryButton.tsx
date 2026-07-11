@@ -88,6 +88,12 @@ export function PrimaryButton({
 
   const isInactive = disabled || loading;
 
+  // For the `ghost` variant, the disabled opacity makes the already-
+  // thin border + muted text nearly invisible. We override the opacity
+  // to keep the label readable while still indicating the disabled state.
+  const disabledOpacity = variant === 'ghost' ? 'opacity-50' : 'opacity-60';
+  const activeOpacity = variant === 'ghost' ? 'active:opacity-70' : 'active:opacity-90';
+
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -103,7 +109,7 @@ export function PrimaryButton({
       }}
       style={animatedStyle}
       className={`${SIZE[size]} ${VARIANT_BG[variant]} rounded-card flex-row items-center justify-center gap-2 ${
-        isInactive ? 'opacity-60' : 'active:opacity-90'
+        isInactive ? disabledOpacity : activeOpacity
       } ${className}`}
     >
       {loading ? (

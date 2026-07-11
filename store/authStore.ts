@@ -56,6 +56,28 @@ interface AuthState {
    */
   hasAdminProfile: boolean;
   /**
+   * True when the user's role was read from Firestore (i.e. the user
+   * already has a `users/{uid}.role` or `admins/{uid}` doc in the
+   * database). False for first-time users whose role was set locally
+   * by `RoleSelection.handleContinue` but not yet persisted.
+   *
+   * The profile-setup screens read this flag to decide what to do
+   * when the user presses Back:
+   *   - `true`:  the user is a returning visitor (or a rejected tutor
+   *              resubmitting). The Back button routes to the matching
+   *              dashboard without losing any data.
+   *   - `false`: the user is brand-new. The Back button resets the
+   *              local role to `null` and routes to /role-selection,
+   *              where the "Leave role selection?" Alert lets them
+   *              sign out cleanly.
+   *
+   * Defaulted to `false`. Set to `true` by the auth listener in
+   * `_layout.tsx` when the Firestore user doc has a role, and set to
+   * `false` by `RoleSelection.handleContinue` when the user is on
+   * their first-time flow (no existing role in Firestore).
+   */
+  hasExistingRole: boolean;
+  /**
    * Denormalized mirror of the tutor's verification status. Read
    * from `users/{uid}/tutorProfile/default.verificationStatus` by the
    * `onAuthStateChanged` callback and kept in sync via `onSnapshot`
@@ -70,6 +92,7 @@ interface AuthState {
   setUser: (user: FirebaseAuthTypes.User | null) => void;
   setRole: (role: UserRole) => void;
   setHasAdminProfile: (hasAdminProfile: boolean) => void;
+  setHasExistingRole: (hasExistingRole: boolean) => void;
   setTutorVerificationStatus: (status: TutorVerificationStatus) => void;
   setLoading: (isLoading: boolean) => void;
   /**
@@ -87,11 +110,12 @@ interface AuthState {
 // the reset path stay in lock-step.
 const initialState: Pick<
   AuthState,
-  'user' | 'role' | 'hasAdminProfile' | 'tutorVerificationStatus'
+  'user' | 'role' | 'hasAdminProfile' | 'hasExistingRole' | 'tutorVerificationStatus'
 > = {
   user: null,
   role: null,
   hasAdminProfile: false,
+  hasExistingRole: false,
   tutorVerificationStatus: null,
 };
 
@@ -99,11 +123,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   role: null,
   hasAdminProfile: false,
+  hasExistingRole: false,
   tutorVerificationStatus: null,
   isLoading: true, // true by default until Firebase auth initializes
   setUser: (user) => set({ user }),
   setRole: (role) => set({ role }),
   setHasAdminProfile: (hasAdminProfile) => set({ hasAdminProfile }),
+  setHasExistingRole: (hasExistingRole) => set({ hasExistingRole }),
   setTutorVerificationStatus: (tutorVerificationStatus) =>
     set({ tutorVerificationStatus }),
   setLoading: (isLoading) => set({ isLoading }),

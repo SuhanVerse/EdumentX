@@ -370,12 +370,14 @@ export function EditTutorProfile() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <StatusBar style="dark" />
 
-      {/* Hero header — slate, matches the 5 other tutor surfaces. */}
+      {/* Hero header — shows the tutor's name (or fallback) instead
+          of a hardcoded "Your account" label. The text-display token
+          matches the other student/tutor surfaces. */}
       <View className="bg-night px-5 pb-6 shrink-0">
         <Text className="text-body text-white/70 mb-0.5 mt-2">Profile</Text>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-display text-white">
-            Your account
+            {form.fullName || form.email || 'Your account'}
           </Text>
         </View>
       </View>

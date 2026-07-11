@@ -92,9 +92,18 @@ service cloud.firestore {
     match /tutorVerifications/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
-      allow update: if isAdmin() &&
-        request.resource.data.status in
-          ["pending", "approved", "rejected", "more_info"];
+      // Owner can update their own doc ONLY when transitioning from
+      // "rejected" or "more_info" back to "pending" (resubmission).
+      // This is secure because:
+      //   - The owner cannot self-approve (can only set status to "pending")
+      //   - The owner cannot update a doc that's "pending" or "approved"
+      //   - The owner cannot change the status to anything other than "pending"
+      // Admins can always update to any valid status.
+      allow update: if (isOwner(uid)
+                      && resource.data.status in ["rejected", "more_info"]
+                      && request.resource.data.status == "pending")
+                    || (isAdmin() && request.resource.data.status in
+                      ["pending", "approved", "rejected", "more_info"]);
       allow delete: if false;
     }
 
@@ -103,10 +112,28 @@ service cloud.firestore {
     // review instead of writing straight to `tutorProfile`. While a
     // doc is `pending`, the tutor's `hasPendingUpdate` flag is set
     // and student search/map queries filter the tutor out entirely.
+    //
+    // Why `allow update` also permits the owner when status is
+    // "pending": a tutor who has previously submitted an edit and had
+    // it reviewed (approved or rejected) may open the edit screen
+    // again for a new submission. Their old `tutorProfileUpdates/{uid}`
+    // doc still exists (with status "approved" or "rejected"), and
+    // `batch.set(..., { merge: true })` on an existing doc is treated
+    // as an `update` in the security rules. Without owner-update
+    // permission for the "pending" status, the tutor gets
+    // `permission-denied` on every re-submission.
+    //
+    // Security is preserved:
+    //   - A tutor can only write their own doc with status "pending"
+    //   - A tutor cannot change the status of an existing doc
+    //     (create requires "pending", update with different status
+    //     requires admin)
+    //   - Admins can change status to approve/reject
     match /tutorProfileUpdates/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
-      allow update: if isAdmin();
+      allow update: if (isOwner(uid) && request.resource.data.status == "pending")
+                    || isAdmin();
       allow delete: if false;
     }
 

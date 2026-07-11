@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
@@ -67,7 +67,7 @@ export function AdminHome() {
   // Count badges are derived from MOCK_ADMIN_STATS for now. Phase 5
   // will swap this for a `useEffect` reading Firestore count
   // queries on mount.
-  const pendingTutorReviews = MOCK_ADMIN_STATS.pendingTutorReviews;
+  const pendingTutorReviews = null;
   const totalUsers = MOCK_ADMIN_STATS.totalUsers;
   const suspendedUsers = MOCK_ADMIN_STATS.suspendedUsers;
 

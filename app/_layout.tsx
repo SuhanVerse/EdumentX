@@ -60,6 +60,7 @@ export default function RootLayout() {
   const setUser = useAuthStore((state) => state.setUser);
   const setRole = useAuthStore((state) => state.setRole);
   const setHasAdminProfile = useAuthStore((state) => state.setHasAdminProfile);
+  const setHasExistingRole = useAuthStore((state) => state.setHasExistingRole);
   const setTutorVerificationStatus = useAuthStore(
     (state) => state.setTutorVerificationStatus,
   );
@@ -68,6 +69,20 @@ export default function RootLayout() {
   // Track the currently-signed-in uid so we only fetch the user doc when it
   // actually changes (not on every state callback).
   const lastUidRef = useRef<string | null>(null);
+
+  // Navigation lock: prevents overlapping `router.replace()` calls that
+  // would trigger React Navigation's "configured linking in multiple
+  // places" error. The guard effect can fire multiple times before a
+  // replace completes (e.g., when the user presses Back from
+  // role-selection, which triggers a segment change, which re-runs
+  // the guard). `navLockRef` tracks whether we're mid-navigation and
+  // skips subsequent replaces until the current one lands.
+  const navLockRef = useRef(false);
+  // Timer ID for the nav lock release. Stored in a ref so the effect
+  // cleanup can cancel it if the effect re-runs before the timeout
+  // fires — without this, a stale `setTimeout` could release the lock
+  // while a new navigation is in progress.
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Give gesture-handler one frame to register its TurboModule before
@@ -124,15 +139,46 @@ export default function RootLayout() {
     if (!isNavigatorReady) return;
     if (isLoading) return;
 
-    // No rAF wrap here — the reference working commit fires
-    // `router.replace` synchronously inside the effect body once
-    // `useRootNavigationState().key` is truthy. The previous Round 3
-    // rAF wrap deferred past the navigator's internal mount handoff,
-    // but the user reports that restore-to-reference is the
-    // authoritative fix for the auth-flow regressions. If the
-    // "navigate before mounting" error recurs in a future emulator
-    // run we can reintroduce the rAF with the cancelAnimationFrame
-    // cleanup; for now parity with the working reference wins.
+    // Navigation lock: if a `router.replace()` is already in flight,
+    // skip this guard pass. Without this lock, rapid navigation
+    // (e.g. pressing Back from role-selection while the guard is
+    // evaluating) can trigger overlapping replace calls, causing
+    // React Navigation to emit "configured linking in multiple places".
+    if (navLockRef.current) return;
+    navLockRef.current = true;
+    // Release the lock after a frame so the next guard pass can fire.
+    // We use a timeout (not RAF) so the lock outlives the current
+    // render cycle and any immediately-following ones. The timer ID
+    // is stored in a ref so the effect cleanup can cancel it on
+    // dependency changes — without this, a stale timeout could release
+    // the lock while a new navigation is in progress.
+    const releaseTimer = setTimeout(() => { navLockRef.current = false; }, 100);
+    navTimerRef.current = releaseTimer;
+
+    // `useRootNavigationState().key` is a *probabilistic* ready
+    // signal — it can be `null` on the first render, become truthy
+    // on the second, and become `null` again if expo-router
+    // internally re-mounts the Stack on auth-state change. The
+    // window in which it reads `true` but the navigator has not
+    // yet published its `key` is exactly the window in which
+    // `router.replace(...)` throws "Attempted to navigate before
+    // mounting the Root Layout component."
+    //
+    // `requestAnimationFrame` is the *deterministic* primitive:
+    // it always fires after the current frame's paint, by which
+    // time the Stack's `key` is guaranteed to be published. The
+    // `cancelAnimationFrame` cleanup cancels any pending rAF if the
+    // effect's dependencies flip again before the frame fires
+    // (e.g. `user` changes from `null` to a `User` mid-frame), so
+    // we never have two rAFs racing the same Stack mount.
+    //
+    // This replaces an earlier synchronous `router.replace` call
+    // (see the June 21, 2026 audit, "navigate before mounting"
+    // bug). The `useRootNavigationState()` guard is kept as a
+    // short-circuit for the first 0–1 renders before the
+    // navigator exists at all, but the rAF is the actual ordering
+    // guarantee.
+    const raf = requestAnimationFrame(() => {
     const currentRoute = segments.join("/");
 
     if (!user) {
@@ -279,6 +325,21 @@ export default function RootLayout() {
     if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
       router.replace(target);
     }
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current);
+        navTimerRef.current = null;
+      }
+      // CRITICAL: release the navigation lock when the effect
+      // re-runs (e.g. after `segments` change from a route
+      // replacement). Without this, `navLockRef.current` stays
+      // `true` forever because the cleanup cleared the timeout
+      // before it could fire — permanently blocking all future
+      // guard passes and making the app unable to navigate.
+      navLockRef.current = false;
+    };
   }, [
     user,
     role,
@@ -379,8 +440,7 @@ export default function RootLayout() {
         // If `role` is null (e.g. the user just signed back in
         // after `reset()`), always re-fetch — the doc may now
         // contain a role that wasn't there before.
-        const cachedRole = useAuthStore.getState().role;
-        if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
+        const cachedRole = useAuthStore.getState().role;          if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
           setLoading(false);
           return;
         }
@@ -428,6 +488,21 @@ export default function RootLayout() {
           const finalRole: UserRole = isAdmin ? "admin" : roleValue;
           if (isAdmin) {
             setRole("admin");
+            setHasExistingRole(true);
+          }
+
+          // If the role came from Firestore (not from a local
+          // RoleSelection setRole), mark it as existing so the
+          // profile screen Back button knows to route to the
+          // dashboard instead of clearing the role and going back
+          // to role-selection.
+          const isReturningUser =
+            !isAdmin && roleValue !== null;
+          if (isReturningUser) {
+            setHasExistingRole(true);
+          } else if (!isAdmin) {
+            // First-time user with no role in Firestore.
+            setHasExistingRole(false);
           }
 
           // If this user is now an admin, look up their

@@ -42,6 +42,7 @@
     "expo-router": "~6.0.24",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-video": "~3.0.16",
     "firebase-admin": "^14.1.0",
     "lucide-react-native": "^1.21.0",
     "nativewind": "^4.2.5",

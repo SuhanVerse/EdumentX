@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
@@ -98,6 +99,11 @@ export function AdminProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof AdminProfile, string>>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  // Snapshot of the profile at the moment editing began, used to
+  // detect whether any actual changes were made and to enable the
+  // Save button only when something has changed.
+  const [editingSnapshot, setEditingSnapshot] = useState<AdminProfile | null>(null);
 
   // Load existing profile (if any). On first sign-in the doc is
   // missing, the snapshot returns `undefined`, and we leave the
@@ -239,32 +245,20 @@ export function AdminProfile() {
     }
   }
 
+  // Inline confirm dialog state — matches the pattern used in
+  // `tutor/edit_profile.tsx` and `StudentProfile.tsx` (custom
+  // `ConfirmDialog` overlay instead of a native Alert).
+  const [confirmLogout, setConfirmLogout] = useState(false);
+
   /**
-   * Sign-out confirmation wrapper.
-   *
-   * `Alert.alert` is a native confirm dialog on both iOS and
-   * Android — pressing the destructive button is the only path
-   * to the real `handleSignOut`. This matches the pattern used
-   * in `StudentHome.tsx` and `tutor/edit_profile.tsx` so admins
-   * get the same "Are you sure?" affordance students and tutors
-   * see. A misplaced tap should never end a session.
+   * Sign-out confirmation handler. Uses the custom `ConfirmDialog`
+   * overlay (matching the Tutor Profile pattern) instead of a native
+   * Alert. The dialog shows "Log out?" / "Log out" / "Stay signed in"
+   * to match the language used on the student and tutor profiles.
    */
   function handleSignOutConfirm() {
     if (isSigningOut) return;
-    Alert.alert(
-      "Sign out?",
-      "You'll need to sign in again next time.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign out",
-          style: "destructive",
-          onPress: () => {
-            void handleSignOut();
-          },
-        },
-      ],
-    );
+    setConfirmLogout(true);
   }
 
   /**
@@ -276,10 +270,11 @@ export function AdminProfile() {
    * `router.back()`, which silently no-op'd when the stack was
    * empty — leaving the admin trapped on this screen. The only
    * safe ways out are: (a) finish the form and save, or (b) sign
-   * out. We expose (b) prominently in the hero so the admin is
-   * never stuck.
+   * out. We expose (b) at the bottom of the form so the admin can
+   * always find it, matching the Tutor Profile layout.
    */
   async function handleSignOut() {
+    setConfirmLogout(false);
     if (isSigningOut) return;
     setIsSigningOut(true);
     try {
@@ -297,11 +292,41 @@ export function AdminProfile() {
     }
   }
 
+  /** Start editing — save a snapshot of the current values so we
+   *  can detect dirty state and discard cleanly. */
+  function startEditing() {
+    setEditingSnapshot({ ...profile });
+    setIsEditing(true);
+    setErrors({});
+  }
+
+  /** Discard changes — revert to the snapshot and exit edit mode. */
+  function discardEditing() {
+    if (editingSnapshot) {
+      setProfile({ ...editingSnapshot });
+    }
+    setIsEditing(false);
+    setEditingSnapshot(null);
+    setErrors({});
+  }
+
+  // Determine if the form has any actual modifications compared to
+  // the snapshot. The save button is disabled when nothing changed.
+  const hasChanges =
+    !!editingSnapshot &&
+    (profile.fullName !== editingSnapshot.fullName ||
+      profile.roleTitle !== editingSnapshot.roleTitle ||
+      profile.phone !== editingSnapshot.phone);
+
+  // During first-time setup, the admin is always in "editing" mode
+  // and doesn't need `hasChanges` to be true (the form starts empty).
+  // For returning admins, they must enter edit mode AND make changes.
   const canSave =
     !isSaving &&
     !loading &&
     profile.fullName.trim().length > 0 &&
-    profile.roleTitle.trim().length > 0;
+    profile.roleTitle.trim().length > 0 &&
+    (isFirstTime || (isEditing && hasChanges));
 
   return (
     <SafeAreaView className="flex-1 bg-night">
@@ -312,8 +337,8 @@ export function AdminProfile() {
       >
         {/* Hero — mirrors StudentProfileScreen's "Set up your profile"
             header. Dark navy bg, large white title, lighter caption.
-            The Sign out pill lives in the top-right so a stranded
-            admin can always reach it, even before scrolling. */}
+            No sign-out pill in the hero — it's moved to the bottom of
+            the form to match the Tutor Profile layout. */}
         <View className="gap-2 px-5 pt-4 pb-10 bg-night">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 min-w-0">
@@ -329,22 +354,6 @@ export function AdminProfile() {
                   : "Update your display name, role title, or phone."}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign out"
-              onPress={handleSignOutConfirm}
-              disabled={isSigningOut}
-              className="flex-row items-center gap-1.5 px-3 py-2 rounded-pill bg-white/10 active:opacity-70 disabled:opacity-50"
-            >
-              <Ionicons
-                color="#FFFFFF"
-                name="log-out-outline"
-                size={16}
-              />
-              <Text className="text-button-sm font-medium text-white">
-                {isSigningOut ? "Signing out..." : "Sign out"}
-              </Text>
-            </Pressable>
           </View>
         </View>
 
@@ -380,6 +389,7 @@ export function AdminProfile() {
                   placeholder="e.g. Asim Poudel"
                   placeholderTextColor={colors.text.muted}
                   value={profile.fullName}
+                  editable={isFirstTime || isEditing}
                 />
               </View>
               {errors.fullName ? (
@@ -405,6 +415,7 @@ export function AdminProfile() {
                   placeholderTextColor={colors.text.muted}
                   value={profile.roleTitle}
                   maxLength={ROLE_TITLE_MAX}
+                  editable={isFirstTime || isEditing}
                 />
               </View>
               {errors.roleTitle ? (
@@ -440,6 +451,7 @@ export function AdminProfile() {
                   placeholder="Digits only, e.g. 9841234567"
                   placeholderTextColor={colors.text.muted}
                   value={profile.phone}
+                  editable={isFirstTime || isEditing}
                 />
               </View>
               {errors.phone ? (
@@ -474,49 +486,103 @@ export function AdminProfile() {
             </View>
           </View>
 
-          {/* Save button — bg-night matches the hero palette (the
-              admin app's accent color is dark navy, not amber like
-              the student app). */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isFirstTime ? "Save and continue" : "Save changes"}
-            disabled={!canSave}
-            onPress={handleSave}
-            className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-night active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              {isSaving
-                ? "Saving..."
-                : isFirstTime
-                  ? "Save and continue"
-                  : "Save changes"}
-            </Text>
-          </Pressable>
+          {/* Action buttons — two modes:
+                First-time setup: always show "Save and continue"
+                Returning admin: show "Edit" → then "Save changes" + "Discard changes" */}
+          {isFirstTime ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save and continue"
+              disabled={!canSave}
+              onPress={handleSave}
+              className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-night active:opacity-90 active:scale-[0.98] disabled:opacity-60 self-center w-full max-w-sm"
+            >
+              <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
+                {isSaving ? "Saving..." : "Save and continue"}
+              </Text>
+            </Pressable>
+          ) : !isEditing ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile"
+              onPress={startEditing}
+              className="min-h-btn-lg rounded-card items-center justify-center border-2 border-border bg-surface active:opacity-80 self-center w-full max-w-sm flex-row gap-2"
+            >
+              <Ionicons name="pencil-outline" size={18} color="#26302B" />
+              <Text className="text-button text-base font-semibold text-text-primary">
+                Edit
+              </Text>
+            </Pressable>
+          ) : (
+            <View className="flex-row gap-3 w-full max-w-sm self-center">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Discard changes"
+                onPress={discardEditing}
+                disabled={isSaving}
+                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-surface border border-border active:opacity-80 disabled:opacity-60"
+              >
+                <Text className="text-button font-medium text-text-secondary">
+                  Discard changes
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save changes"
+                disabled={!canSave}
+                onPress={handleSave}
+                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-night active:opacity-90 disabled:opacity-60"
+              >
+                <Text className="text-button font-semibold text-white disabled:text-text-muted">
+                  {isSaving ? "Saving..." : "Save changes"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {!isFirstTime ? (
-            <Text className="text-caption text-text-muted text-center">
+            <Text className="text-caption text-text-muted text-center mb-4">
               Last updated: {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </Text>
-          ) : null}
+          ) : (
+            <View className="mb-4" />
+          )}
 
-          {/* Sign-out escape hatch, also rendered below the form so
-              an admin who has scrolled the hero out of view still
-              has a way out. `router.back()` is unreliable here
-              because the auth guard routes brand-new admins straight
-              to this screen with an empty back stack. */}
+          {/* Log out — at the bottom, matching the Tutor Profile and
+              Student Profile layout. Uses the same styling:
+              `bg-surface border border-border` card with a danger-
+              colored icon and label. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Sign out"
+            accessibilityLabel="Log out"
             onPress={handleSignOutConfirm}
             disabled={isSigningOut}
-            className="min-h-pill-sm items-center justify-center mt-2 active:opacity-70 disabled:opacity-50"
+            className="min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
           >
-            <Text className="text-button-sm text-text-muted">
-              {isSigningOut ? "Signing out..." : "Sign out instead"}
+            <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+            <Text className="text-button font-semibold text-danger">
+              {isSigningOut ? "Logging out..." : "Log out"}
             </Text>
           </Pressable>
+
+          <Text className="text-caption text-text-muted text-center mt-6">
+            EdumentX · v1.0 · build 2026.07.08
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom confirmation overlay — not a native Alert, matches
+          the Tutor Profile and Student Profile pattern. */}
+      <ConfirmDialog
+        visible={confirmLogout}
+        title="Log out?"
+        message="You'll need to sign in again next time you open EdumentX."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        destructive
+        onConfirm={handleSignOut}
+        onCancel={() => setConfirmLogout(false)}
+      />
     </SafeAreaView>
   );
 }
