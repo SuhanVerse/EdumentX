@@ -1,4 +1,19 @@
+import { ImageViewerModal } from "@/components/ui/ImageViewer";
+import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from "@react-native-firebase/firestore";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -11,35 +26,20 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ImageViewerModal } from "@/components/ui/ImageViewer";
-import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  setDoc,
-  where,
-  writeBatch,
-  serverTimestamp,
-} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { useAuthStore } from "@/store/authStore";
-import {
-  writeNotification,
-  notificationCopy,
-} from "@/lib/verification/notifications";
 import {
   TUTOR_DOC_LABEL,
   formatBytes,
   type TutorDocument,
 } from "@/lib/verification/documents";
+import {
+  notificationCopy,
+  writeNotification,
+} from "@/lib/verification/notifications";
 import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
+import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Verification Queue (Admin)
@@ -1150,8 +1150,8 @@ function VerificationCard({
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
-            <Text className="text-card-title font-medium text-amber">
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
               {(item.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
           </View>
@@ -1329,7 +1329,7 @@ function DocumentThumbnail({
           resizeMode="cover"
         />
       ) : (
-        <View className="w-full h-20 items-center justify-center bg-amber-light">
+        <View className="w-full h-20 items-center justify-center bg-accent-light">
           <Ionicons
             name={isImage ? "image-outline" : "play-circle"}
             size={28}
@@ -1355,7 +1355,7 @@ function DocumentThumbnail({
 /**
  * Pending edit card — renders a row per changed field with the old
  * value (struck through, dimmed) and the new value (highlighted in
- * amber). If the edit includes document changes, the proposed
+ * accent). If the edit includes document changes, the proposed
  * documents are shown as image thumbnails (same size as the
  * VerificationCard preview) so the admin can visually verify the
  * new scans. Approve/Reject buttons at the bottom. There is no
@@ -1394,8 +1394,8 @@ function PendingEditCard({
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
-            <Text className="text-card-title font-medium text-amber">
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
               {(edit.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
           </View>
@@ -1462,7 +1462,7 @@ function PendingEditCard({
                 </Text>
                 <Ionicons name="arrow-forward" size={12} color="#6B7268" />
                 <Text
-                  className="text-body-sm font-medium text-amber"
+                  className="text-body-sm font-medium text-accent"
                   numberOfLines={1}
                 >
                   {f.newValue}
@@ -1521,8 +1521,8 @@ function DecidedRow({ item }: { item: Verification }) {
           resizeMode="cover"
         />
       ) : (
-        <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
-          <Text className="text-card-title font-medium text-amber">
+        <View className="w-10 h-10 rounded-full bg-accent-light items-center justify-center">
+          <Text className="text-card-title font-medium text-accent">
             {(item.name?.charAt(0) ?? "?").toUpperCase()}
           </Text>
         </View>
@@ -1578,7 +1578,7 @@ function StatusBadge({ status }: { status: QueueStatus }) {
 function EmptyState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
-      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
+      <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
         <Ionicons name="shield-checkmark" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">

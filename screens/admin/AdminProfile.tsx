@@ -42,7 +42,7 @@ import { useAuthStore } from "@/store/authStore";
  *
  * Visual language mirrors `screens/auth/StudentProfileScreen.tsx`:
  * `bg-night` hero with white text, `bg-background` body, `bg-surface`
- * form cards with `border-border-subtle`. The dark hero + amber-style
+ * form cards with `border-border-subtle`. The dark hero + accent-style
  * accent is the same shape the student setup uses, so admins
  * recognize the flow as "complete your profile" rather than a
  * separate admin-only surface.

@@ -1,4 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  serverTimestamp,
+  writeBatch
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -12,15 +20,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  writeBatch,
-} from "@react-native-firebase/firestore";
 
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
@@ -638,7 +637,7 @@ export function EditTeachingDetails() {
                 accessibilityLabel="Save changes and submit for review"
                 onPress={handleSave}
                 disabled={!canSubmit || saving}
-                className="flex-1 h-btn rounded-card bg-amber border border-warning/20 items-center justify-center flex-row gap-2 active:opacity-90 disabled:opacity-60"
+                className="flex-1 h-btn rounded-card bg-accent border border-warning/20 items-center justify-center flex-row gap-2 active:opacity-90 disabled:opacity-60"
               >
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />

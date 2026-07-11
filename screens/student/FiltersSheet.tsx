@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { SecondaryButton } from "@/components/ui/SecondaryButton";
 import {
   Animated,
   Easing,
@@ -439,20 +441,22 @@ export function FiltersSheet({
 
           {/* Footer */}
           <View className="flex-row gap-3 px-5 pt-3 pb-6 border-t border-border">
-            <Pressable
-              onPress={reset}
-              className="flex-1 h-12 rounded-card bg-surface border border-border items-center justify-center active:opacity-80"
-            >
-              <Text className="text-button text-text-primary">Reset</Text>
-            </Pressable>
-            <Pressable
-              onPress={onClose}
-              className="flex-[2] h-12 rounded-card bg-amber items-center justify-center active:opacity-80"
-            >
-              <Text className="text-button text-text-inverse font-semibold">
-                Show {resultCount} result{resultCount === 1 ? "" : "s"}
-              </Text>
-            </Pressable>
+            <View className="flex-1">
+              <SecondaryButton
+                label="Reset"
+                onPress={reset}
+                size="sm"
+              />
+            </View>
+            <View className="flex-[2]">
+              <PrimaryButton
+                label={`Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
+                onPress={onClose}
+                variant="accent"
+                size="md"
+                className="w-full"
+              />
+            </View>
           </View>
         </Animated.View>
       </View>

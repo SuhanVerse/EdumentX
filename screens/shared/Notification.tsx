@@ -94,8 +94,8 @@ const TYPE_META: Record<NotifType, NotifMeta> = {
   },
   enrollment: {
     icon: "calendar",
-    bgClass: "bg-amber-light",
-    fgClass: "text-amber",
+    bgClass: "bg-accent-light",
+    fgClass: "text-accent",
     label: "Enrollment",
     description: "Session confirmations, schedule changes, batch invites.",
   },
@@ -366,7 +366,7 @@ export function NotificationsCenter() {
               onPress={() => setTab(t)}
               className={
                 isActive
-                  ? "mr-1.5 px-4 py-2 rounded-pill bg-amber active:opacity-80"
+                  ? "mr-1.5 px-4 py-2 rounded-pill bg-accent active:opacity-80"
                   : "mr-1.5 px-4 py-2 rounded-pill bg-sand active:opacity-80"
               }
             >
@@ -427,7 +427,7 @@ function Row({ n, onPress }: { n: NotifRow; onPress: () => void }) {
       className={
         n.read
           ? "flex-row gap-3 px-5 py-4 border-b border-border bg-surface active:opacity-80"
-          : "flex-row gap-3 px-5 py-4 border-b border-border bg-amber-light/30 active:opacity-80"
+          : "flex-row gap-3 px-5 py-4 border-b border-border bg-accent-light/30 active:opacity-80"
       }
     >
       <View
@@ -443,7 +443,7 @@ function Row({ n, onPress }: { n: NotifRow; onPress: () => void }) {
           >
             {n.title}
           </Text>
-          {!n.read && <View className="w-1.5 h-1.5 rounded-pill bg-amber" />}
+          {!n.read && <View className="w-1.5 h-1.5 rounded-pill bg-accent" />}
         </View>
         <Text
           className="text-body text-text-secondary leading-5 mb-1"
@@ -493,7 +493,7 @@ function EmptyState({ tab }: { tab: Tab }) {
   })();
   return (
     <View className="items-center justify-center px-8 pt-20">
-      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
+      <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
         <Ionicons name="sparkles" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
@@ -586,7 +586,7 @@ function NotificationPreferences({
                   if (!prefs[k]) onToggle(k);
                 });
               }}
-              className="mt-5 mb-2 min-h-btn rounded-card bg-amber items-center justify-center active:opacity-80"
+              className="mt-5 mb-2 min-h-btn rounded-card bg-accent items-center justify-center active:opacity-80"
             >
               <Text className="text-button text-text-inverse font-semibold">
                 Enable all
@@ -667,7 +667,7 @@ function iconColorForClass(fgClass: string): string {
   switch (fgClass) {
     case "text-ai":
       return "#4A7FA5";
-    case "text-amber":
+    case "text-accent":
       return "#E5A03B";
     case "text-warning-text":
       return "#92400E";

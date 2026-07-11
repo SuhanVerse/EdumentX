@@ -596,7 +596,7 @@ export function EditTutorProfile() {
               disabled={hasPendingUpdateLocal}
               className="active:opacity-70 disabled:opacity-40"
             >
-              <Text className="text-button-sm font-medium text-amber">
+              <Text className="text-button-sm font-medium text-accent">
                 {hasPendingUpdateLocal ? "Locked" : "Edit"}
               </Text>
             </Pressable>

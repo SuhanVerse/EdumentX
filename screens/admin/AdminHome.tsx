@@ -105,8 +105,8 @@ export function AdminHome() {
       title: "User Management",
       subtitle: "View & manage all registered users",
       icon: "people" as keyof typeof Ionicons.glyphMap,
-      color: "text-amber",
-      bgClass: "bg-amber-light",
+      color: "text-accent",
+      bgClass: "bg-accent-light",
       route: "/user-management",
       // Show the active + suspended counts so the admin sees
       // actionable user state at a glance. We deliberately don't
@@ -115,7 +115,7 @@ export function AdminHome() {
       countLabel: suspendedUsers > 0
         ? `${totalUsers - suspendedUsers} active · ${suspendedUsers} suspended`
         : `${totalUsers} users`,
-      countBg: "bg-amber",
+      countBg: "bg-accent",
       countFg: "text-text-inverse",
     },
   ];

@@ -22,6 +22,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
@@ -382,16 +383,17 @@ export function StudentProfileScreen() {
           />
 
           <LocationField value={location} onChange={setLocation} />
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSubmit || isSaving}
-            onPress={handleSubmit}
-            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-sand disabled:opacity-70 w-full"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-secondary">
-              {isSaving ? "Saving..." : "Finish setup"}
-            </Text>
-          </Pressable>
+          <View className="w-full mt-6">
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Finish setup"}
+              onPress={handleSubmit}
+              variant="accent"
+              size="lg"
+              loading={isSaving}
+              disabled={!canSubmit}
+              className="w-full"
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

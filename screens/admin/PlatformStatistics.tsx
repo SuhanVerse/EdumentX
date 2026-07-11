@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { useAuthStore } from "@/store/authStore";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
+import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Platform Statistics (`/platform-statistics`)
@@ -118,8 +118,8 @@ function KpiGrid() {
       label: "Registered users",
       value: formatNumber(MOCK_ADMIN_STATS.totalUsers * 200 + 48),
       delta: "+14%",
-      tintBg: "bg-amber-light",
-      tintFg: "text-amber",
+      tintBg: "bg-accent-light",
+      tintFg: "text-accent",
     },
     {
       icon: "book" as keyof typeof Ionicons.glyphMap,
@@ -142,8 +142,8 @@ function KpiGrid() {
       label: "Platform rating",
       value: "4.7",
       delta: "+0.1",
-      tintBg: "bg-amber-light",
-      tintFg: "text-amber",
+      tintBg: "bg-accent-light",
+      tintFg: "text-accent",
     },
   ];
 
@@ -204,8 +204,8 @@ function WeeklyEnrollmentCard() {
         <Text className="text-section-title font-medium text-text-primary">
           Weekly enrollment trend
         </Text>
-        <View className="bg-amber-light px-2 py-0.5 rounded-pill">
-          <Text className="text-micro font-semibold text-amber">+22%</Text>
+        <View className="bg-accent-light px-2 py-0.5 rounded-pill">
+          <Text className="text-micro font-semibold text-accent">+22%</Text>
         </View>
       </View>
       <View className="gap-2.5">
@@ -218,7 +218,7 @@ function WeeklyEnrollmentCard() {
               </Text>
               <View className="flex-1 h-2.5 bg-sand rounded-pill overflow-hidden">
                 <View
-                  className="h-full bg-amber rounded-pill"
+                  className="h-full bg-accent rounded-pill"
                   style={{ width: `${pct}%` }}
                 />
               </View>
@@ -267,7 +267,7 @@ function SubjectDemandCard() {
               </Text>
               <View className="flex-1 h-2.5 bg-sand rounded-pill overflow-hidden">
                 <View
-                  className="h-full bg-amber rounded-pill"
+                  className="h-full bg-accent rounded-pill"
                   style={{ width: `${pct}%` }}
                 />
               </View>

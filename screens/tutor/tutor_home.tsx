@@ -1,4 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -10,12 +16,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-} from "@react-native-firebase/firestore";
 
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
@@ -413,7 +413,7 @@ export function TutorDashboard() {
           tutor has a `tutorProfileUpdates/{uid}` doc in `pending`
           state (i.e. an edit is being reviewed). The banner sits
           between the dark hero and the white dashboard body so the
-          amber/ai/danger accent stays visible above the metrics grid.
+          accent/ai/danger accent stays visible above the metrics grid.
           The banner manages its own `mx-5` gutter; the scroll content
           below uses `px-4`, which is a 4-px wider banner on each
           side. That's intentional — the banner reads as a distinct
@@ -453,8 +453,8 @@ export function TutorDashboard() {
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
             iconName="people"
-            colorClass="bg-amber-light"
-            iconColor="amber"
+            colorClass="bg-accent-light"
+            iconColor="accent"
             label="Active students"
             value={String(currentStudents)}
           />
@@ -520,11 +520,11 @@ export function TutorDashboard() {
           <View className="flex-row items-center gap-2.5">
             <View className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
               <View
-                className="h-full bg-amber rounded-full"
+                className="h-full bg-accent rounded-full"
                 style={{ width: `${data.profileCompletion}%` }}
               />
             </View>
-            <Text className="text-button-sm text-amber font-medium">
+            <Text className="text-button-sm text-accent font-medium">
               {data.profileCompletion}%
             </Text>
           </View>
@@ -550,7 +550,7 @@ export function TutorDashboard() {
                   i > 0 ? "border-t border-border" : ""
                 }`}
               >
-                <Text className="w-[60px] text-caption font-medium text-amber">{s.time}</Text>
+                <Text className="w-[60px] text-caption font-medium text-accent">{s.time}</Text>
                 <View className="flex-1">
                   <Text className="text-button-sm text-text-primary">{s.student}</Text>
                   <Text className="text-caption text-text-muted mt-0.5">
@@ -846,18 +846,18 @@ type MetricProps = {
 
 /**
  * Pill styling for a batch-request card header. Two kinds currently:
- *   - "join":       student wants to join a slot (amber).
+ *   - "join":       student wants to join a slot (accent).
  *   - "conversion": student wants to upgrade from trial to weekly
  *                   (verification green).
  */
 function statusAccent(kind: "join" | "conversion") {
   if (kind === "join") {
     return {
-      bg: "bg-amber/10",
-      border: "border-amber/30",
+      bg: "bg-accent/10",
+      border: "border-accent/30",
       icon: "person-add-outline" as const,
       iconColor: "#E5A03B",
-      color: "text-amber",
+      color: "text-accent",
       label: "Join request",
     };
   }
@@ -878,7 +878,7 @@ function statusAccent(kind: "join" | "conversion") {
  * `colorClass` token we use for the tile background.
  */
 const ICON_COLOR_MAP = {
-  amber: "#E5A03B",
+  accent: "#E5A03B",
   verification: "#3F8A5A",
   warning: "#E5A03B",
   danger: "#C1503D",
@@ -926,8 +926,8 @@ type SubjectChipProps = {
  */
 function SubjectChip({ label }: SubjectChipProps) {
   return (
-    <View className="px-2 py-0.5 rounded-sm bg-amber-light">
-      <Text className="text-micro text-amber font-medium">{label}</Text>
+    <View className="px-2 py-0.5 rounded-sm bg-accent-light">
+      <Text className="text-micro text-accent font-medium">{label}</Text>
     </View>
   );
 }
@@ -999,7 +999,7 @@ function TutorDashboardEmptyState() {
           accessibilityRole="button"
           accessibilityLabel="Complete your tutor profile"
           onPress={() => router.replace("/profile-tutor")}
-          className="mt-6 min-h-btn-lg rounded-card bg-amber items-center justify-center px-8 active:opacity-90"
+          className="mt-6 min-h-btn-lg rounded-card bg-accent items-center justify-center px-8 active:opacity-90"
         >
           <Text className="text-button text-text-inverse font-semibold">
             Complete your profile

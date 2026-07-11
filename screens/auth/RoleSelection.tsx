@@ -23,6 +23,7 @@ import {
 
 import { colors } from "@/constants/colors";
 import { theme } from "@/constants/theme";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useAuthStore, type UserRole } from "@/store/authStore";
 
 // Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
@@ -299,17 +300,14 @@ export function RoleSelectionScreen() {
         </ScrollView>
 
         <View className="px-5 pt-3 pb-8 bg-background">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue"
-            disabled={!canContinue}
+          <PrimaryButton
+            label={isSaving ? "Saving..." : "Continue"}
             onPress={handleContinue}
-            className={`min-h-btn items-center justify-center rounded-card bg-primary active:opacity-80 disabled:bg-border-strong disabled:opacity-60`}
-          >
-            <Text className="text-button text-white disabled:text-text-muted">
-              {isSaving ? "Saving..." : "Continue"}
-            </Text>
-          </Pressable>
+            loading={isSaving}
+            disabled={!canContinue}
+            size="lg"
+            className="w-full"
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

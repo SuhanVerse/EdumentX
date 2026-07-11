@@ -1,4 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  serverTimestamp,
+  writeBatch,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -13,19 +20,13 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
 import type { TutorDocument } from "@/lib/verification/documents";
@@ -518,7 +519,7 @@ export function TutorProfileScreen() {
             <TextInput
               value={headline}
               onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
-              placeholder="e.g., Experienced Math & Physics tutor | SEE graduate"
+              placeholder="e.g., Experienced Math & Physics tutor"
               placeholderTextColor={colors.text.muted}
               className={`${inputBase} ${
                 errors.headline ? "border-danger" : "border-border"
@@ -685,16 +686,17 @@ export function TutorProfileScreen() {
             </Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSubmit || isSaving}
-            onPress={handleSubmit}
-            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-sand disabled:opacity-70 w-full"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-secondary">
-              {isSaving ? "Saving..." : "Finish setup"}
-            </Text>
-          </Pressable>
+          <View className="w-full mt-6">
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Finish setup"}
+              onPress={handleSubmit}
+              variant="accent"
+              size="lg"
+              loading={isSaving}
+              disabled={!canSubmit}
+              className="w-full"
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
