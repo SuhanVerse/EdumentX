@@ -1,11 +1,12 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces Phases of Iterative-Incremental Model}}{10}{figure.3.1}%
-\contentsline {figure}{\numberline {3.2}{\ignorespaces System Architecture of EdumentX}}{16}{figure.3.2}%
-\contentsline {figure}{\numberline {3.3}{\ignorespaces Use Case Diagram}}{17}{figure.3.3}%
-\contentsline {figure}{\numberline {3.4}{\ignorespaces Level 0 Data Flow Diagram}}{17}{figure.3.4}%
-\contentsline {figure}{\numberline {3.5}{\ignorespaces Level 1 Data Flow Diagram}}{18}{figure.3.5}%
-\contentsline {figure}{\numberline {3.6}{\ignorespaces RAG-Based AI Chatbot Workflow}}{18}{figure.3.6}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces System Architecture of EdumentX}}{10}{figure.3.1}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Use Case Diagram}}{11}{figure.3.2}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Level 0 Data Flow Diagram}}{12}{figure.3.3}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Level 1 Data Flow Diagram}}{13}{figure.3.4}%
+\contentsline {figure}{\numberline {3.5}{\ignorespaces RAG-Based AI Chatbot Workflow}}{13}{figure.3.5}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces EdumentX Current Build Mockup}}{19}{figure.6.1}%
