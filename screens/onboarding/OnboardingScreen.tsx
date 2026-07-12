@@ -19,7 +19,7 @@
  * unified auth entry.
  */
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
@@ -28,7 +28,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AiOrb3D } from "@/components/illustrations/AiOrb3D";
 import { DiscoverScene3D } from "@/components/illustrations/DiscoverScene3D";
@@ -130,8 +129,7 @@ export function OnboardingScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-surface">
-      <StatusBar style="dark" />
+    <ScreenLayout variant="surface">
       <View className="flex-1 px-5 pb-5">
         <View className="flex-row justify-end pt-5 mb-4">
           <Pressable
@@ -182,6 +180,6 @@ export function OnboardingScreen() {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

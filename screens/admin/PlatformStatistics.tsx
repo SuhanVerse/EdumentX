@@ -5,10 +5,9 @@ import {
   getFirestore,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
@@ -66,8 +65,7 @@ export function PlatformStatistics() {
   }, [user]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="background">
 
       {/* Hero — mirrors StudentHome.tsx's "Good morning, {name}"
           pattern. The admin's live display name is the dominant
@@ -99,7 +97,7 @@ export function PlatformStatistics() {
       </ScrollView>
 
       <AdminNav />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

@@ -14,7 +14,7 @@ import {
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -26,7 +26,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import {
@@ -896,8 +895,7 @@ export function VerificationQueue() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header */}
       <View className="bg-night px-5 pb-6 shrink-0">
@@ -1069,7 +1067,7 @@ export function VerificationQueue() {
         label={previewVideo?.label ?? ""}
         onClose={() => setPreviewVideo(null)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

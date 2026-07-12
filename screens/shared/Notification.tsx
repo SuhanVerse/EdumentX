@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -318,7 +318,7 @@ export function NotificationsCenter() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <ScreenLayout variant="background">
       {/* Inline header — replaces the (non-existent)
           `<ScreenHeader>` and matches the slate-hero shape used by
           every other student screen. */}
@@ -409,7 +409,7 @@ export function NotificationsCenter() {
         onToggle={togglePref}
         onClose={() => setShowPrefs(false)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

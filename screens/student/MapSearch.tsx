@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import {
   Pressable,
@@ -9,8 +9,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { BottomNav } from "@/components/shared/BottomNav";
 import { FiltersSheet } from "@/screens/student/FiltersSheet";
 
@@ -37,8 +35,7 @@ export function MapSearch() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Hero header — matches StudentHome's slate header so the two
           screens feel like a single surface when tapped from the
@@ -175,6 +172,6 @@ export function MapSearch() {
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

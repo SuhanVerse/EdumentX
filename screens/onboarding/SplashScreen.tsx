@@ -30,7 +30,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 
 import { SplashParticleField } from '@/components/premium/SplashParticleField';
 import { colors } from '@/constants/colors';
@@ -94,8 +94,7 @@ export function SplashScreen() {
   }));
 
   return (
-    <SafeAreaView className="flex-1 bg-splash px-5">
-      <StatusBar style="light" />
+    <ScreenLayout variant="splash">
 
       {/* Ambient particle field behind everything */}
       <SplashParticleField />
@@ -167,6 +166,6 @@ export function SplashScreen() {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

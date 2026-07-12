@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -209,8 +208,7 @@ export function TutorPendingReview() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Hero — slate, matches the 5 other tutor surfaces so the
           "this is still the tutor side of the app" feeling is
@@ -366,6 +364,6 @@ export function TutorPendingReview() {
           </View>
         </View>
       ) : null}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import {
   Alert,
@@ -10,8 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { BottomNav } from "@/components/shared/BottomNav";
 import {
   BATCH_INVITATIONS,
@@ -73,8 +71,7 @@ export function MyEnrollments() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Header — slate hero, same shape as StudentHome / MapSearch
           / AIChat. */}
@@ -206,7 +203,7 @@ export function MyEnrollments() {
       </ScrollView>
 
       <BottomNav role="student" current="/enrollment" />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,8 +11,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { BottomNav } from "@/components/shared/BottomNav";
 
 /**
@@ -138,8 +136,7 @@ export function AIChat() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Hero header — slate, with an AI accent strip so the user
           knows this is the assistant surface without needing a
@@ -251,7 +248,7 @@ export function AIChat() {
       </View>
 
       <BottomNav role="student" current="/AI-chat" />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

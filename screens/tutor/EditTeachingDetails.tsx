@@ -8,7 +8,7 @@ import {
   writeBatch
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +19,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
@@ -446,8 +445,7 @@ export function EditTeachingDetails() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header — slate, matches the other tutor surfaces. */}
       <View className="bg-night px-5 pb-6 shrink-0">
@@ -659,7 +657,7 @@ export function EditTeachingDetails() {
           </Text>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

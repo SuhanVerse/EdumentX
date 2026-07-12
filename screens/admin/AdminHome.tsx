@@ -6,10 +6,9 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
@@ -121,8 +120,7 @@ export function AdminHome() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header — mirrors StudentHome.tsx's "Good morning, {name}"
           pattern. The right-hand slot is intentionally empty; profile
@@ -193,7 +191,7 @@ export function AdminHome() {
       </ScrollView>
 
       <AdminNav />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

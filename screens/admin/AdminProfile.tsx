@@ -10,7 +10,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -22,7 +22,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/colors";
 import { logout } from "@/services/firebase/authService";
@@ -330,8 +329,7 @@ export function AdminProfile() {
     (isFirstTime || (isEditing && hasChanges));
 
   return (
-    <SafeAreaView className="flex-1 bg-night">
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -592,6 +590,6 @@ export function AdminProfile() {
         onConfirm={handleSignOut}
         onCancel={() => setConfirmLogout(false)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

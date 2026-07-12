@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -169,8 +168,7 @@ export function StudentHome() {
   }, [user]);
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Hero header */}
       <View className="bg-night px-5 pb-6 shrink-0">
@@ -267,6 +265,6 @@ export function StudentHome() {
       </ScrollView>
 
       <BottomNav role="student" current="/student-home" />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

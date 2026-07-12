@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,7 +11,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -367,8 +366,7 @@ export function EditTutorProfile() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header — shows the tutor's name (or fallback) instead
           of a hardcoded "Your account" label. The text-display token
@@ -667,7 +665,7 @@ export function EditTutorProfile() {
         onConfirm={handleSignOut}
         onCancel={() => setConfirmLogout(false)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

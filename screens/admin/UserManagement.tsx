@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { ReactNode, useEffect, useState } from "react";
 import {
   Alert,
@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { AdminNav } from "@/components/shared/AdminNav";
@@ -255,8 +254,7 @@ export function UserManagement() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Header — dark navy hero with the title and search bar only.
           The status + role filter pills were moved out of the hero
@@ -473,7 +471,7 @@ export function UserManagement() {
         onConfirm={executeSoftDelete}
         onCancel={cancelDelete}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

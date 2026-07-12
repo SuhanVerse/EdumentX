@@ -7,11 +7,10 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react-native";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 
 // TODO(firebase): replace with a Firestore `enrollmentRequests` query
@@ -102,8 +101,7 @@ export function EnrollmentInbox() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-surface" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="surface">
 
       {/* Top app bar */}
       <View className="px-4 pt-2 pb-4 border-b border-border">
@@ -143,7 +141,7 @@ export function EnrollmentInbox() {
       </ScrollView>
 
       <TutorBottomBar inboxBadgeCount={PENDING_REQUESTS.length} />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

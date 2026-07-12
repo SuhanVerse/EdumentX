@@ -6,7 +6,7 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -15,8 +15,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { useAuthStore } from "@/store/authStore";
@@ -372,8 +370,7 @@ export function TutorDashboard() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Header */}
       <View className="bg-night px-4 pb-5 shrink-0">
@@ -851,7 +848,7 @@ export function TutorDashboard() {
         </View>
       </ScrollView>
       <TutorBottomBar />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
@@ -1006,8 +1003,7 @@ function AvatarCircle({ uri }: AvatarCircleProps) {
 function TutorDashboardEmptyState() {
   const router = useRouter();
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
       <View className="flex-1 items-center justify-center px-8">
         <View className="w-16 h-16 rounded-pill bg-accent-soft items-center justify-center mb-4">
           <Ionicons name="document-text-outline" size={28} color="#E5A03B" />
@@ -1035,6 +1031,6 @@ function TutorDashboardEmptyState() {
           the &quot;Under review&quot; page.
         </Text>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

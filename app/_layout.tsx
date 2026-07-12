@@ -11,7 +11,6 @@ import {
 } from "@react-native-firebase/firestore";
 import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -837,7 +836,6 @@ export default function RootLayout() {
             <ActivityIndicator size="large" color="#0F172A" />
           </View>
         ) : null}
-        <StatusBar style="dark" />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
