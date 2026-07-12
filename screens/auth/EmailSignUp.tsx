@@ -50,6 +50,92 @@ import { useAuthStore } from "@/store/authStore";
  */
 type Mode = "signup" | "login";
 
+/**
+ * Score a password on a 0-5 scale. We deliberately do NOT use
+ * entropy / zxcvbn math — those algorithms require dictionaries
+ * and are overkill for a free-tier college demo. The five signals
+ * below map to the well-known "long, mixed case, digits, symbols"
+ * guidance that every major auth UI surfaces.
+ *
+ *   +1 if length >= 8
+ *   +1 if length >= 12
+ *   +1 if has both lowercase AND uppercase letters
+ *   +1 if has a digit
+ *   +1 if has a non-alphanumeric symbol
+ *
+ * Score 0 is reserved for the empty string; the caller is expected
+ * to gate the bar on `password.length > 0` so we never render
+ * "Too weak" before the user has typed anything.
+ */
+function scorePassword(password: string): number {
+  if (password.length === 0) return 0;
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  const hasLower = /[a-z]/.test(password);
+  const hasUpper = /[A-Z]/.test(password);
+  if (hasLower && hasUpper) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  return score;
+}
+
+/**
+ * The four human-readable levels we surface. Each carries the
+ * Tailwind background class for its segments and the matching text
+ * class for the caption. Keeping them in one place means the bar
+ * and the label can never disagree.
+ */
+type PasswordLevel = {
+  label: string;
+  /** Background class for the *filled* segments of the bar. */
+  barClass: string;
+  /** Text class for the caption ("Too weak" / "Weak" / etc). */
+  textClass: string;
+};
+
+const PASSWORD_LEVELS: PasswordLevel[] = [
+  { label: "Too weak", barClass: "bg-danger", textClass: "text-danger" },
+  { label: "Weak", barClass: "bg-danger", textClass: "text-danger" },
+  { label: "Fair", barClass: "bg-warning", textClass: "text-warning" },
+  { label: "Strong", barClass: "bg-success", textClass: "text-success" },
+  { label: "Very strong", barClass: "bg-success", textClass: "text-success" },
+];
+
+const PASSWORD_SEGMENTS = 5;
+
+function PasswordStrengthBar({ score }: { score: number }) {
+  // score is 0-5; we clamp defensively in case the helper grows
+  // beyond 5 segments later. Empty (score=0) gets a neutral caption
+  // even though the caller is expected to hide the bar — this keeps
+  // the bar safe to render unconditionally as a building block.
+  const safeScore = Math.max(0, Math.min(score, PASSWORD_SEGMENTS));
+  const level = PASSWORD_LEVELS[Math.max(0, safeScore - 1)] ?? PASSWORD_LEVELS[0];
+  return (
+    <View
+      accessibilityLabel={`Password strength: ${level.label}`}
+      className="gap-1"
+    >
+      <View className="flex-row gap-1">
+        {Array.from({ length: PASSWORD_SEGMENTS }, (_, index) => {
+          const filled = index < safeScore;
+          return (
+            <View
+              key={index}
+              className={`h-1 flex-1 rounded-sm ${
+                filled ? level.barClass : "bg-border"
+              }`}
+            />
+          );
+        })}
+      </View>
+      <Text className={`text-caption ${level.textClass}`}>
+        {level.label}
+      </Text>
+    </View>
+  );
+}
+
 export function EmailSignUp() {
   const [mode, setMode] = useState<Mode>("signup");
   const [email, setEmail] = useState("");
@@ -81,6 +167,16 @@ export function EmailSignUp() {
   const isEmailValid = EMAIL_REGEX.test(email.trim());
   const isPasswordValid = password.length >= 6;
   const canSubmit = isEmailValid && isPasswordValid && !isSubmitting;
+
+  // Password strength is only meaningful when the user is creating a new
+  // account. On login the password is something they already picked — a
+  // strength meter on a login form is awkward and leaks nothing useful
+  // to a shoulder-surfer. We compute the score unconditionally so the
+  // bar can mount instantly on signup-mode flips, but the bar is hidden
+  // when the password field is empty (no point rendering 5 grey
+  // segments and "Too weak" before the user has typed anything).
+  const passwordScore = scorePassword(password);
+  const showPasswordStrength = mode === "signup" && password.length > 0;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -452,6 +548,9 @@ export function EmailSignUp() {
                 <Text className="text-caption text-danger">
                   Use at least 6 characters.
                 </Text>
+              ) : null}
+              {showPasswordStrength ? (
+                <PasswordStrengthBar score={passwordScore} />
               ) : null}
             </View>
           </View>

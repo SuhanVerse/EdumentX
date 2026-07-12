@@ -535,10 +535,10 @@ export function EditTutorProfile() {
                 </Text>
               </View>
             </View>
-            <Text className="text-caption text-text-muted mt-1.5">
+            {/* <Text className="text-caption text-text-muted mt-1.5">
               Email is managed by Firebase Auth and can&apos;t be edited
               from here.
-            </Text>
+            </Text> */}
           </View>
         </View>
 

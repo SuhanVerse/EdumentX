@@ -173,13 +173,13 @@ export function AIChat() {
         </View>
 
         {/* Backend-coming-soon banner */}
-        <View className="mt-3 flex-row items-start gap-2 bg-ai-light border border-ai-border rounded-card p-3">
+        {/* <View className="mt-3 flex-row items-start gap-2 bg-ai-light border border-ai-border rounded-card p-3">
           <Ionicons name="information-circle" size={16} color="#4A7FA5" />
           <Text className="flex-1 text-caption text-ai-dark">
             AI Assistant — Backend integration coming soon. Replies are
             placeholder UI for now.
           </Text>
-        </View>
+        </View> */}
       </View>
 
       {/* Messages */}

@@ -1,4 +1,13 @@
+import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -12,16 +21,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "@react-native-firebase/firestore";
 
 import { colors } from "@/constants/colors";
 import { logout } from "@/services/firebase/authService";
@@ -422,7 +422,7 @@ export function AdminProfile() {
                 <Text className="text-caption text-danger">{errors.roleTitle}</Text>
               ) : (
                 <Text className="text-caption text-text-muted">
-                  How you'd be described on the moderation team page.
+                  {/* How you'd be described on the moderation team page. */}
                 </Text>
               )}
             </View>
@@ -436,7 +436,7 @@ export function AdminProfile() {
 
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
-                Phone (optional)
+                 Phone {/* (optional) */}
               </Text>
               <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
                 <Ionicons
@@ -458,7 +458,7 @@ export function AdminProfile() {
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : (
                 <Text className="text-caption text-text-muted">
-                  Used for urgent platform contact only. Never shown publicly.
+                  {/* Used for urgent platform contact only. Never shown publicly. */}
                 </Text>
               )}
             </View>
@@ -480,9 +480,9 @@ export function AdminProfile() {
                   placeholderTextColor={colors.text.muted}
                 />
               </View>
-              <Text className="text-caption text-text-muted">
+              {/* <Text className="text-caption text-text-muted">
                 Locked to your Firebase Auth identity. Contact the dev team to change it.
-              </Text>
+              </Text> */}
             </View>
           </View>
 
@@ -565,9 +565,9 @@ export function AdminProfile() {
             </Text>
           </Pressable>
 
-          <Text className="text-caption text-text-muted text-center mt-6">
+          {/* <Text className="text-caption text-text-muted text-center mt-6">
             EdumentX · v1.0 · build 2026.07.08
-          </Text>
+          </Text> */}
         </ScrollView>
       </KeyboardAvoidingView>
 

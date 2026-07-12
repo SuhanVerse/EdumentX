@@ -243,6 +243,15 @@ export function TutorDashboard() {
   const [available, setAvailable] = useState(true);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
+  // The under-review banner is dismissable for the current session
+  // — once the tutor has read it, the "Got it" button hides the
+  // banner without affecting the underlying `verificationStatus`
+  // field. A fresh sign-in (or a real status change in the
+  // snapshot) brings the banner back. We keep the dismissed state
+  // local because (a) the snapshot already drives re-render, and
+  // (b) persisting a "banner seen" flag to Firestore would be
+  // more work than it's worth for a UI affordance.
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Live read from the tutorProfile subcollection. We subscribe via
   // `onSnapshot` so future Phase-5 "Edit profile" writes propagate to
@@ -334,6 +343,16 @@ export function TutorDashboard() {
         ? "bg-warning"
         : "bg-verification";
 
+  // When the underlying verification status changes (e.g. admin
+  // approval, a new edit goes pending, or a fresh "more_info"
+  // request), re-show the banner even if the tutor had dismissed
+  // it. Without this, a dismissed banner would stay hidden through
+  // subsequent state changes — the dismiss only "absorbs" a
+  // *seen* state, not future changes.
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [data.verificationStatus, data.hasPendingUpdate]);
+
   // **Empty-state guard.** The dashboard only renders its full
   // content once we have a profile doc with a populated `fullName`.
   // If the snapshot fired but the doc is missing or has no name,
@@ -412,23 +431,27 @@ export function TutorDashboard() {
           info, (c) the admin rejected the submission, or (d) the
           tutor has a `tutorProfileUpdates/{uid}` doc in `pending`
           state (i.e. an edit is being reviewed). The banner sits
-          between the dark hero and the white dashboard body so the
-          accent/ai/danger accent stays visible above the metrics grid.
-          The banner manages its own `mx-5` gutter; the scroll content
-          below uses `px-4`, which is a 4-px wider banner on each
-          side. That's intentional — the banner reads as a distinct
-          full-width surface, not as a card. */}
-      {data.verificationStatus === "pending" ? (
+          flush between the dark hero and the white dashboard body
+          (no `mx-5` gutter) so the dark night background doesn't
+          bleed through on the sides — that bleed is what made the
+          banner look "blended" with the availability toggle
+          above it. The banner's own `border-t` paints a clean
+          amber/blue/red line under the hero, and the dismiss
+          button is a clear visual affordance rather than a piece
+          of body text. */}
+      {!bannerDismissed && data.verificationStatus === "pending" ? (
         <ReviewBanner
           tone="pending"
           message="Your account is being reviewed. You'll get full access once an admin approves your profile."
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.verificationStatus === "more_info" ? (
+      ) : !bannerDismissed && data.verificationStatus === "more_info" ? (
         <ReviewBanner
           tone="info"
           message="An admin has asked for more information. Please update your profile and re-submit."
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.verificationStatus === "rejected" ? (
+      ) : !bannerDismissed && data.verificationStatus === "rejected" ? (
         <ReviewBanner
           tone="rejected"
           message={
@@ -436,11 +459,13 @@ export function TutorDashboard() {
               ? `Reason: ${data.rejectionReason}. Please update your profile and re-submit.`
               : "Your submission was rejected. Please update your profile and re-submit."
           }
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.hasPendingUpdate ? (
+      ) : !bannerDismissed && data.hasPendingUpdate ? (
         <ReviewBanner
           tone="pending"
           message="Your recent profile changes are under review. Your profile isn't being shown to students right now."
+          onDismiss={() => setBannerDismissed(true)}
         />
       ) : null}
 

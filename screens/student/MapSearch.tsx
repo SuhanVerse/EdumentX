@@ -118,16 +118,16 @@ export function MapSearch() {
               className="text-body text-text-secondary text-center mt-2"
               style={{ maxWidth: 320 }}
             >
-              We&apos;re wiring up OpenStreetMap tiles for Phase 5.2 — no
+              {/* We&apos;re wiring up OpenStreetMap tiles for Phase 5.2 — no
               API key or credit card required. Once it&apos;s live,
               you&apos;ll see verified tutors plotted on a real map
-              around your saved location.
+              around your saved location. */}
             </Text>
-            <View className="flex-row items-center gap-2 mt-5">
-              <Ionicons name="navigate-outline" size={14} color="#6B7268" />
+            <View className="flex-row items-center gap-2 mt">
+              {/* <Ionicons name="navigate-outline" size={14} color="#6B7268" />
               <Text className="text-caption text-text-muted">
                 Phase 5.2 · Map tiles via OpenStreetMap
-              </Text>
+              </Text> */}
             </View>
           </View>
 
