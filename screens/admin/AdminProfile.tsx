@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { AdminNav } from "@/components/shared/AdminNav";
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
 import {
@@ -570,6 +571,14 @@ export function AdminProfile() {
           </Text> */}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Admin bottom navigation — only shown for returning admins
+          (not during first-time setup). During setup the nav would
+          tempt the admin to skip the profile form by tapping a tab,
+          which defeats the purpose of funneling them through the
+          setup flow. Once they save and return to edit mode, the
+          nav reappears so they can navigate between admin screens. */}
+      {!isFirstTime ? <AdminNav /> : null}
 
       {/* Custom confirmation overlay — not a native Alert, matches
           the Tutor Profile and Student Profile pattern. */}

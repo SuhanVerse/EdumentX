@@ -70,18 +70,14 @@ export default function RootLayout() {
   // actually changes (not on every state callback).
   const lastUidRef = useRef<string | null>(null);
 
-  // Navigation lock: prevents overlapping `router.replace()` calls that
-  // would trigger React Navigation's "configured linking in multiple
-  // places" error. The guard effect can fire multiple times before a
-  // replace completes (e.g., when the user presses Back from
-  // role-selection, which triggers a segment change, which re-runs
-  // the guard). `navLockRef` tracks whether we're mid-navigation and
-  // skips subsequent replaces until the current one lands.
-  const navLockRef = useRef(false);
-  // Timer ID for the nav lock release. Stored in a ref so the effect
-  // cleanup can cancel it if the effect re-runs before the timeout
-  // fires — without this, a stale `setTimeout` could release the lock
-  // while a new navigation is in progress.
+  // Debounce timer for the navigation guard. The effect can fire
+  // multiple times in rapid succession (e.g. auth state change →
+  // user doc fetch → role update → segments change). Instead of a
+  // fragile lock that can race, we debounce: each re-render resets
+  // the timer, and only the LAST render's effect actually runs the
+  // navigation decision. This prevents overlapping `router.replace()`
+  // calls, which would trigger React Navigation's "configured linking
+  // in multiple places" warning.
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -139,206 +135,176 @@ export default function RootLayout() {
     if (!isNavigatorReady) return;
     if (isLoading) return;
 
-    // Navigation lock: if a `router.replace()` is already in flight,
-    // skip this guard pass. Without this lock, rapid navigation
-    // (e.g. pressing Back from role-selection while the guard is
-    // evaluating) can trigger overlapping replace calls, causing
-    // React Navigation to emit "configured linking in multiple places".
-    if (navLockRef.current) return;
-    navLockRef.current = true;
-    // Release the lock after a frame so the next guard pass can fire.
-    // We use a timeout (not RAF) so the lock outlives the current
-    // render cycle and any immediately-following ones. The timer ID
-    // is stored in a ref so the effect cleanup can cancel it on
-    // dependency changes — without this, a stale timeout could release
-    // the lock while a new navigation is in progress.
-    const releaseTimer = setTimeout(() => { navLockRef.current = false; }, 100);
-    navTimerRef.current = releaseTimer;
+    // Debounce: cancel any pending navigation timer from a prior
+    // effect run. This ensures only the LAST render in a burst
+    // of state changes actually executes the navigation decision,
+    // preventing overlapping `router.replace()` calls that would
+    // trigger React Navigation's "configured linking in multiple
+    // places" warning.
+    if (navTimerRef.current) {
+      clearTimeout(navTimerRef.current);
+      navTimerRef.current = null;
+    }
 
-    // `useRootNavigationState().key` is a *probabilistic* ready
-    // signal — it can be `null` on the first render, become truthy
-    // on the second, and become `null` again if expo-router
-    // internally re-mounts the Stack on auth-state change. The
-    // window in which it reads `true` but the navigator has not
-    // yet published its `key` is exactly the window in which
-    // `router.replace(...)` throws "Attempted to navigate before
-    // mounting the Root Layout component."
-    //
-    // `requestAnimationFrame` is the *deterministic* primitive:
-    // it always fires after the current frame's paint, by which
-    // time the Stack's `key` is guaranteed to be published. The
-    // `cancelAnimationFrame` cleanup cancels any pending rAF if the
-    // effect's dependencies flip again before the frame fires
-    // (e.g. `user` changes from `null` to a `User` mid-frame), so
-    // we never have two rAFs racing the same Stack mount.
-    //
-    // This replaces an earlier synchronous `router.replace` call
-    // (see the June 21, 2026 audit, "navigate before mounting"
-    // bug). The `useRootNavigationState()` guard is kept as a
-    // short-circuit for the first 0–1 renders before the
-    // navigator exists at all, but the rAF is the actual ordering
-    // guarantee.
-    const raf = requestAnimationFrame(() => {
-    const currentRoute = segments.join("/");
+    // Schedule the navigation decision after a 150ms quiet period.
+    const timer = setTimeout(() => {
+      navTimerRef.current = null;
 
-    if (!user) {
-      // Signed out — only onboarding + the auth entry screen are
-      // allowed. `/email-signup` is where users create an account or
-      // log in. Phone OTP was removed in the June 21, 2026 pivot.
-      const allowedForSignedOut = new Set([
-        "",
-        "index",
-        "onboarding",
-        "email-signup",
+      const currentRoute = segments.join("/");
+
+      if (!user) {
+        // Signed out — only onboarding + the auth entry screen are
+        // allowed. `/email-signup` is where users create an account or
+        // log in. Phone OTP was removed in the June 21, 2026 pivot.
+        const allowedForSignedOut = new Set([
+          "",
+          "index",
+          "onboarding",
+          "email-signup",
+        ]);
+        if (!allowedForSignedOut.has(currentRoute)) {
+          router.replace("/email-signup");
+        }
+        return;
+      }
+
+      // Signed in via email/password but unverified — bounce to the
+      // "check your inbox" pending state on /email-signup until they
+      // click the link. They can also sit on /email-signup freely
+      // (the screen itself owns the reload + recheck flow).
+      const isEmailPasswordUser = !!user.providerData.some(
+        (p) => p.providerId === "password",
+      );
+      const emailVerified = user.emailVerified ?? true;
+      if (isEmailPasswordUser && !emailVerified) {
+        if (currentRoute !== "email-signup") {
+          router.replace("/email-signup");
+        }
+        return;
+      }
+
+      // Signed in + verified. The store already knows whether the user
+      // has a `role` (we fetched it on the onAuthStateChanged callback
+      // below). The presence of a role means there's a `users/{uid}` doc
+      // — Source of Truth.
+      if (!role) {
+        if (currentRoute !== "role-selection") {
+          router.replace("/role-selection");
+        }
+        return;
+      }
+
+      // First-time admin: a user whose role resolves to "admin" but who
+      // has not yet saved an `adminProfile` doc. Funnel them through
+      // /admin-profile so they fill in their display name, role title,
+      // and phone before reaching the admin dashboard. The setup
+      // screen's save handler sets `hasAdminProfile = true` and
+      // `router.replace("/admin-home")`, which clears this branch on
+      // the next render.
+      if (role === "admin" && !hasAdminProfile) {
+        if (currentRoute !== "admin-profile") {
+          router.replace("/admin-profile");
+        }
+        return;
+      }
+
+      // Tutor pending admin review: a brand-new tutor (or a tutor who
+      // got rejected and is resubmitting) whose
+      // `tutorVerifications/{uid}.status === "pending"`. We block the
+      // real dashboard and route to /tutor-pending, which is a static
+      // "we're reviewing your account" screen. The dashboard's
+      // `ReviewBanner` covers the `rejected` / `more_info` /
+      // `hasPendingUpdate` cases — those tutors fall through to the
+      // catch-all branch below and see the dashboard *with* a banner,
+      // which lets them reach the edit-profile screen and resubmit.
+      // Only `pending` is fully blocked here.
+      if (
+        role === "tutor" &&
+        tutorVerificationStatus === "pending" &&
+        currentRoute !== "tutor-pending"
+      ) {
+        router.replace("/tutor-pending");
+        return;
+      }
+
+      // Signed in + verified + has role → route to the matching
+      // dashboard. We allow the auth-flow screens and the student
+      // dashboard sub-screens through so a signed-in student can move
+      // freely between Home / Map / AI / Enrollments / Profile without
+      // being bounced back to the dashboard.
+      //
+      // We deliberately do **not** allow `email-signup`: a verified
+      // user with a role who is sitting on /email-signup is the
+      // "post-login flash" trap — the redirect tree sent them there
+      // for one render while `role` was still `null`, and the guard
+      // sees them there, finds them in the allowlist, and refuses to
+      // advance them. Drop them from the list so the next render
+      // pushes them to the dashboard.
+      //
+      // We DO allow `admin-profile`: a returning admin with a populated
+      // profile is allowed to view and edit their profile from the
+      // "My profile" pill on /admin-home. The first-time branch above
+      // is what sends new admins here on their initial sign-in; once
+      // they save, we never bounce them off the page on subsequent
+      // visits.
+      const target = dashboardPathForRole(role);
+      const allowedForSignedIn = new Set<string>([
+        "role-selection",
+        "profile-student",
+        "profile-tutor",
+        "student-home",
+        "tutor-home",
+        "admin-home",
+        // Student sub-screens (Phase 4 dashboard shell). These are
+        // reachable via the BottomNav; the guard must allow them or
+        // it will replace them back to the dashboard on the next
+        // render.
+        "map-search",
+        "AI-chat",
+        "enrollment",
+        "stu-profile",
+        // Tutor sub-screens (feature/tutor merge). Reachable from the
+        // TutorBottomBar.
+        "batches",
+        "tutor-inbox",
+        "tutor_edit_profile",
+        // Tutor high-risk edit screen. Reachable from
+        // `tutor_edit_profile`'s "Subjects, rate & location" row.
+        // The screen itself routes the user to /tutor-pending
+        // after save, but we list it here so the layout guard
+        // doesn't bounce them back to /tutor-home mid-edit.
+        "tutor_edit_teaching_details",
+        // Tutor under-review screen. Reached automatically when
+        // `tutorVerificationStatus === "pending"`. The tutor sits
+        // here until an admin decides; we must not bounce them off
+        // the page on the next render.
+        "tutor-pending",
+        // Shared screens reachable from student surfaces (e.g.
+        // StudentProfile's "Notifications" row routes to
+        // /notification).
+        "notification",
+        "filters-sheet",
+        // Admin sub-screens (AdminNav targets)
+        "platform-statistics",
+        "verification-queue",
+        "user-management",
+        // Admin profile — first-time setup and view/edit. The first-time
+        // branch above forces brand-new admins here; returning admins
+        // reach it via the "My profile" pill on /admin-home.
+        "admin-profile",
       ]);
-      if (!allowedForSignedOut.has(currentRoute)) {
-        router.replace("/email-signup");
+      if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
+        router.replace(target);
       }
-      return;
-    }
+    }, 150);
 
-    // Signed in via email/password but unverified — bounce to the
-    // "check your inbox" pending state on /email-signup until they
-    // click the link. They can also sit on /email-signup freely
-    // (the screen itself owns the reload + recheck flow).
-    const isEmailPasswordUser = !!user.providerData.some(
-      (p) => p.providerId === "password",
-    );
-    const emailVerified = user.emailVerified ?? true;
-    if (isEmailPasswordUser && !emailVerified) {
-      if (currentRoute !== "email-signup") {
-        router.replace("/email-signup");
-      }
-      return;
-    }
+    navTimerRef.current = timer;
 
-    // Signed in + verified. The store already knows whether the user
-    // has a `role` (we fetched it on the onAuthStateChanged callback
-    // below). The presence of a role means there's a `users/{uid}` doc
-    // — Source of Truth.
-    if (!role) {
-      if (currentRoute !== "role-selection") {
-        router.replace("/role-selection");
-      }
-      return;
-    }
-
-    // First-time admin: a user whose role resolves to "admin" but who
-    // has not yet saved an `adminProfile` doc. Funnel them through
-    // /admin-profile so they fill in their display name, role title,
-    // and phone before reaching the admin dashboard. The setup
-    // screen's save handler sets `hasAdminProfile = true` and
-    // `router.replace("/admin-home")`, which clears this branch on
-    // the next render.
-    if (role === "admin" && !hasAdminProfile) {
-      if (currentRoute !== "admin-profile") {
-        router.replace("/admin-profile");
-      }
-      return;
-    }
-
-    // Tutor pending admin review: a brand-new tutor (or a tutor who
-    // got rejected and is resubmitting) whose
-    // `tutorVerifications/{uid}.status === "pending"`. We block the
-    // real dashboard and route to /tutor-pending, which is a static
-    // "we're reviewing your account" screen. The dashboard's
-    // `ReviewBanner` covers the `rejected` / `more_info` /
-    // `hasPendingUpdate` cases — those tutors fall through to the
-    // catch-all branch below and see the dashboard *with* a banner,
-    // which lets them reach the edit-profile screen and resubmit.
-    // Only `pending` is fully blocked here.
-    if (
-      role === "tutor" &&
-      tutorVerificationStatus === "pending" &&
-      currentRoute !== "tutor-pending"
-    ) {
-      router.replace("/tutor-pending");
-      return;
-    }
-
-    // Signed in + verified + has role → route to the matching
-    // dashboard. We allow the auth-flow screens and the student
-    // dashboard sub-screens through so a signed-in student can move
-    // freely between Home / Map / AI / Enrollments / Profile without
-    // being bounced back to the dashboard.
-    //
-    // We deliberately do **not** allow `email-signup`: a verified
-    // user with a role who is sitting on /email-signup is the
-    // "post-login flash" trap — the redirect tree sent them there
-    // for one render while `role` was still `null`, and the guard
-    // sees them there, finds them in the allowlist, and refuses to
-    // advance them. Drop them from the list so the next render
-    // pushes them to the dashboard.
-    //
-    // We DO allow `admin-profile`: a returning admin with a populated
-    // profile is allowed to view and edit their profile from the
-    // "My profile" pill on /admin-home. The first-time branch above
-    // is what sends new admins here on their initial sign-in; once
-    // they save, we never bounce them off the page on subsequent
-    // visits.
-    const target = dashboardPathForRole(role);
-    const allowedForSignedIn = new Set<string>([
-      "role-selection",
-      "profile-student",
-      "profile-tutor",
-      "student-home",
-      "tutor-home",
-      "admin-home",
-      // Student sub-screens (Phase 4 dashboard shell). These are
-      // reachable via the BottomNav; the guard must allow them or
-      // it will replace them back to the dashboard on the next
-      // render.
-      "map-search",
-      "AI-chat",
-      "enrollment",
-      "stu-profile",
-      // Tutor sub-screens (feature/tutor merge). Reachable from the
-      // TutorBottomBar.
-      "batches",
-      "tutor-inbox",
-      "tutor_edit_profile",
-      // Tutor high-risk edit screen. Reachable from
-      // `tutor_edit_profile`'s "Subjects, rate & location" row.
-      // The screen itself routes the user to /tutor-pending
-      // after save, but we list it here so the layout guard
-      // doesn't bounce them back to /tutor-home mid-edit.
-      "tutor_edit_teaching_details",
-      // Tutor under-review screen. Reached automatically when
-      // `tutorVerificationStatus === "pending"`. The tutor sits
-      // here until an admin decides; we must not bounce them off
-      // the page on the next render.
-      "tutor-pending",
-      // Shared screens reachable from student surfaces (e.g.
-      // StudentProfile's "Notifications" row routes to
-      // /notification).
-      "notification",
-      "filters-sheet",
-      // Admin sub-screens (AdminNav targets)
-      "platform-statistics",
-      "verification-queue",
-      "user-management",
-      // Admin profile — first-time setup and view/edit. The first-time
-      // branch above forces brand-new admins here; returning admins
-      // reach it via the "My profile" pill on /admin-home.
-      "admin-profile",
-    ]);
-    if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
-      router.replace(target);
-    }
-    });
     return () => {
-      cancelAnimationFrame(raf);
       if (navTimerRef.current) {
         clearTimeout(navTimerRef.current);
         navTimerRef.current = null;
       }
-      // CRITICAL: release the navigation lock when the effect
-      // re-runs (e.g. after `segments` change from a route
-      // replacement). Without this, `navLockRef.current` stays
-      // `true` forever because the cleanup cleared the timeout
-      // before it could fire — permanently blocking all future
-      // guard passes and making the app unable to navigate.
-      navLockRef.current = false;
     };
   }, [
     user,
