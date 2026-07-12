@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AdminNav } from "@/components/shared/AdminNav";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { AdminNav } from "@/components/shared/AdminNav";
 
 /**
  * EdumentX — User Management (Admin)
@@ -331,7 +331,7 @@ export function UserManagement() {
                 label={f}
                 count={count}
                 active={isActive}
-                activeBg="bg-amber"
+                activeBg="bg-ai"
                 activeText="text-text-inverse"
                 inactiveBg="bg-sand"
                 inactiveText="text-text-secondary"
@@ -402,9 +402,9 @@ export function UserManagement() {
                 accessibilityRole="button"
                 accessibilityLabel="Show demo data"
                 onPress={() => setShowMock(true)}
-                className="mt-5 px-4 py-2 rounded-pill bg-amber-light active:opacity-80"
+                className="mt-5 px-4 py-2 rounded-pill bg-accent-light active:opacity-80"
               >
-                <Text className="text-button-sm font-medium text-amber">
+                <Text className="text-button-sm font-medium text-accent">
                   Show demo data
                 </Text>
               </Pressable>

@@ -1,4 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  serverTimestamp,
+  writeBatch,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -13,19 +20,13 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
 import type { TutorDocument } from "@/lib/verification/documents";
@@ -266,6 +267,7 @@ export function TutorProfileScreen() {
       const profileRef = doc(db, "users", user.uid, "tutorProfile", "default");
       const verificationRef = doc(db, "tutorVerifications", user.uid);
       const now = serverTimestamp();
+
       const batch = writeBatch(db);
       const documentsArray = Array.from(documents.values());
       batch.set(
@@ -343,6 +345,10 @@ export function TutorProfileScreen() {
           bio: bio.trim(),
           phone: phone.trim(),
           phoneDisplay,
+          // Mirror the profile photo URL onto the verification doc
+          // so the admin queue can render the tutor's avatar. The
+          // queue reads `data.photoUrl ?? data.avatarUrl`.
+          ...(avatarUri ? { photoUrl: avatarUri } : {}),
           status: "pending",
           // `adminNotes` is the rejection reason / info-request
           // text captured by the admin from the RejectReasonDialog
@@ -404,7 +410,25 @@ export function TutorProfileScreen() {
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
-            onPress={() => router.replace("/role-selection")}
+            onPress={() => {
+              // If the user's role was read from Firestore (returning
+              // tutor, e.g. a rejected tutor resubmitting), route to
+              // the tutor dashboard. Otherwise (first-time user),
+              // clear the local role so the layout guard routes to
+              // /role-selection — and the user can abort onboarding.
+              const hasExisting = useAuthStore.getState().hasExistingRole;
+              const currentRole = useAuthStore.getState().role;
+              if (hasExisting && currentRole) {
+                router.replace("/tutor-home");
+              } else {
+                // First-time user: clear the locally-set role so the
+                // layout guard sees `!role` and routes to
+                // /role-selection. The user can then use the Alert
+                // dialog's "Sign out" option to leave cleanly.
+                useAuthStore.getState().setRole(null);
+                router.replace("/role-selection");
+              }
+            }}
             className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
@@ -495,7 +519,7 @@ export function TutorProfileScreen() {
             <TextInput
               value={headline}
               onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
-              placeholder="e.g., Experienced Math & Physics tutor | SEE graduate"
+              placeholder="e.g., Experienced Math & Physics tutor"
               placeholderTextColor={colors.text.muted}
               className={`${inputBase} ${
                 errors.headline ? "border-danger" : "border-border"
@@ -662,16 +686,17 @@ export function TutorProfileScreen() {
             </Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSubmit || isSaving}
-            onPress={handleSubmit}
-            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 w-full"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              {isSaving ? "Saving..." : "Finish setup"}
-            </Text>
-          </Pressable>
+          <View className="w-full mt-6">
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Finish setup"}
+              onPress={handleSubmit}
+              variant="accent"
+              size="lg"
+              loading={isSaving}
+              disabled={!canSubmit}
+              className="w-full"
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

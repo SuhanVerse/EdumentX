@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
+import { ImageViewer } from "@/components/ui/ImageViewer";
+import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import {
   TUTOR_DOC_HELPER,
   TUTOR_DOC_LABEL,
@@ -10,6 +12,7 @@ import {
   type TutorDocKind,
   type TutorDocument,
 } from "@/lib/verification/documents";
+import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 
 /**
  * EdumentX — Single-slot document uploader.
@@ -124,12 +127,41 @@ export function DocumentUploader({
             {TUTOR_DOC_HELPER[kind]}
           </Text>
           {hasExisting ? (
-            <Text
-              className="text-caption text-text-secondary mt-2"
-              numberOfLines={1}
-            >
-              {existing!.name} · {formatBytes(existing!.bytes)}
-            </Text>
+            <>
+              {/* Image thumbnail preview for image-type documents
+                  (citizenship, certificate). Uses the same ImageViewer
+                  component as the admin VerificationQueue and the tutor
+                  profile document list. */}
+              {existing && (existing.kind === "citizenship" || existing.kind === "certificate") ? (
+                <View className="mt-2">
+                  <ImageViewer
+                    uri={(() => {
+                      try {
+                        const url = getVerificationDocPublicUrl(existing.path);
+                        // Cache-bust: append uploadedAt timestamp so a
+                        // re-upload to the same Supabase path doesn't
+                        // show the old cached image.
+                        if (existing.uploadedAt) {
+                          return `${url}?t=${encodeURIComponent(existing.uploadedAt)}`;
+                        }
+                        return url;
+                      } catch {
+                        return "";
+                      }
+                    })()}
+                    label={TUTOR_DOC_LABEL[existing.kind]}
+                    thumbnailWidth={72}
+                    thumbnailHeight={54}
+                  />
+                </View>
+              ) : null}
+              <Text
+                className="text-caption text-text-secondary mt-2"
+                numberOfLines={1}
+              >
+                {formatBytes(existing!.bytes)}
+              </Text>
+            </>
           ) : null}
           <Pressable
             onPress={handlePick}
@@ -142,22 +174,22 @@ export function DocumentUploader({
             }
             className={`mt-3 self-start flex-row items-center gap-1.5 px-3 py-1.5 rounded-pill ${
               hasExisting
-                ? "bg-sand active:opacity-80"
-                : "bg-amber active:opacity-90"
+                ? "bg-surface border border-border active:opacity-80"
+                : "bg-am border-2 border-border active:opacity-90"
             } disabled:opacity-60`}
           >
             {uploading ? (
-              <ActivityIndicator size="small" color={hasExisting ? "#6B7268" : "#FFFFFF"} />
+              <ActivityIndicator size="small" color={hasExisting ? "#26302B" : "#26302B"} />
             ) : (
               <Ionicons
                 name={hasExisting ? "refresh" : "cloud-upload-outline"}
                 size={14}
-                color={hasExisting ? "#6B7268" : "#FFFFFF"}
+                color={hasExisting ? "#26302B" : "#26302B"}
               />
             )}
             <Text
               className={`text-button-sm font-medium ${
-                hasExisting ? "text-text-secondary" : "text-text-inverse"
+                hasExisting ? "text-text-primary" : "text-black"
               }`}
             >
               {uploading
@@ -224,49 +256,100 @@ function DocumentRow({
   kind: TutorDocKind;
   doc: TutorDocument | null;
 }) {
+  const [previewVideo, setPreviewVideo] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
+
   const accent = kindAccent(kind);
+  const isImage = kind === "citizenship" || kind === "certificate";
+  const isVideo = kind === "demo";
+
+  // Resolve the public URL for the document if it exists.
+  // Append a cache-busting query param from uploadedAt so a
+  // re-upload to the same Supabase path doesn't show the old
+  // cached image.
+  let publicUrl: string | null = null;
+  if (doc && typeof doc.path === "string" && doc.path.length > 0) {
+    try {
+      let url = getVerificationDocPublicUrl(doc.path);
+      if (doc.uploadedAt) {
+        url = `${url}?t=${encodeURIComponent(doc.uploadedAt)}`;
+      }
+      publicUrl = url;
+    } catch {
+      // Non-fatal — fall through to the icon-only display.
+    }
+  }
+
   return (
-    <View className="flex-row items-center gap-3 p-3 rounded-card bg-sand">
-      <View
-        className={`w-9 h-9 rounded-lg items-center justify-center ${accent.bg}`}
-      >
-        <Ionicons
-          name={kindIconName(kind)}
-          size={16}
-          color={accent.fg}
-        />
-      </View>
-      <View className="flex-1 min-w-0">
-        <Text className="text-button-sm font-medium text-text-primary">
-          {TUTOR_DOC_LABEL[kind]}
-        </Text>
-        {doc ? (
-          <Text
-            className="text-caption text-text-muted"
-            numberOfLines={1}
+    <>
+      <View className="flex-row items-center gap-3 p-3 rounded-card bg-sand">
+        {/* Image preview for citizenship/certificate — no icon,
+            no file-name text, just the actual document thumbnail.
+            Matches the admin VerificationQueue document display. */}
+        {isImage && publicUrl ? (
+          <ImageViewer
+            uri={publicUrl}
+            label={TUTOR_DOC_LABEL[kind]}
+            thumbnailWidth={64}
+            thumbnailHeight={48}
+          />
+        ) : isVideo && publicUrl ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Play ${TUTOR_DOC_LABEL[kind]}`}
+            onPress={() =>
+              setPreviewVideo({ uri: publicUrl, label: TUTOR_DOC_LABEL[kind] })
+            }
+            className="w-16 h-12 rounded-lg items-center justify-center bg-amber-light"
           >
-            {doc.name} · {formatBytes(doc.bytes)}
-          </Text>
+            <Ionicons name="play-circle" size={24} color="#E5A03B" />
+          </Pressable>
         ) : (
-          <Text className="text-caption text-text-muted">
-            {kind === "demo" ? "Not uploaded" : "Not uploaded yet"}
+          <View
+            className={`w-16 h-12 rounded-lg items-center justify-center ${accent.bg}`}
+          >
+            <Ionicons
+              name={kindIconName(kind)}
+              size={20}
+              color={accent.fg}
+            />
+          </View>
+        )}
+        <View className="flex-1 min-w-0">
+          <Text className="text-button-sm font-medium text-text-primary">
+            {TUTOR_DOC_LABEL[kind]}
           </Text>
+          {!doc ? (
+            <Text className="text-caption text-text-muted mt-0.5">
+              {kind === "demo" ? "Not uploaded" : "Not uploaded yet"}
+            </Text>
+          ) : null}
+        </View>
+        {doc ? (
+          <Ionicons
+            name="checkmark-circle"
+            size={18}
+            color="#3F8A5A"
+          />
+        ) : (
+          <Ionicons
+            name="ellipse-outline"
+            size={18}
+            color="#6B7268"
+          />
         )}
       </View>
-      {doc ? (
-        <Ionicons
-          name="checkmark-circle"
-          size={18}
-          color="#3F8A5A"
-        />
-      ) : (
-        <Ionicons
-          name="ellipse-outline"
-          size={18}
-          color="#6B7268"
-        />
-      )}
-    </View>
+
+      {/* Video player modal for demo videos */}
+      <VideoViewerModal
+        visible={!!previewVideo}
+        uri={previewVideo?.uri ?? ""}
+        label={previewVideo?.label ?? ""}
+        onClose={() => setPreviewVideo(null)}
+      />
+    </>
   );
 }
 

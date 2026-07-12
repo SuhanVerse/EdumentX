@@ -22,6 +22,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
@@ -243,7 +244,25 @@ export function StudentProfileScreen() {
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
-            onPress={() => router.replace("/role-selection")}
+            onPress={() => {
+              // If the user's role was read from Firestore (returning
+              // user), route to the dashboard. Otherwise (first-time
+              // user), clear the local role so the layout guard routes
+              // to /role-selection instead of bouncing back to the
+              // dashboard — and the user can abort the onboarding flow.
+              const hasExisting = useAuthStore.getState().hasExistingRole;
+              const currentRole = useAuthStore.getState().role;
+              if (hasExisting && currentRole) {
+                router.replace("/student-home");
+              } else {
+                // First-time user: clear the locally-set role so the
+                // layout guard sees `!role` and routes to
+                // /role-selection. The user can then use the Alert
+                // dialog's "Sign out" option to leave cleanly.
+                useAuthStore.getState().setRole(null);
+                router.replace("/role-selection");
+              }
+            }}
             className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
@@ -364,17 +383,17 @@ export function StudentProfileScreen() {
           />
 
           <LocationField value={location} onChange={setLocation} />
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSubmit || isSaving}
-            onPress={handleSubmit}
-            className="min-h-btn-lg mt-6 rounded-card items-center justify-center bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 w-full"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              {isSaving ? "Saving..." : "Finish setup"}
-            </Text>
-          </Pressable>
+          <View className="w-full mt-6">
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Finish setup"}
+              onPress={handleSubmit}
+              variant="accent"
+              size="lg"
+              loading={isSaving}
+              disabled={!canSubmit}
+              className="w-full"
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

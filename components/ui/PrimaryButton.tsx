@@ -4,10 +4,14 @@
  * Three variants:
  *   - `primary`  : chalkboard-green fill, white label  → the default for
  *                  "Continue", "Next", "Get started", etc.
- *   - `accent`   : amber fill, white label  → highlights a single
+ *   - `accent`   : accent fill, white label  → highlights a single
  *                  upgrade / paid CTA on a screen.
  *   - `ghost`    : surface fill, primary border + label → secondary
  *                  "I already have an account" links.
+ *
+ * Disabled state uses muted backgrounds per variant so the button shape
+ * remains visible even when the user can't tap it (no more `opacity-60`
+ * making buttons disappear on light backgrounds).
  *
  * Reanimated 4 gives us a spring press feedback (scale 0.96 on
  * press-in, 1.0 on release) without the JS-thread jank of the old
@@ -16,7 +20,7 @@
  * Tokens (no hardcoded hex):
  *   - heights via `min-h-btn` (52) or `min-h-btn-lg` (56)
  *   - radii via `rounded-card` (14)
- *   - colors via `bg-primary` / `bg-amber` / `bg-surface`
+ *   - colors via `bg-primary` / `bg-accent` / `bg-surface`
  */
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, {
@@ -52,8 +56,17 @@ export type PrimaryButtonProps = {
 
 const VARIANT_BG: Record<'primary' | 'accent' | 'ghost', string> = {
   primary: 'bg-primary',
-  accent: 'bg-amber',
+  accent: 'bg-accent',
   ghost: 'bg-surface border-2 border-border',
+};
+
+/** Muted background when button is disabled — keeps the button shape visible
+ *  instead of relying on `opacity-60` which makes filled buttons nearly
+ *  invisible on light backgrounds. */
+const VARIANT_DISABLED_BG: Record<'primary' | 'accent' | 'ghost', string> = {
+  primary: 'bg-sand',
+  accent: 'bg-sand',
+  ghost: 'bg-surface border-2 border-border/40',
 };
 
 const VARIANT_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
@@ -62,9 +75,23 @@ const VARIANT_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
   ghost: 'text-text-primary',
 };
 
+/** Muted label color when disabled — softer than the active label but still
+ *  readable against the disabled background. */
+const VARIANT_DISABLED_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
+  primary: 'text-text-secondary',
+  accent: 'text-text-secondary',
+  ghost: 'text-text-muted',
+};
+
 const SIZE: Record<'md' | 'lg', string> = {
   md: 'min-h-btn',
   lg: 'min-h-btn-lg',
+};
+
+const VARIANT_SPINNER: Record<'primary' | 'accent' | 'ghost', string> = {
+  primary: '#FFFFFF',
+  accent: '#FFFFFF',
+  ghost: '#2F5D50',
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -102,19 +129,25 @@ export function PrimaryButton({
         pressed.value = withSpring(0, { damping: 18, stiffness: 320 });
       }}
       style={animatedStyle}
-      className={`${SIZE[size]} ${VARIANT_BG[variant]} rounded-card flex-row items-center justify-center gap-2 ${
-        isInactive ? 'opacity-60' : 'active:opacity-90'
+      className={`${SIZE[size]} ${
+        isInactive ? VARIANT_DISABLED_BG[variant] : VARIANT_BG[variant]
+      } rounded-card flex-row items-center justify-center gap-2 ${
+        isInactive ? '' : 'active:opacity-90'
       } ${className}`}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'ghost' ? '#2F5D50' : '#FFFFFF'}
+          color={VARIANT_SPINNER[variant]}
         />
       ) : (
         <View className="flex-row items-center gap-2">
           {leftIcon}
-          <Text className={`text-button tracking-wide ${VARIANT_LABEL[variant]}`}>
+          <Text
+            className={`text-button tracking-wide ${
+              isInactive ? VARIANT_DISABLED_LABEL[variant] : VARIANT_LABEL[variant]
+            }`}
+          >
             {label}
           </Text>
         </View>

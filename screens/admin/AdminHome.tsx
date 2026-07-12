@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
@@ -67,7 +67,7 @@ export function AdminHome() {
   // Count badges are derived from MOCK_ADMIN_STATS for now. Phase 5
   // will swap this for a `useEffect` reading Firestore count
   // queries on mount.
-  const pendingTutorReviews = MOCK_ADMIN_STATS.pendingTutorReviews;
+  const pendingTutorReviews = null;
   const totalUsers = MOCK_ADMIN_STATS.totalUsers;
   const suspendedUsers = MOCK_ADMIN_STATS.suspendedUsers;
 
@@ -105,8 +105,8 @@ export function AdminHome() {
       title: "User Management",
       subtitle: "View & manage all registered users",
       icon: "people" as keyof typeof Ionicons.glyphMap,
-      color: "text-amber",
-      bgClass: "bg-amber-light",
+      color: "text-accent",
+      bgClass: "bg-accent-light",
       route: "/user-management",
       // Show the active + suspended counts so the admin sees
       // actionable user state at a glance. We deliberately don't
@@ -115,7 +115,7 @@ export function AdminHome() {
       countLabel: suspendedUsers > 0
         ? `${totalUsers - suspendedUsers} active · ${suspendedUsers} suspended`
         : `${totalUsers} users`,
-      countBg: "bg-amber",
+      countBg: "bg-accent",
       countFg: "text-text-inverse",
     },
   ];

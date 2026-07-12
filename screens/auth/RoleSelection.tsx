@@ -23,6 +23,7 @@ import {
 
 import { colors } from "@/constants/colors";
 import { theme } from "@/constants/theme";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useAuthStore, type UserRole } from "@/store/authStore";
 
 // Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
@@ -134,7 +135,16 @@ export function RoleSelectionScreen() {
       // successfully submits the matching profile screen — at which
       // point the role lands on the user doc and the layout guard
       // picks it up from there on the next sign-in.
+      //
+      // `hasExistingRole` tracks whether this role came from Firestore
+      // (returning user) or was set locally (first-time user). The
+      // profile screen Back button reads this flag to decide whether
+      // to clear the local role and go back to /role-selection
+      // (first-time) or route to the dashboard (returning).
       setRole(role);
+      useAuthStore.getState().setHasExistingRole(
+        !!existingData?.role,
+      );
       // If the user is *changing* their role (re-pick), log it so we
       // can spot abnormal flows.
       const isRoleChange =
@@ -196,7 +206,58 @@ export function RoleSelectionScreen() {
             accessibilityRole="button"
             hitSlop={12}
             className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
-            onPress={() => router.replace("/email-signup")}
+            onPress={() => {
+              // If the user already has a role in the store (they
+              // completed role-selection previously and this is a
+              // re-visit), route to the matching dashboard instead
+              // of back to email-signup. Routing to /email-signup
+              // would trigger the layout guard to immediately
+              // redirect back to the dashboard, creating a navigation
+              // race that React Navigation reports as "configured
+              // linking in multiple places".
+              const existingRole = useAuthStore.getState().role;
+              if (existingRole === "tutor") {
+                router.replace("/tutor-home");
+              } else if (existingRole === "student") {
+                router.replace("/student-home");
+              } else if (existingRole === "admin") {
+                router.replace("/admin-home");
+              } else {
+                // First-time user with no role yet. The Firebase Auth
+                // account has already been created (by
+                // `createUserWithEmailAndPassword` inside
+                // `signUpWithEmail`), so going back to /email-signup
+                // would not lose data. However, the layout guard
+                // would immediately redirect back to /role-selection
+                // (because `!role`), creating an infinite loop.
+                // Instead of navigating, show a confirmation dialog
+                // explaining what happens if they leave.
+                Alert.alert(
+                  "Leave role selection?",
+                  "Your account has already been created. You can " +
+                    "sign back in later and pick a role then. " +
+                    "No data will be lost.",
+                  [
+                    {
+                      text: "Stay here",
+                      style: "cancel",
+                    },
+                    {
+                      text: "Sign out",
+                      style: "destructive",
+                      onPress: async () => {
+                        const { logout } = await import(
+                          "@/services/firebase/authService"
+                        );
+                        await logout();
+                        useAuthStore.getState().reset();
+                        router.replace("/email-signup");
+                      },
+                    },
+                  ],
+                );
+              }
+            }}
           >
             <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
             <Text className="text-body text-text-primary">Back</Text>
@@ -239,17 +300,14 @@ export function RoleSelectionScreen() {
         </ScrollView>
 
         <View className="px-5 pt-3 pb-8 bg-background">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue"
-            disabled={!canContinue}
+          <PrimaryButton
+            label={isSaving ? "Saving..." : "Continue"}
             onPress={handleContinue}
-            className={`min-h-btn items-center justify-center rounded-card bg-primary active:opacity-80 disabled:bg-border-strong disabled:opacity-60`}
-          >
-            <Text className="text-button text-white disabled:text-text-muted">
-              {isSaving ? "Saving..." : "Continue"}
-            </Text>
-          </Pressable>
+            loading={isSaving}
+            disabled={!canContinue}
+            size="lg"
+            className="w-full"
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -1,10 +1,24 @@
+import { ImageViewerModal } from "@/components/ui/ImageViewer";
+import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from "@react-native-firebase/firestore";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -13,31 +27,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where,
-  writeBatch,
-  serverTimestamp,
-} from "@react-native-firebase/firestore";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { useAuthStore } from "@/store/authStore";
-import {
-  writeNotification,
-  notificationCopy,
-} from "@/lib/verification/notifications";
 import {
   TUTOR_DOC_LABEL,
   formatBytes,
   type TutorDocument,
 } from "@/lib/verification/documents";
+import {
+  notificationCopy,
+  writeNotification,
+} from "@/lib/verification/notifications";
 import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
+import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Verification Queue (Admin)
@@ -134,6 +136,13 @@ type PendingEdit = {
   email: string;
   submitted: string;
   fields: EditField[];
+  /** The proposed (new) documents the tutor wants to submit —
+   *  extracted from `proposed.documents` so PendingEditCard can
+   *  render actual image thumbnails instead of text labels. */
+  proposedDocuments: TutorDocument[];
+  /** The current (old) documents on the live profile — extracted
+   *  from `current.documents` so the admin can compare old vs new. */
+  currentDocuments: TutorDocument[];
 };
 
 /** Status config — kept in a single switch so the badge / row /
@@ -231,6 +240,132 @@ const EDIT_FIELD_LABELS: Record<string, string> = {
   phone: "Phone",
 };
 
+/**
+ * Async enrichment pass for the verification queue snapshot handler.
+ * For entries where the `photoUrl` is a DiceBear fallback (meaning
+ * the verification doc was created before the `photoUrl` mirroring
+ * fix was deployed), read the real avatar from the profile doc
+ * (`users/{uid}/tutorProfile/default`) and persist it back to the
+ * verification doc so subsequent snapshots don't need the extra read.
+ *
+ * This is called after `setVerifications` and `setLoading` so the
+ * queue renders immediately; the avatars update in-place as the
+ * enrichment completes.
+ */
+
+/**
+ * Resubmission check: tutors who were previously rejected (or asked
+ * for more info) and then submitted a fresh profile via the
+ * onboarding flow write to their profile doc with `verificationStatus:
+ * "pending"` but do NOT update the source-of-truth
+ * `tutorVerifications/{uid}` doc (the security rules only permit
+ * admin updates on existing verification docs).
+ *
+ * This function reads the profile doc for each "rejected" /
+ * "more_info" entry and, if the profile doc now shows
+ * `verificationStatus === "pending"`, promotes that entry back to
+ * "pending" so the admin sees the resubmission in the queue.
+ *
+ * Called after `setVerifications` so the queue renders immediately;
+ * the status updates in-place as the check completes.
+ */
+async function checkResubmissions(
+  db: ReturnType<typeof getFirestore>,
+  rows: Verification[],
+): Promise<Verification[]> {
+  // Only check entries that are currently "rejected" or "more_info" —
+  // these are the only states from which a tutor can resubmit. New
+  // ("pending") entries and decided ("approved") entries don't need
+  // checking.
+  const candidates = rows.filter(
+    (r) => r.status === "rejected" || r.status === "more_info",
+  );
+  if (candidates.length === 0) return rows;
+
+  const enriched = await Promise.all(
+    candidates.map(async (row) => {
+      try {
+        const profileRef = doc(
+          db,
+          "users",
+          row.id,
+          "tutorProfile",
+          "default",
+        );
+        const profileSnap = await getDoc(profileRef);
+        if (!profileSnap.exists()) return row;
+
+        const data = profileSnap.data() as
+          | { verificationStatus?: string | null }
+          | undefined;
+        const profileStatus = data?.verificationStatus ?? null;
+
+        // If the profile doc says "pending", the tutor has
+        // resubmitted. Promote this entry back to "pending" so
+        // the admin sees it in the "New Tutor Verifications"
+        // section instead of "Decided".
+        if (profileStatus === "pending") {
+          return { ...row, status: "pending" as QueueStatus, decided: false };
+        }
+      } catch {
+        // Profile read failed — leave the entry at its current
+        // status. The next snapshot cycle will retry.
+      }
+      return row;
+    }),
+  );
+
+  // Merge the enriched rows back into the full list.
+  const enrichedMap = new Map<string, Verification>();
+  for (const r of enriched) enrichedMap.set(r.id, r);
+  return rows.map((r) => enrichedMap.get(r.id) ?? r);
+}
+async function enrichMissingAvatars(
+  db: ReturnType<typeof getFirestore>,
+  rows: Verification[],
+): Promise<Verification[]> {
+  const dicebearPattern = "api.dicebear.com";
+  const enriched = await Promise.all(
+    rows.map(async (row) => {
+      // Skip entries that already have a real avatar URL (not DiceBear).
+      if (!row.avatar.includes(dicebearPattern)) return row;
+      try {
+        const profileRef = doc(
+          db,
+          "users",
+          row.id,
+          "tutorProfile",
+          "default",
+        );
+        const profileSnap = await getDoc(profileRef);
+        const profileData = profileSnap.data() as
+          | { photoUrl?: string | null }
+          | undefined;
+        const fallbackPhoto =
+          typeof profileData?.photoUrl === "string" &&
+          profileData.photoUrl.length > 0
+            ? profileData.photoUrl
+            : null;
+        if (fallbackPhoto) {
+          // Persist back to the verification doc so subsequent
+          // snapshot cycles don't need this extra read.
+          const verificationRef = doc(db, "tutorVerifications", row.id);
+          setDoc(verificationRef, { photoUrl: fallbackPhoto }, { merge: true }).catch(
+            () => {
+              /* non-fatal — next snapshot will re-enrich */
+            },
+          );
+          return { ...row, avatar: fallbackPhoto };
+        }
+      } catch {
+        // Fallback read failed — leave the DiceBear URL in place.
+      }
+      return row;
+    }),
+  );
+  return enriched;
+}
+
 function labelForField(key: string): string {
   return (
     EDIT_FIELD_LABELS[key] ??
@@ -251,6 +386,10 @@ function buildDiffRows(
 ): EditField[] {
   const rows: EditField[] = [];
   Object.keys(proposed).forEach((key) => {
+    // Documents are handled separately by PendingEditCard with actual
+    // image thumbnails — skip them here to avoid a redundant text row.
+    if (key === "documents") return;
+
     const next = proposed[key];
     const prev = current?.[key];
     if (JSON.stringify(prev) === JSON.stringify(next)) return;
@@ -285,6 +424,21 @@ export function VerificationQueue() {
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [loading, setLoading] = useState(true);
 
+    // Full-screen image preview state. When the admin taps an image
+  // document thumbnail we show the ImageViewerModal instead of leaving
+  // the app.
+  const [previewImage, setPreviewImage] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
+
+  // Full-screen video preview state. When the admin taps a demo video
+  // thumbnail we show the VideoViewerModal instead of leaving the app.
+  const [previewVideo, setPreviewVideo] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
+
   // `rejecting` is set to the id of the verification being rejected.
   // The RejectReasonDialog reads from this and writes back the
   // captured reason. Same shape for edit-rejects.
@@ -313,7 +467,28 @@ export function VerificationQueue() {
     // small in the demo (tens, not thousands). If collection size
     // ever grows we'd switch to per-section `where` queries.
     const verificationsQuery = query(collection(db, "tutorVerifications"));
-    const unsubVerifications = onSnapshot(verificationsQuery, (snap) => {
+    const unsubVerifications = onSnapshot(
+      verificationsQuery,
+      (snap) => {
+        // Guard: `onSnapshot` should always pass a valid snapshot,
+        // but a race between navigation and listener cleanup can
+        // leave `snap` undefined if the component unmounts mid-
+        // callback. Defensively guard against `null` to prevent
+        // "Cannot read property 'docs' of null" errors when the
+        // admin navigates rapidly between screens.
+        if (!snap) {
+          if (__DEV__) {
+            console.warn(
+              "[VerificationQueue] received null snapshot for tutorVerifications",
+            );
+          }
+          return;
+        }
+      // Build rows synchronously — the queue renders immediately
+      // with whatever data is available on the verification doc.
+      // Entries that lack `photoUrl` get a DiceBear fallback URL
+      // initially; a separate async enrichment pass (below)
+      // backfills the real avatar from the profile doc.
       const rows: Verification[] = snap.docs.map((d) => {
         const data = d.data() as {
           fullName?: string;
@@ -328,6 +503,12 @@ export function VerificationQueue() {
           headline?: string;
           bio?: string;
           documents?: TutorDocument[];
+          /** Avatar stored directly on the verification doc. Written
+           *  by `TutorProfileScreen`'s batch set under the `photoUrl`
+           *  key. The field was historically called `avatarUrl` but
+           *  that name was never written — we read both for backward
+           *  compatibility. */
+          photoUrl?: string | null;
           avatarUrl?: string | null;
           status?: QueueStatus;
           adminNotes?: string | null;
@@ -338,16 +519,21 @@ export function VerificationQueue() {
         return {
           id: d.id,
           name: data.fullName ?? "Unknown tutor",
+          // Prefer `photoUrl` (the field actually written by the
+          // onboarding flow) over `avatarUrl` (a historical alias
+          // that was never persisted). Fall back to DiceBear only
+          // when neither is present.
           avatar:
+            data.photoUrl ??
             data.avatarUrl ??
             `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
               data.fullName ?? d.id,
             )}`,
           email: data.email ?? "",
           phone: data.phoneDisplay ?? data.phone ?? "",
-          // Prefer the most recent timestamp the server gave us; the
-          // mock data used "submitted" so the field is reused as a
-          // human label.
+          // Prefer the most recent timestamp the server gave us;
+          // the mock data used "submitted" so the field is reused
+          // as a human label.
           submitted: formatRelativeTime(
             data.updatedAt ?? data.createdAt ?? null,
           ),
@@ -362,9 +548,53 @@ export function VerificationQueue() {
           decided: status === "approved" || status === "rejected",
         };
       });
+
+      // Render immediately so the queue doesn't wait for the
+      // fallback reads. The enrichment pass below will update
+      // any DiceBear avatars with the real photo.
       setVerifications(rows);
       setLoading(false);
-    });
+
+      // Async enrichment: for entries that lack `photoUrl` on the
+      // verification doc, try to read it from the profile doc
+      // (`users/{uid}/tutorProfile/default`). This backfills old
+      // entries created before `TutorProfileScreen` started
+      // mirroring `photoUrl` onto the verification doc. The result
+      // is also persisted back to the verification doc so
+      // subsequent snapshot cycles don't need the extra reads.
+      enrichMissingAvatars(db, rows).then(setVerifications).catch(() => {
+        // Non-fatal — rows already rendered with DiceBear fallback.
+      });
+
+      // Async resubmission check: tutors who were rejected (or asked
+      // for more info) and then resubmitted their profile via the
+      // onboarding screen write to their profile doc with
+      // `verificationStatus: "pending"` but CANNOT update the source-
+      // of-truth `tutorVerifications/{uid}` doc (the security rules
+      // only permit admin updates on existing verification docs).
+      // This pass reads the profile doc for each "rejected" /
+      // "more_info" entry and, if the profile doc now shows
+      // `verificationStatus === "pending"`, promotes that entry back
+      // to "pending" so the admin sees the resubmission in the queue.
+      checkResubmissions(db, rows).then(setVerifications).catch(() => {
+        // Non-fatal — the next snapshot cycle will retry.
+      });
+    },
+    // Error callback: if the `tutorVerifications` collection read
+    // fails (e.g. permission denied, network error), log the error
+    // but don't crash. The component stays mounted and shows an
+    // empty queue (or whatever state it last had) until the next
+    // successful snapshot.
+    (err) => {
+      if (__DEV__) {
+        console.warn(
+          "[VerificationQueue] tutorVerifications onSnapshot error",
+          err,
+        );
+      }
+      setLoading(false);
+    },
+  );
 
     // Pending edits only — admin reviews these; decided edits are
     // history we don't need to render in this view.
@@ -385,15 +615,47 @@ export function VerificationQueue() {
           data.current ?? null,
           data.proposed ?? {},
         );
+        // Extract document arrays so PendingEditCard can render
+        // image thumbnails instead of text labels.
+        const proposedDocs: TutorDocument[] = Array.isArray(
+          (data.proposed as Record<string, unknown> | undefined)?.documents,
+        )
+          ? ((data.proposed as Record<string, unknown>).documents as TutorDocument[])
+          : [];
+        const currentDocs: TutorDocument[] = Array.isArray(
+          (
+            (data.current as Record<string, unknown> | undefined) ??
+            {}
+          ).documents,
+        )
+          ? (
+              ((data.current as Record<string, unknown>) ?? {}).documents as TutorDocument[]
+            )
+          : [];
+        // Attempt to read the current avatar URL from the
+        // `current` snapshot that EditTeachingDetails writes.
+        // This is the only place photoUrl lives on the update doc
+        // (it's not a `proposed` field unless the tutor explicitly
+        // changed it via the edit-profile screen).
+        const currentPhotoUrl: string | null | undefined =
+          (
+            (data.current as Record<string, unknown> | undefined) ??
+            {}
+          ).photoUrl as string | null | undefined;
+
         return {
           id: d.id,
           name: data.fullName ?? "Unknown tutor",
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-            data.fullName ?? d.id,
-          )}`,
+          avatar:
+            currentPhotoUrl ??
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+              data.fullName ?? d.id,
+            )}`,
           email: data.email ?? "",
           submitted: formatRelativeTime(data.submittedAt ?? null),
           fields,
+          proposedDocuments: proposedDocs,
+          currentDocuments: currentDocs,
         };
       });
       setPendingEdits(rows);
@@ -676,6 +938,12 @@ export function VerificationQueue() {
                 onApprove={() => handleAction(item.id, "approved")}
                 onReject={() => openRejectDialog(item.id, item.name, "verification")}
                 onRequestInfo={() => handleAction(item.id, "more_info")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
@@ -697,6 +965,12 @@ export function VerificationQueue() {
                 busy={busyId === edit.id}
                 onApprove={() => handleEditApprove(edit.id)}
                 onReject={() => openRejectDialog(edit.id, edit.name, "edit")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
@@ -720,6 +994,12 @@ export function VerificationQueue() {
                 onApprove={() => handleAction(item.id, "approved")}
                 onReject={() => openRejectDialog(item.id, item.name, "verification")}
                 onRequestInfo={() => handleAction(item.id, "more_info")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
@@ -771,37 +1051,29 @@ export function VerificationQueue() {
         onCancel={cancelReject}
         onConfirm={confirmReject}
       />
+
+      {/* Full-screen image preview. Shows inside the app instead of
+          opening the system browser. Only image documents open here. */}
+      <ImageViewerModal
+        visible={!!previewImage}
+        uri={previewImage?.uri ?? ""}
+        label={previewImage?.label ?? ""}
+        onClose={() => setPreviewImage(null)}
+      />
+
+      {/* Full-screen video player. Shows inside the app instead of
+          opening the system browser. Only demo videos open here. */}
+      <VideoViewerModal
+        visible={!!previewVideo}
+        uri={previewVideo?.uri ?? ""}
+        label={previewVideo?.label ?? ""}
+        onClose={() => setPreviewVideo(null)}
+      />
     </SafeAreaView>
   );
 }
 
-/**
- * Open a verification document in the system browser. Used by
- * the tappable thumbnails in the verification card so the admin
- * can review the full-resolution scan in a familiar viewer.
- *
- * The `url` parameter is a public-read Supabase Storage URL
- * produced by `getVerificationDocPublicUrl`. We deliberately do
- * NOT call `Linking.openURL` on the raw `TutorDocument.path`
- * (e.g. `{uid}/id.jpg`) — that's a Supabase-internal path, not
- * a browser addressable URL.
- *
- * On link failure (no network, no browser handler) we surface
- * a friendly Alert instead of letting the error bubble up into
- * the queue's `console.warn` stream.
- */
-function openVerificationDoc(url: string, label: string): void {
-  Linking.openURL(url).catch((err) => {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn("[openVerificationDoc]", err);
-    }
-    Alert.alert(
-      "Could not open document",
-      `${label} couldn't be opened. Check the device's network and try again.`,
-    );
-  });
-}
+
 
 function SectionHeader({
   title,
@@ -844,6 +1116,8 @@ function VerificationCard({
   onApprove,
   onReject,
   onRequestInfo,
+  onPreviewDocument,
+  onPreviewVideo,
 }: {
   item: Verification;
   status: QueueStatus;
@@ -851,6 +1125,12 @@ function VerificationCard({
   onApprove: () => void;
   onReject: () => void;
   onRequestInfo: () => void;
+  /** Called when an image document thumbnail is tapped. Opens the
+   *  in-app ImageViewerModal instead of the system browser. */
+  onPreviewDocument?: (url: string, label: string) => void;
+  /** Called when the demo video thumbnail is tapped. Opens the
+   *  in-app VideoViewerModal instead of the system browser. */
+  onPreviewVideo?: (url: string, label: string) => void;
 }) {
   return (
     <View className="bg-surface border border-border rounded-card p-4 mb-3">
@@ -870,8 +1150,8 @@ function VerificationCard({
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
-            <Text className="text-card-title font-medium text-amber">
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
               {(item.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
           </View>
@@ -910,93 +1190,22 @@ function VerificationCard({
         </View>
       ) : null}
 
-      {/* Documents — tappable thumbnails. For image kinds
-          (citizenship / certificate) the thumbnail renders the
-          actual scan inline so reviewers can verify at a glance;
-          for video the label is shown and a tap opens the file in
-          the system browser. The `path` field on `TutorDocument`
-          is the Supabase Storage object path, which the
-          `getVerificationDocPublicUrl` helper turns into a
-          public-read URL on the (public-read) verification-docs
-          bucket. */}
+      {/* Documents — tappable thumbnails using the shared
+          DocumentThumbnail component so both VerificationCard and
+          PendingEditCard render identical previews. */}
       {item.documents.length > 0 ? (
         <View className="mb-3">
           <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">Documents</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
-            {item.documents.map((doc, i) => {
-              const isImage = doc.kind === "citizenship" || doc.kind === "certificate";
-              // `doc.path` is required for the public-URL helper
-              // (see `getVerificationDocPublicUrl` in
-              // `services/supabase/storage.ts`). A document row
-              // without a path is a data-integrity bug, not a
-              // normal state — wrap in try/catch so the queue
-              // still renders the other docs and we surface the
-              // issue in `__DEV__` instead of crashing the whole
-              // card.
-              let publicUrl: string | null = null;
-              if (typeof doc.path === "string" && doc.path.length > 0) {
-                try {
-                  publicUrl = getVerificationDocPublicUrl(doc.path);
-                } catch (err) {
-                  if (__DEV__) {
-                    // eslint-disable-next-line no-console
-                    console.warn(
-                      "[VerificationQueue] getVerificationDocPublicUrl failed",
-                      err,
-                    );
-                  }
-                }
-              }
-              return (
-                <Pressable
-                  key={`${doc.kind}-${i}`}
-                  onPress={() =>
-                    publicUrl
-                      ? openVerificationDoc(publicUrl, TUTOR_DOC_LABEL[doc.kind])
-                      : Alert.alert(
-                          "Document unavailable",
-                          "This document's storage path is missing. The tutor needs to re-upload it.",
-                        )
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${TUTOR_DOC_LABEL[doc.kind]} for ${item.name}`}
-                  className="w-32 rounded-lg border border-border items-center bg-sand active:opacity-80 overflow-hidden"
-                >
-                  {isImage && publicUrl ? (
-                    <Image
-                      source={{ uri: publicUrl }}
-                      className="w-full h-20 bg-sand"
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View className="w-full h-20 items-center justify-center bg-amber-light">
-                      <Ionicons
-                        name={isImage ? "image-outline" : "play-circle"}
-                        size={28}
-                        color="#E5A03B"
-                      />
-                    </View>
-                  )}
-                  <View className="w-full p-1.5">
-                    <Text
-                      className="text-[9px] font-semibold text-text-primary text-center"
-                      numberOfLines={1}
-                    >
-                      {TUTOR_DOC_LABEL[doc.kind]}
-                    </Text>
-                    <Text
-                      className="text-[8px] text-text-secondary text-center mt-0.5"
-                      numberOfLines={1}
-                    >
-                      {doc.name}
-                    </Text>
-                    <Text className="text-[8px] text-text-muted text-center mt-0.5">
-                      {formatBytes(doc.bytes)}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+            {item.documents.map((doc, i) => (
+              <DocumentThumbnail
+                key={`${doc.kind}-${i}`}
+                doc={doc}
+                tutorName={item.name}
+                onPreviewDocument={onPreviewDocument}
+                onPreviewVideo={onPreviewVideo}
+              />
+            ))}
           </ScrollView>
         </View>
       ) : null}
@@ -1051,9 +1260,105 @@ function VerificationCard({
 }
 
 /**
+ * Shared document thumbnail component used by both VerificationCard
+ * and PendingEditCard. Resolves the public URL via
+ * `getVerificationDocPublicUrl`, handles cache-busting with the
+ * `uploadedAt` timestamp, and dispatches to ImageViewerModal or
+ * VideoViewerModal on tap. Renders a 128px-wide card with the image
+ * scan (or an icon fallback for videos/missing URLs), a label, and
+ * the file size — exactly matching the admin queue's existing visual.
+ */
+function DocumentThumbnail({
+  doc,
+  tutorName,
+  onPreviewDocument,
+  onPreviewVideo,
+}: {
+  doc: TutorDocument;
+  tutorName: string;
+  onPreviewDocument?: (url: string, label: string) => void;
+  onPreviewVideo?: (url: string, label: string) => void;
+}) {
+  const isImage = doc.kind === "citizenship" || doc.kind === "certificate";
+  let publicUrl: string | null = null;
+  if (typeof doc.path === "string" && doc.path.length > 0) {
+    try {
+      publicUrl = getVerificationDocPublicUrl(doc.path);
+    } catch (err) {
+      if (__DEV__) {
+        console.warn(
+          "[DocumentThumbnail] getVerificationDocPublicUrl failed",
+          err,
+        );
+      }
+    }
+  }
+  // Compute a single, consistent display URL that both the thumbnail
+  // <Image> and the lightbox use. Without this, the thumbnail would
+  // use the cache-busted URL (`?t=uploadedAt`) while the lightbox
+  // receives the raw `publicUrl` — React Native's <Image> caches by
+  // URI, so the lightbox would show a stale cached version while the
+  // thumbnail shows the correct new one.
+  const displayUrl =
+    isImage && publicUrl && doc.uploadedAt
+      ? `${publicUrl}?t=${encodeURIComponent(doc.uploadedAt)}`
+      : publicUrl;
+
+  return (
+    <Pressable
+      onPress={() => {
+        if (isImage && displayUrl) {
+          onPreviewDocument?.(displayUrl, TUTOR_DOC_LABEL[doc.kind]);
+        } else if (!isImage && publicUrl) {
+          onPreviewVideo?.(publicUrl, TUTOR_DOC_LABEL[doc.kind]);
+        } else {
+          Alert.alert(
+            "Document unavailable",
+            "This document's storage path is missing.",
+          );
+        }
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${TUTOR_DOC_LABEL[doc.kind]} for ${tutorName}`}
+      className="w-32 rounded-lg border border-border items-center bg-sand active:opacity-80 overflow-hidden"
+    >
+      {isImage && displayUrl ? (
+        <Image
+          source={{ uri: displayUrl }}
+          className="w-full h-20 bg-sand"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-full h-20 items-center justify-center bg-accent-light">
+          <Ionicons
+            name={isImage ? "image-outline" : "play-circle"}
+            size={28}
+            color="#E5A03B"
+          />
+        </View>
+      )}
+      <View className="w-full p-1.5">
+        <Text
+          className="text-[9px] font-semibold text-text-primary text-center"
+          numberOfLines={1}
+        >
+          {TUTOR_DOC_LABEL[doc.kind]}
+        </Text>
+        <Text className="text-[8px] text-text-muted text-center mt-0.5">
+          {formatBytes(doc.bytes)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/**
  * Pending edit card — renders a row per changed field with the old
  * value (struck through, dimmed) and the new value (highlighted in
- * amber). Approve/Reject buttons at the bottom. There is no
+ * accent). If the edit includes document changes, the proposed
+ * documents are shown as image thumbnails (same size as the
+ * VerificationCard preview) so the admin can visually verify the
+ * new scans. Approve/Reject buttons at the bottom. There is no
  * "Request more info" — the only question for an edit is "do you
  * accept this change?".
  */
@@ -1062,12 +1367,22 @@ function PendingEditCard({
   busy,
   onApprove,
   onReject,
+  onPreviewDocument,
+  onPreviewVideo,
 }: {
   edit: PendingEdit;
   busy: boolean;
   onApprove: () => void;
   onReject: () => void;
+  /** Called when an image document thumbnail is tapped. Opens the
+   *  in-app ImageViewerModal — same as VerificationCard. */
+  onPreviewDocument?: (url: string, label: string) => void;
+  /** Called when the demo video thumbnail is tapped. Opens the
+   *  in-app VideoViewerModal — same as VerificationCard. */
+  onPreviewVideo?: (url: string, label: string) => void;
 }) {
+  const hasDocChanges = edit.proposedDocuments.length > 0;
+
   return (
     <View className="bg-surface border border-border rounded-card p-4 mb-3">
       {/* Header */}
@@ -1079,8 +1394,8 @@ function PendingEditCard({
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-amber-light items-center justify-center">
-            <Text className="text-card-title font-medium text-amber">
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
               {(edit.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
           </View>
@@ -1104,6 +1419,32 @@ function PendingEditCard({
         </View>
       </View>
 
+      {/* Proposed document thumbnails — uses the shared
+          DocumentThumbnail component so both VerificationCard and
+          PendingEditCard render identical previews. */}
+      {hasDocChanges ? (
+        <View className="mb-3">
+          <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">
+            Updated documents
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-row gap-2"
+          >
+            {edit.proposedDocuments.map((doc, i) => (
+              <DocumentThumbnail
+                key={`${doc.kind}-${i}`}
+                doc={doc}
+                tutorName={edit.name}
+                onPreviewDocument={onPreviewDocument}
+                onPreviewVideo={onPreviewVideo}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {/* Diff rows */}
       {edit.fields.length > 0 ? (
         <View className="bg-sand rounded-md p-3 mb-3 gap-3">
@@ -1121,7 +1462,7 @@ function PendingEditCard({
                 </Text>
                 <Ionicons name="arrow-forward" size={12} color="#6B7268" />
                 <Text
-                  className="text-body-sm font-medium text-amber"
+                  className="text-body-sm font-medium text-accent"
                   numberOfLines={1}
                 >
                   {f.newValue}
@@ -1180,8 +1521,8 @@ function DecidedRow({ item }: { item: Verification }) {
           resizeMode="cover"
         />
       ) : (
-        <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
-          <Text className="text-card-title font-medium text-amber">
+        <View className="w-10 h-10 rounded-full bg-accent-light items-center justify-center">
+          <Text className="text-card-title font-medium text-accent">
             {(item.name?.charAt(0) ?? "?").toUpperCase()}
           </Text>
         </View>
@@ -1237,7 +1578,7 @@ function StatusBadge({ status }: { status: QueueStatus }) {
 function EmptyState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
-      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
+      <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
         <Ionicons name="shield-checkmark" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">

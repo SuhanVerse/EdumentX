@@ -59,6 +59,18 @@ export function EmailSignUp() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isCheckingVerified, setIsCheckingVerified] = useState(false);
+  // Which side of the Sign-up / Log-in pill the user is currently
+  // pressing. Held in state (not driven by `active:opacity-80` on
+  // the Pressable's className) because CssInterop tracks
+  // `:active`/`:hover`/`:focus` pseudo-states per component instance
+  // and re-runs `stringify` on the props when a Pressable is
+  // *upgraded* after its initial render — that walk can throw and
+  // emit the `[CssInterop] Failed to enumerate component props.`
+  // warning, which leaves the JS thread mid-render and freezes the
+  // screen. Using `transform: [{ scale }]` on the `style` prop keeps
+  // the press feedback inside React Native's native path and never
+  // touches the CssInterop upgrade branch.
+  const [pressedMode, setPressedMode] = useState<Mode | null>(null);
 
   // `pendingEmail` flips the screen from "form" to "check your inbox".
   // We keep the email visible so the user can confirm which inbox to
@@ -322,18 +334,51 @@ export function EmailSignUp() {
             </Text>
           </View>
 
-          {/* Mode toggle — Sign up / Log in pill at the top. */}
+          {/* Mode toggle — Sign up / Log in pill at the top.
+              Each child has a stable, unique `key` so React re-uses
+              the existing Pressable instance across mode flips
+              (instead of remounting it). The className also avoids
+              `shadow-*` utilities (which emit CSS custom properties
+              like `--tw-shadow-color`) and `:active`/`:hover`/
+              `:focus` pseudo-classes. CssInterop tracks both:
+              pseudo-classes flip `state.pressable` to
+              `SHOULD_UPGRADE`, and CSS variables flip
+              `state.variables` to `SHOULD_UPGRADE` — either path
+              triggers `printUpgradeWarning`, which calls `stringify`
+              on the component's props. The stringify walk can
+              throw inside `Object.entries` and emit the
+              `[CssInterop] Failed to enumerate component props.`
+              warning. Press feedback is delivered via a
+              `useState`-driven `transform` on the `style` prop
+              instead, which RN's native renderer handles without
+              CssInterop. The active side is differentiated by a
+              literal `border` (no CSS variables) instead of a
+              shadow. */}
           <View className="gap-1 p-1 rounded-md bg-surface-muted mb-6 flex-row">
             {(["signup", "login"] as Mode[]).map((item) => {
               const active = item === mode;
+              const pressed = pressedMode === item;
               return (
                 <Pressable
                   key={item}
                   accessibilityRole="button"
                   onPress={() => setMode(item)}
-                  className={`flex-1 h-chip-sm rounded-sm items-center justify-center active:opacity-80 ${
-                    active ? "bg-surface border border-border shadow-sm" : "bg-transparent"
+                  onPressIn={() => setPressedMode(item)}
+                  onPressOut={() => setPressedMode(null)}
+                  className={`flex-1 h-chip-sm rounded-sm items-center justify-center ${
+                    active ? "bg-surface border border-border" : "bg-transparent"
                   }`}
+                  style={({ pressed: rnPressed }) => [
+                    // The `pressed` from RN's callback API is the
+                    // native touch-down flag; combine it with our
+                    // own state so the press feedback still fires
+                    // after a tap completes (e.g. on tap-and-hold).
+                    {
+                      transform: [
+                        { scale: pressed || rnPressed ? 0.97 : 1 },
+                      ],
+                    },
+                  ]}
                 >
                   <Text
                     className={`text-button ${
