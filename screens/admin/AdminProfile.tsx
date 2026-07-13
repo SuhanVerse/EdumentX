@@ -72,9 +72,11 @@ import { useAuthStore } from "@/store/authStore";
  * rule needed. The `email` field is locked at the form level
  * (read-only input); admins can't spoof someone else's profile email.
  */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\d{7,15}$/;
-const NAME_REGEX = /^[a-zA-Z\s.'-]{2,80}$/;
+import {
+  validateEmail,
+  validateFullName,
+  validatePhone,
+} from "@/lib/validation";
 const ROLE_TITLE_MAX = 60;
 
 type AdminProfile = {
@@ -168,23 +170,20 @@ export function AdminProfile() {
 
   function validate(p: AdminProfile): Partial<Record<keyof AdminProfile, string>> {
     const e: Partial<Record<keyof AdminProfile, string>> = {};
-    if (!NAME_REGEX.test(p.fullName.trim())) {
-      e.fullName =
-        p.fullName.trim().length === 0
-          ? "Enter your full name."
-          : "Use 2–80 letters, spaces, dots, apostrophes, or hyphens only.";
-    }
+    const nameErr = validateFullName(p.fullName);
+    if (nameErr) e.fullName = nameErr;
     if (p.roleTitle.trim().length === 0) {
       e.roleTitle = "Enter your role title (e.g. 'Lead Moderator').";
     } else if (p.roleTitle.trim().length > ROLE_TITLE_MAX) {
       e.roleTitle = `Keep it under ${ROLE_TITLE_MAX} characters.`;
     }
-    if (p.phone.length > 0 && !PHONE_REGEX.test(p.phone.trim())) {
-      e.phone = "Use 7–15 digits, no spaces or symbols.";
+    // Phone is optional for admins, so only validate when non-empty
+    if (p.phone.trim().length > 0) {
+      const phoneErr = validatePhone(p.phone);
+      if (phoneErr) e.phone = phoneErr;
     }
-    if (!EMAIL_REGEX.test(p.email.trim())) {
-      e.email = "Email looks invalid.";
-    }
+    const emailErr = validateEmail(p.email);
+    if (emailErr) e.email = emailErr;
     return e;
   }
 

@@ -51,9 +51,14 @@ const SUBJECTS = [
   "English",
 ] as const;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,30}$/;
-const PHONE_REGEX = /^\d{7,15}$/;
+import {
+  validateEmail,
+  validateFullName,
+  validatePhone,
+  validateUsername,
+  validateRequired,
+  validateSelection,
+} from "@/lib/validation";
 
 type FormErrors = {
   fullName?: string;
@@ -88,9 +93,9 @@ export function StudentProfileScreen() {
 
   const canSubmit =
     fullName.trim().length >= 3 &&
-    EMAIL_REGEX.test(authEmail.trim()) &&
-    USERNAME_REGEX.test(username.trim()) &&
-    PHONE_REGEX.test(phone.trim()) &&
+    validateEmail(authEmail) === null &&
+    validateUsername(username) === null &&
+    validatePhone(phone) === null &&
     grade !== null &&
     subjects.length >= 1 &&
     location !== null &&
@@ -98,8 +103,9 @@ export function StudentProfileScreen() {
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
-    if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
-    if (!EMAIL_REGEX.test(authEmail.trim())) {
+    const nameErr = validateFullName(fullName);
+    if (nameErr) validationErrors.fullName = nameErr;
+    if (validateEmail(authEmail) !== null) {
       Alert.alert(
         "Account email is missing",
         "Please sign in again so we can attach your profile to the verified email.",
@@ -107,14 +113,10 @@ export function StudentProfileScreen() {
       router.replace("/email-signup");
       return;
     }
-    if (!USERNAME_REGEX.test(username.trim())) {
-      validationErrors.username =
-        "Username must be 3–30 characters: letters, digits, underscore, or dot.";
-    }
-    if (!PHONE_REGEX.test(phone.trim())) {
-      validationErrors.phone =
-        "Enter a valid phone number (7–15 digits, no country code).";
-    }
+    const usernameErr = validateUsername(username);
+    if (usernameErr) validationErrors.username = usernameErr;
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) validationErrors.phone = phoneErr;
     if (!grade) validationErrors.grade = "Select your grade.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
     setErrors(validationErrors);

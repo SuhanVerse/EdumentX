@@ -80,6 +80,32 @@ export const signInWithGoogle = async (): Promise<FirebaseAuthTypes.UserCredenti
  * The sendEmailVerification call is best-effort: if it fails the user
  * can re-trigger via `sendVerificationAgain()`.
  */
+/**
+ * Fetch the list of sign-in methods (providers) associated with an email
+ * address. Returns an array like `["password"]`, `["google.com"]`,
+ * `["password", "google.com"]`, or an empty array if the email is not
+ * registered with any auth provider.
+ *
+ * This is the Firebase-recommended way to detect account collisions
+ * before or after a failed `createUserWithEmailAndPassword` call.
+ * Importantly, `"password"` in the list means the user has an
+ * email/password credential; `"google.com"` means they signed up via
+ * Google. An empty array means the `auth/email-already-in-use` error
+ * from a prior call was stale — the account no longer exists.
+ *
+ * We wrap it in try/catch because a network failure here should never
+ * block the signup flow.
+ */
+export const getSignInMethodsForEmail = async (
+  email: string,
+): Promise<string[]> => {
+  try {
+    return await auth.fetchSignInMethodsForEmail(email);
+  } catch {
+    return [];
+  }
+};
+
 export const signUpWithEmail = async (
   email: string,
   password: string,

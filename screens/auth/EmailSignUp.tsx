@@ -18,6 +18,7 @@ import { colors } from "@/constants/colors";
 import {
   loginWithEmail,
   sendVerificationAgain,
+  getSignInMethodsForEmail,
   signInWithGoogle,
   signUpWithEmail,
 } from "@/services/firebase/authService";
@@ -215,6 +216,41 @@ export function EmailSignUp() {
           ? "Please check your email and password and try again."
           : "Please check your email and password and try again.",
       );
+
+      // Provider-aware error handling: when Firebase says the
+      // email is already in use, check which sign-in methods are
+      // actually linked to this email. This prevents the infinite
+      // loop where the app flips to login mode (expecting a password
+      // credential) when the account was created via Google and has
+      // no password.
+      const e = error as { code?: string };
+      if (mode === "signup" && e.code === "auth/email-already-in-use") {
+        const methods = await getSignInMethodsForEmail(email.trim());
+
+        // Only Google — no password credential exists. Guide the
+        // user to use Google Sign-In instead of flipping to login.
+        if (methods.length === 1 && methods[0] === "google.com") {
+          Alert.alert(
+            "Account already exists",
+            'This email is linked to a Google account. Please use the "Continue with Google" button below to sign in.',
+            [{ text: "OK" }],
+          );
+          return;
+        }
+
+        // No providers returned. This shouldn't happen when
+        // `auth/email-already-in-use` was thrown (the email IS
+        // registered), but `fetchSignInMethodsForEmail` can return
+        // empty on network failure or backend inconsistency. Fall
+        // through to the existing mode-flip logic below — it
+        // correctly handles `auth/email-already-in-use` by flipping
+        // to login mode.
+
+        // Password (or password + Google) is present — flip to
+        // login mode so the user can enter their password. The
+        // existing mode-flip logic below handles this.
+      }
+
       // Branch: if the error tells us the user is on the wrong
       // mode (e.g. they're in Sign up but the email is already
       // registered), flip the mode for them and let the form

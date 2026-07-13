@@ -54,9 +54,14 @@ const GRADES = [
   "Language",
 ] as const;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,30}$/;
-const PHONE_REGEX = /^\d{7,15}$/;
+import {
+  validateEmail,
+  validateFullName,
+  validatePhone,
+  validateUsername,
+  validateRequired,
+  validateSelection,
+} from "@/lib/validation";
 const HEADLINE_MAX = 80;
 const BIO_MAX = 280;
 
@@ -141,9 +146,9 @@ export function TutorProfileScreen() {
 
   const canSubmit =
     fullName.trim().length >= 3 &&
-    EMAIL_REGEX.test(authEmail.trim()) &&
-    USERNAME_REGEX.test(username.trim()) &&
-    PHONE_REGEX.test(phone.trim()) &&
+    validateEmail(authEmail) === null &&
+    validateUsername(username) === null &&
+    validatePhone(phone) === null &&
     headline.trim().length > 0 &&
     subjects.length >= 1 &&
     gradesTeaching.length >= 1 &&
@@ -155,8 +160,9 @@ export function TutorProfileScreen() {
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
-    if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
-    if (!EMAIL_REGEX.test(authEmail.trim())) {
+    const nameErr = validateFullName(fullName);
+    if (nameErr) validationErrors.fullName = nameErr;
+    if (validateEmail(authEmail) !== null) {
       Alert.alert(
         "Account email is missing",
         "Please sign in again so we can attach your profile to the verified email.",
@@ -164,14 +170,10 @@ export function TutorProfileScreen() {
       router.replace("/email-signup");
       return;
     }
-    if (!USERNAME_REGEX.test(username.trim())) {
-      validationErrors.username =
-        "Username must be 3–30 characters: letters, digits, underscore, or dot.";
-    }
-    if (!PHONE_REGEX.test(phone.trim())) {
-      validationErrors.phone =
-        "Enter a valid phone number (7–15 digits, no country code).";
-    }
+    const usernameErr = validateUsername(username);
+    if (usernameErr) validationErrors.username = usernameErr;
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) validationErrors.phone = phoneErr;
     if (headline.trim().length === 0) validationErrors.headline = "Add a one-line headline that parents will see.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
     if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";

@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -165,7 +165,7 @@ function Pill({
   // simpler outlined-pill treatment.
   const classes =
     active && variant === "subject"
-      ? "bg-amber border-amber"
+      ? "bg-accent border-accent"
       : active
         ? "bg-primary border-primary"
         : variant === "subject"

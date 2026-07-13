@@ -1,7 +1,15 @@
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,25 +19,17 @@ import {
   Text,
   View,
 } from "react-native";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "@react-native-firebase/firestore";
 
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 import { AvatarBubble } from "@/components/forms/AvatarBubble";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { TutorDocumentList } from "@/components/forms/DocumentUploader";
 import { EditableField } from "@/components/forms/EditableField";
 import { MenuRow } from "@/components/forms/MenuRow";
-import { TutorDocumentList } from "@/components/forms/DocumentUploader";
+import type { TutorDocument } from "@/lib/verification/documents";
 import { logout } from "@/services/firebase/authService";
 import { uploadAvatar } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
-import type { TutorDocument } from "@/lib/verification/documents";
 
 /**
  * EdumentX — Tutor Profile Edit screen (`/tutor_edit_profile`)
