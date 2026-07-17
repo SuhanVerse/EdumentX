@@ -15,8 +15,17 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { colors } from "@/constants/colors";
+import { motion } from "@/lib/motion";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
+import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -404,22 +413,10 @@ export function TutorDashboard() {
               results
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: available }}
-            accessibilityLabel="Toggle availability"
-            onPress={() => setAvailable(!available)}
-            className={`w-11 h-6 rounded-full px-0.5 active:opacity-80 ${
-              available ? "bg-verification" : "bg-white/20"
-            }`}
-          >
-            <View
-              className={`w-[22px] h-[22px] rounded-full bg-white
-              ${
-                available ? "left-5" : "left-0.5"
-              }`}
-            />
-          </Pressable>
+          <AvailabilitySwitch
+            checked={available}
+            onToggle={() => setAvailable(!available)}
+          />
         </View>
       </View>
 
@@ -600,46 +597,14 @@ export function TutorDashboard() {
           </View>
 
           {/* Sub-tabs */}
-          <View className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5">
-            {(
-              [
-                { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
-                { key: "batches",     label: "Batch requests",  count: BATCH_REQUESTS.length },
-              ] as const
-            ).map((t) => {
-              const on = reqTab === t.key;
-              return (
-                <Pressable
-                  key={t.key}
-                  onPress={() => setReqTab(t.key)}
-                  className={`flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                    on ? "bg-primary" : "bg-transparent"
-                  }`}
-                >
-                  <Text
-                    className={`text-caption font-medium ${
-                      on ? "text-white" : "text-text-secondary"
-                    }`}
-                  >
-                    {t.label}
-                  </Text>
-                  <View
-                    className={`px-1.5 py-[1px] rounded-full ${
-                      on ? "bg-white/25" : "bg-background"
-                    }`}
-                  >
-                    <Text
-                      className={`text-micro font-semibold ${
-                        on ? "text-white" : "text-text-muted"
-                      }`}
-                    >
-                      {t.count}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <RequestsSubTabs
+            activeKey={reqTab}
+            onChange={setReqTab}
+            tabs={[
+              { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
+              { key: "batches", label: "Batch requests", count: BATCH_REQUESTS.length },
+            ]}
+          />
 
           {reqTab === "enrollments" && (
             <View className="flex-col gap-2.5">
@@ -1005,9 +970,13 @@ function TutorDashboardEmptyState() {
   return (
     <ScreenLayout variant="background">
       <View className="flex-1 items-center justify-center px-8">
-        <View className="w-16 h-16 rounded-pill bg-accent-soft items-center justify-center mb-4">
-          <Ionicons name="document-text-outline" size={28} color="#E5A03B" />
-        </View>
+        <FloatingEmptyIcon
+          iconName="document-text-outline"
+          iconColor="#E5A03B"
+          iconBgClass="bg-accent-soft"
+          size={28}
+          sizeClass="w-16 h-16"
+        />
         <Text className="text-section-title font-medium text-text-primary text-center">
           Your tutor profile isn&apos;t set up yet
         </Text>
@@ -1032,5 +1001,146 @@ function TutorDashboardEmptyState() {
         </Text>
       </View>
     </ScreenLayout>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+const TRACK_WIDTH = 44;
+const THUMB_SIZE = 20;
+
+/**
+ * Animated availability switch. Replaces the previous class-swap
+ * (`bg-verification` vs `bg-white/20` + `left-5` vs `left-0.5`) with
+ * a spring-sliding thumb and a smoothly interpolated track color
+ * (white/20 → verification green). Wrapped in a `Pressable` so the
+ * tap target stays tappable on the full 44×24 area.
+ */
+function AvailabilitySwitch({
+  checked,
+  onToggle,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  // Track bg color — interpolated between the off (white/20) and on
+  // (verification green) tokens. Using the same hex lookups that
+  // exist elsewhere in the codebase so we don't introduce new colors.
+  const TRACK_OFF = "rgba(255,255,255,0.20)";
+  const TRACK_ON = colors.brand.verification;
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(checked ? 1 : 0, {
+      duration: motion.duration.medium,
+    });
+  }, [checked, progress]);
+
+  const trackStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [TRACK_OFF, TRACK_ON],
+      ),
+    };
+  });
+
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked }}
+      accessibilityLabel="Toggle availability"
+      onPress={onToggle}
+      className="w-11 h-6 rounded-full px-0.5 justify-center"
+    >
+      <Animated.View
+        style={trackStyle}
+        className="absolute inset-0 rounded-full"
+      />
+      <SwitchThumb
+        checked={checked}
+        trackWidth={TRACK_WIDTH}
+        thumbSize={THUMB_SIZE}
+        thumbClassName="w-5 h-5 rounded-full bg-white shadow-sm"
+        style={{ elevation: 2 }}
+      />
+    </Pressable>
+  );
+}
+
+/**
+ * Two-tab segmented control for the requests section ("New
+ * enrollments" / "Batch requests"). The active tab is signaled by
+ * a single sliding `ActivePill` behind the labels (and the count
+ * chip), instead of a per-tab `bg-primary` class-swap.
+ */
+function RequestsSubTabs<TKey extends string>({
+  tabs,
+  activeKey,
+  onChange,
+}: {
+  tabs: { key: TKey; label: string; count: number }[];
+  activeKey: TKey;
+  onChange: (key: TKey) => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((t) => t.key === activeKey),
+  );
+  return (
+    <View
+      className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5 relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={tabs.length}
+          activeIndex={activeIndex}
+          itemWidth={width / tabs.length}
+          pillClassName="absolute top-1 h-9 rounded-lg bg-primary"
+          style={{
+            top: 4,
+            height: 36,
+            width: width / tabs.length - 8,
+            marginLeft: 4,
+            backgroundColor: "#2F5D50",
+          }}
+        />
+      ) : null}
+      {tabs.map((t, i) => {
+        const on = i === activeIndex;
+        return (
+          <Pressable
+            key={t.key}
+            onPress={() => onChange(t.key)}
+            className="flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 active:opacity-80 z-10"
+          >
+            <Text
+              className={`text-caption font-medium ${
+                on ? "text-white" : "text-text-secondary"
+              }`}
+            >
+              {t.label}
+            </Text>
+            <View
+              className={`px-1.5 py-[1px] rounded-full ${
+                on ? "bg-white/25" : "bg-background"
+              }`}
+            >
+              <Text
+                className={`text-micro font-semibold ${
+                  on ? "text-white" : "text-text-muted"
+                }`}
+              >
+                {t.count}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }

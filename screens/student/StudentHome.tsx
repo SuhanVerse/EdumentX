@@ -3,8 +3,8 @@ import { useRouter } from "expo-router";
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -17,9 +17,11 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 
+import { AnimatedPressable, usePressScale, FloatingEmptyIcon } from "@/components/motion";
 import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
+import { colors } from "@/constants/colors";
 
 /**
  * EdumentX — Student Home
@@ -106,6 +108,7 @@ function resolveLocationLabel(
 export function StudentHome() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Live reads from Firestore. We hold them in local state and
   // subscribe via `onSnapshot` so the dashboard re-renders if the
@@ -211,9 +214,13 @@ export function StudentHome() {
         {/* Empty state — tutor discovery lands in Phase 5 */}
         <View className="px-5 pt-10">
           <View className="bg-surface border border-border rounded-card p-6 items-center">
-            <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
-              <Ionicons name="search-outline" size={26} color="#E5A03B" />
-            </View>
+            <FloatingEmptyIcon
+              iconName="search-outline"
+              iconColor="#E5A03B"
+              iconBgClass="bg-accent-soft"
+              size={26}
+              sizeClass="w-14 h-14"
+            />
             <Text className="text-heading text-text-primary text-center">
               Tutor discovery is coming soon
             </Text>
@@ -239,10 +246,10 @@ export function StudentHome() {
             with no tab navigator. Confirms before destroying the
             session so an accidental tap doesn't log the user out. */}
         <View className="px-5 pt-6 pb-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
+          <StudentHomeLogOut
+            isSigningOut={isSigningOut}
             onPress={() => {
+              if (isSigningOut) return;
               Alert.alert(
                 "Log out?",
                 "You'll need to sign in again next time.",
@@ -251,20 +258,53 @@ export function StudentHome() {
                   {
                     text: "Log out",
                     style: "destructive",
-                    onPress: () => handleSignOut(router),
+                    onPress: () => {
+                      setIsSigningOut(true);
+                      handleSignOut(router).finally(() =>
+                        setIsSigningOut(false),
+                      );
+                    },
                   },
                 ],
               );
             }}
-            className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-surface border border-border active:opacity-80"
-          >
-            <Ionicons name="log-out-outline" size={18} color="#C1503D" />
-            <Text className="text-button font-semibold text-danger">Log out</Text>
-          </Pressable>
+          />
         </View>
       </ScrollView>
 
       <BottomNav role="student" current="/student-home" />
     </ScreenLayout>
+  );
+}
+
+function StudentHomeLogOut({
+  isSigningOut,
+  onPress,
+}: {
+  isSigningOut: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Log out"
+      accessibilityState={{ busy: isSigningOut }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      disabled={isSigningOut}
+      className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-surface border border-border"
+    >
+      {isSigningOut ? (
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+      ) : (
+        <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+      )}
+      <Text className="text-button font-semibold text-danger">
+        {isSigningOut ? "Logging out..." : "Log out"}
+      </Text>
+    </AnimatedPressable>
   );
 }

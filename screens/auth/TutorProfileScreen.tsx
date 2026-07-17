@@ -26,7 +26,9 @@ import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
+import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
 import { registration } from "@/lib/registration";
 import type { TutorDocument } from "@/lib/verification/documents";
@@ -78,7 +80,7 @@ type FormErrors = {
 };
 
 const inputBase =
-  "min-h-btn px-4 border-emphasis rounded-card bg-surface text-text-primary text-body-lg";
+  "min-h-btn px-4 rounded-card bg-surface text-text-primary text-body-lg";
 
 export function TutorProfileScreen() {
   const router = useRouter();
@@ -458,6 +460,10 @@ export function TutorProfileScreen() {
             email={authEmail}
             emailDisabled
             errors={errors}
+            fullNameValid={
+              fullName.trim().length > 0 && validateFullName(fullName) === null
+            }
+            fullNameError={!!errors.fullName}
             onChangeFullName={setFullName}
             onChangeEmail={() => {
               /* email is locked — sourced from verified auth identity */
@@ -473,18 +479,31 @@ export function TutorProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="at-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setUsername}
-                  placeholder="your_handle"
-                  placeholderTextColor={colors.text.muted}
-                  value={username}
-                />
-              </View>
+              <FieldShell
+                value={username}
+                error={!!errors.username}
+                valid={
+                  username.length > 0 && validateUsername(username) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="at-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setUsername}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="your_handle"
+                      placeholderTextColor={colors.text.muted}
+                      value={username}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.username ? (
                 <Text className="text-caption text-danger">{errors.username}</Text>
               ) : null}
@@ -493,17 +512,30 @@ export function TutorProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Phone (digits only — parents can request a call from inside the app)
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="call-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  keyboardType="phone-pad"
-                  onChangeText={setPhone}
-                  placeholder="98XXXXXXXX"
-                  placeholderTextColor={colors.text.muted}
-                  value={phone}
-                />
-              </View>
+              <FieldShell
+                value={phone}
+                error={!!errors.phone}
+                valid={
+                  phone.length > 0 && validatePhone(phone) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="call-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      keyboardType="phone-pad"
+                      onChangeText={setPhone}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="98XXXXXXXX"
+                      placeholderTextColor={colors.text.muted}
+                      value={phone}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.phone ? (
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : null}
@@ -518,15 +550,24 @@ export function TutorProfileScreen() {
                 {headline.length}/{HEADLINE_MAX}
               </Text>
             </View>
-            <TextInput
+            <FieldShell
               value={headline}
-              onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
-              placeholder="e.g., Experienced Math & Physics tutor"
-              placeholderTextColor={colors.text.muted}
-              className={`${inputBase} ${
-                errors.headline ? "border-danger" : "border-border"
-              }`}
-            />
+              error={!!errors.headline}
+              valid={headline.trim().length > 0}
+              className="min-h-btn bg-surface rounded-card"
+            >
+              {({ onFocus, onBlur }) => (
+                <TextInput
+                  value={headline}
+                  onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  placeholder="e.g., Experienced Math & Physics tutor"
+                  placeholderTextColor={colors.text.muted}
+                  className={inputBase}
+                />
+              )}
+            </FieldShell>
             {errors.headline ? (
               <Text className="text-caption text-danger">{errors.headline}</Text>
             ) : null}
@@ -542,16 +583,27 @@ export function TutorProfileScreen() {
                 {bio.length}/{BIO_MAX}
               </Text>
             </View>
-            <TextInput
+            <FieldShell
               value={bio}
-              onChangeText={(value) => setBio(value.slice(0, BIO_MAX))}
-              placeholder="Tell parents about your teaching style, experience, and approach."
-              placeholderTextColor={colors.text.muted}
-              multiline
-              numberOfLines={4}
-              className="min-h-bio-area px-4 py-3 border border-border rounded-card bg-surface text-text-primary text-body-lg"
-              style={{ textAlignVertical: "top" }}
-            />
+              error={false}
+              valid={false}
+              className="min-h-bio-area bg-surface rounded-card"
+            >
+              {({ onFocus, onBlur }) => (
+                <TextInput
+                  value={bio}
+                  onChangeText={(value) => setBio(value.slice(0, BIO_MAX))}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  placeholder="Tell parents about your teaching style, experience, and approach."
+                  placeholderTextColor={colors.text.muted}
+                  multiline
+                  numberOfLines={4}
+                  className="min-h-bio-area px-4 py-3 border-0 rounded-card bg-surface text-text-primary text-body-lg"
+                  style={{ textAlignVertical: "top" }}
+                />
+              )}
+            </FieldShell>
           </View>
 
           <ChipGroup
@@ -577,15 +629,12 @@ export function TutorProfileScreen() {
                 Years of experience
               </Text>
               <View className="flex-row items-center gap-3">
-                <Pressable
-                  accessibilityRole="button"
+                <StepperButton
+                  icon="remove"
                   accessibilityLabel="Decrease years of experience"
                   onPress={() => adjustExperience(-1)}
                   disabled={yearsExperience === 0}
-                  className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center active:opacity-70"
-                >
-                  <Ionicons color={colors.text.primary} name="remove" size={20} />
-                </Pressable>
+                />
                 <View className="flex-1 items-center">
                   <Text className="text-stepper-value text-text-primary">
                     {yearsExperience}
@@ -594,15 +643,12 @@ export function TutorProfileScreen() {
                     {yearsExperience === 1 ? "year" : "years"}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
+                <StepperButton
+                  icon="add"
                   accessibilityLabel="Increase years of experience"
                   onPress={() => adjustExperience(1)}
                   disabled={yearsExperience === 50}
-                  className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center active:opacity-70"
-                >
-                  <Ionicons color={colors.text.primary} name="add" size={20} />
-                </Pressable>
+                />
               </View>
             </View>
 
@@ -610,22 +656,29 @@ export function TutorProfileScreen() {
               <Text className="text-label text-ink-muted">
                 Monthly rate (NPR)
               </Text>
-              <View
-                className={`flex-row items-center h-rate-row px-3 border rounded-card bg-surface gap-1 ${
-                  errors.monthlyRate ? "border-danger" : "border-border"
-                }`}
+              <FieldShell
+                value={monthlyRateNpr}
+                error={!!errors.monthlyRate}
+                valid={isValidRate}
+                className="h-rate-row bg-surface rounded-card"
               >
-                <Text className="text-body text-text-muted font-semibold">Rs.</Text>
-                <TextInput
-                  value={monthlyRateNpr}
-                  onChangeText={setMonthlyRateNpr}
-                  placeholder="10000"
-                  placeholderTextColor={colors.text.muted}
-                  keyboardType="numeric"
-                  className="flex-1 text-text-primary text-body-lg font-semibold"
-                />
-                <Text className="text-caption text-text-muted">/ month</Text>
-              </View>
+                {({ onFocus, onBlur }) => (
+                  <View className="flex-row items-center h-rate-row px-3 gap-1 pr-10">
+                    <Text className="text-body text-text-muted font-semibold">Rs.</Text>
+                    <TextInput
+                      value={monthlyRateNpr}
+                      onChangeText={setMonthlyRateNpr}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="10000"
+                      placeholderTextColor={colors.text.muted}
+                      keyboardType="numeric"
+                      className="flex-1 text-text-primary text-body-lg font-semibold"
+                    />
+                    <Text className="text-caption text-text-muted">/ month</Text>
+                  </View>
+                )}
+              </FieldShell>
               {errors.monthlyRate ? (
                 <Text className="text-caption text-danger">{errors.monthlyRate}</Text>
               ) : null}
@@ -702,5 +755,35 @@ export function TutorProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function StepperButton({
+  icon,
+  accessibilityLabel,
+  onPress,
+  disabled,
+}: {
+  icon: "remove" | "add";
+  accessibilityLabel: string;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+      style={animatedStyle}
+      className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center disabled:opacity-40"
+    >
+      <Ionicons color={colors.text.primary} name={icon} size={20} />
+    </AnimatedPressable>
   );
 }

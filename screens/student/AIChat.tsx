@@ -13,6 +13,9 @@ import {
 } from "react-native";
 import { BottomNav } from "@/components/shared/BottomNav";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
+
 /**
  * EdumentX — AI Assistant (student)
  *
@@ -201,16 +204,12 @@ export function AIChat() {
           contentContainerClassName="gap-2 pr-2"
         >
           {QUICK_CHIPS.map((chip) => (
-            <Pressable
+            <QuickPromptChip
               key={chip}
+              label={chip}
               onPress={() => send(chip)}
               disabled={isThinking}
-              className="bg-ai-light border border-ai-border rounded-pill px-3 py-1.5 active:opacity-70"
-            >
-              <Text className="text-caption text-ai-dark font-medium">
-                {chip}
-              </Text>
-            </Pressable>
+            />
           ))}
         </ScrollView>
 
@@ -234,7 +233,7 @@ export function AIChat() {
             disabled={!input.trim() || isThinking}
             className={
               input.trim() && !isThinking
-                ? "w-11 h-11 rounded-pill bg-amber items-center justify-center active:opacity-80"
+                ? "w-11 h-11 rounded-pill bg-amber items-center justify-center"
                 : "w-11 h-11 rounded-pill bg-border items-center justify-center"
             }
           >
@@ -249,6 +248,32 @@ export function AIChat() {
 
       <BottomNav role="student" current="/AI-chat" />
     </ScreenLayout>
+  );
+}
+
+function QuickPromptChip({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+      style={animatedStyle}
+      className="bg-ai-light border border-ai-border rounded-pill px-3 py-1.5"
+    >
+      <Text className="text-caption text-ai-dark font-medium">{label}</Text>
+    </AnimatedPressable>
   );
 }
 

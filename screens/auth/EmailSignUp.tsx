@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -13,8 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AnimatedPressable, usePressScale, FieldShell } from "@/components/motion";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
+import { motion } from "@/lib/motion";
 import {
   loginWithEmail,
   sendVerificationAgain,
@@ -373,19 +376,7 @@ export function EmailSignUp() {
             contentContainerClassName="flex-grow px-5 pt-5 pb-5"
             keyboardShouldPersistTaps="handled"
           >
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => setPendingEmail(null)}
-              className="min-h-touch self-start flex-row items-center gap-1 mb-4 active:opacity-70"
-            >
-              <Ionicons
-                color={colors.brand.primary}
-                name="chevron-back"
-                size={18}
-              />
-              <Text className="text-body text-text-primary">Back</Text>
-            </Pressable>
+            <BackButton onPress={() => setPendingEmail(null)} />
 
             <View className="items-center gap-2 pt-4 mb-7">
               <View className="w-16 h-16 items-center justify-center rounded-pill bg-surface-muted mb-2">
@@ -420,16 +411,10 @@ export function EmailSignUp() {
                 disabled={isCheckingVerified}
               />
 
-              <Pressable
-                accessibilityRole="button"
-                disabled={isResending}
+              <ResendButton
+                isResending={isResending}
                 onPress={handleResend}
-                className="min-h-pill-sm items-center justify-center active:opacity-70"
-              >
-                <Text className="text-button text-night">
-                  {isResending ? "Sending..." : "Resend verification email"}
-                </Text>
-              </Pressable>
+              />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -530,20 +515,31 @@ export function EmailSignUp() {
               <Text className="text-label text-ink-muted">
                 Email
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3">
-                <Ionicons color={colors.text.muted} name="mail-outline" size={18} />
-                <TextInput
-                  className="flex-1 ml-2 text-text-primary text-body-lg"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  inputMode="email"
-                  keyboardType="email-address"
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  placeholderTextColor={colors.text.muted}
-                  value={email}
-                />
-              </View>
+              <FieldShell
+                value={email}
+                error={email.length > 0 && !isEmailValid}
+                valid={isEmailValid}
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3">
+                    <Ionicons color={colors.text.muted} name="mail-outline" size={18} />
+                    <TextInput
+                      className="flex-1 ml-2 text-text-primary text-body-lg"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      inputMode="email"
+                      keyboardType="email-address"
+                      onChangeText={setEmail}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="you@example.com"
+                      placeholderTextColor={colors.text.muted}
+                      value={email}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {!isEmailValid && email.length > 0 ? (
                 <Text className="text-caption text-danger">
                   Enter a valid email address.
@@ -555,31 +551,33 @@ export function EmailSignUp() {
               <Text className="text-label text-ink-muted">
                 Password
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3">
-                <TextInput
-                  className="flex-1 text-text-primary text-body-lg"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setPassword}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor={colors.text.muted}
-                  secureTextEntry={!showPassword}
-                  value={password}
-                />
-                <Pressable
-                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                  accessibilityRole="button"
-                  onPress={() => setShowPassword((current) => !current)}
-                  hitSlop={8}
-                  className="w-11 h-11 items-center justify-center active:opacity-70"
-                >
-                  <Ionicons
-                    color={colors.text.muted}
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                  />
-                </Pressable>
-              </View>
+              <FieldShell
+                value={password}
+                error={password.length > 0 && !isPasswordValid}
+                valid={false}
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3">
+                    <TextInput
+                      className="flex-1 text-text-primary text-body-lg"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setPassword}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="At least 6 characters"
+                      placeholderTextColor={colors.text.muted}
+                      secureTextEntry={!showPassword}
+                      value={password}
+                    />
+                    <PasswordEyeToggle
+                      showPassword={showPassword}
+                      onToggle={() => setShowPassword((current) => !current)}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {!isPasswordValid && password.length > 0 ? (
                 <Text className="text-caption text-danger">
                   Use at least 6 characters.
@@ -615,19 +613,126 @@ export function EmailSignUp() {
           </View>
 
           {/* Google Sign-In secondary CTA. */}
-          <Pressable
-            accessibilityRole="button"
-            disabled={isGoogleLoading}
+          <GoogleSignInButton
+            isGoogleLoading={isGoogleLoading}
             onPress={handleGoogle}
-            className="min-h-btn flex-row items-center justify-center gap-2 rounded-card bg-surface border-2 border-border active:opacity-80"
-          >
-            <Ionicons color={colors.brand.primary} name="logo-google" size={18} />
-            <Text className="text-button text-text-primary">
-              {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
-            </Text>
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+// ─── Press-scale sub-components ──────────────────────────────────────────────
+
+function BackButton({ onPress }: { onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      hitSlop={12}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="min-h-touch self-start flex-row items-center gap-1 mb-4"
+    >
+      <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+      <Text className="text-body text-text-primary">Back</Text>
+    </AnimatedPressable>
+  );
+}
+
+function ResendButton({
+  isResending,
+  onPress,
+}: {
+  isResending: boolean;
+  onPress: () => void;
+}) {
+  // Use the chip-pressed scale (slightly stronger than 0.96) because
+  // this is a text-only link; the small scale keeps it tactile.
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      disabled={isResending}
+      accessibilityState={{ busy: isResending }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="min-h-pill-sm items-center justify-center flex-row gap-2"
+    >
+      {isResending ? (
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+      ) : null}
+      <Text className="text-button text-night">
+        {isResending ? "Sending..." : "Resend verification email"}
+      </Text>
+    </AnimatedPressable>
+  );
+}
+
+function PasswordEyeToggle({
+  showPassword,
+  onToggle,
+}: {
+  showPassword: boolean;
+  onToggle: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+      accessibilityRole="button"
+      onPress={onToggle}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      hitSlop={8}
+      style={animatedStyle}
+      className="w-11 h-11 items-center justify-center"
+    >
+      <Ionicons
+        color={colors.text.muted}
+        name={showPassword ? "eye-off-outline" : "eye-outline"}
+        size={20}
+      />
+    </AnimatedPressable>
+  );
+}
+
+function GoogleSignInButton({
+  isGoogleLoading,
+  onPress,
+}: {
+  isGoogleLoading: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ busy: isGoogleLoading }}
+      disabled={isGoogleLoading}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="min-h-btn flex-row items-center justify-center gap-2 rounded-card bg-surface border-2 border-border"
+    >
+      {isGoogleLoading ? (
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+      ) : (
+        <Ionicons color={colors.brand.primary} name="logo-google" size={18} />
+      )}
+      <Text className="text-button text-text-primary">
+        {isGoogleLoading ? "Opening Google..." : "Continue with Google"}
+      </Text>
+    </AnimatedPressable>
   );
 }

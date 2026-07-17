@@ -25,7 +25,7 @@
  * iOS and Android via `maximumZoomScale` / `minimumZoomScale`.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -35,6 +35,15 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -63,85 +72,126 @@ export function ImageViewer({
   return (
     <>
       {/* Thumbnail trigger */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`View ${label}`}
+      <ImageThumbnail
+        uri={uri}
+        label={label}
+        width={thumbnailWidth}
+        height={thumbnailHeight}
         onPress={() => setVisible(true)}
-        className="overflow-hidden rounded-lg active:opacity-80"
-        style={{ width: thumbnailWidth, height: thumbnailHeight }}
-      >
-        <Image
-          source={{ uri }}
-          className="w-full h-full"
-          resizeMode="cover"
-        />
-      </Pressable>
+      />
 
       {/* Full-screen modal */}
       <Modal
         visible={visible}
         transparent
-        animationType="fade"
+        animationType="none"
         statusBarTranslucent
         onRequestClose={() => setVisible(false)}
       >
-        {/* Dark backdrop — tapping closes the viewer */}
-        <Pressable
-          accessibilityLabel="Close image viewer"
-          onPress={() => setVisible(false)}
-          className="flex-1 bg-black/95 justify-center"
-        >
-          {/* Nested Pressable that stops propagation so taps on the
-              image itself don't close the viewer */}
+        <LightboxEnter visible={visible}>
           <Pressable
-            onPress={() => {
-              /* Intentionally empty — allows taps on the image area
-                 to not close the viewer. */
-            }}
-            className="flex-1 justify-center"
-          >
-            <ScrollView
-              className="flex-1"
-              contentContainerClassName="flex-grow justify-center items-center"
-              maximumZoomScale={4}
-              minimumZoomScale={1}
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              centerContent
-            >
-              <Image
-                source={{ uri }}
-                className="max-w-full max-h-full"
-                resizeMode="contain"
-                style={{
-                  width: screenW * 0.9,
-                  height: screenH * 0.75,
-                }}
-              />
-            </ScrollView>
-          </Pressable>
-
-          {/* Close button — floating in the top-right */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close"
+            accessibilityLabel="Close image viewer"
             onPress={() => setVisible(false)}
-            className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center active:opacity-70"
+            className="flex-1 bg-black/95 justify-center"
           >
-            <Ionicons name="close" size={22} color="#FFFFFF" />
-          </Pressable>
+            {/* Nested Pressable that stops propagation so taps on the
+                image itself don't close the viewer */}
+            <Pressable
+              onPress={() => {
+                /* Intentionally empty — allows taps on the image area
+                   to not close the viewer. */
+              }}
+              className="flex-1 justify-center"
+            >
+              <ScrollView
+                className="flex-1"
+                contentContainerClassName="flex-grow justify-center items-center"
+                maximumZoomScale={4}
+                minimumZoomScale={1}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                centerContent
+              >
+                <Image
+                  source={{ uri }}
+                  className="max-w-full max-h-full"
+                  resizeMode="contain"
+                  style={{
+                    width: screenW * 0.9,
+                    height: screenH * 0.75,
+                  }}
+                />
+              </ScrollView>
+            </Pressable>
 
-          {/* Footer label */}
-          <View className="absolute bottom-8 left-0 right-0 items-center px-6">
-            <View className="bg-black/50 px-4 py-2 rounded-pill">
-              <Text className="text-caption text-white/90 text-center">
-                {label}
-              </Text>
+            {/* Close button — floating in the top-right */}
+            <ImageCloseButton onPress={() => setVisible(false)} />
+
+            {/* Footer label */}
+            <View className="absolute bottom-8 left-0 right-0 items-center px-6">
+              <View className="bg-black/50 px-4 py-2 rounded-pill">
+                <Text className="text-caption text-white/90 text-center">
+                  {label}
+                </Text>
+              </View>
             </View>
-          </View>
-        </Pressable>
+          </Pressable>
+        </LightboxEnter>
       </Modal>
     </>
+  );
+}
+
+function ImageThumbnail({
+  uri,
+  label,
+  width,
+  height,
+  onPress,
+}: {
+  uri: string;
+  label: string;
+  width: number;
+  height: number;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={`View ${label}`}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="overflow-hidden rounded-lg"
+      {...{ width, height }}
+    >
+      <Image
+        source={{ uri }}
+        className="w-full h-full"
+        resizeMode="cover"
+      />
+    </AnimatedPressable>
+  );
+}
+
+function ImageCloseButton({ onPress }: { onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center"
+    >
+      <Ionicons name="close" size={22} color="#FFFFFF" />
+    </AnimatedPressable>
   );
 }
 
@@ -167,57 +217,92 @@ export function ImageViewerModal({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <Pressable
-        accessibilityLabel="Close image viewer"
-        onPress={onClose}
-        className="flex-1 bg-black/95 justify-center"
-      >
+      <LightboxEnter visible={visible}>
         <Pressable
-          onPress={() => {}}
-          className="flex-1 justify-center"
-        >
-          <ScrollView
-            className="flex-1"
-            contentContainerClassName="flex-grow justify-center items-center"
-            maximumZoomScale={4}
-            minimumZoomScale={1}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            centerContent
-          >
-            <Image
-              source={{ uri }}
-              className="max-w-full max-h-full"
-              resizeMode="contain"
-              style={{
-                width: screenW * 0.9,
-                height: screenH * 0.75,
-              }}
-            />
-          </ScrollView>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel="Close image viewer"
           onPress={onClose}
-          className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center active:opacity-70"
+          className="flex-1 bg-black/95 justify-center"
         >
-          <Ionicons name="close" size={22} color="#FFFFFF" />
-        </Pressable>
+          <Pressable
+            onPress={() => {}}
+            className="flex-1 justify-center"
+          >
+            <ScrollView
+              className="flex-1"
+              contentContainerClassName="flex-grow justify-center items-center"
+              maximumZoomScale={4}
+              minimumZoomScale={1}
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              centerContent
+            >
+              <Image
+                source={{ uri }}
+                className="max-w-full max-h-full"
+                resizeMode="contain"
+                style={{
+                  width: screenW * 0.9,
+                  height: screenH * 0.75,
+                }}
+              />
+            </ScrollView>
+          </Pressable>
 
-        <View className="absolute bottom-8 left-0 right-0 items-center px-6">
-          <View className="bg-black/50 px-4 py-2 rounded-pill">
-            <Text className="text-caption text-white/90 text-center">
-              {label}
-            </Text>
+          <ImageCloseButton onPress={onClose} />
+
+          <View className="absolute bottom-8 left-0 right-0 items-center px-6">
+            <View className="bg-black/50 px-4 py-2 rounded-pill">
+              <Text className="text-caption text-white/90 text-center">
+                {label}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+      </LightboxEnter>
     </Modal>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+/**
+ * Wraps the lightbox contents in a fade + scale entrance animation.
+ * The card (the dark backdrop + image + close button) springs from
+ * 0.92 → 1.0 with a gentle easing and fades 0 → 1 over the same
+ * window. On `visible=false` it times back to 0/0.92 (fast) so the
+ * dismiss feels snappy.
+ *
+ * Used by both `ImageViewer` and `ImageViewerModal`.
+ */
+function LightboxEnter({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+}) {
+  const progress = useSharedValue(visible ? 1 : 0);
+  useEffect(() => {
+    if (visible) {
+      progress.value = withSpring(1, motion.spring.gentle);
+    } else {
+      progress.value = withTiming(0, { duration: motion.duration.fast });
+    }
+  }, [visible, progress]);
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: progress.value,
+      transform: [{ scale: 0.92 + progress.value * 0.08 }],
+    };
+  });
+  return (
+    <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+      {children}
+    </Animated.View>
   );
 }

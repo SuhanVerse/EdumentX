@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { getApp } from "@react-native-firebase/app";
 import { getAuth } from "@react-native-firebase/auth";
-import { Alert, Image, Pressable, Text, View } from "react-native";
+import { Alert, Image, Text, View } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { colors } from "@/constants/colors";
 import { uploadAvatar } from "@/services/supabase/storage";
 
@@ -85,28 +86,44 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
 
   return (
     <View className="items-center gap-2 mb-4">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={value ? "Change profile photo" : "Upload profile photo"}
-        onPress={handlePick}
-        className="w-24 h-24 rounded-full border-2 border-border bg-surface-muted items-center justify-center active:opacity-80"
-      >
-        {value ? (
-          <Image
-            source={{ uri: value }}
-            className="w-avatar-uploader h-avatar-uploader rounded-full"
-          />
-        ) : (
-          <Ionicons
-            color={colors.brand.primary}
-            name="person-outline"
-            size={40}
-          />
-        )}
-      </Pressable>
+      <UploadButton value={value} handlePick={handlePick} />
       <Text className="text-caption text-text-secondary font-medium">
         {value ? "Change photo" : "Upload photo"}
       </Text>
     </View>
+  );
+}
+
+function UploadButton({
+  value,
+  handlePick,
+}: {
+  value: string | null;
+  handlePick: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={value ? "Change profile photo" : "Upload profile photo"}
+      onPress={handlePick}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="w-24 h-24 rounded-full border-2 border-border bg-surface-muted items-center justify-center"
+    >
+      {value ? (
+        <Image
+          source={{ uri: value }}
+          className="w-avatar-uploader h-avatar-uploader rounded-full"
+        />
+      ) : (
+        <Ionicons
+          color={colors.brand.primary}
+          name="person-outline"
+          size={40}
+        />
+      )}
+    </AnimatedPressable>
   );
 }

@@ -511,7 +511,7 @@ export function EditTeachingDetails() {
                 Monthly rate (NPR)
               </Text>
               <View
-                className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-1 ${
+                className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-1 pr-10 ${
                   errors.monthlyRate ? "border-danger" : "border-border"
                 }`}
               >

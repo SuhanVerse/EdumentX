@@ -1,6 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
+import React from "react";
 import { Pressable, Text, View } from "react-native";
+
+import { ActivePill } from "@/components/motion";
 
 /**
  * EdumentX — Persistent bottom navigation bar
@@ -41,11 +44,10 @@ const STUDENT_TABS: BottomNavTab[] = [
 ];
 
 /**
- * Single tab button. Two visual states (active / inactive) keyed off
- * the `active` prop. We render both the filled and outline glyph and
- * toggle their opacity rather than swapping the icon name, so the
- * active-tab pill has visual weight even when the icon itself is
- * identical to the inactive one.
+ * Single tab button. The active-pill background is no longer rendered
+ * here — the parent row mounts a single sliding `ActivePill` behind
+ * the tabs, so the visual weight of "active" comes from the pill
+ * slide + the label color swap, not a per-tab class flip.
  */
 function TabButton({
   tab,
@@ -64,13 +66,7 @@ function TabButton({
       onPress={onPress}
       className="flex-1 items-center justify-center active:opacity-70"
     >
-      <View
-        className={
-          active
-          ? "w-12 h-6 rounded-pill bg-primary-light items-center justify-center"
-          : "w-12 h-6 items-center justify-center"
-        }
-      >
+      <View className="w-12 h-6 items-center justify-center">
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
@@ -87,6 +83,49 @@ function TabButton({
         {tab.label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Renders the 5-tab row + the sliding `ActivePill` behind it. The
+ * pill width is set to exactly one-fifth of the row's measured
+ * width — measured via `onLayout` so the row can be rendered at
+ * `flex-1` (filling the bottom nav) without us needing a hard-coded
+ * `SCREEN_WIDTH / 5` constant that breaks on tablets.
+ */
+function TabRow({
+  tabs,
+  activeIndex,
+  onPress,
+}: {
+  tabs: BottomNavTab[];
+  activeIndex: number;
+  onPress: (tab: BottomNavTab) => void;
+}) {
+  const [width, setWidth] = React.useState(0);
+  return (
+    <View
+      className="flex-row relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={tabs.length}
+          activeIndex={activeIndex}
+          itemWidth={width / tabs.length}
+          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-primary-light"
+          style={{ width: width / tabs.length, height: 28, top: 6 }}
+        />
+      ) : null}
+      {tabs.map((tab, i) => (
+        <TabButton
+          key={tab.route}
+          tab={tab}
+          active={i === activeIndex}
+          onPress={() => onPress(tab)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -107,6 +146,7 @@ export function BottomNav({
   const pathname = usePathname();
   const tabs = role === "student" ? STUDENT_TABS : STUDENT_TABS;
   const activeRoute = current ?? pathname;
+  const activeIndex = tabs.findIndex((t) => t.route === activeRoute);
 
   /**
    * Tap handler for a tab button.
@@ -142,16 +182,11 @@ export function BottomNav({
       className="bg-surface border-t border-border"
       style={{ paddingBottom: 16, paddingTop: 6 }}
     >
-      <View className="flex-row">
-        {tabs.map((tab) => (
-          <TabButton
-            key={tab.route}
-            tab={tab}
-            active={activeRoute === tab.route}
-            onPress={() => goTo(tab.route)}
-          />
-        ))}
-      </View>
+      <TabRow
+        tabs={tabs}
+        activeIndex={activeIndex >= 0 ? activeIndex : 0}
+        onPress={(tab) => goTo(tab.route)}
+      />
     </View>
   );
 }

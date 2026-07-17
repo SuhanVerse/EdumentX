@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
+import React from "react";
 import { Pressable, Text, View } from "react-native";
 
+import { ActivePill } from "@/components/motion";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -67,13 +69,7 @@ function TabButton({
       onPress={onPress}
       className="flex-1 items-center justify-center active:opacity-70"
     >
-      <View
-        className={
-          active
-            ? "w-12 h-7 rounded-pill bg-amber-light items-center justify-center"
-            : "w-12 h-7 items-center justify-center"
-        }
-      >
+      <View className="w-12 h-7 items-center justify-center">
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
@@ -91,6 +87,42 @@ function TabButton({
         {tab.label}
       </Text>
     </Pressable>
+  );
+}
+
+function TabRow({
+  tabs,
+  activeIndex,
+  onPress,
+}: {
+  tabs: AdminTab[];
+  activeIndex: number;
+  onPress: (tab: AdminTab) => void;
+}) {
+  const [width, setWidth] = React.useState(0);
+  return (
+    <View
+      className="flex-row relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={tabs.length}
+          activeIndex={activeIndex}
+          itemWidth={width / tabs.length}
+          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-amber-light"
+          style={{ width: width / tabs.length, height: 28, top: 6 }}
+        />
+      ) : null}
+      {tabs.map((tab, i) => (
+        <TabButton
+          key={tab.route}
+          tab={tab}
+          active={i === activeIndex}
+          onPress={() => onPress(tab)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -126,21 +158,17 @@ export function AdminNav() {
     router.replace(route as any);
   }
 
+  const activeIndex = ADMIN_TABS.findIndex((t) => t.route === pathname);
   return (
     <View
       className="bg-surface border-t border-border"
       style={{ paddingBottom: 16, paddingTop: 6 }}
     >
-      <View className="flex-row">
-        {ADMIN_TABS.map((tab) => (
-          <TabButton
-            key={tab.route}
-            tab={tab}
-            active={pathname === tab.route}
-            onPress={() => goTo(tab.route)}
-          />
-        ))}
-      </View>
+      <TabRow
+        tabs={ADMIN_TABS}
+        activeIndex={activeIndex >= 0 ? activeIndex : 0}
+        onPress={(tab) => goTo(tab.route)}
+      />
     </View>
   );
 }

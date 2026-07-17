@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { FieldShell } from "@/components/motion";
 import { AdminNav } from "@/components/shared/AdminNav";
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
@@ -372,24 +373,38 @@ export function AdminProfile() {
               <Text className="text-caption text-text-secondary">
                 Full name
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="person-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  textContentType="name"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, fullName: v }))}
-                  placeholder="e.g. Asim Poudel"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.fullName}
-                  editable={isFirstTime || isEditing}
-                />
-              </View>
+              <FieldShell
+                value={profile.fullName}
+                error={!!errors.fullName}
+                valid={
+                  profile.fullName.length > 0 &&
+                  validateFullName(profile.fullName) === null
+                }
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="person-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      textContentType="name"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, fullName: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g. Asim Poudel"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.fullName}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.fullName ? (
                 <Text className="text-caption text-danger">{errors.fullName}</Text>
               ) : null}
@@ -399,23 +414,34 @@ export function AdminProfile() {
               <Text className="text-caption text-text-secondary">
                 Role title
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="briefcase-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="words"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, roleTitle: v }))}
-                  placeholder="e.g. Lead Moderator, Trust & Safety"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.roleTitle}
-                  maxLength={ROLE_TITLE_MAX}
-                  editable={isFirstTime || isEditing}
-                />
-              </View>
+              <FieldShell
+                value={profile.roleTitle}
+                error={!!errors.roleTitle}
+                valid={profile.roleTitle.trim().length > 0}
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="briefcase-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, roleTitle: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g. Lead Moderator, Trust & Safety"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.roleTitle}
+                      maxLength={ROLE_TITLE_MAX}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.roleTitle ? (
                 <Text className="text-caption text-danger">{errors.roleTitle}</Text>
               ) : (
@@ -436,22 +462,35 @@ export function AdminProfile() {
               <Text className="text-caption text-text-secondary">
                  Phone {/* (optional) */}
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="call-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  keyboardType="phone-pad"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, phone: v }))}
-                  placeholder="Digits only, e.g. 9841234567"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.phone}
-                  editable={isFirstTime || isEditing}
-                />
-              </View>
+              <FieldShell
+                value={profile.phone}
+                error={!!errors.phone}
+                valid={
+                  profile.phone.length > 0 && validatePhone(profile.phone) === null
+                }
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="call-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      keyboardType="phone-pad"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, phone: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="Digits only, e.g. 9841234567"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.phone}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.phone ? (
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : (

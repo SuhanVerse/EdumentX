@@ -1,5 +1,7 @@
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
+import { AnimatedPressable, SwitchThumb, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,6 +14,13 @@ import {
   Text,
   View,
 } from "react-native";
+import RAnimated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { colors } from "@/constants/colors";
 
 /**
  * EdumentX — FiltersSheet (bottom-sheet overlay)
@@ -179,16 +188,25 @@ function Pill({
         : variant === "subject"
           ? "text-verification-dark"
           : "text-text-secondary";
+  // The Pill re-renders on every selection flip, so the hook runs
+  // stably per Pill instance (each <Pill> in the row gets its own
+  // press-shared value). Spring scale 0.94 = chip feel.
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className={`rounded-pill px-4 py-2 border active:opacity-80 ${classes}`}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`rounded-pill px-4 py-2 border ${classes}`}
     >
       <Text className={`text-button-sm ${textClasses}`}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -266,6 +284,10 @@ export function FiltersSheet({
   };
 
   const resultCount = estimateResults(distance, budget, verifiedOnly);
+  // Close-button spring scale. iconPressed = 0.85 for icon-only
+  // tap targets (back chevrons, dismiss Xs, eye toggles).
+  const { onPressIn: onCloseIn, onPressOut: onCloseOut, animatedStyle: closeStyle } =
+    usePressScale({ targetScale: motion.scale.iconPressed });
 
   return (
     <Modal
@@ -324,14 +346,17 @@ export function FiltersSheet({
             <Text className="flex-1 text-section-title font-medium text-text-primary">
               Filters
             </Text>
-            <Pressable
+            <AnimatedPressable
               accessibilityRole="button"
               accessibilityLabel="Close"
               onPress={onClose}
-              className="w-9 h-9 items-center justify-center rounded-pill active:opacity-70"
+              onPressIn={onCloseIn}
+              onPressOut={onCloseOut}
+              style={closeStyle}
+              className="w-9 h-9 items-center justify-center rounded-pill"
             >
               <Ionicons name="close" size={20} color="#6B7268" />
-            </Pressable>
+            </AnimatedPressable>
           </View>
 
           <ScrollView
@@ -416,25 +441,7 @@ export function FiltersSheet({
                     Show only Blue Tick Pro &amp; Student Tutors
                   </Text>
                 </View>
-                <View
-                  className={
-                    verifiedOnly
-                      ? "w-11 h-6 rounded-pill bg-verification justify-center"
-                      : "w-11 h-6 rounded-pill bg-border justify-center"
-                  }
-                >
-                  <View
-                    className="w-5 h-5 rounded-pill bg-surface"
-                    style={{
-                      marginLeft: verifiedOnly ? 22 : 2,
-                      shadowColor: "#000",
-                      shadowOpacity: 0.15,
-                      shadowRadius: 2,
-                      shadowOffset: { width: 0, height: 1 },
-                      elevation: 2,
-                    }}
-                  />
-                </View>
+                <FiltersVerifiedSwitch checked={verifiedOnly} />
               </Pressable>
             </Section>
           </ScrollView>
@@ -461,5 +468,62 @@ export function FiltersSheet({
         </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+/**
+ * "Verified tutors only" switch in the filters sheet. Replaces the
+ * previous class-swap (`bg-verification` vs `bg-border` + `marginLeft`
+ * 22 vs 2) with a spring-sliding thumb and a smoothly interpolated
+ * track color (border grey → verification green).
+ *
+ * Track 44×24, thumb 20×20, travel 24px — the inner 2px padding on
+ * each side of the track stays implicit (the thumb starts at left-0
+ * with a 2px track margin from the original `marginLeft: 2`).
+ */
+function FiltersVerifiedSwitch({ checked }: { checked: boolean }) {
+  const TRACK_OFF = colors.border.strong ?? "#C8C0AE";
+  const TRACK_ON = colors.brand.verification;
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(checked ? 1 : 0, {
+      duration: motion.duration.medium,
+    });
+  }, [checked, progress]);
+
+  const trackStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [TRACK_OFF, TRACK_ON],
+      ),
+    };
+  });
+
+  return (
+    <View className="w-11 h-6 rounded-pill relative justify-center">
+      <RAnimated.View
+        style={[trackStyle, { position: "absolute", inset: 0, borderRadius: 999 }]}
+      />
+      <SwitchThumb
+        checked={checked}
+        trackWidth={44}
+        thumbSize={20}
+        thumbClassName="w-5 h-5 rounded-pill bg-surface"
+        style={{
+          marginLeft: 2,
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 2,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+    </View>
   );
 }

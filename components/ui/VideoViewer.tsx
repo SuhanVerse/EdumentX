@@ -23,8 +23,17 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Text, View } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 
 export type VideoViewerModalProps = {
   visible: boolean;
@@ -63,41 +72,89 @@ export function VideoViewerModal({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      {/* Dark backdrop */}
-      <View className="flex-1 bg-black/95 justify-center">
-        {/* Video player area */}
-        <View className="flex-1 justify-center px-4">
-          <VideoView
-            style={{ width: "100%", aspectRatio: 16 / 9 }}
-            player={player}
-            nativeControls
-            contentFit="contain"
-          />
-        </View>
+      <VideoLightboxEnter visible={visible}>
+        {/* Dark backdrop */}
+        <View className="flex-1 bg-black/95 justify-center">
+          {/* Video player area */}
+          <View className="flex-1 justify-center px-4">
+            <VideoView
+              style={{ width: "100%", aspectRatio: 16 / 9 }}
+              player={player}
+              nativeControls
+              contentFit="contain"
+            />
+          </View>
 
-        {/* Close button — floating in the top-right */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close video player"
-          onPress={onClose}
-          className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center active:opacity-70"
-        >
-          <Ionicons name="close" size={22} color="#FFFFFF" />
-        </Pressable>
+          {/* Close button — floating in the top-right */}
+          <VideoCloseButton onPress={onClose} />
 
-        {/* Footer label */}
-        <View className="absolute bottom-8 left-0 right-0 items-center px-6">
-          <View className="bg-black/50 px-4 py-2 rounded-pill">
-            <Text className="text-caption text-white/90 text-center">
-              {label}
-            </Text>
+          {/* Footer label */}
+          <View className="absolute bottom-8 left-0 right-0 items-center px-6">
+            <View className="bg-black/50 px-4 py-2 rounded-pill">
+              <Text className="text-caption text-white/90 text-center">
+                {label}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
+      </VideoLightboxEnter>
     </Modal>
+  );
+}
+
+function VideoCloseButton({ onPress }: { onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Close video player"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center"
+    >
+      <Ionicons name="close" size={22} color="#FFFFFF" />
+    </AnimatedPressable>
+  );
+}
+
+/**
+ * Fade + scale entrance for the full-screen video lightbox. Mirrors
+ * the `LightboxEnter` used by `ImageViewer` — spring 0.92 → 1.0 on
+ * open, timing back to 0/0.92 on close.
+ */
+function VideoLightboxEnter({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+}) {
+  const progress = useSharedValue(visible ? 1 : 0);
+  useEffect(() => {
+    if (visible) {
+      progress.value = withSpring(1, motion.spring.gentle);
+    } else {
+      progress.value = withTiming(0, { duration: motion.duration.fast });
+    }
+  }, [visible, progress]);
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: progress.value,
+      transform: [{ scale: 0.92 + progress.value * 0.08 }],
+    };
+  });
+  return (
+    <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+      {children}
+    </Animated.View>
   );
 }

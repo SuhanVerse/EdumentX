@@ -13,7 +13,7 @@
 # Node.js >= 20.19.4 is required (see `package.json#engines`).
 #
 # Categorised by what the package does in the app. Versions match
-# `package.json` as of the date of the last review (2026-07-04).
+# `package.json` as of the date of the last review (2026-07-16).
 # If something is missing or out of date, update BOTH this file
 # and `package.json`.
 
@@ -44,6 +44,34 @@ react-native-safe-area-context@~5
 react-native-gesture-handler@~2
 react-native-reanimated@~4
 react-native-worklets@~0.6
+
+# ── Motion & interactivity layer (July 2026) ──────────────────
+# The micro-interactions pass added a shared motion toolkit
+# (lib/motion.ts + components/motion/*) on top of the
+# already-installed Reanimated / worklets / gesture-handler
+# stack. NO new dependencies were added — every hook and
+# primitive in components/motion/* re-exports functionality
+# from the three packages above.
+#
+#   lib/motion.ts                     — duration / easing / spring / scale tokens
+#   components/motion/hooks.ts        — usePressScale, useSwitchThumb,
+#                                       useActiveIndicator, useShake
+#   components/motion/AnimatedPressable.tsx
+#                                     — Animated.createAnimatedComponent(Pressable)
+#   components/motion/ActivePill.tsx  — sliding segmented-control indicator
+#   components/motion/SwitchThumb.tsx — animated switch thumb
+#   components/motion/FieldShell.tsx  — form-field wrapper (focus / error / valid)
+#   components/motion/Skeleton.tsx    — Skeleton / SkeletonRow / SkeletonText
+#   components/motion/FloatingEmptyIcon.tsx
+#                                     — gently floating empty-state icon
+#   components/motion/index.ts        — barrel export
+#
+# Full design spec, hooks reference, and pattern catalogue:
+#   Documentation/02-Design-System/motion.md
+#
+# Haptics (`expo-haptics`) are intentionally NOT installed yet —
+# the follow-up that adds them requires a native rebuild.
+# See motion.md §11 (Out of scope).
 
 # ── Native Firebase (auth + firestore) ─────────────────────────
 @react-native-firebase/app@~24.1

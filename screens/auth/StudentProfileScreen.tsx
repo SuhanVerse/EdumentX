@@ -22,7 +22,9 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
+import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { motion } from "@/lib/motion";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
@@ -292,6 +294,10 @@ export function StudentProfileScreen() {
             email={authEmail}
             emailDisabled
             errors={errors}
+            fullNameValid={
+              fullName.trim().length > 0 && validateFullName(fullName) === null
+            }
+            fullNameError={!!errors.fullName}
             onChangeFullName={setFullName}
             onChangeEmail={() => {
               /* email is locked — sourced from verified auth identity */
@@ -306,18 +312,31 @@ export function StudentProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="at-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setUsername}
-                  placeholder="your_handle"
-                  placeholderTextColor={colors.text.muted}
-                  value={username}
-                />
-              </View>
+              <FieldShell
+                value={username}
+                error={!!errors.username}
+                valid={
+                  username.length > 0 && validateUsername(username) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="at-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setUsername}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="your_handle"
+                      placeholderTextColor={colors.text.muted}
+                      value={username}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.username ? (
                 <Text className="text-caption text-danger">{errors.username}</Text>
               ) : null}
@@ -326,17 +345,30 @@ export function StudentProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Phone (digits only — for parents to reach tutors)
               </Text>
-              <View className="h-input flex-row items-center border border-border rounded-card bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="call-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  keyboardType="phone-pad"
-                  onChangeText={setPhone}
-                  placeholder="98XXXXXXXX"
-                  placeholderTextColor={colors.text.muted}
-                  value={phone}
-                />
-              </View>
+              <FieldShell
+                value={phone}
+                error={!!errors.phone}
+                valid={
+                  phone.length > 0 && validatePhone(phone) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="call-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      keyboardType="phone-pad"
+                      onChangeText={setPhone}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="98XXXXXXXX"
+                      placeholderTextColor={colors.text.muted}
+                      value={phone}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.phone ? (
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : null}
@@ -348,28 +380,14 @@ export function StudentProfileScreen() {
               Grade / class
             </Text>
             <View className="flex-row flex-wrap gap-2">
-              {GRADES.map((item) => {
-                const active = grade === item;
-                return (
-                  <Pressable
-                    key={item}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setGrade(item)}
-                    className={`min-h-btn-sm px-4 py-2 rounded-sm border active:opacity-85 ${
-                      active ? "bg-primary border-primary" : "bg-surface-muted border-border"
-                    }`}
-                  >
-                    <Text
-                      className={`text-button-sm ${
-                        active ? "text-white" : "text-text-secondary"
-                      }`}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {GRADES.map((item) => (
+                <GradeChip
+                  key={item}
+                  item={item}
+                  active={grade === item}
+                  onPress={() => setGrade(item)}
+                />
+              ))}
             </View>
             {errors.grade ? (
               <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
@@ -399,5 +417,40 @@ export function StudentProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function GradeChip({
+  item,
+  active,
+  onPress,
+}: {
+  item: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`min-h-btn-sm px-4 py-2 rounded-sm border ${
+        active ? "bg-primary border-primary" : "bg-surface-muted border-border"
+      }`}
+    >
+      <Text
+        className={`text-button-sm ${
+          active ? "text-white" : "text-text-secondary"
+        }`}
+      >
+        {item}
+      </Text>
+    </AnimatedPressable>
   );
 }

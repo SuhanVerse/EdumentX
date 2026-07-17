@@ -1,6 +1,15 @@
 import { router, usePathname } from "expo-router";
 import { LayoutDashboard, Inbox, Users, User } from "lucide-react-native";
+import React from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+
+import { ActivePill } from "@/components/motion";
+import { motion } from "@/lib/motion";
 
 type TutorTabKey = "dashboard" | "inbox" | "batches" | "profile";
 
@@ -33,14 +42,53 @@ type TutorBottomBarProps = {
   inboxBadgeCount?: number;
 };
 
+const UNDERLINE_WIDTH = 32;
+
+const AnimatedView = Animated.createAnimatedComponent(View);
+
 export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
   const pathname = usePathname();
+  const [width, setWidth] = React.useState(0);
+  const activeIndex = Math.max(
+    0,
+    TUTOR_TABS.findIndex(
+      (tab) => pathname === tab.path || pathname.endsWith(`/${tab.key}`),
+    ),
+  );
+  const tabWidth = width > 0 ? width / TUTOR_TABS.length : 0;
+
+  // Underline track — springs to the active tab's center minus
+  // half the underline width so the bar stays visually centered.
+  const underlineX = useSharedValue(0);
+  React.useEffect(() => {
+    const center = tabWidth * activeIndex + tabWidth / 2 - UNDERLINE_WIDTH / 2;
+    underlineX.value = withSpring(center, motion.spring.indicator);
+  }, [activeIndex, tabWidth, underlineX]);
+  const underlineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: underlineX.value }],
+  }));
 
   return (
-    <View className="flex-row bg-surface border-t border-border px-2 pt-1.5 pb-2.5">
-      {TUTOR_TABS.map((tab) => {
-        const isActive =
-          pathname === tab.path || pathname.endsWith(`/${tab.key}`);
+    <View
+      className="flex-row bg-surface border-t border-border px-2 pt-1.5 pb-2.5 relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={TUTOR_TABS.length}
+          activeIndex={activeIndex}
+          itemWidth={tabWidth}
+          pillClassName="absolute top-1.5 w-12 h-7 rounded-pill"
+          style={{
+            top: 6,
+            width: 48,
+            height: 28,
+            backgroundColor: "#F1ECE0",
+          }}
+        />
+      ) : null}
+      {TUTOR_TABS.map((tab, i) => {
+        const isActive = i === activeIndex;
         const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
         const Icon = tab.icon;
 
@@ -52,7 +100,10 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
           >
-            <View className={`w-12 h-7 rounded-pill items-center justify-center`} style={{ backgroundColor: isActive ? '#F1ECE0' : 'transparent' }}>
+            <View
+              className="w-12 h-7 rounded-pill items-center justify-center"
+              style={{ backgroundColor: isActive ? "#F1ECE0" : "transparent" }}
+            >
               <Icon color={color} size={22}></Icon>
               {tab.key === "inbox" && inboxBadgeCount > 0 && (
                 <BadgeDot count={inboxBadgeCount} />
@@ -61,15 +112,24 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
             <Text className="text-[11px] font-medium mt-1" style={{ color }}>
               {tab.label}
             </Text>
-            {isActive && (
-              <View
-                className="h-hairline w-8 rounded-full mt-0.5"
-                style={{ backgroundColor: ACTIVE_COLOR }}
-              />
-            )}
           </Pressable>
         );
       })}
+      {width > 0 ? (
+        <AnimatedView
+          style={[
+            underlineStyle,
+            {
+              position: "absolute",
+              bottom: 4,
+              width: UNDERLINE_WIDTH,
+              height: 2,
+              borderRadius: 999,
+              backgroundColor: ACTIVE_COLOR,
+            },
+          ]}
+        />
+      ) : null}
     </View>
   );
 }

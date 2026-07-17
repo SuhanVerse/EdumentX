@@ -1,5 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 
 /**
  * EdumentX — Review Banner
@@ -67,19 +70,37 @@ export function ReviewBanner({
         </Text>
       </View>
       {onDismiss ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss notification"
-          onPress={onDismiss}
-          hitSlop={8}
-          className={`${config.buttonBgClass} px-2.5 py-1 rounded-sm active:opacity-70`}
-        >
-          <Text className={`text-caption font-medium ${config.buttonTextClass}`}>
-            Got it
-          </Text>
-        </Pressable>
+        <ReviewBannerDismiss onDismiss={onDismiss} config={config} />
       ) : null}
     </View>
+  );
+}
+
+function ReviewBannerDismiss({
+  onDismiss,
+  config,
+}: {
+  onDismiss: () => void;
+  config: ReturnType<typeof getToneConfig>;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Dismiss notification"
+      onPress={onDismiss}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      hitSlop={8}
+      style={animatedStyle}
+      className={`${config.buttonBgClass} px-2.5 py-1 rounded-sm`}
+    >
+      <Text className={`text-caption font-medium ${config.buttonTextClass}`}>
+        Got it
+      </Text>
+    </AnimatedPressable>
   );
 }
 

@@ -13,16 +13,34 @@
  * Verified tutors get a green check-circle badge top-right of the
  * avatar.
  *
+ * Motion:
+ *   - The outer card uses `usePressScale` at 0.98 (`cardPressed`) so
+ *     the whole card visibly responds to a tap.
+ *   - The save/heart icon button extracts to a `HeartSaveButton` sub-
+ *     component so it can run a 0.85 press scale + a one-shot
+ *     "pop" scale sequence (1 → 1.25 → 1) on each toggle. The icon
+ *     name still flips `heart-outline` ↔ `heart`; the pop is layered
+ *     on top.
+ *
  * **Note on the placeholder image:** Today the hero block is a
  * tinted surface rectangle (no images — we have no image-storage
  * pipeline yet). When Supabase Storage lands, swap the `<View>` for
  * an `<Image>` and pass `tutor.avatarUrl` to it.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Text, View } from 'react-native';
+import {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 
+import { AnimatedPressable, usePressScale } from '@/components/motion';
 import { Avatar } from '@/components/ui/Avatar';
 import { colors } from '@/constants/colors';
+import { motion } from '@/lib/motion';
 import { formatNpr, type Tutor } from '@/lib/mock/tutors';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -52,11 +70,7 @@ export function TutorCard({
 }: TutorCardProps) {
   if (variant === 'compact-h') {
     return (
-      <CompactCard
-        tutor={tutor}
-        onPress={onPress}
-        className={className}
-      />
+      <CompactCard tutor={tutor} onPress={onPress} className={className} />
     );
   }
   return (
@@ -67,6 +81,63 @@ export function TutorCard({
       saved={saved}
       className={className}
     />
+  );
+}
+
+// ─── Heart save button ───────────────────────────────────────────────────────
+
+function HeartSaveButton({
+  saved,
+  onSaveToggle,
+}: {
+  saved: boolean;
+  onSaveToggle: () => void;
+}) {
+  // `pressed` covers press-in scale-down; `pop` runs once per tap as a
+  // little "burst" the user feels even when the card itself is also
+  // being scaled.
+  const pressed = useSharedValue(0);
+  const pop = useSharedValue(0);
+
+  const handlePress = useCallback(() => {
+    pop.value = withSequence(
+      withSpring(1, motion.spring.pop),
+      withSpring(0, motion.spring.gentle)
+    );
+    onSaveToggle();
+  }, [onSaveToggle, pop]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    // Compose: idle = 1; press = 0.85; pop adds up to +0.25.
+    return {
+      transform: [
+        { scale: 1 - pressed.value * 0.15 + pop.value * 0.25 },
+      ],
+    };
+  });
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={saved ? 'Unsave tutor' : 'Save tutor'}
+      hitSlop={8}
+      onPress={handlePress}
+      onPressIn={() => {
+        pressed.value = withSpring(1, motion.spring.press);
+      }}
+      onPressOut={() => {
+        pressed.value = withSpring(0, motion.spring.press);
+      }}
+      style={animatedStyle}
+      className="absolute top-3 right-3 h-9 w-9 rounded-pill bg-surface items-center justify-center"
+    >
+      <Ionicons
+        color={saved ? colors.semantic.danger : colors.text.muted}
+        name={saved ? 'heart' : 'heart-outline'}
+        size={18}
+      />
+    </AnimatedPressable>
   );
 }
 
@@ -85,12 +156,19 @@ function WideCard({
   saved: boolean;
   className: string;
 }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.cardPressed,
+  });
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${tutor.fullName}'s profile`}
       onPress={onPress}
-      className={`rounded-card bg-surface border border-border overflow-hidden active:opacity-80 ${className}`}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`rounded-card bg-surface border border-border overflow-hidden ${className}`}
     >
       {/* Hero placeholder block — 160h tinted surface. Swap for an
           <Image> once avatar storage lands. */}
@@ -103,30 +181,14 @@ function WideCard({
         </Text>
 
         {onSaveToggle ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={saved ? 'Unsave tutor' : 'Save tutor'}
-            hitSlop={8}
-            onPress={onSaveToggle}
-            className="absolute top-3 right-3 h-9 w-9 rounded-pill bg-surface items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              color={saved ? colors.semantic.danger : colors.text.muted}
-              name={saved ? 'heart' : 'heart-outline'}
-              size={18}
-            />
-          </Pressable>
+          <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} />
         ) : null}
       </View>
 
       {/* Info block */}
       <View className="p-4 gap-2">
         <View className="flex-row items-center gap-2">
-          <Avatar
-            name={tutor.fullName}
-            imageUri={tutor.avatarUrl}
-            size={36}
-          />
+          <Avatar name={tutor.fullName} imageUri={tutor.avatarUrl} size={36} />
           <View className="flex-1">
             <View className="flex-row items-center gap-1">
               <Text
@@ -163,7 +225,11 @@ function WideCard({
             </Text>
           </View>
           <View className="flex-row items-center gap-1">
-            <Ionicons color={colors.text.muted} name="location-outline" size={12} />
+            <Ionicons
+              color={colors.text.muted}
+              name="location-outline"
+              size={12}
+            />
             <Text className="text-caption text-text-secondary">
               {tutor.location.city}
             </Text>
@@ -175,7 +241,7 @@ function WideCard({
           <Text className="text-caption text-text-muted"> /mo</Text>
         </Text>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -190,22 +256,26 @@ function CompactCard({
   onPress?: () => void;
   className: string;
 }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.cardPressed,
+  });
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${tutor.fullName}'s profile`}
       onPress={onPress}
-      className={`w-[200px] rounded-card bg-surface border border-border overflow-hidden active:opacity-80 ${className}`}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`w-[200px] rounded-card bg-surface border border-border overflow-hidden ${className}`}
     >
       {/* 100h hero placeholder */}
       <View
         className="w-full items-center justify-center bg-background relative"
         style={{ height: 100 }}
       >
-        <Text
-          className="text-micro text-text-muted"
-          numberOfLines={1}
-        >
+        <Text className="text-micro text-text-muted" numberOfLines={1}>
           {tutor.subjects[0]}
         </Text>
         {tutor.verified ? (
@@ -248,6 +318,6 @@ function CompactCard({
           <Text className="text-caption text-text-muted"> /mo</Text>
         </Text>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }

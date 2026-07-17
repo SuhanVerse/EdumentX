@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { FiltersSheet } from "@/screens/student/FiltersSheet";
+import { Skeleton } from "@/components/motion";
 
 /**
  * EdumentX — Student Map Search
@@ -147,11 +148,11 @@ export function MapSearch() {
                 key={i}
                 className="bg-surface border border-border rounded-card p-4 flex-row items-center gap-3"
               >
-                <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted" />
+                <Skeleton className="w-avatar-card h-avatar-card rounded-pill" />
                 <View className="flex-1 gap-2">
-                  <View className="h-3 w-2/3 rounded bg-surface-muted" />
-                  <View className="h-2.5 w-1/2 rounded bg-surface-muted" />
-                  <View className="h-2.5 w-1/3 rounded bg-surface-muted" />
+                  <Skeleton className="h-3 w-2/3 rounded-md" />
+                  <Skeleton className="h-2.5 w-1/2 rounded-md" />
+                  <Skeleton className="h-2.5 w-1/3 rounded-md" />
                 </View>
                 <View className="w-10 h-10 rounded-pill bg-surface-muted items-center justify-center">
                   <Ionicons name="ellipsis-horizontal" size={16} color="#6B7268" />

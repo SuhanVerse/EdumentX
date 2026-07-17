@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { ActivePill } from "@/components/motion";
 import {
   BATCH_INVITATIONS,
   ENROLLMENTS,
@@ -90,55 +91,11 @@ export function MyEnrollments() {
       </View>
 
       {/* Tabs */}
-      <View className="flex-row bg-surface border-b border-border shrink-0">
-        {(["active", "pending", "past"] as Tab[]).map((t) => {
-          const isActive = tab === t;
-          const count = counts[t];
-          return (
-            <Pressable
-              key={t}
-              accessibilityRole="tab"
-              accessibilityLabel={TAB_LABELS[t]}
-              accessibilityState={{ selected: isActive }}
-              onPress={() => setTab(t)}
-              className={
-                isActive
-                  ? "flex-1 h-12 flex-row items-center justify-center gap-1.5 bg-primary active:opacity-70"
-                  : "flex-1 h-12 flex-row items-center justify-center gap-1.5 bg-transparent active:opacity-70"
-              }
-            >
-              <Text
-                className={
-                  isActive
-                    ? "text-button font-medium text-white"
-                    : "text-button font-medium text-text-muted"
-                }
-              >
-                {TAB_LABELS[t]}
-              </Text>
-              {count > 0 && (
-                <View
-                  className={
-                    isActive
-                        ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/20 items-center justify-center"
-                        : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
-                  }
-                >
-                  <Text
-                    className={
-                      isActive
-                            ? "text-micro text-white font-semibold"
-                            : "text-micro text-text-muted font-semibold"
-                    }
-                  >
-                    {count}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
+      <EnrollmentTabs
+        active={tab}
+        onChange={setTab}
+        counts={counts}
+      />
 
       {/* List */}
       <ScrollView
@@ -535,6 +492,93 @@ function SubjectChip({ label }: { label: string }) {
       <Text className="text-micro text-text-secondary font-medium">
         {label}
       </Text>
+    </View>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+const TABS_ORDER: Tab[] = ["active", "pending", "past"];
+
+/**
+ * Three-tab top bar (Active / Pending / Past). The active tab is
+ * signaled by a single sliding `ActivePill` behind the labels, with
+ * the count chip and label color swapping to match. Replaces the
+ * per-tab `bg-primary` class-swap.
+ */
+function EnrollmentTabs({
+  active,
+  onChange,
+  counts,
+}: {
+  active: Tab;
+  onChange: (tab: Tab) => void;
+  counts: Record<Tab, number>;
+}) {
+  const [width, setWidth] = useState(0);
+  const activeIndex = Math.max(0, TABS_ORDER.indexOf(active));
+  return (
+    <View
+      className="flex-row bg-surface border-b border-border shrink-0 relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={TABS_ORDER.length}
+          activeIndex={activeIndex}
+          itemWidth={width / TABS_ORDER.length}
+          pillClassName="absolute top-0 h-12 bg-primary"
+          style={{
+            top: 0,
+            height: 48,
+            width: width / TABS_ORDER.length,
+            backgroundColor: "#2F5D50",
+          }}
+        />
+      ) : null}
+      {TABS_ORDER.map((t, i) => {
+        const isActive = i === activeIndex;
+        const count = counts[t];
+        return (
+          <Pressable
+            key={t}
+            accessibilityRole="tab"
+            accessibilityLabel={TAB_LABELS[t]}
+            accessibilityState={{ selected: isActive }}
+            onPress={() => onChange(t)}
+            className="flex-1 h-12 flex-row items-center justify-center gap-1.5 active:opacity-70 z-10"
+          >
+            <Text
+              className={
+                isActive
+                  ? "text-button font-medium text-white"
+                  : "text-button font-medium text-text-muted"
+              }
+            >
+              {TAB_LABELS[t]}
+            </Text>
+            {count > 0 ? (
+              <View
+                className={
+                  isActive
+                    ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/20 items-center justify-center"
+                    : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
+                }
+              >
+                <Text
+                  className={
+                    isActive
+                      ? "text-micro text-white font-semibold"
+                      : "text-micro text-text-muted font-semibold"
+                  }
+                >
+                  {count}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

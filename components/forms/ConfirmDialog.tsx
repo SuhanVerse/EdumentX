@@ -1,6 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ReactNode } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { ReactNode, useEffect } from "react";
+import { Modal, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 
 /**
  * Custom confirmation overlay (NOT a native Alert). Per Stage 5 spec:
@@ -41,23 +50,62 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // Two animated layers:
+  //   - backdrop opacity: 0 → 0.5 (timing, fast on open, fast on close)
+  //   - card scale + opacity: 0.94 → 1.0 + 0 → 1 (spring on open,
+  //     timing-back on close)
+  // Both are driven off the same `visible` prop in a useEffect, so the
+  // entrance and exit animations run in lock-step. The card's spring
+  // is the visually load-bearing one; the backdrop's timing is just
+  // a soft fade.
+  const backdrop = useSharedValue(0);
+  const card = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      backdrop.value = withTiming(0.5, { duration: motion.duration.medium });
+      card.value = withSpring(1, motion.spring.gentle);
+    } else {
+      backdrop.value = withTiming(0, { duration: motion.duration.fast });
+      card.value = withTiming(0, { duration: motion.duration.fast });
+    }
+  }, [visible, backdrop, card]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdrop.value,
+  }));
+  const cardStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: card.value,
+      transform: [{ scale: 0.94 + card.value * 0.06 }],
+    };
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      // We render the fade/scale on the inner card and backdrop
+      // ourselves, so the OS-level modal animation is `none`.
+      animationType="none"
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      <Pressable
-        accessibilityLabel="Dismiss dialog"
-        onPress={onCancel}
-        className="flex-1 bg-black/50 items-center justify-center px-6"
-      >
-        {/* Inner Pressable absorbs the tap so backdrop dismiss works
-            only when the user taps outside the card. */}
-        <Pressable
-          onPress={() => {}}
+      <View className="flex-1 items-center justify-center px-6">
+        <AnimatedPressable
+          accessibilityLabel="Dismiss dialog"
+          onPress={onCancel}
+          className="absolute inset-0 bg-black"
+          style={backdropStyle}
+        />
+        {/* Inner card. We do NOT use a Pressable here because the
+            backdrop is the dismiss target — wrapping the card in
+            another pressable would steal the tap. The card content
+            is pointer-transparent except for its own action
+            buttons. */}
+        <Animated.View
+          style={cardStyle}
           className="bg-surface rounded-xl p-6 w-full max-w-[360px] shadow-lg"
         >
           <View className="items-center mb-3">
@@ -88,33 +136,62 @@ export function ConfirmDialog({
           )}
 
           <View className="mt-5 gap-2">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={confirmLabel}
+            <ConfirmDialogAction
+              label={confirmLabel}
               onPress={onConfirm}
-              className={
-                destructive
-                  ? "min-h-btn rounded-card bg-danger items-center justify-center active:opacity-80"
-                  : "min-h-btn rounded-card bg-amber items-center justify-center active:opacity-80"
-              }
-            >
-              <Text className="text-button text-text-inverse font-semibold">
-                {confirmLabel}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={cancelLabel}
+              destructive={destructive}
+            />
+            <ConfirmDialogAction
+              label={cancelLabel}
               onPress={onCancel}
-              className="min-h-btn rounded-card bg-sand items-center justify-center active:opacity-80"
-            >
-              <Text className="text-button text-text-secondary font-medium">
-                {cancelLabel}
-              </Text>
-            </Pressable>
+              destructive={false}
+              muted
+            />
           </View>
-        </Pressable>
-      </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
+  );
+}
+
+function ConfirmDialogAction({
+  label,
+  onPress,
+  destructive,
+  muted,
+}: {
+  label: string;
+  onPress: () => void;
+  destructive: boolean;
+  muted?: boolean;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={
+        muted
+          ? "min-h-btn rounded-card bg-sand items-center justify-center"
+          : destructive
+            ? "min-h-btn rounded-card bg-danger items-center justify-center"
+            : "min-h-btn rounded-card bg-amber items-center justify-center"
+      }
+    >
+      <Text
+        className={
+          muted
+            ? "text-button text-text-secondary font-medium"
+            : "text-button text-text-inverse font-semibold"
+        }
+      >
+        {label}
+      </Text>
+    </AnimatedPressable>
   );
 }

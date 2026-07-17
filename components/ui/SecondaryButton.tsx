@@ -11,35 +11,19 @@
  * codebase. Using it ensures consistent sizing, press feedback, and
  * disabled states everywhere.
  *
+ * Motion: a 0.96 spring-scale press feedback driven by `usePressScale`
+ * (matches `PrimaryButton`'s feel). The `active:opacity-80` Tailwind
+ * utility is removed because the spring scale replaces it.
+ *
  * Tokens:
  *   - heights via `min-h-btn` (52) or `min-h-btn-sm` (40)
  *   - radii via `rounded-card` (14)
  *   - colors via `bg-surface` / `text-text-primary` / `border-border`
  */
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
-export type SecondaryButtonProps = {
-  /** Visible label. */
-  label: string;
-  onPress: () => void;
-  /** `'outline'` (bordered surface) or `'ghost'` (text only). */
-  variant?: 'outline' | 'ghost';
-  /** `'md'` (52) or `'sm'` (40). */
-  size?: 'md' | 'sm';
-  /** Show spinner + disable. */
-  loading?: boolean;
-  disabled?: boolean;
-  /** Optional icon node rendered to the left of the label. */
-  leftIcon?: React.ReactNode;
-  /** When true, the text is rendered in `text-danger` for destructive actions. */
-  destructive?: boolean;
-  /** Override the default accessibility label if `label` isn't enough. */
-  accessibilityLabel?: string;
-  /** Extra Tailwind classes appended to the button. */
-  className?: string;
-};
+import { AnimatedPressable, usePressScale } from '@/components/motion';
+import { SecondaryButtonProps, SecondaryButtonState } from './SecondaryButton.types';
 
 // ─── Variant styles ──────────────────────────────────────────────────────────
 
@@ -86,21 +70,23 @@ export function SecondaryButton({
 }: SecondaryButtonProps) {
   const isInactive = disabled || loading;
 
-  const state = isInactive ? DISABLED_VARIANT_CLASS[variant] : VARIANT_CLASS[variant];
-  const textColor = destructive
-    ? 'text-danger'
-    : isInactive
-      ? state.label
-      : state.label;
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  const state: SecondaryButtonState = isInactive
+    ? DISABLED_VARIANT_CLASS[variant]
+    : VARIANT_CLASS[variant];
+  const textColor = destructive ? 'text-danger' : state.label;
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isInactive, busy: loading }}
       disabled={isInactive}
       onPress={onPress}
-      className={`${SIZE[size]} ${state.bg} ${isInactive ? '' : 'active:opacity-80'} rounded-card flex-row items-center justify-center gap-2 ${className}`}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`${SIZE[size]} ${state.bg} rounded-card flex-row items-center justify-center gap-2 ${className}`}
     >
       {loading ? (
         <ActivityIndicator
@@ -110,13 +96,11 @@ export function SecondaryButton({
       ) : (
         <View className="flex-row items-center gap-2">
           {leftIcon}
-          <Text
-            className={`text-button font-medium ${textColor}`}
-          >
+          <Text className={`text-button font-medium ${textColor}`}>
             {label}
           </Text>
         </View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }

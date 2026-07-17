@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Text, View } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { ImageViewer } from "@/components/ui/ImageViewer";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
+import { motion } from "@/lib/motion";
 import {
   TUTOR_DOC_HELPER,
   TUTOR_DOC_LABEL,
@@ -163,45 +165,75 @@ export function DocumentUploader({
               </Text>
             </>
           ) : null}
-          <Pressable
-            onPress={handlePick}
-            disabled={uploading}
-            accessibilityRole="button"
-            accessibilityLabel={
-              hasExisting
-                ? `Replace ${TUTOR_DOC_LABEL[kind]}`
-                : `Upload ${TUTOR_DOC_LABEL[kind]}`
-            }
-            className={`mt-3 self-start flex-row items-center gap-1.5 px-3 py-1.5 rounded-pill ${
-              hasExisting
-                ? "bg-surface border border-border active:opacity-80"
-                : "bg-am border-2 border-border active:opacity-90"
-            } disabled:opacity-60`}
-          >
-            {uploading ? (
-              <ActivityIndicator size="small" color={hasExisting ? "#26302B" : "#26302B"} />
-            ) : (
-              <Ionicons
-                name={hasExisting ? "refresh" : "cloud-upload-outline"}
-                size={14}
-                color={hasExisting ? "#26302B" : "#26302B"}
-              />
-            )}
-            <Text
-              className={`text-button-sm font-medium ${
-                hasExisting ? "text-text-primary" : "text-black"
-              }`}
-            >
-              {uploading
-                ? "Uploading…"
-                : hasExisting
-                  ? "Replace"
-                  : "Upload"}
-            </Text>
-          </Pressable>
+          <DocumentUploaderButton
+            handlePick={handlePick}
+            uploading={uploading}
+            hasExisting={hasExisting}
+            label={TUTOR_DOC_LABEL[kind]}
+          />
         </View>
       </View>
     </View>
+  );
+}
+
+/**
+ * The Upload / Replace pill — extracted as a sub-component so the
+ * `usePressScale` hook can run per-instance and the inline
+ * `ActivityIndicator` (the project's reference "button hosts spinner"
+ * pattern) is kept inside the pill itself.
+ */
+function DocumentUploaderButton({
+  handlePick,
+  uploading,
+  hasExisting,
+  label,
+}: {
+  handlePick: () => void;
+  uploading: boolean;
+  hasExisting: boolean;
+  label: string;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+
+  return (
+    <AnimatedPressable
+      onPress={handlePick}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={uploading}
+      accessibilityRole="button"
+      accessibilityLabel={
+        hasExisting ? `Replace ${label}` : `Upload ${label}`
+      }
+      style={animatedStyle}
+      className={`mt-3 self-start flex-row items-center gap-1.5 px-3 py-1.5 rounded-pill ${
+        hasExisting
+          ? "bg-surface border border-border"
+          : "bg-amber border-2 border-border"
+      } disabled:opacity-60`}
+    >
+      {uploading ? (
+        <ActivityIndicator size="small" color="#26302B" />
+      ) : (
+        <Ionicons
+          name={hasExisting ? "refresh" : "cloud-upload-outline"}
+          size={14}
+          color="#26302B"
+        />
+      )}
+      <Text
+        className={`text-button-sm font-medium ${
+          hasExisting ? "text-text-primary" : "text-black"
+        }`}
+      >
+        {uploading
+          ? "Uploading…"
+          : hasExisting
+            ? "Replace"
+            : "Upload"}
+      </Text>
+    </AnimatedPressable>
   );
 }
 
@@ -296,16 +328,13 @@ function DocumentRow({
             thumbnailHeight={48}
           />
         ) : isVideo && publicUrl ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Play ${TUTOR_DOC_LABEL[kind]}`}
+          <DocumentPlayButton
+            publicUrl={publicUrl}
+            label={TUTOR_DOC_LABEL[kind]}
             onPress={() =>
               setPreviewVideo({ uri: publicUrl, label: TUTOR_DOC_LABEL[kind] })
             }
-            className="w-16 h-12 rounded-lg items-center justify-center bg-amber-light"
-          >
-            <Ionicons name="play-circle" size={24} color="#E5A03B" />
-          </Pressable>
+          />
         ) : (
           <View
             className={`w-16 h-12 rounded-lg items-center justify-center ${accent.bg}`}
@@ -350,6 +379,37 @@ function DocumentRow({
         onClose={() => setPreviewVideo(null)}
       />
     </>
+  );
+}
+
+function DocumentPlayButton({
+  publicUrl,
+  label,
+  onPress,
+}: {
+  publicUrl: string;
+  label: string;
+  onPress: () => void;
+}) {
+  // `publicUrl` is only used to satisfy the closure — the parent's
+  // `onPress` already knows the URL. Keeping the prop ensures the
+  // parent doesn't need to be aware of the motion sub-component.
+  void publicUrl;
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.iconPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={`Play ${label}`}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="w-16 h-12 rounded-lg items-center justify-center bg-amber-light"
+    >
+      <Ionicons name="play-circle" size={24} color="#E5A03B" />
+    </AnimatedPressable>
   );
 }
 

@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { colors } from "@/constants/colors";
 import type { LocationValue } from "@/lib/registration";
 
@@ -68,36 +69,7 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
         <Text className="text-label text-ink-muted">
           Your location
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit location"
-          onPress={handleEdit}
-          className="flex-row items-center justify-between bg-surface border border-border rounded-card min-h-input px-4 active:opacity-80"
-        >
-          <View className="flex-row items-center gap-2 flex-1">
-            <Ionicons
-              color={colors.brand.primary}
-              name="location-outline"
-              size={18}
-            />
-            <Text
-              className="text-body-lg text-text-primary flex-1"
-              numberOfLines={1}
-            >
-              {summary}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
-            <Ionicons
-              color={colors.text.secondary}
-              name="pencil"
-              size={11}
-            />
-            <Text className="text-micro text-text-secondary font-medium">
-              Edit
-            </Text>
-          </View>
-        </Pressable>
+        <LocationSummary summary={summary} onEdit={handleEdit} />
       </View>
     );
   }
@@ -134,18 +106,82 @@ export function LocationField({ value, onChange }: LocationFieldProps) {
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Save location"
-        accessibilityState={{ disabled: !canSave }}
-        disabled={!canSave}
+      <LocationSaveButton
+        canSave={canSave}
         onPress={handleSave}
-        className="min-h-btn rounded-card items-center justify-center bg-primary active:opacity-90 disabled:opacity-50 w-full mt-1"
-      >
-        <Text className="text-button-sm text-white font-semibold">
-          Save Location
-        </Text>
-      </Pressable>
+      />
     </View>
+  );
+}
+
+function LocationSummary({
+  summary,
+  onEdit,
+}: {
+  summary: string;
+  onEdit: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Edit location"
+      onPress={onEdit}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="flex-row items-center justify-between bg-surface border border-border rounded-card min-h-input px-4"
+    >
+      <View className="flex-row items-center gap-2 flex-1">
+        <Ionicons
+          color={colors.brand.primary}
+          name="location-outline"
+          size={18}
+        />
+        <Text
+          className="text-body-lg text-text-primary flex-1"
+          numberOfLines={1}
+        >
+          {summary}
+        </Text>
+      </View>
+      <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
+        <Ionicons
+          color={colors.text.secondary}
+          name="pencil"
+          size={11}
+        />
+        <Text className="text-micro text-text-secondary font-medium">
+          Edit
+        </Text>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function LocationSaveButton({
+  canSave,
+  onPress,
+}: {
+  canSave: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Save location"
+      accessibilityState={{ disabled: !canSave }}
+      disabled={!canSave}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="min-h-btn rounded-card items-center justify-center bg-primary w-full mt-1 disabled:opacity-50"
+    >
+      <Text className="text-button-sm text-white font-semibold">
+        Save Location
+      </Text>
+    </AnimatedPressable>
   );
 }

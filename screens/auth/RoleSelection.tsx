@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   View,
@@ -20,11 +19,18 @@ import {
   serverTimestamp,
   writeBatch,
 } from "@react-native-firebase/firestore";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { colors } from "@/constants/colors";
-import { theme } from "@/constants/theme";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useAuthStore, type UserRole } from "@/store/authStore";
+import { motion } from "@/lib/motion";
 
 // Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
 // values that live in the `role` field on `users/{uid}`. The Zustand store
@@ -202,10 +208,7 @@ export function RoleSelectionScreen() {
           contentContainerClassName="flex-grow px-5 pt-5 pb-5"
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={12}
-            className="min-h-touch self-start flex-row items-center gap-1 mb-3 active:opacity-70"
+          <RoleSelectionBack
             onPress={() => {
               // If the user already has a role in the store (they
               // completed role-selection previously and this is a
@@ -258,10 +261,7 @@ export function RoleSelectionScreen() {
                 );
               }
             }}
-          >
-            <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
-            <Text className="text-body text-text-primary">Back</Text>
-          </Pressable>
+          />
 
           <View className="gap-2 mb-6">
             <Text className="text-label text-ink-muted">
@@ -314,6 +314,24 @@ export function RoleSelectionScreen() {
   );
 }
 
+function RoleSelectionBack({ onPress }: { onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      hitSlop={12}
+      className="min-h-touch self-start flex-row items-center gap-1 mb-3"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+    >
+      <Ionicons color={colors.brand.primary} name="chevron-back" size={18} />
+      <Text className="text-body text-text-primary">Back</Text>
+    </AnimatedPressable>
+  );
+}
+
 interface RoleCardProps {
   active: boolean;
   iconColor: string;
@@ -335,17 +353,22 @@ function RoleCard({
   subtitle,
   title,
 }: RoleCardProps) {
+  // Spring scale 0.99 — cards are large surfaces, so a subtler
+  // scale-down than a button feels right.
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: 0.99,
+  });
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className={`min-h-role-card flex-row items-center gap-4 p-4 rounded-lg bg-surface active:opacity-85 ${
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`min-h-role-card flex-row items-center gap-4 p-4 rounded-lg bg-surface ${
         active ? "border border-primary" : "border border-border"
       }`}
-      style={[
-        active ? { borderColor: activeBorder, ...theme.shadow.card } : undefined,
-      ]}
     >
       <View
         className="w-role-icon h-role-icon shrink-0 items-center justify-center rounded-card"
@@ -362,15 +385,52 @@ function RoleCard({
       </View>
 
       {active ? (
-        <View
-          className="w-role-check h-role-check items-center justify-center rounded-pill"
-          style={{ backgroundColor: iconColor }}
-        >
-          <Ionicons color="white" name="checkmark" size={14} />
-        </View>
+        <RoleCardCheckmark color={iconColor} />
       ) : (
         <Ionicons color={colors.border.strong} name="chevron-forward" size={20} />
       )}
-    </Pressable>
+    </AnimatedPressable>
+  );
+}
+
+/**
+ * The right-side checkmark pill that appears when a `RoleCard`
+ * becomes active. Pops in with a `withSequence(pop, settle)` — the
+ * first spring uses `motion.spring.pop` for the snappy "tick" feel,
+ * the second uses `motion.spring.gentle` so the pill settles
+ * without an overshoot wobble. Mounts at 0 opacity + 0.6 scale and
+ * animates to 1 + 1 over ~280ms.
+ */
+function RoleCardCheckmark({ color }: { color: string }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withSequence(
+      withSpring(1, motion.spring.pop),
+      withSpring(1, motion.spring.gentle),
+    );
+  }, [progress]);
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: progress.value,
+      transform: [{ scale: 0.6 + progress.value * 0.4 }],
+    };
+  });
+  return (
+    <Animated.View
+      style={[
+        animatedStyle,
+        {
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          backgroundColor: color,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      ]}
+    >
+      <Ionicons color="white" name="checkmark" size={14} />
+    </Animated.View>
   );
 }
