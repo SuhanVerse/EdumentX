@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
 import {
+  collection,
   doc,
+  getDocs,
   getFirestore,
   onSnapshot,
 } from "@react-native-firebase/firestore";
@@ -11,7 +13,6 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { MOCK_ADMIN_STATS } from "@/data/adminStats";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -63,12 +64,43 @@ export function AdminHome() {
     return unsub;
   }, [user]);
 
-  // Count badges are derived from MOCK_ADMIN_STATS for now. Phase 5
-  // will swap this for a `useEffect` reading Firestore count
-  // queries on mount.
+  // Live user counts fetched from Firestore on mount. Includes
+  // all users (students, tutors, and admins). Falls back to 0
+  // while loading or on error.
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [suspendedUsers, setSuspendedUsers] = useState(0);
   const pendingTutorReviews = null;
-  const totalUsers = MOCK_ADMIN_STATS.totalUsers;
-  const suspendedUsers = MOCK_ADMIN_STATS.suspendedUsers;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCounts() {
+      try {
+        const db = getFirestore(getApp());
+        const usersRef = collection(db, "users");
+        // One-shot read of all user docs — no composite index needed.
+        const snap = await getDocs(usersRef);
+        if (cancelled) return;
+
+        let total = 0;
+        let suspended = 0;
+        snap.forEach((d) => {
+          const data = d.data() as { status?: string } | undefined;
+          total++;
+          if (data?.status === "suspended") suspended++;
+        });
+        setTotalUsers(total);
+        setSuspendedUsers(suspended);
+      } catch (err) {
+        console.warn("AdminHome: failed to fetch user counts", err);
+        if (!cancelled) {
+          setTotalUsers(0);
+          setSuspendedUsers(0);
+        }
+      }
+    }
+    fetchCounts();
+    return () => { cancelled = true; };
+  }, []);
 
   const sections = [
     {

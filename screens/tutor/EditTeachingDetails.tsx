@@ -58,6 +58,8 @@ type FormErrors = {
   subjects?: string;
   grades?: string;
   location?: string;
+  institution?: string;
+  degree?: string;
   citizenship?: string;
   certificate?: string;
 };
@@ -67,6 +69,8 @@ type InitialValues = {
   gradesTeaching: string[];
   monthlyRateNpr: number;
   location: LocationValue | null;
+  institution: string;
+  degree: string;
   documents: TutorDocument[];
   /** Current avatar URL — propagated into the `current` snapshot
    *  so the admin queue can render the tutor's profile picture
@@ -125,6 +129,8 @@ export function EditTeachingDetails() {
   const [gradesTeaching, setGradesTeaching] = useState<string[]>([]);
   const [monthlyRateNpr, setMonthlyRateNpr] = useState("");
   const [location, setLocation] = useState<LocationValue | null>(null);
+  const [institution, setInstitution] = useState("");
+  const [degree, setDegree] = useState("");
   // Per-kind doc re-uploads. We start from the *current* docs
   // (so re-uploading one kind doesn't blank the others), but the
   // *proposed* list sent to the admin only includes a kind if the
@@ -166,6 +172,8 @@ export function EditTeachingDetails() {
               gradesTeaching?: string[];
               monthlyRateNpr?: number;
               location?: LocationValue | null;
+              institution?: string;
+              degree?: string;
               documents?: TutorDocument[];
               /** Avatar URL — included in the `current` snapshot so
                *  the admin queue's PendingEditCard can render the
@@ -184,6 +192,10 @@ export function EditTeachingDetails() {
           monthlyRateNpr:
             typeof d?.monthlyRateNpr === "number" ? d!.monthlyRateNpr : 0,
           location: d?.location ?? null,
+          institution:
+            typeof d?.institution === "string" ? d!.institution : "",
+          degree:
+            typeof d?.degree === "string" ? d!.degree : "",
           documents: docs,
           // Capture the current photoUrl so the `current` snapshot
           // in tutorProfileUpdates includes it for the admin queue.
@@ -196,6 +208,8 @@ export function EditTeachingDetails() {
           init.monthlyRateNpr > 0 ? String(init.monthlyRateNpr) : "",
         );
         setLocation(init.location);
+        setInstitution(init.institution);
+        setDegree(init.degree);
         // Seed the in-memory `documents` Map from the existing
         // docs so the form knows which kinds already have a file.
         const map = new Map<string, TutorDocument>();
@@ -253,6 +267,8 @@ export function EditTeachingDetails() {
       subsetsDiffer(initial.gradesTeaching, gradesTeaching) ||
       (initial.monthlyRateNpr ?? 0) !== (isValidRate ? monthlyRateNumber : 0) ||
       !locationsEqual(initial.location, location) ||
+      initial.institution.trim() !== institution.trim() ||
+      initial.degree.trim() !== degree.trim() ||
       docKindListChanged(initial.documents, documents));
 
   const canSubmit =
@@ -263,6 +279,8 @@ export function EditTeachingDetails() {
     isValidRate &&
     location !== null &&
     location.city.trim().length > 0 &&
+    institution.trim().length >= 2 &&
+    degree.trim().length >= 2 &&
     (citizenshipDoc !== null || initialHasDoc(initial.documents, "citizenship")) &&
     (certificateDoc !== null || initialHasDoc(initial.documents, "certificate"));
 
@@ -292,6 +310,12 @@ export function EditTeachingDetails() {
     }
     if (location === null || location.city.trim().length === 0) {
       validationErrors.location = "Pick a city and neighborhood.";
+    }
+    if (institution.trim().length < 2) {
+      validationErrors.institution = "Enter the name of your institution (at least 2 characters).";
+    }
+    if (degree.trim().length < 2) {
+      validationErrors.degree = "Enter your degree or qualification (at least 2 characters).";
     }
     if (!citizenshipDoc && !initialHasDoc(initial.documents, "citizenship")) {
       validationErrors.citizenship = "Upload a citizenship ID.";
@@ -332,6 +356,12 @@ export function EditTeachingDetails() {
       }
       if (!locationsEqual(initial.location, location)) {
         proposed.location = location;
+      }
+      if (initial.institution.trim() !== institution.trim()) {
+        proposed.institution = institution.trim();
+      }
+      if (initial.degree.trim() !== degree.trim()) {
+        proposed.degree = degree.trim();
       }
 
       // Document changes: if the user re-uploaded a kind this
@@ -388,6 +418,8 @@ export function EditTeachingDetails() {
             gradesTeaching: initial.gradesTeaching,
             monthlyRateNpr: initial.monthlyRateNpr,
             location: initial.location,
+            institution: initial.institution,
+            degree: initial.degree,
             documents: initial.documents,
             // Include the current avatar URL so the admin queue's
             // PendingEditCard can render the tutor's real photo
@@ -543,6 +575,81 @@ export function EditTeachingDetails() {
                 {errors.location}
               </Text>
             ) : null}
+
+            <View className="h-4" />
+
+            {/* Credentials — review-gated fields. Changes here
+                go through the admin queue for re-approval. */}
+            <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+              <Text className="text-overline text-text-muted uppercase">
+                Qualifications
+              </Text>
+              <Text className="text-caption text-text-secondary -mt-2">
+                Changing your qualifications requires admin re-approval.
+              </Text>
+
+              {/* Degree */}
+              <View className="gap-1">
+                <Text className="text-caption text-text-secondary">
+                  Degree / Qualification
+                </Text>
+                <View
+                  className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-2 ${
+                    errors.degree ? "border-danger" : "border-border"
+                  }`}
+                >
+                  <Ionicons
+                    color={colors.text.muted}
+                    name="school-outline"
+                    size={18}
+                  />
+                  <TextInput
+                    value={degree}
+                    onChangeText={setDegree}
+                    placeholder="e.g., B.Sc. in Mathematics"
+                    placeholderTextColor={colors.text.muted}
+                    autoCapitalize="words"
+                    className="flex-1 text-text-primary text-body"
+                  />
+                </View>
+                {errors.degree ? (
+                  <Text className="text-caption text-danger">
+                    {errors.degree}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Institution */}
+              <View className="gap-1">
+                <Text className="text-caption text-text-secondary">
+                  Institution / University
+                </Text>
+                <View
+                  className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-2 ${
+                    errors.institution ? "border-danger" : "border-border"
+                  }`}
+                >
+                  <Ionicons
+                    color={colors.text.muted}
+                    name="business-outline"
+                    size={18}
+                  />
+                  <TextInput
+                    value={institution}
+                    onChangeText={setInstitution}
+                    placeholder="e.g., Tribhuvan University"
+                    placeholderTextColor={colors.text.muted}
+                    autoCapitalize="words"
+                    className="flex-1 text-text-primary text-body"
+                  />
+                </View>
+                {errors.institution ? (
+                  <Text className="text-caption text-danger">
+                    {errors.institution}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
 
             {/* Verification documents — same three slots as the
                 onboarding form. The user can replace a kind

@@ -39,31 +39,40 @@ service cloud.firestore {
       // tutorVerifications/{uid}.status change. The admin can NOT
       // edit the personal fields (fullName, headline, bio, etc.)
       // because they don't carry those keys in the batch update.
+      //
+      // Student-facing `tutorProfile/default` is readable by ALL
+      // signed-in users so the TutorDetailsScreen can render the
+      // full profile (including documents for the demo video).
+      // The more-specific rule below overrides the wildcard for
+      // this specific subcollection path.
+      match /tutorProfile/default {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
       match /{subcollection}/{document=**} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Admin-managed denormalized tutor record. The student-side
-    // marketplace / map query reads from this collection via
-    // `lib/verification/discovery.ts`. The denormalized flags are
-    // kept in lockstep with `users/{uid}/tutorProfile/default` by
-    // the admin queue's approve / reject handlers, so the filter
-    // `verificationStatus === "approved" AND hasPendingUpdate === false`
-    // is a flat `where(...)` against this single doc.
+    // Denormalized tutor directory — the student-facing discovery
+    // surface (StudentHome, MapSearch) reads this collection via
+    // `lib/verification/discovery.ts`. Each doc mirrors the
+    // corresponding `users/{uid}/tutorProfile/default` subcollection
+    // doc and is written atomically when the admin approves a tutor
+    // (see `applyVerificationDecision`).
     //
-    // Both the tutor (owner) and the admin can read their own row
-    // so the marketplace preview / "is this me?" flows work in
-    // the tutor's own dashboard. Writes are admin-only because
-    // this is a denormalized cache and the client should never
-    // touch it directly — Phase 5 (Firestore functions or admin
-    // SDK trigger) will own the writes once we add real student
-    // discovery. For the demo, the admin queue's approve / reject
-    // handler also writes here so a tutor approved on day N shows
-    // up in the marketplace the next time it loads.
+    // Read is public (no auth required) so the home screen and detail
+    // page always work even if the Firebase Auth token hasn't fully
+    // propagated to the Firestore SDK. This is safe because:
+    //   1. The data in this collection is intentionally public-facing
+    //      (name, subjects, rate, location — no PII)
+    //   2. Only the admin queue writes to this collection
+    //   3. The richer user profile subcollection (`users/{uid}/tutorProfile/default`)
+    //      remains protected by `isSignedIn()`
     match /tutors/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      allow read: if true;
       allow create, update: if isAdmin();
       allow delete: if false;
     }

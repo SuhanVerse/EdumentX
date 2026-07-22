@@ -68,6 +68,7 @@ type FormErrors = {
   phone?: string;
   grade?: string;
   subjects?: string;
+  avatar?: string;
 };
 
 export function StudentProfileScreen() {
@@ -101,7 +102,8 @@ export function StudentProfileScreen() {
     grade !== null &&
     subjects.length >= 1 &&
     location !== null &&
-    location.city.trim().length > 0;
+    location.city.trim().length > 0 &&
+    avatarUri !== null;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
@@ -121,6 +123,7 @@ export function StudentProfileScreen() {
     if (phoneErr) validationErrors.phone = phoneErr;
     if (!grade) validationErrors.grade = "Select your grade.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
+    if (!avatarUri) validationErrors.avatar = "Upload a profile photo to continue.";
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) return;
@@ -288,6 +291,11 @@ export function StudentProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
+          {errors.avatar ? (
+            <Text className="text-caption text-danger text-center -mt-4">
+              {errors.avatar}
+            </Text>
+          ) : null}
 
           <NameEmailFields
             fullName={fullName}

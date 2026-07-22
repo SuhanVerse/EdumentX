@@ -30,6 +30,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback } from 'react';
 import { Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   useAnimatedStyle,
   useSharedValue,
@@ -48,7 +49,8 @@ import { formatNpr, type Tutor } from '@/lib/mock/tutors';
 export type TutorCardProps = {
   tutor: Tutor;
   variant?: 'wide' | 'compact-h';
-  /** Optional press handler (e.g. navigate to `/tutors/:id`). */
+  /** Optional press handler (e.g. navigate to `tutor/[id]`).
+   *  Defaults to navigating to `/tutor/${tutor.id}` if omitted. */
   onPress?: () => void;
   /** Optional save/heart toggle handler. If omitted, the heart is hidden. */
   onSaveToggle?: () => void;
@@ -68,15 +70,23 @@ export function TutorCard({
   saved = false,
   className = '',
 }: TutorCardProps) {
+  const router = useRouter();
+
+  // Default navigation: go to the tutor's detail page.
+  // Callers can override by passing their own `onPress`.
+  const handlePress = onPress ?? (() => {
+    router.push({ pathname: '/tutor/[id]', params: { id: tutor.id } } as any);
+  });
+
   if (variant === 'compact-h') {
     return (
-      <CompactCard tutor={tutor} onPress={onPress} className={className} />
+      <CompactCard tutor={tutor} onPress={handlePress} className={className} />
     );
   }
   return (
     <WideCard
       tutor={tutor}
-      onPress={onPress}
+      onPress={handlePress}
       onSaveToggle={onSaveToggle}
       saved={saved}
       className={className}
@@ -170,22 +180,7 @@ function WideCard({
       style={animatedStyle}
       className={`rounded-card bg-surface border border-border overflow-hidden ${className}`}
     >
-      {/* Hero placeholder block — 160h tinted surface. Swap for an
-          <Image> once avatar storage lands. */}
-      <View
-        className="w-full items-center justify-center bg-background relative"
-        style={{ height: 160 }}
-      >
-        <Text className="text-caption text-text-muted">
-          {tutor.subjects.join(' · ')}
-        </Text>
-
-        {onSaveToggle ? (
-          <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} />
-        ) : null}
-      </View>
-
-      {/* Info block */}
+      {/* Info block — no hero/cover panel, content starts immediately */}
       <View className="p-4 gap-2">
         <View className="flex-row items-center gap-2">
           <Avatar name={tutor.fullName} imageUri={tutor.avatarUrl} size={36} />
@@ -198,11 +193,13 @@ function WideCard({
                 {tutor.fullName}
               </Text>
               {tutor.verified ? (
-                <Ionicons
-                  color={colors.brand.verification}
-                  name="checkmark-circle"
-                  size={16}
-                />
+                <View className="-ml-0.5">
+                  <Ionicons
+                    color={colors.brand.verification}
+                    name="checkmark-circle"
+                    size={16}
+                  />
+                </View>
               ) : null}
             </View>
             <Text
@@ -212,6 +209,25 @@ function WideCard({
               {tutor.headline}
             </Text>
           </View>
+        </View>
+
+        {/* Subject pills — compact horizontal scroll */}
+        <View className="flex-row flex-wrap gap-1.5">
+          {tutor.subjects.slice(0, 3).map((subject) => (
+            <View
+              key={subject}
+              className="px-2 py-0.5 rounded-pill bg-amber/10"
+            >
+              <Text className="text-micro text-amber">{subject}</Text>
+            </View>
+          ))}
+          {tutor.subjects.length > 3 && (
+            <View className="px-2 py-0.5 rounded-pill bg-surface border border-border">
+              <Text className="text-micro text-text-muted">
+                +{tutor.subjects.length - 3}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="flex-row items-center gap-3">
@@ -270,25 +286,6 @@ function CompactCard({
       style={animatedStyle}
       className={`w-[200px] rounded-card bg-surface border border-border overflow-hidden ${className}`}
     >
-      {/* 100h hero placeholder */}
-      <View
-        className="w-full items-center justify-center bg-background relative"
-        style={{ height: 100 }}
-      >
-        <Text className="text-micro text-text-muted" numberOfLines={1}>
-          {tutor.subjects[0]}
-        </Text>
-        {tutor.verified ? (
-          <View className="absolute top-2 right-2">
-            <Ionicons
-              color={colors.brand.verification}
-              name="checkmark-circle"
-              size={14}
-            />
-          </View>
-        ) : null}
-      </View>
-
       <View className="p-3 gap-1">
         <View className="flex-row items-center gap-1">
           <Text

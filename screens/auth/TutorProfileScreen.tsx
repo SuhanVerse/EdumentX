@@ -61,6 +61,8 @@ import {
   validateFullName,
   validatePhone,
   validateUsername,
+  validateDegree,
+  validateInstitution,
   validateRequired,
   validateSelection,
 } from "@/lib/validation";
@@ -77,6 +79,9 @@ type FormErrors = {
   experience?: string;
   monthlyRate?: string;
   location?: string;
+  degree?: string;
+  institution?: string;
+  avatar?: string;
 };
 
 const inputBase =
@@ -97,6 +102,8 @@ export function TutorProfileScreen() {
   const [bio, setBio] = useState("");
   const [subjects, setSubjects] = useState<string[]>([]);
   const [gradesTeaching, setGradesTeaching] = useState<string[]>([]);
+  const [degree, setDegree] = useState("");
+  const [institution, setInstitution] = useState("");
   const [yearsExperience, setYearsExperience] = useState(0);
   const [monthlyRateNpr, setMonthlyRateNpr] = useState("");
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
@@ -157,8 +164,11 @@ export function TutorProfileScreen() {
     isValidRate &&
     location !== null &&
     location.city.trim().length > 0 &&
+    validateDegree(degree) === null &&
+    validateInstitution(institution) === null &&
     hasCitizenship &&
-    hasCertificate;
+    hasCertificate &&
+    avatarUri !== null;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
@@ -180,6 +190,10 @@ export function TutorProfileScreen() {
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject you teach.";
     if (gradesTeaching.length < 1) validationErrors.grades = "Select at least one grade level you teach.";
     if (!isValidRate) validationErrors.monthlyRate = "Enter your monthly rate in NPR.";
+    const degreeErr = validateDegree(degree);
+    if (degreeErr) validationErrors.degree = degreeErr;
+    const institutionErr = validateInstitution(institution);
+    if (institutionErr) validationErrors.institution = institutionErr;
     if (!hasCitizenship) {
       Alert.alert(
         "Citizenship ID required",
@@ -192,6 +206,7 @@ export function TutorProfileScreen() {
         "Please upload a degree, transcript, or enrollment letter before submitting.",
       );
     }
+    if (!avatarUri) validationErrors.avatar = "Upload a profile photo to continue.";
     setErrors(validationErrors);
     if (!hasCitizenship || !hasCertificate) return;
     if (Object.keys(validationErrors).length > 0) return;
@@ -214,6 +229,8 @@ export function TutorProfileScreen() {
       gradesTeaching,
       yearsExperience,
       monthlyRateNpr: monthlyRateNumber,
+      degree: degree.trim(),
+      institution: institution.trim(),
     });
 
     if (!user) {
@@ -299,6 +316,8 @@ export function TutorProfileScreen() {
           headline: headline.trim(),
           bio: bio.trim(),
           phoneDisplay,
+          degree: degree.trim(),
+          institution: institution.trim(),
           phone: phone.trim(),
           username: username.trim(),
           fullName: fullName.trim(),
@@ -340,6 +359,8 @@ export function TutorProfileScreen() {
           uid: user.uid,
           email: authEmail.trim(),
           fullName: fullName.trim(),
+          degree: degree.trim(),
+          institution: institution.trim(),
           subjects,
           gradesTeaching,
           yearsExperience,
@@ -454,6 +475,11 @@ export function TutorProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
+          {errors.avatar ? (
+            <Text className="text-caption text-danger text-center -mt-4">
+              {errors.avatar}
+            </Text>
+          ) : null}
 
           <NameEmailFields
             fullName={fullName}
@@ -604,6 +630,80 @@ export function TutorProfileScreen() {
                 />
               )}
             </FieldShell>
+          </View>
+
+          {/* Credentials — degree + institution */}
+          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+            <Text className="text-label text-ink-muted">
+              Your credentials
+            </Text>
+            <Text className="text-caption text-text-secondary -mt-3">
+              This is shown on your profile so parents know your background.
+            </Text>
+
+            {/* Degree */}
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Degree / Qualification
+              </Text>
+              <FieldShell
+                value={degree}
+                error={!!errors.degree}
+                valid={degree.length > 0 && validateDegree(degree) === null}
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="school-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      onChangeText={setDegree}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g., B.Sc. in Mathematics"
+                      placeholderTextColor={colors.text.muted}
+                      value={degree}
+                    />
+                  </View>
+                )}
+              </FieldShell>
+              {errors.degree ? (
+                <Text className="text-caption text-danger">{errors.degree}</Text>
+              ) : null}
+            </View>
+
+            {/* Institution */}
+            <View className="gap-1">
+              <Text className="text-caption text-text-secondary">
+                Institution / University
+              </Text>
+              <FieldShell
+                value={institution}
+                error={!!errors.institution}
+                valid={institution.length > 0 && validateInstitution(institution) === null}
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="business-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      onChangeText={setInstitution}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g., Tribhuvan University"
+                      placeholderTextColor={colors.text.muted}
+                      value={institution}
+                    />
+                  </View>
+                )}
+              </FieldShell>
+              {errors.institution ? (
+                <Text className="text-caption text-danger">{errors.institution}</Text>
+              ) : null}
+            </View>
           </View>
 
           <ChipGroup

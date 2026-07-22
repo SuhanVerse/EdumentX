@@ -40,6 +40,7 @@ import {
 import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
 
+
 /**
  * EdumentX — Verification Queue (Admin)
  *
@@ -99,6 +100,8 @@ type Verification = {
   level: string;
   rate: number;
   experience: string;
+  institution: string;
+  degree: string;
   bio: string;
   documents: TutorDocument[];
   status: QueueStatus;
@@ -237,6 +240,8 @@ const EDIT_FIELD_LABELS: Record<string, string> = {
   location: "Location",
   yearsExperience: "Experience",
   phone: "Phone",
+  institution: "Institution",
+  degree: "Degree",
 };
 
 /**
@@ -501,6 +506,8 @@ export function VerificationQueue() {
           location?: string;
           headline?: string;
           bio?: string;
+          institution?: string;
+          degree?: string;
           documents?: TutorDocument[];
           /** Avatar stored directly on the verification doc. Written
            *  by `TutorProfileScreen`'s batch set under the `photoUrl`
@@ -540,6 +547,8 @@ export function VerificationQueue() {
           level: (data.gradesTeaching ?? []).join(", ") || "—",
           rate: data.monthlyRateNpr ?? 0,
           experience: data.yearsExperience ?? "—",
+          institution: data.institution ?? "",
+          degree: data.degree ?? "",
           bio: data.bio ?? "",
           documents: data.documents ?? [],
           status,
@@ -681,6 +690,8 @@ export function VerificationQueue() {
     [verifications],
   );
 
+
+
   const totalOpen = newPending.length + infoRequested.length + pendingEdits.length;
 
   /** Persist a verification status change atomically: flip the
@@ -723,6 +734,71 @@ export function VerificationQueue() {
     }
     batch.set(profileRef, profilePatch, { merge: true });
 
+    // Populate (or remove from) the student-facing `tutors/{uid}`
+    // denormalized collection. On approval, we mirror the profile
+    // fields the student cards need. On reject / more_info, we
+    // either remove the doc or mark it filtered — we choose to
+    // delete so the student query never returns stale data.
+    const tutorDirRef = doc(db, "tutors", uid);
+    if (newStatus === "approved") {
+      // Read the profile doc to get the display fields for the
+      // tutors collection. We need the full profile to populate
+      // the student-facing card.
+      try {
+        const profileSnap = await getDoc(profileRef);
+        const profileData = profileSnap.data() as
+          | Record<string, unknown>
+          | undefined;
+        batch.set(
+          tutorDirRef,
+          {
+            uid,
+            fullName: profileData?.fullName ?? null,
+            username: profileData?.username ?? null,
+            headline: profileData?.headline ?? null,
+            subjects: profileData?.subjects ?? [],
+            monthlyRateNpr: profileData?.monthlyRateNpr ?? 0,
+            location: profileData?.location ?? null,
+            photoUrl: profileData?.photoUrl ?? null,
+            yearsExperience: profileData?.yearsExperience ?? 0,
+            verificationStatus: "approved",
+            isVerifiedProfessional: true,
+            hasPendingUpdate: false,
+            degree: profileData?.degree ?? null,
+            institution: profileData?.institution ?? null,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (readErr) {
+        // If the profile read fails, write a minimal doc with
+        // what we know — the batch.commit below will still write
+        // the verification flags.
+        console.warn(
+          "[VerificationQueue] profile read for tutors/{uid} failed",
+          readErr,
+        );
+        batch.set(
+          tutorDirRef,
+          {
+            uid,
+            fullName: null,
+            username: null,
+            verificationStatus: "approved",
+            isVerifiedProfessional: true,
+            hasPendingUpdate: false,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    } else {
+      // Rejected or more_info — remove from the tutor directory so
+      // the student query doesn't see them. The tutor can resubmit
+      // later.
+      batch.delete(tutorDirRef);
+    }
+
     await batch.commit();
 
     // Notify the tutor once the decision is committed. We do this
@@ -748,14 +824,18 @@ export function VerificationQueue() {
   }
 
   /** Approve an edit: read the pending `tutorProfileUpdates/{uid}`
-   *  doc, merge `proposed` into the live profile, and clear the
-   *  `hasPendingUpdate` flag — all in one batch. The source-of-truth
-   *  is the verification doc; the profile doc only gets the merged
-   *  fields + a status flip. */
+   *  doc, merge `proposed` into the live profile, clear the
+   *  `hasPendingUpdate` flag, AND update the `tutors/{uid}`
+   *  denormalized doc — all in one batch.
+   *
+   *  The `tutors/{uid}` update is critical: without it, edits to
+   *  subjects, rate, location, etc. would never reflect in the
+   *  student-facing discovery list, silently serving stale data. */
   async function applyEditApproval(uid: string) {
     const db = getFirestore(getApp());
     const updateRef = doc(db, "tutorProfileUpdates", uid);
     const profileRef = doc(db, "users", uid, "tutorProfile", "default");
+    const tutorDirRef = doc(db, "tutors", uid);
 
     // Read the proposed payload first; we need its contents to
     // spread into the profile. A small extra read is fine here —
@@ -767,12 +847,27 @@ export function VerificationQueue() {
       | undefined;
     const proposed = data?.proposed ?? {};
 
+    // Read the current profile to mirror applicable fields to
+    // the tutors/{uid} discovery doc.
+    let profileData: Record<string, unknown> | undefined;
+    try {
+      const profileSnap = await getDoc(profileRef);
+      profileData = profileSnap.data() as Record<string, unknown> | undefined;
+    } catch {
+      // Non-fatal — we'll still update the profile and the edit doc.
+      profileData = undefined;
+    }
+
     const batch = writeBatch(db);
+
+    // 1. Mark the edit as approved
     batch.update(updateRef, {
       status: "approved",
       reviewedBy: admin?.uid ?? null,
       reviewedAt: serverTimestamp(),
     });
+
+    // 2. Merge the proposed changes into the live profile
     batch.set(
       profileRef,
       {
@@ -782,6 +877,40 @@ export function VerificationQueue() {
       },
       { merge: true },
     );
+
+    // 3. Update the tutors/{uid} discovery doc with changed fields
+    //    that matter for the student-facing list. We only overwrite
+    //    specific fields (not the full doc) via merge: true.
+    const tutorPatch: Record<string, unknown> = {
+      hasPendingUpdate: false,
+      updatedAt: serverTimestamp(),
+    };
+    // Mirror proposed fields that affect the tutor card display
+    if ("subjects" in proposed) tutorPatch.subjects = proposed.subjects;
+    if ("monthlyRateNpr" in proposed) tutorPatch.monthlyRateNpr = proposed.monthlyRateNpr;
+    if ("location" in proposed) tutorPatch.location = proposed.location;
+    if ("headline" in proposed) tutorPatch.headline = proposed.headline;
+    if ("yearsExperience" in proposed) tutorPatch.yearsExperience = proposed.yearsExperience;
+    if ("degree" in proposed) tutorPatch.degree = proposed.degree;
+    if ("institution" in proposed) tutorPatch.institution = proposed.institution;
+    // FullName/username changes are rare but we mirror them too
+    if ("fullName" in proposed) tutorPatch.fullName = proposed.fullName;
+    if ("username" in proposed) tutorPatch.username = proposed.username;
+    // Bio doesn't affect the card but keep the tutor doc consistent
+    if ("bio" in proposed) tutorPatch.bio = proposed.bio;
+    // Photo URL changes come through the live-edit screen, not edits
+    // Fall back to current profile data for fields NOT in proposed
+    if (profileData) {
+      if (!("photoUrl" in tutorPatch)) tutorPatch.photoUrl = profileData.photoUrl ?? null;
+      if (!("subjects" in tutorPatch)) tutorPatch.subjects = profileData.subjects ?? [];
+      if (!("monthlyRateNpr" in tutorPatch)) tutorPatch.monthlyRateNpr = profileData.monthlyRateNpr ?? 0;
+      if (!("location" in tutorPatch)) tutorPatch.location = profileData.location ?? null;
+      if (!("headline" in tutorPatch)) tutorPatch.headline = profileData.headline ?? "";
+      if (!("fullName" in tutorPatch)) tutorPatch.fullName = profileData.fullName ?? "";
+      if (!("username" in tutorPatch)) tutorPatch.username = profileData.username ?? "";
+    }
+    batch.set(tutorDirRef, tutorPatch, { merge: true });
+
     await batch.commit();
 
     // Tell the tutor their edit landed. Same ordering as the
@@ -1034,6 +1163,8 @@ export function VerificationQueue() {
         {!loading && totalOpen === 0 && decided.length === 0 ? (
           <EmptyState />
         ) : null}
+
+
       </ScrollView>
 
       <AdminNav />
@@ -1178,6 +1309,8 @@ function VerificationCard({
         <DetailItem label="Level" value={item.level} />
         <DetailItem label="Rate" value={`Rs ${item.rate.toLocaleString()}/mo`} />
         <DetailItem label="Experience" value={item.experience} />
+        <DetailItem label="Degree" value={item.degree || "—"} />
+        <DetailItem label="Institution" value={item.institution || "—"} />
       </View>
 
       {/* Bio */}

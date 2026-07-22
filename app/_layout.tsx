@@ -292,7 +292,22 @@ export default function RootLayout() {
         // reach it via the "My profile" pill on /admin-home.
         "admin-profile",
       ]);
-      if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
+
+      // Nested route prefixes that should always be allowed for
+      // signed-in users. Dynamic routes like `/tutor/[id]` result in
+      // segments like `["tutor", "t-001"]` which don't exist in the
+      // flat `allowedForSignedIn` set — we check prefix matches here
+      // to avoid redirecting back to the dashboard.
+      const allowedNestedPrefixes = ["tutor/"];
+      const isNestedAllowed = allowedNestedPrefixes.some((p) =>
+        currentRoute.startsWith(p),
+      );
+
+      if (
+        !isNestedAllowed &&
+        !allowedForSignedIn.has(currentRoute) &&
+        currentRoute !== target
+      ) {
         router.replace(target);
       }
     }, 150);
@@ -816,6 +831,8 @@ export default function RootLayout() {
           {/* Tutor under-review screen. Reached via the layout guard
               when `tutorVerificationStatus === "pending"`. */}
           <Stack.Screen name="tutor-pending" />
+          {/* Tutor details — student-facing profile page */}
+          <Stack.Screen name="tutor/[id]" />
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />

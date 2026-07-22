@@ -17,11 +17,16 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 
-import { AnimatedPressable, usePressScale, FloatingEmptyIcon } from "@/components/motion";
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { TutorCard } from "@/components/domain/TutorCard";
 import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
 import { colors } from "@/constants/colors";
+import {
+  subscribeTutors,
+  type TutorListing,
+} from "@/lib/tutor/firestoreTutorService";
 
 /**
  * EdumentX — Student Home
@@ -114,10 +119,24 @@ export function StudentHome() {
   // subscribe via `onSnapshot` so the dashboard re-renders if the
   // user edits their profile from the "Edit profile" affordance.
   const user = useAuthStore((state) => state.user);
+  const [tutors, setTutors] = useState<TutorListing[]>([]);
+  const [tutorsLoading, setTutorsLoading] = useState(true);
   const [profile, setProfile] = useState<Profile>({
     fullName: "",
     locationLabel: "Add your location",
   });
+
+  // Subscribe to the live tutor directory
+  useEffect(() => {
+    const unsub = subscribeTutors(
+      (list) => {
+        setTutors(list);
+        setTutorsLoading(false);
+      },
+      () => setTutorsLoading(false),
+    );
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -211,34 +230,74 @@ export function StudentHome() {
         contentContainerClassName="pb-9"
         showsVerticalScrollIndicator={false}
       >
-        {/* Empty state — tutor discovery lands in Phase 5 */}
-        <View className="px-5 pt-10">
-          <View className="bg-surface border border-border rounded-card p-6 items-center">
-            <FloatingEmptyIcon
-              iconName="search-outline"
-              iconColor="#E5A03B"
-              iconBgClass="bg-accent-soft"
-              size={26}
-              sizeClass="w-14 h-14"
-            />
-            <Text className="text-heading text-text-primary text-center">
-              Tutor discovery is coming soon
+        {/* Tutor list section header */}
+        <View className="px-5 pt-6 pb-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-section-title font-semibold text-text-primary">
+              Recommended tutors
             </Text>
-            <Text
-              className="text-body text-text-secondary text-center mt-1.5"
-              style={{ maxWidth: 320 }}
-            >
-              We&apos;re onboarding verified tutors in your area. You&apos;ll
-              be notified as soon as matches are available for your
-              selected subjects.
-            </Text>
-            <View className="flex-row items-center gap-2 mt-4">
-              <Ionicons name="mail-outline" size={14} color="#6B7268" />
+            {!tutorsLoading && (
               <Text className="text-caption text-text-muted">
-                We&apos;ll email {user?.email ?? "you"} when launches begin.
+                {tutors.length} available
+              </Text>
+            )}
+          </View>
+          <Text className="text-body-sm text-text-muted mt-1">
+            Verified tutors ready to help you learn
+          </Text>
+        </View>
+
+        {/* Tutor cards — live from Firestore */}
+        <View className="px-5 gap-4">
+          {tutorsLoading ? (
+            <View className="items-center py-12">
+              <ActivityIndicator size="small" color={colors.text.muted} />
+              <Text className="text-caption text-text-muted mt-3">
+                Loading tutors…
               </Text>
             </View>
-          </View>
+          ) : tutors.length === 0 ? (
+            <View className="items-center py-12 px-6">
+              <View className="w-14 h-14 rounded-pill bg-surface items-center justify-center mb-3">
+                <Ionicons
+                  name="search-outline"
+                  size={26}
+                  color={colors.text.muted}
+                />
+              </View>
+              <Text className="text-card-title font-medium text-text-primary text-center">
+                No tutors available yet
+              </Text>
+              <Text className="text-body-sm text-text-secondary text-center mt-1.5">
+                Approved tutors will appear here once they've been
+                verified by our team.
+              </Text>
+            </View>
+          ) : (
+            tutors.map((tutor) => (
+              <TutorCard
+                key={tutor.uid}
+                tutor={{
+                  id: tutor.uid,
+                  fullName: tutor.fullName,
+                  username: tutor.username,
+                  headline: tutor.headline,
+                  bio: "",
+                  subjects: tutor.subjects,
+                  gradesTeaching: [],
+                  yearsExperience: tutor.yearsExperience,
+                  monthlyRateNpr: tutor.monthlyRateNpr,
+                  location: tutor.location as { neighborhood: string; city: 'Kathmandu' | 'Lalitpur' | 'Bhaktapur' },
+                  rating: tutor.rating,
+                  reviewCount: tutor.reviewCount,
+                  verified: tutor.isVerifiedProfessional,
+                  avatarUrl: tutor.photoUrl,
+                  responseRate: 0,
+                }}
+                variant="wide"
+              />
+            ))
+          )}
         </View>
 
         {/* Sign out — required because there's no other way to clear the

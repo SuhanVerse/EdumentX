@@ -64,6 +64,9 @@ export type TutorProfileChanges = Partial<{
   headline: string;
   bio: string;
   photoUrl: string;
+  // Credentials:
+  degree: string;
+  institution: string;
   // High-risk:
   subjects: string[];
   gradesTeaching: string[];

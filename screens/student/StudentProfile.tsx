@@ -88,7 +88,7 @@ export function StudentProfile() {
       .then((snap) => {
         if (cancelled) return;
         const d = snap.data() as
-          | { fullName?: string; photoUrl?: string }
+          | { fullName?: string; photoUrl?: string; phone?: string }
           | undefined;
         if (d?.fullName && d.fullName.trim().length > 0) {
           setName(d.fullName.trim());
@@ -104,6 +104,10 @@ export function StudentProfile() {
         if (typeof d?.photoUrl === "string") {
           setAvatarUri(d.photoUrl);
           setSavedPhotoUrl(d.photoUrl);
+        }
+        // Load the phone number saved during profile setup.
+        if (typeof d?.phone === "string") {
+          setPhone(d.phone);
         }
       })
       .catch((err) => {

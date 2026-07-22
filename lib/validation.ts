@@ -109,6 +109,38 @@ export function validateRequired(value: string, label: string): string | null {
 }
 
 /**
+ * Validate a degree / qualification field.
+ * Allows letters, spaces, dots, commas, parentheses, slashes, hyphens, and ampersands.
+ * Length: 2–120 characters (after trim).
+ * @returns `null` if valid, or an error string.
+ */
+export function validateDegree(degree: string): string | null {
+  const trimmed = degree.trim();
+  if (trimmed.length === 0) return "Enter your highest degree or qualification.";
+  if (trimmed.length < 2) return "Degree must be at least 2 characters.";
+  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands.
+  if (!/^[a-zA-Z\s.,()\/\-&]+$/.test(trimmed))
+    return "Use letters and common punctuation only (e.g. B.Sc., M.Ed.).";
+  return null;
+}
+
+/**
+ * Validate an institution / university name.
+ * Allows letters, spaces, dots, commas, parentheses, slashes, hyphens, and ampersands.
+ * Length: 2–120 characters (after trim).
+ * @returns `null` if valid, or an error string.
+ */
+export function validateInstitution(institution: string): string | null {
+  const trimmed = institution.trim();
+  if (trimmed.length === 0) return "Enter the name of your institution.";
+  if (trimmed.length < 2) return "Institution name must be at least 2 characters.";
+  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands.
+  if (!/^[a-zA-Z\s.,()\/\-&]+$/.test(trimmed))
+    return "Use letters and common punctuation only (e.g. Tribhuvan University).";
+  return null;
+}
+
+/**
  * Validate a checkbox/chip selection has at least one item.
  * @param items The selected array.
  * @param label Human-readable label for the error message.
