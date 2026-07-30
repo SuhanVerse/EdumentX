@@ -17,6 +17,7 @@
   ],
   "exclude": [
     "node_modules",
+    "supabase/**",
     "Documentation/98-Reference-BasoBas/**",
     "Documentation/99-Archive/**"
   ]

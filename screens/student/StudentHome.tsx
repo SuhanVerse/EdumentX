@@ -24,9 +24,10 @@ import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
 import { colors } from "@/constants/colors";
 import {
-  subscribeTutors,
+  getTutorRepository,
   type TutorListing,
-} from "@/lib/tutor/firestoreTutorService";
+} from "@/services/tutors/dataSource";
+import { createDefaultTutorProfile } from "@/lib/tutor/types";
 
 /**
  * EdumentX — Student Home
@@ -128,7 +129,7 @@ export function StudentHome() {
 
   // Subscribe to the live tutor directory
   useEffect(() => {
-    const unsub = subscribeTutors(
+    const unsub = getTutorRepository().subscribeTutors(
       (list) => {
         setTutors(list);
         setTutorsLoading(false);
@@ -277,23 +278,20 @@ export function StudentHome() {
             tutors.map((tutor) => (
               <TutorCard
                 key={tutor.uid}
-                tutor={{
+                tutor={createDefaultTutorProfile({
                   id: tutor.uid,
                   fullName: tutor.fullName,
                   username: tutor.username,
                   headline: tutor.headline,
-                  bio: "",
                   subjects: tutor.subjects,
-                  gradesTeaching: [],
                   yearsExperience: tutor.yearsExperience,
                   monthlyRateNpr: tutor.monthlyRateNpr,
-                  location: tutor.location as { neighborhood: string; city: 'Kathmandu' | 'Lalitpur' | 'Bhaktapur' },
+                  location: tutor.location,
                   rating: tutor.rating,
                   reviewCount: tutor.reviewCount,
-                  verified: tutor.isVerifiedProfessional,
-                  avatarUrl: tutor.photoUrl,
-                  responseRate: 0,
-                }}
+                  isVerifiedProfessional: tutor.isVerifiedProfessional,
+                  photoUrl: tutor.photoUrl,
+                })}
                 variant="wide"
               />
             ))

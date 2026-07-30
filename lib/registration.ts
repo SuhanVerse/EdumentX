@@ -57,6 +57,8 @@ export type RegistrationState = {
     // tutor credentials (degree + institution)
     degree: string;
     institution: string;
+    // Gender (Male / Female / Other — collected during tutor onboarding)
+    gender: "male" | "female" | "other" | null;
   };
 };
 
@@ -78,6 +80,7 @@ const initialState: RegistrationState = {
     monthlyRateNpr: 0,
     degree: "",
     institution: "",
+    gender: null,
   },
 };
 

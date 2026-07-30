@@ -23,6 +23,9 @@ import {
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
+import { QUALIFICATION_LABELS } from "@/data/qualifications";
+import { INSTITUTION_LABELS } from "@/data/institutions";
 import { colors } from "@/constants/colors";
 import type { LocationValue } from "@/lib/registration";
 import { TUTOR_DOC_LABEL, type TutorDocument } from "@/lib/verification/documents";
@@ -588,67 +591,33 @@ export function EditTeachingDetails() {
                 Changing your qualifications requires admin re-approval.
               </Text>
 
-              {/* Degree */}
-              <View className="gap-1">
-                <Text className="text-caption text-text-secondary">
-                  Degree / Qualification
-                </Text>
-                <View
-                  className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-2 ${
-                    errors.degree ? "border-danger" : "border-border"
-                  }`}
-                >
-                  <Ionicons
-                    color={colors.text.muted}
-                    name="school-outline"
-                    size={18}
-                  />
-                  <TextInput
-                    value={degree}
-                    onChangeText={setDegree}
-                    placeholder="e.g., B.Sc. in Mathematics"
-                    placeholderTextColor={colors.text.muted}
-                    autoCapitalize="words"
-                    className="flex-1 text-text-primary text-body"
-                  />
-                </View>
-                {errors.degree ? (
-                  <Text className="text-caption text-danger">
-                    {errors.degree}
-                  </Text>
-                ) : null}
-              </View>
+              {/* Degree — SearchableSelect with curated qualifications */}
+              <SearchableSelect
+                value={degree}
+                onChange={setDegree}
+                options={QUALIFICATION_LABELS}
+                label="Degree / Qualification"
+                description="Start typing to search, or enter your own."
+                placeholder="e.g., B.Sc. in Mathematics"
+                icon="school-outline"
+                error={errors.degree}
+                valid={degree.length > 0 && validateDegree(degree) === null}
+              />
 
-              {/* Institution */}
-              <View className="gap-1">
-                <Text className="text-caption text-text-secondary">
-                  Institution / University
-                </Text>
-                <View
-                  className={`flex-row items-center h-rate-row px-3 border-emphasis rounded-card bg-surface gap-2 ${
-                    errors.institution ? "border-danger" : "border-border"
-                  }`}
-                >
-                  <Ionicons
-                    color={colors.text.muted}
-                    name="business-outline"
-                    size={18}
-                  />
-                  <TextInput
-                    value={institution}
-                    onChangeText={setInstitution}
-                    placeholder="e.g., Tribhuvan University"
-                    placeholderTextColor={colors.text.muted}
-                    autoCapitalize="words"
-                    className="flex-1 text-text-primary text-body"
-                  />
-                </View>
-                {errors.institution ? (
-                  <Text className="text-caption text-danger">
-                    {errors.institution}
-                  </Text>
-                ) : null}
-              </View>
+              <View className="h-2" />
+
+              {/* Institution — SearchableSelect with curated institutions */}
+              <SearchableSelect
+                value={institution}
+                onChange={setInstitution}
+                options={INSTITUTION_LABELS}
+                label="Institution / University"
+                description="Start typing your college or university name."
+                placeholder="e.g., Tribhuvan University"
+                icon="business-outline"
+                error={errors.institution}
+                valid={institution.length > 0 && validateInstitution(institution) === null}
+              />
             </View>
 
             {/* Verification documents — same three slots as the

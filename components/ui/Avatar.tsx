@@ -19,8 +19,8 @@ import { Image, Text, View } from 'react-native';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-export function getInitials(name: string): string {
-  const trimmed = name.trim();
+export function getInitials(name: string | undefined | null): string {
+  const trimmed = (name || '').trim();
   if (!trimmed) return '?';
   const words = trimmed.split(/\s+/);
   const first = words[0]?.[0] ?? '';
@@ -30,8 +30,8 @@ export function getInitials(name: string): string {
 
 const TINTS = ['bg-surface-muted', 'bg-accent-soft', 'bg-verification-light', 'bg-ai-light'];
 
-function getAvatarTint(name: string): string {
-  const code = (name.charCodeAt(0) || 0) % TINTS.length;
+function getAvatarTint(name: string | undefined | null): string {
+  const code = ((name && name.charCodeAt(0)) || 0) % TINTS.length;
   return TINTS[code];
 }
 

@@ -68,11 +68,16 @@ export interface TutorProfile {
   username: string;
   headline: string;
   bio: string;
+  gender: "male" | "female" | "other" | null;
 
   // ── Teaching ──
   subjects: string[];
   gradesTeaching: string[];
   yearsExperience: number;
+  /** Where the tutor teaches — surfaced in the AI chatbot filter. */
+  tutoringMode: "home" | "online" | "both";
+  /** Languages the tutor teaches in. Empty means "unknown" (no language filter). */
+  languages: string[];
 
   // ── Pricing ──
   monthlyRateNpr: number;
@@ -132,6 +137,8 @@ export function createDefaultTutorProfile(overrides?: Partial<TutorProfile>): Tu
     subjects: [],
     gradesTeaching: [],
     yearsExperience: 0,
+    tutoringMode: "both",
+    languages: ["English", "Nepali"],
     monthlyRateNpr: 0,
     groupBatchRateNpr: 0,
     minBatchSize: 3,
@@ -162,6 +169,7 @@ export function createDefaultTutorProfile(overrides?: Partial<TutorProfile>): Tu
       overall: 0,
     },
     reviews: [],
+    gender: null,
     ...overrides,
   };
 }

@@ -26,10 +26,13 @@ import { ChipGroup } from "@/components/forms/ChipGroup";
 import { DocumentUploader } from "@/components/forms/DocumentUploader";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
-import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
+import { INSTITUTION_LABELS } from "@/data/institutions";
+import { QUALIFICATION_LABELS } from "@/data/qualifications";
+import { motion } from "@/lib/motion";
 import { registration } from "@/lib/registration";
 import type { TutorDocument } from "@/lib/verification/documents";
 import { useAuthStore } from "@/store/authStore";
@@ -57,14 +60,12 @@ const GRADES = [
 ] as const;
 
 import {
+  validateDegree,
   validateEmail,
   validateFullName,
-  validatePhone,
-  validateUsername,
-  validateDegree,
   validateInstitution,
-  validateRequired,
-  validateSelection,
+  validatePhone,
+  validateUsername
 } from "@/lib/validation";
 const HEADLINE_MAX = 80;
 const BIO_MAX = 280;
@@ -105,6 +106,7 @@ export function TutorProfileScreen() {
   const [degree, setDegree] = useState("");
   const [institution, setInstitution] = useState("");
   const [yearsExperience, setYearsExperience] = useState(0);
+  const [gender, setGender] = useState<"male" | "female" | "other" | null>(null);
   const [monthlyRateNpr, setMonthlyRateNpr] = useState("");
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -231,6 +233,7 @@ export function TutorProfileScreen() {
       monthlyRateNpr: monthlyRateNumber,
       degree: degree.trim(),
       institution: institution.trim(),
+      gender,
     });
 
     if (!user) {
@@ -307,6 +310,7 @@ export function TutorProfileScreen() {
           subjects,
           gradesTeaching,
           yearsExperience,
+          gender,
           // Field name is `monthlyRateNpr` — the marketplace presents
           // tutor pricing as a flat monthly figure so parents can
           // budget without doing arithmetic. The legacy `hourlyRateNpr`
@@ -364,6 +368,7 @@ export function TutorProfileScreen() {
           subjects,
           gradesTeaching,
           yearsExperience,
+          gender,
           monthlyRateNpr: monthlyRateNumber,
           location,
           headline: headline.trim(),
@@ -568,6 +573,46 @@ export function TutorProfileScreen() {
             </View>
           </View>
 
+          {/* Gender radio group */}
+          <View className="gap-3 p-5 border border-border rounded-card bg-surface">
+            <Text className="text-label text-ink-muted">Gender</Text>
+            <Text className="text-caption text-text-secondary -mt-2">
+              Students can filter tutors by gender preference.
+            </Text>
+            <View className="flex-row gap-3">
+              {(["male", "female", "other"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: gender === option }}
+                  onPress={() => setGender(option)}
+                  className={`flex-1 flex-row items-center justify-center gap-2 h-11 rounded-card border ${
+                    gender === option
+                      ? "bg-primary border-primary"
+                      : "bg-surface border-border"
+                  }`}
+                >
+                  <View
+                    className={`w-4 h-4 rounded-full border-2 items-center justify-center ${
+                      gender === option ? "border-white" : "border-text-muted"
+                    }`}
+                  >
+                    {gender === option && (
+                      <View className="w-2 h-2 rounded-full bg-white" />
+                    )}
+                  </View>
+                  <Text
+                    className={`text-button font-medium ${
+                      gender === option ? "text-white" : "text-text-secondary"
+                    }`}
+                  >
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           {/* Headline */}
           <View className="gap-1 p-5 border border-border rounded-card bg-surface">
             <View className="flex-row items-center justify-between">
@@ -641,69 +686,33 @@ export function TutorProfileScreen() {
               This is shown on your profile so parents know your background.
             </Text>
 
-            {/* Degree */}
-            <View className="gap-1">
-              <Text className="text-caption text-text-secondary">
-                Degree / Qualification
-              </Text>
-              <FieldShell
-                value={degree}
-                error={!!errors.degree}
-                valid={degree.length > 0 && validateDegree(degree) === null}
-                className="h-input bg-surface rounded-card"
-              >
-                {({ onFocus, onBlur }) => (
-                  <View className="h-input flex-row items-center px-3 gap-2">
-                    <Ionicons color={colors.text.muted} name="school-outline" size={18} />
-                    <TextInput
-                      className="flex-1 text-text-primary text-body"
-                      autoCapitalize="words"
-                      onChangeText={setDegree}
-                      onFocus={onFocus}
-                      onBlur={onBlur}
-                      placeholder="e.g., B.Sc. in Mathematics"
-                      placeholderTextColor={colors.text.muted}
-                      value={degree}
-                    />
-                  </View>
-                )}
-              </FieldShell>
-              {errors.degree ? (
-                <Text className="text-caption text-danger">{errors.degree}</Text>
-              ) : null}
-            </View>
+            {/* Degree — SearchableSelect with curated qualifications */}
+            <SearchableSelect
+              value={degree}
+              onChange={setDegree}
+              options={QUALIFICATION_LABELS}
+              label="Degree / Qualification"
+              description="Start typing to search common qualifications, or enter your own."
+              placeholder="e.g., B.Sc. in Mathematics"
+              icon="school-outline"
+              error={errors.degree}
+              valid={degree.length > 0 && validateDegree(degree) === null}
+            />
 
-            {/* Institution */}
-            <View className="gap-1">
-              <Text className="text-caption text-text-secondary">
-                Institution / University
-              </Text>
-              <FieldShell
-                value={institution}
-                error={!!errors.institution}
-                valid={institution.length > 0 && validateInstitution(institution) === null}
-                className="h-input bg-surface rounded-card"
-              >
-                {({ onFocus, onBlur }) => (
-                  <View className="h-input flex-row items-center px-3 gap-2">
-                    <Ionicons color={colors.text.muted} name="business-outline" size={18} />
-                    <TextInput
-                      className="flex-1 text-text-primary text-body"
-                      autoCapitalize="words"
-                      onChangeText={setInstitution}
-                      onFocus={onFocus}
-                      onBlur={onBlur}
-                      placeholder="e.g., Tribhuvan University"
-                      placeholderTextColor={colors.text.muted}
-                      value={institution}
-                    />
-                  </View>
-                )}
-              </FieldShell>
-              {errors.institution ? (
-                <Text className="text-caption text-danger">{errors.institution}</Text>
-              ) : null}
-            </View>
+            <View className="h-2" />
+
+            {/* Institution — SearchableSelect with curated institutions */}
+            <SearchableSelect
+              value={institution}
+              onChange={setInstitution}
+              options={INSTITUTION_LABELS}
+              label="Institution / University"
+              description="Start typing your college or university name."
+              placeholder="e.g., Tribhuvan University"
+              icon="business-outline"
+              error={errors.institution}
+              valid={institution.length > 0 && validateInstitution(institution) === null}
+            />
           </View>
 
           <ChipGroup

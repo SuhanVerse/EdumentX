@@ -25,7 +25,7 @@
  * **Note on the placeholder image:** Today the hero block is a
  * tinted surface rectangle (no images — we have no image-storage
  * pipeline yet). When Supabase Storage lands, swap the `<View>` for
- * an `<Image>` and pass `tutor.avatarUrl` to it.
+ * an `<Image>` and pass `tutor.photoUrl` to it.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback } from 'react';
@@ -42,12 +42,12 @@ import { AnimatedPressable, usePressScale } from '@/components/motion';
 import { Avatar } from '@/components/ui/Avatar';
 import { colors } from '@/constants/colors';
 import { motion } from '@/lib/motion';
-import { formatNpr, type Tutor } from '@/lib/mock/tutors';
+import { formatNpr, type TutorProfile } from '@/lib/mock/tutors';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 export type TutorCardProps = {
-  tutor: Tutor;
+  tutor: TutorProfile;
   variant?: 'wide' | 'compact-h';
   /** Optional press handler (e.g. navigate to `tutor/[id]`).
    *  Defaults to navigating to `/tutor/${tutor.id}` if omitted. */
@@ -160,7 +160,7 @@ function WideCard({
   saved,
   className,
 }: {
-  tutor: Tutor;
+  tutor: TutorProfile;
   onPress?: () => void;
   onSaveToggle?: () => void;
   saved: boolean;
@@ -183,7 +183,7 @@ function WideCard({
       {/* Info block — no hero/cover panel, content starts immediately */}
       <View className="p-4 gap-2">
         <View className="flex-row items-center gap-2">
-          <Avatar name={tutor.fullName} imageUri={tutor.avatarUrl} size={36} />
+          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
           <View className="flex-1">
             <View className="flex-row items-center gap-1">
               <Text
@@ -192,7 +192,7 @@ function WideCard({
               >
                 {tutor.fullName}
               </Text>
-              {tutor.verified ? (
+              {tutor.isVerifiedProfessional ? (
                 <View className="-ml-0.5">
                   <Ionicons
                     color={colors.brand.verification}
@@ -268,7 +268,7 @@ function CompactCard({
   onPress,
   className,
 }: {
-  tutor: Tutor;
+  tutor: TutorProfile;
   onPress?: () => void;
   className: string;
 }) {

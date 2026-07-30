@@ -118,8 +118,8 @@ export function validateDegree(degree: string): string | null {
   const trimmed = degree.trim();
   if (trimmed.length === 0) return "Enter your highest degree or qualification.";
   if (trimmed.length < 2) return "Degree must be at least 2 characters.";
-  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands.
-  if (!/^[a-zA-Z\s.,()\/\-&]+$/.test(trimmed))
+  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands, apostrophes.
+  if (!/^[a-zA-Z\s.,()\/\-&']+$/.test(trimmed))
     return "Use letters and common punctuation only (e.g. B.Sc., M.Ed.).";
   return null;
 }
@@ -134,8 +134,8 @@ export function validateInstitution(institution: string): string | null {
   const trimmed = institution.trim();
   if (trimmed.length === 0) return "Enter the name of your institution.";
   if (trimmed.length < 2) return "Institution name must be at least 2 characters.";
-  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands.
-  if (!/^[a-zA-Z\s.,()\/\-&]+$/.test(trimmed))
+  // Letters, spaces, dots, commas, parens, slashes, hyphens, ampersands, apostrophes.
+  if (!/^[a-zA-Z\s.,()\/\-&']+$/.test(trimmed))
     return "Use letters and common punctuation only (e.g. Tribhuvan University).";
   return null;
 }

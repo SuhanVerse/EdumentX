@@ -1,17 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
-import { useState } from "react";
-import {
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-import { BottomNav } from "@/components/shared/BottomNav";
 import { ActivePill } from "@/components/motion";
+import { BottomNav } from "@/components/shared/BottomNav";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import {
   BATCH_INVITATIONS,
   ENROLLMENTS,
@@ -20,6 +9,16 @@ import {
   type Enrollment,
   type EnrollmentStatus,
 } from "@/data/mockData";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  View
+} from "react-native";
 
 /**
  * EdumentX — My Enrollments (student)
@@ -237,7 +236,7 @@ function EnrollmentCard({
           {/* Rate */}
           <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-border">
             <Text className="text-caption text-text-muted">Monthly rate</Text>
-            <Text className="text-button font-semibold text-amber">
+            <Text className="text-button font-semibold text-accent">
               Rs {rate.toLocaleString()}
             </Text>
           </View>
@@ -248,9 +247,9 @@ function EnrollmentCard({
         <View className="mt-3 flex-row gap-2">
           <Pressable
             onPress={onRate}
-            className="flex-1 h-10 bg-amber-light rounded-md items-center justify-center active:opacity-80"
+            className="flex-1 h-10 bg-accent-light rounded-md items-center justify-center active:opacity-80"
           >
-            <Text className="text-button-sm font-medium text-amber-dark">
+            <Text className="text-button-sm font-medium text-accent-dark">
               Rate &amp; Review
             </Text>
           </Pressable>
@@ -440,7 +439,7 @@ function EmptyState({
       {cta && onCta && (
         <Pressable
           onPress={onCta}
-          className="mt-5 min-h-btn px-6 rounded-card bg-amber items-center justify-center active:opacity-80"
+          className="mt-5 min-h-btn px-6 rounded-card bg-accent items-center justify-center active:opacity-80"
         >
           <Text className="text-button text-text-inverse font-semibold">
             {cta}
@@ -551,7 +550,7 @@ function EnrollmentTabs({
             <Text
               className={
                 isActive
-                  ? "text-button font-medium text-white"
+                  ? "text-button font-medium text-black"
                   : "text-button font-medium text-text-muted"
               }
             >
@@ -561,14 +560,14 @@ function EnrollmentTabs({
               <View
                 className={
                   isActive
-                    ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/20 items-center justify-center"
+                    ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-black/20 items-center justify-center"
                     : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
                 }
               >
                 <Text
                   className={
                     isActive
-                      ? "text-micro text-white font-semibold"
+                      ? "text-micro text-black font-semibold"
                       : "text-micro text-text-muted font-semibold"
                   }
                 >

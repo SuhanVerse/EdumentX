@@ -42,7 +42,7 @@ import {
   type TutorSession,
   type Review,
 } from "@/lib/tutor/types";
-import { fetchTutorProfile } from "@/lib/tutor/firestoreTutorService";
+import { fetchTutorProfile } from "@/services/tutors/dataSource";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Section Spacing

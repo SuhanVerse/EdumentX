@@ -163,6 +163,10 @@ export async function backfillTutorDirectory(): Promise<BackfillResult> {
             typeof data.yearsExperience === "number"
               ? data.yearsExperience
               : 0,
+          gender:
+            data.gender === "male" || data.gender === "female" || data.gender === "other"
+              ? (data.gender as "male" | "female" | "other")
+              : null,
           verificationStatus: "approved",
           isVerifiedProfessional: true,
           hasPendingUpdate: false,

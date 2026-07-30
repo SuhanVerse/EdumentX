@@ -1,50 +1,37 @@
 /**
- * EdumentX — Seed tutor profile builder
+ * EdumentX — Seed tutor profile adapter
  *
- * Maps the existing MOCK_TUTORS into the TutorProfile domain type using
- * only the fields that actually exist in Firestore.
+ * Since `MOCK_TUTORS` in `lib/mock/tutors.ts` already conforms to the
+ * canonical `TutorProfile` shape (no parallel "Tutor" type), this
+ * adapter is a passthrough. It exists so that legacy callers can keep
+ * using `getMockTutorProfile(id)` without changing their imports.
  *
- * Extended fields (sessions, reviews, credentials, demo video) are left
- * at their default empty/null/zero values — they will be populated by
- * real backend features (enrollment, review system, tutor form updates).
+ * If the mock dataset is ever slimmed down to a subset of the
+ * canonical type, restore the field-mapping logic here.
  *
- * This is a temporary seed. Replace `getMockTutorProfile` with a
- * Firestore query once the backend ships the extended fields.
+ * Reusable pattern: any future fixture file can adopt the same shape
+ * — write `const FIXTURES: readonly TutorProfile[]` and skip the
+ * adapter.
  */
 
-import { MOCK_TUTORS, type Tutor } from "@/lib/mock/tutors";
-import { createDefaultTutorProfile } from "@/lib/tutor/types";
+import { MOCK_TUTORS, type TutorProfile } from "@/lib/mock/tutors";
+
+/** Re-export the canonical TutorProfile type for callers that
+ *  previously imported it from here. */
+export type { TutorProfile };
 
 /**
- * Build a TutorProfile from a Tutor mock entry.
- * Only maps fields that exist in Firestore today.
+ * Identity passthrough. MOCK_TUTORS is already typed as
+ * `readonly TutorProfile[]`, so no field mapping is needed.
  */
-export function buildTutorProfile(tutor: Tutor): ReturnType<typeof createDefaultTutorProfile> {
-  return createDefaultTutorProfile({
-    id: tutor.id,
-    fullName: tutor.fullName,
-    username: tutor.username,
-    headline: tutor.headline,
-    bio: tutor.bio,
-    subjects: tutor.subjects,
-    gradesTeaching: tutor.gradesTeaching,
-    yearsExperience: tutor.yearsExperience,
-    monthlyRateNpr: tutor.monthlyRateNpr,
-    location: tutor.location,
-    photoUrl: tutor.avatarUrl,
-    verificationStatus: tutor.verified ? "approved" : "pending",
-    isVerifiedProfessional: tutor.verified,
-    rating: tutor.rating,
-    reviewCount: tutor.reviewCount,
-    // Sessions, reviews, credentials, demo video, etc. remain at defaults (empty/null/0)
-  });
+export function buildTutorProfile(tutor: TutorProfile): TutorProfile {
+  return tutor;
 }
 
 /**
- * Get a tutor profile by ID from the mock seed.
+ * Get a tutor profile by ID from the mock seed. Returns undefined
+ * when the id is not present.
  */
-export function getMockTutorProfile(id: string) {
-  const tutor = MOCK_TUTORS.find((t) => t.id === id);
-  if (!tutor) return undefined;
-  return buildTutorProfile(tutor);
+export function getMockTutorProfile(id: string): TutorProfile | undefined {
+  return MOCK_TUTORS.find((t) => t.id === id);
 }

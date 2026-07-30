@@ -52,6 +52,7 @@ export type TutorListing = {
   rating: number;
   reviewCount: number;
   yearsExperience: number;
+  gender: "male" | "female" | "other" | null;
 };
 
 // ─── List subscription ───────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ const DEFAULT_TUTOR_LISTING: TutorListing = {
   rating: 0,
   reviewCount: 0,
   yearsExperience: 0,
+  gender: null,
 };
 
 /**
@@ -133,6 +135,10 @@ export function subscribeTutors(
           reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
           yearsExperience:
             typeof data.yearsExperience === "number" ? data.yearsExperience : 0,
+          gender:
+            data.gender === "male" || data.gender === "female" || data.gender === "other"
+              ? (data.gender as "male" | "female" | "other")
+              : null,
         };
       });
       onData(tutors);
@@ -354,6 +360,17 @@ function profileDocToTutorProfile(
     demoVideoUrl,
     phone: (data.phone as string) ?? "",
     email: (data.email as string) ?? "",
+    // Languages defaulted to ["English", "Nepali"] when the Firestore
+    // doc predates the languages migration (plan §12 fix).
+    languages: Array.isArray(data.languages)
+      ? (data.languages as string[])
+      : ["English", "Nepali"],
+    tutoringMode:
+      data.tutoringMode === "home" ||
+      data.tutoringMode === "online" ||
+      data.tutoringMode === "both"
+        ? (data.tutoringMode as TutorProfile["tutoringMode"])
+        : "both",
   });
 }
 
@@ -397,5 +414,16 @@ function tutorsDocToTutorProfile(
     verificationStatus:
       (data.verificationStatus as TutorProfile["verificationStatus"]) ?? "pending",
     isVerifiedProfessional: data.isVerifiedProfessional === true,
+    // Languages defaulted to ["English", "Nepali"] when the Firestore
+    // doc predates the languages migration (plan §12 fix).
+    languages: Array.isArray(data.languages)
+      ? (data.languages as string[])
+      : ["English", "Nepali"],
+    tutoringMode:
+      data.tutoringMode === "home" ||
+      data.tutoringMode === "online" ||
+      data.tutoringMode === "both"
+        ? (data.tutoringMode as TutorProfile["tutoringMode"])
+        : "both",
   });
 }
