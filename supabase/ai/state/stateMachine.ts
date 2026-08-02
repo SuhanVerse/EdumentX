@@ -18,7 +18,7 @@ import { getNextQuestion } from "../state/states.ts";
 import { classifyIntent, quickOffTopicCheck } from "../domain/intentClassifier.ts";
 import { containsOffensiveContent, checkPromptInjection } from "../domain/guardrails.ts";
 import { extractConstraints } from "../agents/constraintExtractor.ts";
-import { mergeConstraints, hasMinimumConstraints } from "../memory/constraintMerger.ts";
+import { mergeConstraints, resetConstraints, hasMinimumConstraints } from "../memory/constraintMerger.ts";
 import { hybridSearch } from "../retrieval/hybridSearch.ts";
 import {
   rankTutors,
@@ -44,12 +44,42 @@ export async function processMessage(
   state: SessionState,
   message: string,
   historyString?: string,
+  removedConstraints?: string[],
 ): Promise<StateHandlerResult> {
+  // Step -1: Apply client-requested constraint removals (pill taps).
+  //
+  // The client mirror clears instantly, but the SERVER session still holds
+  // the stale value (e.g. `gender_preference: "male"`), and `mergeConstraints`
+  // preserves existing values unless the new message mentions them — so
+  // without this reset the removed filter survives and re-applies on every
+  // search. Reset these keys BEFORE any extraction/merge so the removal
+  // wins unless the user explicitly re-states the constraint.
+  let workingState = state;
+  if (removedConstraints && removedConstraints.length > 0) {
+    const resetFields = removedConstraints.filter(
+      (k): k is keyof SearchConstraints =>
+        k in state.constraints || k === "query_text",
+    );
+    if (resetFields.length > 0) {
+      // Always rebuild query_text too: a stale query (e.g. "male tutor
+      // teaching") must not survive a gender removal and skew the
+      // embedding on the next search. hybridSearch rebuilds it from the
+      // current constraints when absent.
+      if (!resetFields.includes("query_text" as keyof SearchConstraints)) {
+        resetFields.push("query_text" as keyof SearchConstraints);
+      }
+      workingState = {
+        ...state,
+        constraints: resetConstraints(state.constraints, resetFields),
+      };
+    }
+  }
+
   // Step 0: Pre-checks (run regardless of current state)
   if (containsOffensiveContent(message)) {
     return {
       response: "I'm here to help you find tutors on EdumentX. Please keep our conversation respectful. What subject are you looking for help with?",
-      state,
+      state: workingState,
     };
   }
 
@@ -57,7 +87,7 @@ export async function processMessage(
   if (!injectionCheck.passed) {
     return {
       response: injectionCheck.suggested_fallback ?? "I'm designed to help you find tutors on EdumentX. Let's focus on that — what subject are you looking for help with?",
-      state,
+      state: workingState,
     };
   }
 
@@ -65,7 +95,7 @@ export async function processMessage(
   if (quickOffTopicCheck(message)) {
     return {
       response: "I'm designed to help you find the right tutor on EdumentX. I can't help with that, but I'd be happy to help you search for tutors by subject, budget, or preference. What subject are you looking for help with?",
-      state,
+      state: workingState,
     };
   }
 
@@ -90,7 +120,7 @@ export async function processMessage(
     return {
       response: faqResult.entry.answer +
         "\n\nWould you like help finding a tutor for a specific subject?",
-      state: { ...state, current_step: "collecting" as const },
+      state: { ...workingState, current_step: "collecting" as const },
     };
   }
 
@@ -118,7 +148,7 @@ export async function processMessage(
         "I can't share tutors' personal contact details like phone numbers or emails — that protects their privacy. " +
         "Once you enroll with a tutor through the app, you'll be connected with them directly to schedule and communicate. " +
         "Would you like help finding a tutor?",
-      state: { ...state, current_step: "collecting" as const },
+      state: { ...workingState, current_step: "collecting" as const },
     };
   }
 
@@ -144,12 +174,12 @@ export async function processMessage(
   const ackMsgLower = message.toLowerCase().trim();
   if (ackMsgLower.length >= 1 && acknowledgmentPatterns.some((p) => p.test(ackMsgLower))) {
     // Still collecting? Continue with the next question — don't re-run.
-    if (!hasMinimumConstraints(state.constraints)) {
-      const nextQuestion = getNextQuestion(state.constraints);
+    if (!hasMinimumConstraints(workingState.constraints)) {
+      const nextQuestion = getNextQuestion(workingState.constraints);
       if (nextQuestion) {
         return {
           response: nextQuestion,
-          state: { ...state, current_step: "collecting" as const },
+          state: { ...workingState, current_step: "collecting" as const },
         };
       }
     }
@@ -160,23 +190,23 @@ export async function processMessage(
         : // Neutral on purpose: the last response may have been the empty-result
           // hint — claiming matches are "above" would be misleading.
           "Got it! Let me know if you'd like to adjust your filters or search for a different subject.",
-      state,
+      state: workingState,
     };
   }
 
   // Route to the appropriate state handler
-  switch (state.current_step) {
+  switch (workingState.current_step) {
     case "collecting":
-      return handleCollectingState(state, message, historyString);
+      return handleCollectingState(workingState, message, historyString);
     case "searching":
-      return handleSearchingState(state, message);
+      return handleSearchingState(workingState, message);
     case "presenting":
-      return handlePresentingState(state, message, historyString);
+      return handlePresentingState(workingState, message, historyString);
     case "followup":
-      return handleFollowupState(state, message);
+      return handleFollowupState(workingState, message);
     default:
       return handleCollectingState(
-        { ...state, current_step: "collecting" },
+        { ...workingState, current_step: "collecting" },
         message,
         historyString,
       );
@@ -472,13 +502,12 @@ async function executeSearch(
 
   // If no results found
   if (rankedResults.length === 0) {
+    // Reuse the response generator's empty-result message so real mode
+    // names the MOST-restrictive filter ("The 'female' tutor filter looks
+    // most restrictive…") exactly like the mock pipeline does — instead
+    // of a generic 4-bullet list that ignores why the search failed.
     return {
-      response: "I couldn't find any tutors matching your criteria. Here are some suggestions:\n" +
-        "• Try a different subject\n" +
-        "• Increase your budget range\n" +
-        "• Remove the location filter\n" +
-        "• Check back later as new tutors join regularly\n\n" +
-        "What would you like to try?",
+      response: await generateResponse([], constraints, state),
       state: {
         ...state,
         constraints,

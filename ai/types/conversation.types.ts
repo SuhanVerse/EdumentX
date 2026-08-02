@@ -165,7 +165,19 @@ export type SSEEvent =
 
 // ─── Fallback ───────────────────────────────────────────────────────────────
 
-/** Fallback tier for relaxing search constraints */
+/**
+ * Fallback tier for relaxing search constraints when a search returns no
+ * results.
+ *
+ * IMPORTANT: only BUDGET is ever relaxed by the fallback chain. Subject,
+ * gender, grade and all other explicit filters are hard constraints — the
+ * assistant must never silently drop them (previously tiers with
+ * `broaden_subject: true` deleted the subject and the final "maximum
+ * relaxation" tier returned the ENTIRE tutor directory, which is why a
+ * "maths tutor, female" search could show every tutor in the DB). If
+ * relaxing the budget still finds nothing, the fallback returns an empty
+ * result and the response generator explains that no tutors match.
+ */
 export type FallbackTier = {
   budget_multiplier: number;
   radius_multiplier: number;
@@ -176,8 +188,5 @@ export type FallbackTier = {
 export const FALLBACK_TIERS: FallbackTier[] = [
   { budget_multiplier: 1.0, radius_multiplier: 1.0, broaden_subject: false, description: "Exact match" },
   { budget_multiplier: 1.5, radius_multiplier: 1.0, broaden_subject: false, description: "Budget +50%" },
-  { budget_multiplier: 1.0, radius_multiplier: 2.0, broaden_subject: false, description: "Radius doubled" },
-  { budget_multiplier: 1.5, radius_multiplier: 2.0, broaden_subject: false, description: "Budget +50% & radius doubled" },
-  { budget_multiplier: 1.0, radius_multiplier: 1.0, broaden_subject: true,  description: "Related subjects" },
-  { budget_multiplier: 2.0, radius_multiplier: 0,   broaden_subject: true,  description: "Maximum relaxation" },
+  { budget_multiplier: 2.0, radius_multiplier: 1.0, broaden_subject: false, description: "Budget +100%" },
 ];

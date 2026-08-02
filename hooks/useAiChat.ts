@@ -26,6 +26,7 @@ export function useAiChat() {
   const clearError = useAiChatStore((s) => s.clearError);
   const resetSession = useAiChatStore((s) => s.resetSession);
   const setConstraints = useAiChatStore((s) => s.setConstraints);
+  const removeConstraint = useAiChatStore((s) => s.removeConstraint);
   const replaceConstraints = useAiChatStore((s) => s.replaceConstraints);
 
   /**
@@ -58,6 +59,7 @@ export function useAiChat() {
     clearError,
     resetSession,
     setConstraints,
+    removeConstraint,
     replaceConstraints,
     checkConfig,
   };

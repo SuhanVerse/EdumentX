@@ -22,6 +22,7 @@ import type { SearchConstraints } from "../../ai/types/constraints.types.ts";
 import type { TutorResult } from "../../ai/types/conversation.types.ts";
 import type { HybridSearchResult } from "../../ai/types/search.types.ts";
 import { FALLBACK_TIERS } from "../../ai/types/conversation.types.ts";
+import { getKeywordsFor } from "../agents/constraintExtractor.ts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -175,9 +176,13 @@ async function applyFallback(
   constraints: SearchConstraints,
   limit: number,
 ): Promise<TutorResult[]> {
-  console.log("[hybridSearch] Applying fallback strategy...");
+  console.log("[hybridSearch] Applying fallback strategy (budget relaxation only)...");
 
-  for (const tier of FALLBACK_TIERS) {
+  // Skip FALLBACK_TIERS[0] ("Exact match") — the exact metadata search
+  // already ran and returned 0 rows before this function was called, so
+  // re-running it is a guaranteed-empty RPC call. Start from the first
+  // relaxation tier.
+  for (const tier of FALLBACK_TIERS.slice(1)) {
     const relaxed = applyFallbackTier(constraints, tier);
     const results = await callMetadataSearch(relaxed, limit);
     if (results.length > 0) {
@@ -186,7 +191,13 @@ async function applyFallback(
     }
   }
 
-  return await callMetadataSearch({ verified_only: true }, limit);
+  // IMPORTANT: exhausted fallback returns EMPTY, never the whole
+  // directory. The old "last resort" (verified_only search with no
+  // other filters) silently dropped every constraint — that's why a
+  // "maths tutor, female" search could list ALL tutors. The response
+  // generator handles empty results with a transparent "no tutors
+  // match" message instead.
+  return [];
 }
 
 function applyFallbackTier(
@@ -195,18 +206,15 @@ function applyFallbackTier(
 ): SearchConstraints {
   const relaxed: SearchConstraints = { ...constraints };
 
+  // Only budget is ever relaxed by the fallback chain. Subject,
+  // gender, grade, location and every other explicit constraint are
+  // hard constraints — NEVER dropped, even if it means fewer (or
+  // zero) results. If the student asked for a female maths tutor and
+  // none exist, the response says so honestly rather than silently
+  // returning male tutors from other subjects.
   if (tier.budget_multiplier > 1 && relaxed.budget_max) {
     relaxed.budget_max = Math.round(relaxed.budget_max * tier.budget_multiplier);
   }
-
-  if (tier.broaden_subject && relaxed.subject) {
-    delete relaxed.subject;
-  }
-
-  // Hard constraints (gender_preference, verified_only) are NEVER
-  // removed by the fallback chain. If the student explicitly asked
-  // for a female tutor, we respect that even if it means fewer
-  // results.
 
   return relaxed;
 }
@@ -215,13 +223,27 @@ function applyFallbackTier(
 
 /**
  * Build the JSON constraints object for the PostgreSQL function.
+ *
+ * When a subject is present, ALSO send `subject_terms` — the canonical
+ * label plus every synonym keyword ("Mathematics", "math", "maths",
+ * "algebra", ...). The RPC matches `s ILIKE ANY($terms)` so a tutor who
+ * listed "Math" is found by a "Mathematics" search and vice versa.
+ * Without this, a search for "Mathematics" returned 0 rows when tutors
+ * wrote "Math" — and the fallback chain then DELETED the subject,
+ * showing physics tutors for a math query (user-reported bug).
  */
 function buildConstraintsJson(constraints: SearchConstraints): Record<string, unknown> {
-  return Object.fromEntries(
+  const json = Object.fromEntries(
     Object.entries(constraints).filter(
       ([_, v]) => v !== undefined && v !== null && v !== "",
     ),
   );
+
+  if (constraints.subject) {
+    json.subject_terms = [constraints.subject, ...getKeywordsFor(constraints.subject)];
+  }
+
+  return json;
 }
 
 function mapResults(data: Record<string, unknown>[]): TutorResult[] {

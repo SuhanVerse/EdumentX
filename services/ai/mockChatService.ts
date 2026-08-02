@@ -202,9 +202,28 @@ export async function sendMockChatMessage(
     student_location?: { latitude: number; longitude: number };
     student_profile?: { grade?: string; subjects?: string[] };
     recent_messages?: Array<{ role: "user" | "assistant"; text: string }>;
+    removed_constraints?: string[];
   },
 ): Promise<ChatResponse> {
   const msgLower = message.toLowerCase().trim();
+
+  // Step -1: Apply pill-tap removals to a working copy of the constraints
+  // BEFORE any pre-check that echoes them back (parity with the server's
+  // state machine, which resets removed keys at the very top of
+  // processMessage). The client mirror is usually already cleared, but this
+  // makes the mock authoritative on its own and consistent with the server.
+  const removalApplied = (() => {
+    if (!options?.removed_constraints || options.removed_constraints.length === 0) {
+      return currentConstraints as Record<string, unknown> | undefined;
+    }
+    const copy: Record<string, unknown> = {
+      ...(currentConstraints ?? {}),
+    };
+    for (const key of options.removed_constraints) {
+      delete copy[key];
+    }
+    return copy;
+  })();
 
   // Step 0.1: Pre-generation guardrails — offensive content + prompt injection.
   // These run BEFORE any processing to catch abusive or manipulative messages.
@@ -216,7 +235,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -230,7 +249,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -248,7 +267,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -271,7 +290,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -313,7 +332,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -346,7 +365,7 @@ export async function sendMockChatMessage(
       session_id: sessionId,
       state: {
         current_step: "collecting",
-        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+        constraints: removalApplied ?? {},
       },
     };
   }
@@ -373,7 +392,7 @@ export async function sendMockChatMessage(
     /^(ok|okay|sure|alright)\s+(thanks|thank you|thank u|thx|ty)[.!?\s]*$/i,
   ];
   if (msgLower.length >= 1 && acknowledgmentPatterns.some((p) => p.test(msgLower))) {
-    const existingAck = (currentConstraints ?? {}) as ClientSearchConstraints;
+    const existingAck = (removalApplied ?? {}) as ClientSearchConstraints;
     // Still collecting? Continue with the next question — don't re-run.
     if (!hasMinimumConstraints(existingAck)) {
       const question = getNextClientQuestion(existingAck);
@@ -407,8 +426,9 @@ export async function sendMockChatMessage(
     };
   }
 
-  // Step 1 — merge the new message into the existing patch.
-  const existing = (currentConstraints ?? {}) as ClientSearchConstraints;
+  // Step 1 — merge the new message into the existing patch. Pill removals
+  // were already applied to `removalApplied` at the top (Step -1).
+  const existing = { ...(removalApplied ?? {}) } as ClientSearchConstraints;
   const parsed = parseMessageToConstraints(message, existing);
   let merged: ClientSearchConstraints = { ...existing, ...parsed };
 

@@ -143,6 +143,13 @@ export async function backfillTutorDirectory(): Promise<BackfillResult> {
           username: typeof data.username === "string" ? data.username : null,
           headline: typeof data.headline === "string" ? data.headline : null,
           subjects: Array.isArray(data.subjects) ? data.subjects : [],
+          // gradesTeaching is a filterable field in the AI search (grade is
+          // a minimum constraint). Missing it here means the seed stores an
+          // empty grades array and the chatbot returns 0 tutors for every
+          // search. Mirror the full filterable profile.
+          gradesTeaching: Array.isArray(data.gradesTeaching)
+            ? data.gradesTeaching
+            : [],
           monthlyRateNpr:
             typeof data.monthlyRateNpr === "number" ? data.monthlyRateNpr : 0,
           location:
@@ -163,10 +170,23 @@ export async function backfillTutorDirectory(): Promise<BackfillResult> {
             typeof data.yearsExperience === "number"
               ? data.yearsExperience
               : 0,
+          bio: typeof data.bio === "string" ? data.bio : "",
           gender:
             data.gender === "male" || data.gender === "female" || data.gender === "other"
               ? (data.gender as "male" | "female" | "other")
               : null,
+          tutoringMode:
+            data.tutoringMode === "home" ||
+            data.tutoringMode === "online" ||
+            data.tutoringMode === "both"
+              ? (data.tutoringMode as "home" | "online" | "both")
+              : "both",
+          languages: Array.isArray(data.languages)
+            ? data.languages
+            : ["English", "Nepali"],
+          rating: typeof data.rating === "number" ? data.rating : 0,
+          reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
+          responseRate: typeof data.responseRate === "number" ? data.responseRate : 0,
           verificationStatus: "approved",
           isVerifiedProfessional: true,
           hasPendingUpdate: false,

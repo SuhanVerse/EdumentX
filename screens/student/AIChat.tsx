@@ -39,6 +39,7 @@ export function AIChat() {
     isLoading,
     constraints,
     setConstraints,
+    removeConstraint,
     hasHydrated,
   } = useAiChat();
   const [input, setInput] = useState("");
@@ -137,11 +138,15 @@ export function AIChat() {
   }
 
   /**
-   * Remove a single constraint from the store when the user taps its pill.
-   * Pass `undefined` for that key; the store treats undefined as "delete".
+   * Remove a single constraint when the user taps its pill.
+   *
+   * The store's `removeConstraint` clears the client mirror AND queues the
+   * key to be sent as `removed_constraints` with the next message. Without
+   * the queue, only the local mirror would clear — the server session would
+   * keep the stale value (e.g. "male") and re-apply it on every search.
    */
   function handlePillRemove(key: keyof typeof constraints) {
-    setConstraints({ [key]: undefined } as Partial<typeof constraints>);
+    removeConstraint(key);
   }
 
   /**

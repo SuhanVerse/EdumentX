@@ -293,6 +293,12 @@ function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
               <Ionicons name="shield-checkmark" size={16} color={colors.brand.verification} />
             )}
           </View>
+          {/* Headline — the tutor's one-line specialisation */}
+          {!!tutor.headline && (
+            <Text className="text-body text-text-secondary mt-0.5" numberOfLines={1}>
+              {tutor.headline}
+            </Text>
+          )}
           <Text className="text-body-sm text-text-muted mt-0.5" numberOfLines={1}>
             @{tutor.username}
           </Text>
@@ -306,8 +312,18 @@ function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
         </View>
       </View>
 
-      {/* Subject pills */}
+      {/* Gender + subject pills */}
       <View className="flex-row flex-wrap gap-2 mt-4">
+        {tutor.gender && (
+          <View
+            className="px-3 py-1.5 rounded-pill bg-accent-soft border border-accent/20 flex-row items-center gap-1.5"
+          >
+            <Ionicons name="person-outline" size={12} color={colors.brand.accent} />
+            <Text className="text-caption text-accent font-medium">
+              {tutor.gender.charAt(0).toUpperCase() + tutor.gender.slice(1)}
+            </Text>
+          </View>
+        )}
         {tutor.subjects.map((subject) => (
           <View
             key={subject}
@@ -317,6 +333,13 @@ function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
           </View>
         ))}
       </View>
+
+      {/* Bio snippet — 2 lines, full bio lives in the About section */}
+      {!!tutor.bio && (
+        <Text className="text-body-sm text-text-secondary leading-relaxed mt-4" numberOfLines={2}>
+          {tutor.bio}
+        </Text>
+      )}
 
       {/* 2-stat row */}
       <View className="mt-4 flex-row bg-surface border border-border rounded-card overflow-hidden">
@@ -691,6 +714,13 @@ function AboutSection({
               value={`${tutor.yearsExperience} years`}
             />
           )}
+          {tutor.gender ? (
+            <DetailRow
+              icon="person-outline"
+              label="Gender"
+              value={tutor.gender.charAt(0).toUpperCase() + tutor.gender.slice(1)}
+            />
+          ) : null}
           {tutor.phone ? (
             <DetailRow
               icon="call-outline"

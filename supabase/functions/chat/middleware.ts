@@ -138,6 +138,12 @@ export interface ValidatedRequest {
     grade?: string;
     subjects?: string[];
   };
+  /**
+   * Constraint keys the user removed by tapping a pill. The state machine
+   * resets these in the session BEFORE merging, so a stale value (e.g.
+   * "male") can't survive and re-apply on every search.
+   */
+  removed_constraints?: string[];
 }
 
 /**
@@ -188,6 +194,21 @@ export function validateRequest(body: Record<string, unknown>): ValidatedRequest
         ? (profile.subjects as string[])
         : undefined,
     };
+  }
+
+  // Optional removed_constraints — a list of constraint keys to reset in
+  // the session (from pill taps). Validate shape; drop anything invalid.
+  if (body.removed_constraints !== undefined) {
+    if (Array.isArray(body.removed_constraints)) {
+      const keys = (body.removed_constraints as unknown[]).filter(
+        (k): k is string => typeof k === "string" && k.trim().length > 0,
+      );
+      if (keys.length > 0) validated.removed_constraints = keys;
+    } else {
+      throw new ValidationError(
+        "Invalid 'removed_constraints' (must be an array of strings)",
+      );
+    }
   }
 
   return validated;

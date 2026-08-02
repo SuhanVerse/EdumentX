@@ -33,7 +33,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   // Step 3: Validate and parse request body
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    body = (await req.json()) as Record<string, unknown>;
   } catch {
     return new Response(
       JSON.stringify({ type: "error", code: "invalid_json", message: "Invalid JSON body" }),
@@ -62,6 +62,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       session_id: validatedRequest.session_id,
       student_id: user.uid,
       message: validatedRequest.message,
+      removed_constraints: validatedRequest.removed_constraints,
     });
 
     // Step 6: Return response as JSON (non-streaming MVP)

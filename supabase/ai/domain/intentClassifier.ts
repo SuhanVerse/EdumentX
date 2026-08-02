@@ -204,19 +204,31 @@ export function quickOffTopicCheck(message: string): boolean {
   // Very short messages are usually fine
   if (lower.length < 3) return false;
 
-  // Common off-topic patterns
+  // Same canonical patterns as `ai/domain/keywords.ts` OFF_TOPIC_PATTERNS
+  // (KEEP IN SYNC — the deployed function cannot import the RN tree, so
+  // this list is mirrored inline).
+  //
+  // NOTE: `/^explain\s+/` is intentionally NOT here — "explain calculus"
+  // should map to a tutor search (subject = Mathematics), not off-topic.
   const offTopicPatterns = [
+    // Code & homework requests
     /^write\s+/,
     /^create\s+/,
-    /^explain\s+/,
-    /^what is the (meaning|definition)/,
-    /^who is the (president|prime minister|king)/,
     /^solve\s+/,
     /^calculate\s+/,
-    /^generate\s+/,
     /^(write|create|make) (a|an|me)\s+(python|javascript|code|program|function|app)/,
     /\b(homework|assignment|exam)\s+(help|answer|solution)\b/,
     /\bdo\s+(my|this)\s+(homework|assignment)\b/,
+
+    // Performance / entertainment requests (word-boundary so "dancer" doesn't match)
+    /\b(dance|sing|joke|poem|riddle)\b/i,
+    /^tell me a (joke|story|poem|riddle)/i,
+
+    // General-knowledge "what is the X" — factual topics, NOT tutor-related
+    /^what is the (capital|largest|tallest|smallest|oldest|newest|highest|lowest|meaning|definition|population)/i,
+
+    // People trivia
+    /^who is the (president|prime minister|king|queen|ceo|founder)/i,
   ];
 
   for (const pattern of offTopicPatterns) {

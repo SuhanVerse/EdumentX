@@ -44,10 +44,21 @@ export function buildWhereClause(
   conditions.push(`t.has_pending_update = false`);
 
   // ── Subject matching ──
+  // Matches ANY of the subject's synonym terms (label + keywords) via
+  // `s ILIKE ANY($n)`. A tutor who listed "Math" is found by a
+  // "Mathematics" search and vice versa. `subject_terms` is populated
+  // by `hybridSearch.buildConstraintsJson`; fall back to the bare label.
+  // (The old `@>` exact containment failed on synonyms/typos.)
   if (constraints.subject) {
     paramIndex++;
-    conditions.push(`t.subjects @> ARRAY[$${paramIndex}]`);
-    params.push(constraints.subject);
+    const terms = (constraints.subject_terms?.length
+      ? constraints.subject_terms
+      : [constraints.subject]
+    ).map((t) => `%${t}%`);
+    conditions.push(
+      `EXISTS (SELECT 1 FROM unnest(t.subjects) s WHERE s ILIKE ANY($${paramIndex}))`,
+    );
+    params.push(terms);
   }
 
   // ── Budget: max budget ──
@@ -85,10 +96,19 @@ export function buildWhereClause(
   // Currently not filtering by mode — data may not be available
 
   // ── Grade level ──
+  //
+  // Matches by OVERLAP of normalized grade sets (migration 014's
+  // `grade_to_terms` SQL function): a query grade of "12" matches a tutor
+  // who teaches "Grade XII (Science)" (normalizes to {12}), and "+2"
+  // matches 11 / 12. The old `@> ARRAY['12']` exact containment NEVER
+  // matched real grade labels — the "Maths grade 12" 0-results bug.
+  // The query-side terms are expanded by `expandGradeTerms` below.
   if (constraints.grade_level) {
     paramIndex++;
-    conditions.push(`t.grades_teaching @> ARRAY[$${paramIndex}]`);
-    params.push(constraints.grade_level);
+    conditions.push(
+      `EXISTS (SELECT 1 FROM unnest(t.grades_teaching) g WHERE grade_to_terms(g) && $${paramIndex}::text[])`,
+    );
+    params.push(expandGradeTerms(constraints.grade_level));
   }
 
   // ── Minimum rating ──
@@ -109,6 +129,20 @@ export function buildWhereClause(
     sql: conditions.join(" AND "),
     params,
   };
+}
+
+/**
+ * Expand a query grade token into its canonical term set — mirrors
+ * `grade_to_terms` in migration 014 (query side only; the SQL function
+ * normalizes the tutor's stored grades). "12" → ["12"], "+2" →
+ * ["11","12"]. Unknown tokens pass through unchanged.
+ */
+function expandGradeTerms(grade: string): string[] {
+  const t = grade.trim().toLowerCase();
+  if (t === "+2" || t === "plus 2" || t === "plus two" || t === "higher secondary") {
+    return ["11", "12"];
+  }
+  return [grade.trim()];
 }
 
 /**

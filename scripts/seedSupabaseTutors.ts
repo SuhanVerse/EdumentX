@@ -197,6 +197,65 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
   }
 }
 
+// ─── Grade Normalization ────────────────────────────────────────────────────
+//
+// Real tutors pick grades from the app's own list (EditTeachingDetails.tsx):
+// "Grade XII (Science)", "Grade XI (Management)", "Grade 9-10", "Grade 1-5".
+// The AI search matches grades by OVERLAP of normalized sets (see migration
+// 014's grade_to_terms), so we store the canonical expanded tokens here to
+// keep the DB consistent with what the RPC expects.
+//
+// Mirrors supabase/migrations/014_fix_grade_matching.sql#grade_to_terms —
+// keep in sync.
+
+const ROMAN_TO_DIGIT: Record<string, string> = {
+  xii: "12", xi: "11", ix: "9", viii: "8", vii: "7", vi: "6",
+  iv: "4", iii: "3", x: "10", v: "5", ii: "2", i: "1",
+};
+
+function gradeToTerms(g: string): string[] {
+  const t = String(g).toLowerCase().trim();
+  if (t === "+2" || t === "plus 2" || t === "plus two" || t === "higher secondary") {
+    return ["11", "12"];
+  }
+
+  // Roman numerals → digits (longest-first; word-boundary via regex)
+  let converted = t;
+  for (const [roman, digit] of Object.entries(ROMAN_TO_DIGIT)) {
+    converted = converted.replace(new RegExp(`\\b${roman}\\b`, "g"), digit);
+  }
+
+  // Range: "9-10", "1-5" (also en/em dash) → every grade in between
+  const rangeMatch = converted.match(/(\d{1,2})\s*[-–—]\s*(\d{1,2})/);
+  if (rangeMatch) {
+    const a = parseInt(rangeMatch[1], 10);
+    const b = parseInt(rangeMatch[2], 10);
+    if (a >= 1 && a <= 12 && b >= 1 && b <= 12 && a <= b) {
+      const terms: string[] = [];
+      for (let i = a; i <= b; i++) terms.push(String(i));
+      return terms;
+    }
+  }
+
+  // Single grade: any standalone 1-2 digit number
+  const singleMatch = converted.match(/(^|[^0-9])(\d{1,2})([^0-9]|$)/);
+  if (singleMatch) {
+    const n = parseInt(singleMatch[2], 10);
+    if (n >= 1 && n <= 12) return [String(n)];
+  }
+
+  // Unknown representation: fall back to the raw token (old behaviour)
+  return [g];
+}
+
+function normalizeGrades(grades: string[]): string[] {
+  const seen = new Set<string>();
+  for (const g of grades) {
+    for (const term of gradeToTerms(g)) seen.add(term);
+  }
+  return [...seen];
+}
+
 // ─── Build Embedding Text ────────────────────────────────────────────────────
 
 function buildEmbeddingText(tutor: Record<string, unknown>): string {
@@ -278,6 +337,44 @@ async function seedTutors(): Promise<SeedStats> {
     stats.approvedUids.push(uid);
     console.log(`   🔄 ${uid} — ${(data.fullName as string) || "unnamed"}`);
 
+    // ── Enrich from the rich profile subcollection ──────────────────────────
+    //
+    // THE BUG (real mode returned 0 tutors for every search):
+    // `tutors/{uid}` — the denormalized directory doc written by the admin
+    // approval path — omits several fields the AI search filters on. Most
+    // critically `gradesTeaching`, plus `gender`, `tutoringMode`, `languages`,
+    // `bio`, `rating`, `reviewCount`, `responseRate`. The seed read ONLY
+    // that doc, so Supabase stored `grades_teaching = []` for every real
+    // tutor, and the RPC's grade filter (`EXISTS (SELECT 1 FROM unnest(...))`)
+    // returned 0 rows — grade is a MINIMUM constraint, so EVERY search
+    // returned 0. Mock worked because mock tutors have canonical grade lists.
+    //
+    // The profile doc `users/{uid}/tutorProfile/default` is the full source
+    // of truth (tutor onboarding + edits write here). We merge it over the
+    // directory doc so the search index gets the real filterable fields.
+    try {
+      const profileSnap = await firestore
+        .doc(`users/${uid}/tutorProfile/default`)
+        .get();
+      if (profileSnap.exists) {
+        const profileData = profileSnap.data() as Record<string, unknown>;
+        for (const key of Object.keys(profileData)) {
+          if (profileData[key] !== undefined) data[key] = profileData[key];
+        }
+        // Preserve the APPROVED gate we already checked. The profile doc
+        // can hold a stale status (e.g. a rejected tutor resubmits via
+        // onboarding, leaving the profile at "pending" while the directory
+        // doc says approved) — clobbering it here would re-hide the tutor
+        // from the RPC (`verification_status = 'approved'`) and reintroduce
+        // the 0-results bug.
+        data.verificationStatus = verificationStatus;
+      } else {
+        console.warn(`      ⚠️  No profile subcollection for ${uid} — using directory doc only`);
+      }
+    } catch (err) {
+      console.warn(`      ⚠️  Profile read failed for ${uid}: ${err}`);
+    }
+
     try {
       // ── 1. Build embedding text ──
       const embeddingText = buildEmbeddingText(data);
@@ -313,7 +410,11 @@ async function seedTutors(): Promise<SeedStats> {
         headline: data.headline || "",
         bio: data.bio || "",
         subjects: Array.isArray(data.subjects) ? data.subjects : [],
-        grades_teaching: Array.isArray(data.gradesTeaching) ? data.gradesTeaching : [],
+        // Normalize grades to canonical terms ("Grade XII (Science)" → "12")
+        // so the RPC's overlap match works. Mirrors migration 014.
+        grades_teaching: Array.isArray(data.gradesTeaching)
+          ? normalizeGrades(data.gradesTeaching as string[])
+          : [],
         years_experience: typeof data.yearsExperience === "number" ? data.yearsExperience : 0,
         monthly_rate_npr: typeof data.monthlyRateNpr === "number" ? data.monthlyRateNpr : 0,
         neighborhood: neighborhood,
@@ -324,6 +425,10 @@ async function seedTutors(): Promise<SeedStats> {
         review_count: typeof data.reviewCount === "number" ? data.reviewCount : 0,
         response_rate: typeof data.responseRate === "number" ? data.responseRate : 0,
         verification_status: (data.verificationStatus as string) || "pending",
+        // Mirror the pending-edit flag so a tutor under review (hidden from
+        // the marketplace by `hasPendingUpdate === false`) is also hidden
+        // from the AI search — keeps both surfaces consistent.
+        has_pending_update: data.hasPendingUpdate === true,
         is_verified_professional: data.isVerifiedProfessional === true,
         degree: data.degree || "",
         institution: data.institution || "",
@@ -335,6 +440,8 @@ async function seedTutors(): Promise<SeedStats> {
             ? (data.gender as string)
             : null,
         // New in migration 009 — required for chatbot's tutoring_mode filter.
+        // NOTE: bio/rating/review_count/response_rate above now come from the
+        // profile merge (the directory doc never carried them).
         tutoring_mode:
           data.tutoringMode === "home" ||
           data.tutoringMode === "online" ||

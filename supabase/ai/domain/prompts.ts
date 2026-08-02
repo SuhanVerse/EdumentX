@@ -127,7 +127,7 @@ Return JSON:
     "language": null or string,
     "min_rating": null or number,
     "min_experience": null or number,
-    "verified_only": true (default),
+    "verified_only": null (only true when the user explicitly asks for verified tutors),
     "query_text": "patient Mathematics tutor under Rs 5000 in Baneshwor"
   },
   "missing_core_fields": ["list of essential missing fields"],

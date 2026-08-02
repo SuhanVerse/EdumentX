@@ -41,11 +41,24 @@ export interface SearchConstraints {
   /** Minimum years of experience */
   min_experience?: number;
 
-  /** Whether to show only verified tutors (default: true) */
+  /** Whether to show only verified tutors. NOT defaulted to true — mock
+   *  never sets it, so real mode must not either (it made the RPC filter
+   *  `is_verified_professional = true` on every search, diverging from
+   *  mock and silently dropping tutors missing that flag). Only set when
+   *  the user explicitly asks for verified tutors. */
   verified_only?: boolean;
 
   /** Free-text query for semantic search (built from all constraints) */
   query_text?: string;
+
+  /**
+   * Subject synonym terms (label + every keyword) used by the RPC's
+   * `s ILIKE ANY($terms)` matching. Transient — populated by
+   * `hybridSearch.buildConstraintsJson`, never persisted to the pill
+   * strip. Without it, "Mathematics" searches miss tutors who listed
+   * "Math".
+   */
+  subject_terms?: string[];
 
   /**
    * Opt-out signal for the location requirement. Set to "anywhere"
@@ -72,6 +85,7 @@ export const CONSTRAINT_LABELS: Record<keyof SearchConstraints, string> = {
   min_experience: "Minimum experience (years)",
   verified_only: "Verified tutors only",
   query_text: "Search query text",
+  subject_terms: "Subject synonym terms",
   location_preference: "Location preference (anywhere/near_me)",
 };
 

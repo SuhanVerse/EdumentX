@@ -61,6 +61,12 @@ export interface ChatRequest {
    */
   current_constraints?: Record<string, unknown>;
   /**
+   * Constraint keys the user removed by tapping a pill. The server session
+   * must reset these BEFORE merging, or the stale value (e.g. "male")
+   * survives and re-applies on every search. Sent with the next message.
+   */
+  removed_constraints?: string[];
+  /**
    * Last few user/assistant turns, in chronological order. Sent to the
    * server (or mock pipeline) so the LLM has context for conversational
    * refinements like "actually make it female" or "in Kathmandu, not
@@ -185,6 +191,8 @@ export async function sendChatMessage(
     student_location?: { latitude: number; longitude: number };
     student_profile?: { grade?: string; subjects?: string[] };
     recent_messages?: Array<{ role: "user" | "assistant"; text: string }>;
+    /** Constraint keys removed by pill taps — server must reset them. */
+    removed_constraints?: string[];
   },
 ): Promise<ChatResponse> {
   // ── Step 0: Mock toggle ──
@@ -245,6 +253,9 @@ export async function sendChatMessage(
   }
   if (options?.recent_messages && options.recent_messages.length > 0) {
     body.recent_messages = options.recent_messages;
+  }
+  if (options?.removed_constraints && options.removed_constraints.length > 0) {
+    body.removed_constraints = options.removed_constraints;
   }
 
   // ── Step 3: Send request ──

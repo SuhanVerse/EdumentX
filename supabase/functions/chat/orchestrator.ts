@@ -21,6 +21,8 @@ export interface OrchestratorInput {
   session_id: string;
   student_id: string;
   message: string;
+  /** Constraint keys removed by pill taps — reset in the session first. */
+  removed_constraints?: string[];
 }
 
 export interface OrchestratorOutput {
@@ -46,7 +48,7 @@ export interface OrchestratorOutput {
 export async function orchestrateChat(
   input: OrchestratorInput,
 ): Promise<OrchestratorOutput> {
-  const { session_id, student_id, message } = input;
+  const { session_id, student_id, message, removed_constraints } = input;
   const supabase = getSupabaseClient();
 
   // Step 1: Get or create session
@@ -74,8 +76,16 @@ export async function orchestrateChat(
     historyString = buildHistoryString(recentMessages.slice(0, -1));
   }
 
-  // Step 4: Process through state machine (with conversation history)
-  const result = await processMessage(session, message, historyString);
+  // Step 4: Process through state machine (with conversation history).
+  // Pass pill-tap removals so the session's stale constraints (e.g.
+  // "male") are reset before merging — otherwise the removed filter
+  // survives and re-applies on every search.
+  const result = await processMessage(
+    session,
+    message,
+    historyString,
+    removed_constraints,
+  );
 
   // Step 5: Save assistant response
   if (conversation?.id) {

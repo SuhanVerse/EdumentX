@@ -757,10 +757,42 @@ export function VerificationQueue() {
             username: profileData?.username ?? null,
             headline: profileData?.headline ?? null,
             subjects: profileData?.subjects ?? [],
+            // The AI search filters on these fields — without them the
+            // `tutors/{uid}` doc is incomplete and the seed stores
+            // empty grades / null gender in Supabase, which zeroes
+            // every chatbot search (grade is a minimum constraint).
+            gradesTeaching: Array.isArray(profileData?.gradesTeaching)
+              ? profileData!.gradesTeaching
+              : [],
             monthlyRateNpr: profileData?.monthlyRateNpr ?? 0,
             location: profileData?.location ?? null,
             photoUrl: profileData?.photoUrl ?? null,
             yearsExperience: profileData?.yearsExperience ?? 0,
+            bio: profileData?.bio ?? "",
+            gender:
+              profileData?.gender === "male" ||
+              profileData?.gender === "female" ||
+              profileData?.gender === "other"
+                ? profileData.gender
+                : null,
+            tutoringMode:
+              profileData?.tutoringMode === "home" ||
+              profileData?.tutoringMode === "online" ||
+              profileData?.tutoringMode === "both"
+                ? profileData.tutoringMode
+                : "both",
+            languages: Array.isArray(profileData?.languages)
+              ? profileData!.languages
+              : ["English", "Nepali"],
+            rating: typeof profileData?.rating === "number" ? profileData.rating : 0,
+            reviewCount:
+              typeof profileData?.reviewCount === "number"
+                ? profileData.reviewCount
+                : 0,
+            responseRate:
+              typeof profileData?.responseRate === "number"
+                ? profileData.responseRate
+                : 0,
             verificationStatus: "approved",
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
@@ -887,10 +919,18 @@ export function VerificationQueue() {
     };
     // Mirror proposed fields that affect the tutor card display
     if ("subjects" in proposed) tutorPatch.subjects = proposed.subjects;
+    // gradesTeaching is filterable by the AI search (grade is a minimum
+    // constraint) — must reach the tutors/{uid} doc or the seed stores
+    // an empty grades array and the chatbot returns 0 tutors.
+    if ("gradesTeaching" in proposed) tutorPatch.gradesTeaching = proposed.gradesTeaching;
     if ("monthlyRateNpr" in proposed) tutorPatch.monthlyRateNpr = proposed.monthlyRateNpr;
     if ("location" in proposed) tutorPatch.location = proposed.location;
     if ("headline" in proposed) tutorPatch.headline = proposed.headline;
     if ("yearsExperience" in proposed) tutorPatch.yearsExperience = proposed.yearsExperience;
+    if ("bio" in proposed) tutorPatch.bio = proposed.bio;
+    if ("gender" in proposed) tutorPatch.gender = proposed.gender;
+    if ("tutoringMode" in proposed) tutorPatch.tutoringMode = proposed.tutoringMode;
+    if ("languages" in proposed) tutorPatch.languages = proposed.languages;
     if ("degree" in proposed) tutorPatch.degree = proposed.degree;
     if ("institution" in proposed) tutorPatch.institution = proposed.institution;
     // FullName/username changes are rare but we mirror them too

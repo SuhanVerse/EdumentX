@@ -63,6 +63,7 @@ import {
   EXPERIENCE_PATTERNS,
   WITHIN_KM_PATTERN,
   PROXIMITY_PATTERN,
+  BUDGET_PATTERNS,
 } from "@/ai/domain/keywords";
 
 function getKeywordsFor(label: string): string[] {
@@ -151,15 +152,68 @@ function mergeExtractions(
     out.subject = kw.subject;
   }
 
-  // Deterministic wins for grade and budget
-  if (kw.grade_level !== undefined && out.grade_level === undefined) {
+  // Subject hallucination guard: if the keyword pass found NO subject and
+  // the LLM invented one, only keep it when the message actually contains
+  // a subject keyword. The LLM regularly hallucinates "Computer Science"
+  // from messages that merely contain the substring "it" or from
+  // off-topic trivia ("What is the capital of France?"). The keyword
+  // pass is the deterministic source of truth for subjects.
+  if (!kw.subject && out.subject) {
+    const messageHasAnySubjectWord = SUBJECT_KEYWORDS.some((entry) =>
+      entry.keywords.some((k) => messageLower.includes(k)),
+    );
+    if (!messageHasAnySubjectWord) delete out.subject;
+  }
+
+  // Gender: keyword wins (the word-boundary regex is deterministic and
+  // safe against "Kathmandu" → "man" false positives). Two guards:
+  //   • Negation guard — "I don't want male tutors" matches the MALE
+  //     pattern but means the OPPOSITE. When the message contains a
+  //     negation word, keep the LLM's interpretation instead of blindly
+  //     applying the keyword value.
+  //   • Hallucination guard — an LLM-only gender is only kept when the
+  //     message literally contains a gender word (kills "Kathmandu" → male).
+  const hasGenderNegation = /\b(?:not|no|don't|dont|without|avoid|except|not\s+really)\b/i.test(messageLower);
+  if (kw.gender_preference && !hasGenderNegation) {
+    out.gender_preference = kw.gender_preference;
+  } else if (
+    !hasGenderNegation &&
+    out.gender_preference &&
+    !FEMALE_PATTERN.test(messageLower) &&
+    !MALE_PATTERN.test(messageLower)
+  ) {
+    delete out.gender_preference;
+  }
+
+  // Deterministic wins for grade and budget. GRADE is keyword-wins even
+  // when the LLM disagrees — the LLM regularly hallucinates "12" for input
+  // "11" (bare-number answers), and the keyword pass is the deterministic
+  // source of truth for grades.
+  if (kw.grade_level !== undefined) {
     out.grade_level = kw.grade_level;
+  }
+
+  // Normalize higher-secondary grades 11/12 → "+2" (Nepali +2 marker).
+  // The RPC's grade_to_terms expands "+2" to {11,12}, so one pill covers
+  // both grades. Mirrors lib/ai/clientConstraintParser.ts + the supabase
+  // extractor.
+  if (out.grade_level === "11" || out.grade_level === "12") {
+    out.grade_level = "+2";
   }
   if (kw.budget_max !== undefined && out.budget_max === undefined) {
     out.budget_max = kw.budget_max;
   }
   if (kw.budget_min !== undefined && out.budget_min === undefined) {
     out.budget_min = kw.budget_min;
+  }
+
+  // Bare-number guard: a message that is ONLY a number (e.g. "12") is a
+  // GRADE answer, never a budget — even if the LLM hallucinated a budget
+  // for it. The deterministic keyword answer-inference wins. Mirrors the
+  // mock pipeline, which treats a bare number <= 12 as the grade.
+  if (/^\d+$/.test(message.trim()) && kw.grade_level !== undefined) {
+    delete out.budget_max;
+    delete out.budget_min;
   }
 
   // `location_preference` ("anywhere") — keyword wins, the LLM rarely
@@ -204,36 +258,42 @@ function fallbackExtractConstraints(
     if (constraints.subject) break;
   }
 
-  // ── Budget detection with tolerance ──
-  const budgetMatch = lower.match(/(?:around|about|approx|approximately|rs\.?\s*|npr\s*|₹\s*)?(\d{1,3}(?:,\d{3})*|\d{1,6})(k|k\b)?/i);
-  if (budgetMatch) {
-    // Guard: if the number is followed by "years" / "yr" / "experience",
-    // this is an experience constraint, not budget. Skip so the
-    // experience parser below can handle it.
-    // E.g. "more than 6 years" → min_experience=6, not budget.
-    const matchIdx = budgetMatch.index ?? 0;
-    const matchFull = budgetMatch[0] ?? "";
-    const afterText = lower.slice(matchIdx + matchFull.length);
-    const isExperienceContext = /^\s*(?:years?|yrs?|exp(?:erience)?)\b/i.test(afterText);
-    if (!isExperienceContext) {
-      let amount = parseInt(budgetMatch[1].replace(/,/g, ""), 10);
-      if (budgetMatch[2] && budgetMatch[2].toLowerCase() === "k") {
-        amount *= 1000;
-      }
+  // ── Budget detection (uses canonical BUDGET_PATTERNS from keywords.ts) ──
+  //
+  // A bare number ("12", "5000") is NOT a budget — it's usually a grade
+  // answer ("12") or handled by the answer-inference block below
+  // ("5000" after the budget question). We only treat a number as budget
+  // when it's accompanied by a currency hint (rs/npr/₹), a budget
+  // qualifier (under, around, max, per month...), or a bare "k"
+  // shorthand ("12k"). The old loose regex matched ANY number and turned
+  // "12" into `budget_max: 12` — which also suppressed the grade
+  // answer-inference (it only runs when nothing else was extracted).
+  for (const { regex, qualifier } of BUDGET_PATTERNS) {
+    const m = lower.match(regex);
+    if (!m) continue;
+    const matchIdx = m.index ?? 0;
+    const matchFull = m[0] ?? "";
+    let amount = parseInt(m[1].replace(/,/g, ""), 10);
+    if (!Number.isFinite(amount)) continue;
 
-      const isVague = /\b(around|about|approx|approximately|roughly)\b/i.test(lower);
+    // Guard: if the text right after the matched number is "years", "yr",
+    // "experience", or "exp", this is an experience constraint, not a
+    // budget. Skip so the experience parser below can handle it.
+    const afterMatch = lower.slice(matchIdx + matchFull.length);
+    const isExperienceContext = /^\s*(?:years?|yrs?|exp(?:erience)?)\b/i.test(afterMatch);
+    if (isExperienceContext) continue;
 
-      if (lower.includes("under") || lower.includes("below") || lower.includes("less than") || lower.includes("max")) {
-        constraints.budget_max = amount;
-      } else if (lower.includes("above") || lower.includes("over") || lower.includes("min") || lower.includes("more than")) {
-        constraints.budget_min = amount;
-      } else if (isVague) {
-        constraints.budget_min = Math.round(amount * 0.8);
-        constraints.budget_max = Math.round(amount * 1.2);
-      } else {
-        constraints.budget_max = amount;
-      }
+    const hasK = m[2] && m[2].toLowerCase() === "k";
+    if (hasK) amount *= 1000;
+    if (qualifier === "max") {
+      constraints.budget_max = amount;
+    } else if (qualifier === "min") {
+      constraints.budget_min = amount;
+    } else {
+      constraints.budget_min = Math.round(amount * 0.8);
+      constraints.budget_max = Math.round(amount * 1.2);
     }
+    break; // first match wins
   }
 
   // ── Location detection ──
@@ -321,6 +381,13 @@ function fallbackExtractConstraints(
   const gradeMatch = lower.match(/(?:grade|class|level|standard|\+2|plus.?2)\s*(\d{1,2})/i);
   if (gradeMatch) {
     constraints.grade_level = gradeMatch[1];
+  }
+  // Roman-numeral grades ("grade XII" → 12). Word-boundary only —
+  // `includes("xi")` would match "maximum". Mirrors
+  // supabase/ai/agents/constraintExtractor.ts.
+  const romanGrade = lower.match(/\b(xii|xi|x)\b/i);
+  if (romanGrade && !constraints.grade_level) {
+    constraints.grade_level = { xii: "12", xi: "11", x: "10" }[romanGrade[1].toLowerCase()];
   }
   if (!constraints.grade_level) {
     for (const [word, val] of Object.entries(GRADE_WORDS)) {
@@ -427,7 +494,13 @@ function cleanConstraints(
     language: raw.language ?? undefined,
     min_rating: raw.min_rating ?? undefined,
     min_experience: raw.min_experience ?? undefined,
-    verified_only: raw.verified_only ?? true,
+    // NOTE: `verified_only` is intentionally NOT defaulted to true here.
+    // Mock mode never sets it (the client parser doesn't extract it), so
+    // defaulting to true made real mode diverge: the RPC adds
+    // `is_verified_professional = true` on EVERY search while mock never
+    // filtered — and any tutor missing that flag silently vanished. It's
+    // only set when the user explicitly asks ("verified tutors only").
+    verified_only: raw.verified_only ?? undefined,
     query_text: raw.query_text ?? undefined,
     // location_preference is detected by the keyword fallback, not the LLM;
     // leaving it undefined here is intentional.

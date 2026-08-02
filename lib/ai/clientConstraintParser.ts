@@ -26,6 +26,7 @@ import {
   EXPERIENCE_PATTERNS,
   WITHIN_KM_PATTERN,
   PROXIMITY_PATTERN,
+  BUDGET_PATTERNS,
 } from "@/ai/domain/keywords";
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -55,32 +56,15 @@ export function parseMessageToConstraints(
 
   // ── Budget ──
   //
-  // Tightened to reject bare numbers. Previously this regex matched the
-  // `2` inside `+2 Science` and turned it into `budget_max: 2` — a number
-  // that's clearly a grade marker, not a budget. We now require either a
-  // currency hint (rs / npr / ₹) OR a budget qualifier (under, below,
+  // Uses the canonical BUDGET_PATTERNS from ai/domain/keywords.ts — they
+  // reject bare numbers. Previously a loose regex matched the `2` inside
+  // `+2 Science` and turned it into `budget_max: 2` — a number that's
+  // clearly a grade marker, not a budget. The patterns now require either
+  // a currency hint (rs / npr / ₹) OR a budget qualifier (under, below,
   // less than, max, around, about, approx, budget, afford, pay, spent,
-  // spend, salary, cost, price, fee) immediately adjacent to the digits.
-  const budgetPatterns: Array<{ regex: RegExp; qualifier: "max" | "min" | "vague" }> = [
-    // Currency hint: always a max (the user is naming an amount they can pay).
-    { regex: /(?:rs\.?|npr|₹)\s*(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "max" },
-    // "under / below / less than / max / budget / afford / pay / spend /
-    //  cost / fee / salary / per month" → max. The qualifier may appear
-    //  BEFORE or AFTER the number ("under 5000" or "5000 per month").
-    { regex: /\b(?:under|below|less\s+than|budget(?:\s+of)?|afford|pay|spend|spent|cost|fee|charge|rate|monthly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "max" },
-    { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:per\s+month|monthly|in\s+total|total|max)\b/i, qualifier: "max" },
-    // "above / over / min / more than / at least / from" → min
-    { regex: /\b(?:above|over|minimum|more\s+than|at\s+least|from)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "min" },
-    { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:or\s+more|minimum|min)\b/i, qualifier: "min" },
-    // "around / about / approx" → vague range (±20%)
-    { regex: /\b(?:around|about|approx|approximately|roughly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "vague" },
-    // Bare "k" suffix — "12k", "5k", "100k" — common shorthand for
-    // thousands. No currency or qualifier needed. Goes LAST so more
-    // specific patterns (with qualifier words) win if present.
-    // NOTE: must capture `k` as group 2 so `hasK` multiplies by 1000.
-    { regex: /\b(\d{1,3}(?:\.\d+)?)\s*(k)\b/i, qualifier: "max" },
-  ];
-  for (const { regex, qualifier } of budgetPatterns) {
+  // spend, salary, cost, price, fee) OR a bare "k" suffix immediately
+  // adjacent to the digits.
+  for (const { regex, qualifier } of BUDGET_PATTERNS) {
     const m = lower.match(regex);
     if (!m) continue;
     // After the null guard, m is RegExpMatchArray with index: number.
@@ -225,10 +209,18 @@ export function parseMessageToConstraints(
     if (gradeMatch) {
       out.grade_level = gradeMatch[1];
     } else {
-      for (const [word, val] of Object.entries(GRADE_WORDS)) {
-        if (lower.includes(word)) {
-          out.grade_level = val;
-          break;
+      // Roman-numeral grades ("grade XII" → 12). Word-boundary only —
+      // `includes("xi")` would match "maximum". Mirrors the server
+      // extractors.
+      const romanGrade = lower.match(/\b(xii|xi|x)\b/i);
+      if (romanGrade) {
+        out.grade_level = { xii: "12", xi: "11", x: "10" }[romanGrade[1].toLowerCase()];
+      } else {
+        for (const [word, val] of Object.entries(GRADE_WORDS)) {
+          if (lower.includes(word)) {
+            out.grade_level = val;
+            break;
+          }
         }
       }
     }
@@ -284,6 +276,17 @@ export function parseMessageToConstraints(
       out.radius_km = 5;
       out.location_preference = "near_me";
     }
+  }
+
+  // Normalize higher-secondary grades 11/12 → "+2" (the Nepali +2 marker).
+  // "+2" is the canonical token the filters already understand — the mock
+  // repository expands it to grades 11 AND 12, and migration 014's
+  // grade_to_terms does the same server-side. So a student typing "11"
+  // gets the same "+2" pill and result set as a student typing "12"
+  // (grades 11-12 are one level in the Nepali system). Mirrors the
+  // server extractors.
+  if (out.grade_level === "11" || out.grade_level === "12") {
+    out.grade_level = "+2";
   }
 
   return out;

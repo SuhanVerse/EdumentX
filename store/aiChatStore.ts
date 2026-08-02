@@ -87,12 +87,26 @@ export interface AiChatState {
    */
   constraints: ClientSearchConstraints;
 
+  /**
+   * Keys the user removed by tapping a pill ("x"). The client mirror is
+   * cleared immediately, but the SERVER session still holds the stale
+   * value (its merge rule preserves existing constraints). We send these
+   * keys with the NEXT message so the Edge Function can reset them too —
+   * otherwise "remove male filter" re-applies male on every search.
+   */
+  removedConstraints: string[];
+
   // ── Actions ──
   sendMessage: (text: string) => Promise<void>;
   clearError: () => void;
   resetSession: () => void;
   /** Merge a partial patch into the constraints slice. Used by chip / pill handlers. */
   setConstraints: (patch: Partial<ClientSearchConstraints>) => void;
+  /**
+   * Remove a constraint from the client mirror AND queue it for the server
+   * (sent with the next message as `removed_constraints`).
+   */
+  removeConstraint: (key: keyof ClientSearchConstraints) => void;
   /** Replace the entire constraints slice. Called after each server response. */
   replaceConstraints: (next: ClientSearchConstraints) => void;
 }
@@ -104,6 +118,13 @@ interface PersistedChatState {
   messages: Message[];
   sessionId: string | null;
   constraints: ClientSearchConstraints;
+  /**
+   * Pill-tap removals not yet acknowledged by the server. Persisted too
+   * (W14-style) so a force-close between "tap the x" and "send a message"
+   * doesn't lose the removal — otherwise the server session's stale value
+   * (e.g. "male") would re-apply on the next message after restart.
+   */
+  removedConstraints: string[];
   lastActivity: number;
 }
 
@@ -125,6 +146,7 @@ function initialState(): Pick<
   | "error"
   | "lastActivity"
   | "constraints"
+  | "removedConstraints"
 > {
   return {
     messages: [],
@@ -133,6 +155,7 @@ function initialState(): Pick<
     error: null,
     lastActivity: Date.now(),
     constraints: {},
+    removedConstraints: [],
   };
 }
 
@@ -220,14 +243,28 @@ export const useAiChatStore = create<AiChatState>()(
         // We send the current constraint snapshot as a hint. The server still
         // re-extracts from the message authoritatively — the hint only helps
         // when the LLM is offline or the message is too short to extract.
+        //
+        // We ALSO send any constraints the user removed by tapping a pill.
+        // The server must reset those in ITS session or the stale filter
+        // (e.g. "male") survives and re-applies on every search.
+        const pendingRemovals = get().removedConstraints;
 
         try {
           const response: ChatResponse = await sendChatMessage(
             sessionId,
             trimmed,
             get().constraints as Record<string, unknown>,
-            { recent_messages: recentMessages },
+            {
+              recent_messages: recentMessages,
+              removed_constraints: pendingRemovals,
+            },
           );
+
+          // Removals were acknowledged by the server — clear the queue so
+          // the next message doesn't re-send stale removals.
+          if (pendingRemovals.length > 0) {
+            set({ removedConstraints: [] });
+          }
 
           // ── 3. Add assistant response ──
           const assistantMessage: Message = {
@@ -288,6 +325,23 @@ export const useAiChatStore = create<AiChatState>()(
         }),
 
       /**
+       * Remove a constraint from the client mirror AND queue it for the
+       * server (sent with the next message as `removed_constraints`).
+       * Mirrors the pill-tap semantics: the user wants that filter gone.
+       */
+      removeConstraint: (key: keyof ClientSearchConstraints) => {
+        const prev = get().removedConstraints;
+        const next: ClientSearchConstraints = { ...get().constraints };
+        delete (next as Record<string, unknown>)[key];
+        set({
+          constraints: next,
+          removedConstraints: prev.includes(key as string)
+            ? prev
+            : [...prev, key as string],
+        });
+      },
+
+      /**
        * Optimistically merge a partial patch into the constraints slice.
        * Keys with `undefined` values are treated as deletions so the pill
        * strip can "remove" a constraint by tapping it.
@@ -328,6 +382,7 @@ export const useAiChatStore = create<AiChatState>()(
         messages: state.messages.slice(-MAX_HISTORY_MESSAGES),
         sessionId: state.sessionId,
         constraints: state.constraints,
+        removedConstraints: state.removedConstraints,
         lastActivity: state.lastActivity,
       }),
 
@@ -354,6 +409,9 @@ export const useAiChatStore = create<AiChatState>()(
             p.constraints && typeof p.constraints === "object"
               ? (p.constraints as ClientSearchConstraints)
               : {},
+          removedConstraints: Array.isArray(p.removedConstraints)
+            ? p.removedConstraints
+            : [],
           lastActivity,
           hasHydrated: true,
         };

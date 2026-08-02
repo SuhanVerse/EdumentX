@@ -356,6 +356,12 @@ function profileDocToTutorProfile(
     isVerifiedProfessional: data.isVerifiedProfessional === true,
     degree: (data.degree as string) ?? "",
     institution: (data.institution as string) ?? "",
+    // Gender — populated at onboarding (TutorProfileScreen). Fall back to
+    // null so tutors who signed up before the field existed stay visible.
+    gender:
+      data.gender === "male" || data.gender === "female" || data.gender === "other"
+        ? (data.gender as TutorProfile["gender"])
+        : null,
     // Demo video from the documents array
     demoVideoUrl,
     phone: (data.phone as string) ?? "",
@@ -414,6 +420,11 @@ function tutorsDocToTutorProfile(
     verificationStatus:
       (data.verificationStatus as TutorProfile["verificationStatus"]) ?? "pending",
     isVerifiedProfessional: data.isVerifiedProfessional === true,
+    // Gender — admin-approval path writes it to tutors/{uid} (Batch 5 fix).
+    gender:
+      data.gender === "male" || data.gender === "female" || data.gender === "other"
+        ? (data.gender as TutorProfile["gender"])
+        : null,
     // Languages defaulted to ["English", "Nepali"] when the Firestore
     // doc predates the languages migration (plan §12 fix).
     languages: Array.isArray(data.languages)

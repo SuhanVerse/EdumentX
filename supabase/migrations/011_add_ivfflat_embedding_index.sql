@@ -12,6 +12,15 @@
 -- a large batch, DROP + re-CREATE this index so the centroids recompute over
 -- the current data.
 
+-- pgvector is installed into the `extensions` schema (migration 001), so the
+-- `vector_cosine_ops` operator class lives there. Without this search_path,
+-- the index build fails with:
+--   ERROR: operator class "vector_cosine_ops" does not exist for access
+--   method "ivfflat" (SQLSTATE 42704)
+-- The other extension-dependent migrations (010, 012, 013) already set this
+-- — 011 was missing it.
+SET search_path TO public, extensions;
+
 CREATE INDEX IF NOT EXISTS idx_tutor_embeddings_ivfflat
   ON public.tutor_embeddings
   USING ivfflat (embedding vector_cosine_ops)

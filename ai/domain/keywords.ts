@@ -71,6 +71,15 @@ export const GRADE_WORDS: Readonly<Record<string, string>> = {
   nursery: "Nursery", lkg: "LKG", ukg: "UKG",
 };
 
+// ─── Roman-Numeral Grade Pattern ────────────────────────────────────────────
+//
+// The app's own grade picker (EditTeachingDetails.tsx) uses "Grade XI
+// (Science)" / "Grade XII (Science)", so students may type "grade XI" /
+// "grade XII". MUST use a word-boundary regex — `includes("xi")` would
+// match "ma**xi**mum" and "ta**xi**" and falsely set grade 11.
+// Longest-match first (xii before xi) so "XII" → 12, not 1 followed by 2.
+export const ROMAN_GRADE_PATTERN = /\b(xii|xi|x)\b/i;
+
 // ─── Off-Topic Patterns ─────────────────────────────────────────────────────
 //
 // Patterns used by `quickOffTopicCheck` in the intent classifier.
@@ -93,10 +102,11 @@ export const OFF_TOPIC_PATTERNS: ReadonlyArray<RegExp> = [
 
   // Performance / entertainment requests (word-boundary so "dancer" doesn't match)
   /\b(dance|sing|joke|poem|riddle)\b/i,
-  /^tell me a (joke|story|poem|riddle)/i,
-
-  // General-knowledge "what is the X" — only factual topics, NOT tutor-related
+  /^tell me a (joke|story|poem|riddle)/i,    // General-knowledge "what is the X" — only factual topics, NOT tutor-related
   /^what is the (capital|largest|tallest|smallest|oldest|newest|highest|lowest|meaning|definition|population)/i,
+
+  // People trivia
+  /^who is the (president|prime minister|king|queen|ceo|founder)/i,
 ];
 
 // ─── Open-ended Location Opt-Out Phrases ─────────────────────────────────────
@@ -178,3 +188,42 @@ export const EXPERIENCE_PATTERNS: ReadonlyArray<ExperiencePattern> = [
 
 export const WITHIN_KM_PATTERN = /\bwithin\s+(\d+(?:\.\d+)?)\s*(?:km|kms?|kilometers?|kilometres?)\b/i;
 export const PROXIMITY_PATTERN = /\b(nearby|near\s+me|close\s+to|walking\s+distance|near\s+my|proximity)\b/i;
+
+// ─── Budget Extraction Patterns ──────────────────────────────────────────────
+//
+// CANONICAL budget patterns. Imported by:
+//   - lib/ai/clientConstraintParser.ts (mock pipeline)
+//   - ai/agents/constraintExtractor.ts (root server copy)
+//   - supabase/ai/agents/constraintExtractor.ts (deployed copy — INLINE MIRROR,
+//     keep in sync)
+//
+// CRITICAL: these patterns REJECT bare numbers. A bare "12" or "5000" must
+// NOT become a budget — "12" is usually a grade answer, and "5000" is handled
+// by the answer-inference block. A number only counts as budget when it has a
+// currency hint (rs/npr/₹), a qualifier word (under, around, max...), or a
+// bare "k" shorthand ("12k" = 12000). The old loose regex matched ANY number
+// and turned bare "12" into `budget_max: 12` — which also suppressed the
+// grade answer-inference (it only runs when nothing else was extracted).
+
+export type BudgetPattern = {
+  regex: RegExp;
+  qualifier: "max" | "min" | "vague";
+};
+
+export const BUDGET_PATTERNS: ReadonlyArray<BudgetPattern> = [
+  // Currency hint: always a max (the user is naming an amount they can pay).
+  { regex: /(?:rs\.?|npr|₹)\s*(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "max" },
+  // "under / below / less than / max / budget / afford / pay / spend /
+  //  cost / fee / salary / per month" → max.
+  { regex: /\b(?:under|below|less\s+than|budget(?:\s+of)?|afford|pay|spend|spent|cost|fee|charge|rate|monthly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "max" },
+  { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:per\s+month|monthly|in\s+total|total|max)\b/i, qualifier: "max" },
+  // "above / over / min / more than / at least / from" → min
+  { regex: /\b(?:above|over|minimum|more\s+than|at\s+least|from)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "min" },
+  { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:or\s+more|minimum|min)\b/i, qualifier: "min" },
+  // "around / about / approx" → vague range (±20%)
+  { regex: /\b(?:around|about|approx|approximately|roughly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "vague" },
+  // Bare "k" suffix — "12k", "5k", "100k" — common shorthand for
+  // thousands. No currency or qualifier needed. Goes LAST so more
+  // specific patterns (with qualifier words) win if present.
+  { regex: /\b(\d{1,3}(?:\.\d+)?)\s*(k)\b/i, qualifier: "max" },
+];
