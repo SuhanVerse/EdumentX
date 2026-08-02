@@ -20,6 +20,7 @@ export function useAiChat() {
   const isLoading = useAiChatStore((s) => s.isLoading);
   const error = useAiChatStore((s) => s.error);
   const constraints = useAiChatStore((s) => s.constraints);
+  const hasHydrated = useAiChatStore((s) => s.hasHydrated);
 
   const sendMessage = useAiChatStore((s) => s.sendMessage);
   const clearError = useAiChatStore((s) => s.clearError);
@@ -52,6 +53,7 @@ export function useAiChat() {
     isLoading,
     error,
     constraints,
+    hasHydrated,
     sendMessage: handleSend,
     clearError,
     resetSession,

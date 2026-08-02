@@ -119,6 +119,11 @@ export interface TutorRepository {
    * The Firebase implementation is a no-op filter — it returns the
    * full list because the live chat pipeline queries Supabase PG
    * via the Edge Function, never this client method.
+   *
+   * @param cap - Optional result cap (default 5, the chat card limit).
+   *   The mock chat pipeline passes a larger cap (20) before a
+   *   deterministic sort so the best match can surface even if it
+   *   ranked beyond the top-5 by the default order.
    */
-  searchTutors(filters: TutorSearchFilters): Promise<TutorSearchResult>;
+  searchTutors(filters: TutorSearchFilters, cap?: number): Promise<TutorSearchResult>;
 }

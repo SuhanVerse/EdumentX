@@ -82,21 +82,51 @@ export async function hybridSearch(
 // ─── PostgreSQL Function Calls ───────────────────────────────────────────────
 
 /**
- * Call the hybrid_search_tutors PostgreSQL function with vector search.
+ * Typed wrapper for the `hybrid_search_tutors` PostgreSQL RPC (migration 010).
+ *
+ * THE CONTRACT — what the SQL function accepts:
+ *   SELECT * FROM hybrid_search_tutors(
+ *     constraints_json JSONB,        -- every constraint the chatbot knows
+ *     query_embedding   vector(384), -- optional 384-dim embedding for semantic search
+ *     result_limit      INTEGER      -- cap on returned rows (default 20)
+ *   )
+ *
+ * `constraints_json` keys the RPC understands (each becomes a WHERE clause):
+ *   - subject           → EXISTS (unnest(subjects) ILIKE %x%)
+ *   - budget_max        → monthly_rate_npr <= N
+ *   - budget_min        → monthly_rate_npr >= N
+ *   - location_text     → city ILIKE %x% OR neighborhood ILIKE %x%
+ *   - grade_level       → grades_teaching @> ARRAY[x]
+ *   - min_rating        → rating >= N
+ *   - min_experience    → years_experience >= N
+ *   - gender_preference → gender = 'male'|'female'|'other'   (C3 — verified wired)
+ *   - tutoring_mode     → tutoring_mode = $n OR tutoring_mode = 'both'
+ *   - language          → languages && ARRAY[$n]
+ *   - verified_only     → is_verified_professional = true
+ *
+ * Return shape: the TutorResult columns (snake_case) plus a `similarity`
+ * REAL (1 - cosine distance) when an embedding is passed, else 0.
+ * Mapped to `TutorResult` in `mapResults` below.
+ *
+ * Keep this wrapper in sync with `ai/retrieval/hybridSearch.ts`
+ * (the client copy — identical logic, `@/` import aliases there).
  */
-async function callHybridSearch(
-  constraints: SearchConstraints,
-  embedding: number[],
-  limit: number,
+interface HybridSearchRpcParams {
+  constraints_json: Record<string, unknown>;
+  query_embedding: string | null;
+  result_limit: number;
+}
+
+async function invokeHybridSearchTutors(
+  params: HybridSearchRpcParams,
 ): Promise<TutorResult[]> {
   const supabase = getSupabaseClient();
 
   try {
-    const { data, error } = await supabase.rpc("hybrid_search_tutors", {
-      constraints_json: buildConstraintsJson(constraints),
-      query_embedding: `[${embedding.join(",")}]`,
-      result_limit: limit,
-    });
+    const { data, error } = await supabase.rpc(
+      "hybrid_search_tutors",
+      params,
+    );
 
     if (error) {
       console.error("[hybridSearch] RPC error:", error.message);
@@ -111,31 +141,32 @@ async function callHybridSearch(
 }
 
 /**
+ * Call the hybrid_search_tutors PostgreSQL function with vector search.
+ */
+async function callHybridSearch(
+  constraints: SearchConstraints,
+  embedding: number[],
+  limit: number,
+): Promise<TutorResult[]> {
+  return invokeHybridSearchTutors({
+    constraints_json: buildConstraintsJson(constraints),
+    query_embedding: `[${embedding.join(",")}]`,
+    result_limit: limit,
+  });
+}
+
+/**
  * Call the hybrid_search_tutors PostgreSQL function without vector search.
  */
 async function callMetadataSearch(
   constraints: SearchConstraints,
   limit: number,
 ): Promise<TutorResult[]> {
-  const supabase = getSupabaseClient();
-
-  try {
-    const { data, error } = await supabase.rpc("hybrid_search_tutors", {
-      constraints_json: buildConstraintsJson(constraints),
-      query_embedding: null,
-      result_limit: limit,
-    });
-
-    if (error) {
-      console.error("[hybridSearch] Metadata RPC error:", error.message);
-      return [];
-    }
-
-    return mapResults(data as Record<string, unknown>[]);
-  } catch (err) {
-    console.error("[hybridSearch] Metadata RPC exception:", err);
-    return [];
-  }
+  return invokeHybridSearchTutors({
+    constraints_json: buildConstraintsJson(constraints),
+    query_embedding: null,
+    result_limit: limit,
+  });
 }
 
 // ─── Fallback ────────────────────────────────────────────────────────────────
@@ -218,7 +249,9 @@ function mapResults(data: Record<string, unknown>[]): TutorResult[] {
     // tutoring_mode and languages are returned by the RPC so downstream
     // consumers (chatbot response generator, fallback chain) can decide
     // whether to explain why a tutor was filtered out.
-    tutoring_mode: row.tutoring_mode ? String(row.tutoring_mode) : null,
+    tutoring_mode: row.tutoring_mode
+      ? (String(row.tutoring_mode) as "home" | "online" | "both")
+      : null,
     languages: Array.isArray(row.languages) ? (row.languages as string[]) : [],
     similarity: Number(row.similarity ?? 0),
   }));

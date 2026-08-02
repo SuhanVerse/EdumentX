@@ -10,7 +10,8 @@
  */
 
 import type { SearchConstraints } from "../types/constraints.types.ts";
-import type { TutorResult, ScoredTutor } from "../types/search.types.ts";
+import type { TutorResult } from "../types/conversation.types.ts";
+import type { ScoredTutor } from "../types/search.types.ts";
 import { DEFAULT_RANKING_WEIGHTS, type RankingWeights } from "../types/search.types.ts";
 
 // ─── Scoring ─────────────────────────────────────────────────────────────────
@@ -167,6 +168,115 @@ export function adjustWeightsByContext(
   }
 
   return weights;
+}
+
+// ─── Deterministic Sort (LLM-free) ──────────────────────────────────────────
+//
+// Mirrors the client-side `services/ai/groqRanker.ts#applyDeterministicSort`
+// so explicit sort requests ("sort by experience", "cheapest first",
+// "highest rated") re-order results WITHOUT an LLM call. The mock pipeline
+// and the Edge Function now share the same intent patterns and ordering
+// rules. Only vague reorder phrases ("reorder", "best match") still rely
+// on the LLM.
+
+export interface SortIntent {
+  key: "experience" | "rating" | "reviews" | "price";
+  direction: "asc" | "desc";
+  /** Short human phrase for the reply, e.g. "most experienced tutors first". */
+  label: string;
+}
+
+const SORT_INTENT_PATTERNS: Array<{ re: RegExp; sort: SortIntent }> = [
+  // ── Experience ──
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(experience|seniority|years)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(most|more)\s+experienced\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(experience[d]?|senior)\s+(first|top|highest)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(high|highest|most)\s+(experience|seniority)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\bput\s+(the\s+)?(most\s+)?(experienced|senior)\s+(at|on)\s+(top|first)/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  // ── Rating ──
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(rating|ratings)\b/i,
+    sort: { key: "rating", direction: "desc", label: "highest rated tutors first" },
+  },
+  {
+    re: /\b(highest|best|top|most)\s+rated\b/i,
+    sort: { key: "rating", direction: "desc", label: "highest rated tutors first" },
+  },
+  // ── Reviews ──
+  {
+    re: /\b(most|top|highest)\s+reviewed\b/i,
+    sort: { key: "reviews", direction: "desc", label: "most reviewed tutors first" },
+  },
+  // ── Price / budget ──
+  {
+    re: /\b(cheapest|most\s+affordable|lowest\s+(price|budget|cost|rate|fee))\b/i,
+    sort: { key: "price", direction: "asc", label: "cheapest options first" },
+  },
+  {
+    re: /\b(most\s+expensive|highest\s+(price|budget|cost|rate|fee))\b/i,
+    sort: { key: "price", direction: "desc", label: "most expensive options first" },
+  },
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(price|budget|cost|rate|fee)\b/i,
+    sort: { key: "price", direction: "asc", label: "cheapest options first" },
+  },
+];
+
+/** Detect an unambiguous sort request in a user message (null = no sort). */
+export function detectSortIntent(message: string): SortIntent | null {
+  const lower = message.toLowerCase();
+  for (const { re, sort } of SORT_INTENT_PATTERNS) {
+    if (re.test(lower)) return sort;
+  }
+  return null;
+}
+
+/**
+ * Deterministically re-order scored results by the detected sort intent.
+ * Missing sort data sinks to the bottom regardless of direction. Ties keep
+ * their existing relative order (stable sort).
+ */
+export function applySortToResults(
+  scored: ScoredTutor[],
+  sort: SortIntent,
+): ScoredTutor[] {
+  const value = (t: ScoredTutor): number | null => {
+    switch (sort.key) {
+      case "experience":
+        return t.years_experience ?? null;
+      case "rating":
+        return t.rating ?? null;
+      case "reviews":
+        return t.review_count ?? null;
+      case "price":
+        return t.monthly_rate_npr ?? null;
+    }
+  };
+
+  const sorted = [...scored].sort((a, b) => {
+    const av = value(a);
+    const bv = value(b);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    return sort.direction === "desc" ? bv - av : av - bv;
+  });
+  return sorted;
 }
 
 /**

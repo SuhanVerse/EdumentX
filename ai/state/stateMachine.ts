@@ -9,18 +9,28 @@
  * testable, and easy to debug for MVP.
  *
  * LangGraph can be added in Phase 2 if the flow becomes more complex.
+ *
+ * MIRROR WARNING: This file mirrors `supabase/ai/state/stateMachine.ts`
+ * (the live Edge Function copy). Keep them behaviorally identical — the
+ * only differences are import specifiers (`@/ai/...` here, relative
+ * `.ts` suffixes there). Phase 5 (C2/W1) reconciled the two; do not let
+ * them diverge again.
  */
 
-import type { SessionState, ConversationStep, TutorResult } from "@/ai/types/conversation.types";
+import type { SessionState } from "@/ai/types/conversation.types";
 import type { SearchConstraints } from "@/ai/types/constraints.types";
 import type { StateHandlerResult } from "@/ai/state/states";
-import { isValidTransition, getNextQuestion } from "@/ai/state/states";
+import { getNextQuestion } from "@/ai/state/states";
 import { classifyIntent, quickOffTopicCheck } from "@/ai/domain/intentClassifier";
 import { containsOffensiveContent, checkPromptInjection } from "@/ai/domain/guardrails";
 import { extractConstraints } from "@/ai/agents/constraintExtractor";
 import { mergeConstraints, hasMinimumConstraints } from "@/ai/memory/constraintMerger";
 import { hybridSearch } from "@/ai/retrieval/hybridSearch";
-import { rankTutors } from "@/ai/retrieval/rankingEngine";
+import {
+  rankTutors,
+  detectSortIntent,
+  applySortToResults,
+} from "@/ai/retrieval/rankingEngine";
 import { generateResponse } from "@/ai/agents/responseGenerator";
 import {
   matchFaq,
@@ -58,7 +68,6 @@ export async function processMessage(
   }
 
   // Step 0.5a: Quick off-topic pre-check (before any LLM call)
-  // Uses cheap keyword matching to catch non-tutor questions early.
   if (quickOffTopicCheck(message)) {
     return {
       response: "I'm designed to help you find the right tutor on EdumentX. I can't help with that, but I'd be happy to help you search for tutors by subject, budget, or preference. What subject are you looking for help with?",
@@ -68,14 +77,6 @@ export async function processMessage(
 
   // Step 0.5b: FAQ pre-check (only fires when the message is NOT a
   // tutor-search query AND the FAQ match score clears the high bar).
-  //
-  // Why both gates:
-  //   - Tutor-search signal exclusion prevents "Can I get a tutor who
-  //     teaches English?" from being misrouted to the verification FAQ
-  //     just because both contain the word "tutor".
-  //   - High-confidence bar (0.6+) prevents medium-strength matches
-  //     like "what is a tutor?" from short-circuiting to FAQ. Those
-  //     get classified properly by the LLM intent classifier below.
   const faqResult = matchFaq(message);
   const hasTutorSearchSignal = TUTOR_SEARCH_SIGNAL_PATTERN.test(message);
   if (
@@ -87,7 +88,63 @@ export async function processMessage(
     return {
       response: faqResult.entry.answer +
         "\n\nWould you like help finding a tutor for a specific subject?",
-      state: { ...state, current_step: "collecting" },
+      state: { ...state, current_step: "collecting" as const },
+    };
+  }
+
+  // Step 0.55: Contact-info request guard (mirror of the mock pipeline).
+  //
+  // We NEVER share tutors' personal phone/email in chat — they're surfaced
+  // only after the student enrolls with the tutor. Answer deterministically
+  // so the request can't be misrouted to a search re-run or a generic FAQ
+  // answer by the LLM intent classifier.
+  const contactInfoPatterns = [
+    // Suffix REQUIRED (not optional) so a bare word like "phone" or "email"
+    // in an unrelated message ("my phone is broken…") doesn't false-positive.
+    // Possessive forms ("their email", "tutor's phone") are handled below.
+    /\b(phone|whatsapp|viber)\s*(numbers?|nos?\.?|contacts?|details?|ids?)\b/i,
+    /\b(mobile|cell)\s+(numbers?|nos?\.?)\b/i,
+    /\bemail\s*(addresses?|ids?)\b/i,
+    /\bcontact\s+(details?|info(?:rmation)?)\b/i,
+    /\b(contact|reach|call|message)\s+(the\s+)?(tutor|teacher|them|her|him)\b/i,
+    /\b(tutor's|their|his|her)\s+(phone|email|contact|numbers?|whatsapp|mobile)\b/i,
+  ];
+  const contactMsgLower = message.toLowerCase().trim();
+  if (contactMsgLower.length >= 3 && contactInfoPatterns.some((p) => p.test(contactMsgLower))) {
+    return {
+      response:
+        "I can't share tutors' personal contact details like phone numbers or emails — that protects their privacy. " +
+        "Once you enroll with a tutor through the app, you'll be connected with them directly to schedule and communicate. " +
+        "Would you like help finding a tutor?",
+      state: { ...state, current_step: "collecting" as const },
+    };
+  }
+
+  // Step 0.6: Acknowledgment pre-check (mirror of the mock pipeline).
+  const acknowledgmentPatterns = [
+    /^(ok|okay|k|kk|sure|alright|all right|fine|good|great|nice|awesome|cool|perfect|got it|understood|yes|yeah|yep)\b[.!?\s]*$/i,
+    /^(sounds (good|great|perfect)|that('s| is) (good|great|perfect|fine)|works for me|makes sense)\b[.!?\s]*$/i,
+    /^(thanks|thank you|thank u|thx|ty)(\s+(a lot|so much))?[.!?\s]*$/i,
+    /^(ok|okay|sure|alright)\s+(thanks|thank you|thank u|thx|ty)[.!?\s]*$/i,
+  ];
+  const ackMsgLower = message.toLowerCase().trim();
+  if (ackMsgLower.length >= 1 && acknowledgmentPatterns.some((p) => p.test(ackMsgLower))) {
+    // Still collecting? Continue with the next question — don't re-run.
+    if (!hasMinimumConstraints(state.constraints)) {
+      const nextQuestion = getNextQuestion(state.constraints);
+      if (nextQuestion) {
+        return {
+          response: nextQuestion,
+          state: { ...state, current_step: "collecting" as const },
+        };
+      }
+    }
+    const isThanks = /^\s*(?:ok|okay|sure|alright)?\s*(?:thanks?|thank\s+(?:you|u)|thx|ty)\b[.!?\s]*$/i.test(ackMsgLower);
+    return {
+      response: isThanks
+        ? "You're welcome! If you'd like to refine your results or search for another subject, just let me know."
+        : "Got it! Let me know if you'd like to adjust your filters or search for a different subject.",
+      state,
     };
   }
 
@@ -151,6 +208,13 @@ async function handleCollectingState(
       location_text: undefined,
     };
     const mergedConstraints = mergeConstraints(state.constraints, locationPatch);
+    // `mergeConstraints` drops `undefined` values, so the opt-out patch
+    // can't clear a previously-set location_text by itself. Delete it
+    // explicitly — "anywhere" must override "in Kathmandu", not stack
+    // on top of it (C3/"anywhere" edge case flagged in Phase 5 review).
+    if (mergedConstraints.location_text) {
+      delete mergedConstraints.location_text;
+    }
     if (!hasMinimumConstraints(mergedConstraints)) {
       const question = getNextQuestion(mergedConstraints);
       return {
@@ -158,7 +222,7 @@ async function handleCollectingState(
         state: { ...state, constraints: mergedConstraints },
       };
     }
-    return await executeSearch(state, mergedConstraints);
+    return await executeSearch(state, mergedConstraints, message);
   }
 
   // Step 1: Classify intent (with conversation history for context)
@@ -180,15 +244,21 @@ async function handleCollectingState(
     };
   }
 
-  // Step 4: Handle knowledge base questions
+  // Step 4: Handle knowledge base questions — route to the actual FAQ
+  // entry's answer when the matcher has a strong hit. Falls back to a
+  // generic verification explanation only when no FAQ entry matched.
   if (classification.domain_check.intent === "ask_knowledge_base") {
-    return {
-      response: "Let me answer that from what I know about EdumentX!\n\n" +
+    const faqHit = matchFaq(message);
+    const faqResponse = faqHit.matched && faqHit.entry
+      ? faqHit.entry.answer
+      : "Let me answer that from what I know about EdumentX!\n\n" +
         "A Verified Tutor has completed EdumentX's verification process, which confirms their identity and qualifications. " +
         "They display a verification badge on their profile.\n\n" +
         "The verification process requires: (1) Government-issued ID, (2) Education certificate, (3) A short introductory video. " +
         "The admin team reviews these within 24-48 hours.\n\n" +
-        "Would you like help finding a tutor for a specific subject?",
+        "Would you like help finding a tutor for a specific subject?";
+    return {
+      response: faqResponse + "\n\nWould you like help finding a tutor for a specific subject?",
       state,
     };
   }
@@ -197,41 +267,41 @@ async function handleCollectingState(
   // but don't require a subject (skip hasMinimumConstraints check)
   if (classification.domain_check.intent === "list_all") {
     const newConstraints = await extractConstraints(message, state.constraints);
-    const mergedConstraints = mergeConstraints(state.constraints, newConstraints);
-    return await executeSearch(state, mergedConstraints);
+    const mergedConstraints = stripSortPhraseFilters(
+      message,
+      mergeConstraints(state.constraints, newConstraints),
+    );
+    return await executeSearch(state, mergedConstraints, message);
   }
 
   // Step 6: Extract and merge constraints
   const newConstraints = await extractConstraints(message, state.constraints);
-  const mergedConstraints = mergeConstraints(state.constraints, newConstraints);
+  const mergedConstraints = stripSortPhraseFilters(
+    message,
+    mergeConstraints(state.constraints, newConstraints),
+  );
 
-  // Step 7: Check if we have enough to search
-  if (!hasMinimumConstraints(mergedConstraints)) {
-    // Ask a clarifying question
-    const question = getNextQuestion(mergedConstraints);
+  // Step 7: ONE decision point. Either we meet the minimum gate and search,
+  // or we don't and ask the next single clarifying question. Never both —
+  // calling getNextQuestion twice in one turn is the source of the
+  // "What grade?" repeated-question bug (C1).
+  const ready = hasMinimumConstraints(mergedConstraints);
+  const nextQuestion = getNextQuestion(mergedConstraints);
+
+  if (!ready && nextQuestion) {
     return {
-      response: question ?? "What subject are you looking for help with? I can find you a great tutor!",
+      response: nextQuestion,
       state: {
         ...state,
         constraints: mergedConstraints,
+        current_step: "collecting",
       },
     };
   }
 
-  // Step 8: Check if we need more info before searching
-  const question = getNextQuestion(mergedConstraints);
-  if (question) {
-    return {
-      response: question,
-      state: {
-        ...state,
-        constraints: mergedConstraints,
-      },
-    };
-  }
-
-  // Step 9: We have enough info — transition to SEARCHING
-  return await executeSearch(state, mergedConstraints);
+  // Step 8: Minimum met (or no further question to ask) — execute the search
+  // and transition to PRESENTING.
+  return await executeSearch(state, mergedConstraints, message);
 }
 
 /**
@@ -271,20 +341,26 @@ async function handlePresentingState(
   if (classification.domain_check.intent === "greeting") {
     return {
       response: "Hello! I'm EdumentX AI. I can help you find the perfect tutor for your needs. What subject are you looking for help with?",
-      state: { ...state, current_step: "collecting" },
+      state: { ...state, current_step: "collecting" as const },
     };
   }
 
-  // Handle knowledge base questions (regardless of state)
+  // Handle knowledge base questions (regardless of state) — use the FAQ
+  // matcher's actual answer when available, fall back to a generic
+  // verification explanation when no entry matches.
   if (classification.domain_check.intent === "ask_knowledge_base") {
-    return {
-      response: "Let me answer that from what I know about EdumentX!\n\n" +
+    const faqHit = matchFaq(message);
+    const faqResponse = faqHit.matched && faqHit.entry
+      ? faqHit.entry.answer
+      : "Let me answer that from what I know about EdumentX!\n\n" +
         "A Verified Tutor has completed EdumentX's verification process, which confirms their identity and qualifications. " +
         "They display a verification badge on their profile.\n\n" +
         "The verification process requires: (1) Government-issued ID, (2) Education certificate, (3) A short introductory video. " +
         "The admin team reviews these within 24-48 hours.\n\n" +
-        "Would you like help finding a tutor for a specific subject?",
-      state: { ...state, current_step: "collecting" },
+        "Would you like help finding a tutor for a specific subject?";
+    return {
+      response: faqResponse + "\n\nWould you like help finding a tutor for a specific subject?",
+      state: { ...state, current_step: "collecting" as const },
     };
   }
 
@@ -294,8 +370,11 @@ async function handlePresentingState(
     classification.domain_check.intent === "compare_tutors"
   ) {
     const newConstraints = await extractConstraints(message, state.constraints);
-    const mergedConstraints = mergeConstraints(state.constraints, newConstraints);
-    return await executeSearch(state, mergedConstraints);
+    const mergedConstraints = stripSortPhraseFilters(
+      message,
+      mergeConstraints(state.constraints, newConstraints),
+    );
+    return await executeSearch(state, mergedConstraints, message);
   }
 
   // Change criteria entirely
@@ -323,9 +402,6 @@ async function handlePresentingState(
   }
 
   // Default: redirect to collecting for proper re-classification
-  // This handles cases where the intent classifier didn't match a presenting-specific
-  // intent — it's safer than blindly calling executeSearch (which would return tutor
-  // cards for non-search questions like FAQ or feedback).
   return handleCollectingState(
     { ...state, current_step: "collecting" },
     message,
@@ -351,6 +427,7 @@ async function handleFollowupState(
 async function executeSearch(
   state: SessionState,
   constraints: SearchConstraints,
+  message?: string,
 ): Promise<StateHandlerResult> {
   // Perform the hybrid search
   const searchResult = await hybridSearch(constraints, {
@@ -358,8 +435,19 @@ async function executeSearch(
     limit: 20,
   });
 
-  // Rank the results
-  const rankedResults = rankTutors(searchResult.tutors, constraints, 5);
+  // Deterministic sort (LLM-free) — mirrors the mock pipeline. When the
+  // message explicitly asks to sort ("sort by experience", "cheapest
+  // first"), rank a LARGER pool first (20) so the sort can surface the
+  // best match (e.g. the most experienced tutor) even if they ranked 6th+
+  // by the weighted formula — then sort + cap to the card limit. Only
+  // vague reorder phrases still rely on the LLM.
+  const sortIntent = message ? detectSortIntent(message) : null;
+  const rankedResults = sortIntent
+    ? applySortToResults(
+        rankTutors(searchResult.tutors, constraints, 20),
+        sortIntent,
+      ).slice(0, 5)
+    : rankTutors(searchResult.tutors, constraints, 5);
 
   // If no results found
   if (rankedResults.length === 0) {
@@ -383,12 +471,11 @@ async function executeSearch(
     };
   }
 
-  // Generate the response
-  const response = await generateResponse(
-    rankedResults,
-    constraints,
-    state,
-  );
+  // Generate the response. Deterministic sorts get a deterministic reply
+  // (no LLM warm-tone call — it's redundant for "sorted by X").
+  const response = sortIntent
+    ? `Here are ${rankedResults.length} tutor${rankedResults.length === 1 ? "" : "s"} for you, ${sortIntent.label}.`
+    : await generateResponse(rankedResults, constraints, state);
 
   return {
     response,
@@ -403,4 +490,38 @@ async function executeSearch(
     search_performed: true,
     results: rankedResults,
   };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * A pure sort request must not ALSO become a filter. "sort by experience"
+ * must not set `min_experience=3` (the LLM extractor can infer a number
+ * from the bare word), and "top rated" / "sort by rating" must not set
+ * `min_rating=4.5` — unless the user states an explicit numeric threshold
+ * ("3+ years", "4.5+ stars"). Mirrors the mock fix in
+ * `ai/domain/keywords.ts` and `services/ai/mockChatService.ts`.
+ */
+function stripSortPhraseFilters(
+  message: string,
+  constraints: SearchConstraints,
+): SearchConstraints {
+  const sort = detectSortIntent(message);
+  if (!sort) return constraints;
+  const rest = { ...constraints };
+  if (
+    sort.key === "experience" &&
+    rest.min_experience !== undefined &&
+    !/\b\d+\s*(?:years?|yrs?)\b/i.test(message)
+  ) {
+    delete rest.min_experience;
+  }
+  if (
+    sort.key === "rating" &&
+    rest.min_rating !== undefined &&
+    !/\b\d+(?:\.\d+)?\s*(?:stars?|rating|rated|out\s+of\s+5)\b/i.test(message)
+  ) {
+    delete rest.min_rating;
+  }
+  return rest;
 }

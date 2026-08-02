@@ -297,7 +297,13 @@ function fallbackExtractConstraints(
     }
   }
 
-  // ── Radius / proximity ──
+  // ── Radius / proximity (C12: map integration groundwork) ──
+  //
+  // "within 5 km" → explicit radius. "near me" / "nearby" → default 5 km
+  // AND `location_preference: "near_me"`. The preference flag is the hook
+  // the future map integration reads to prioritize location / use the
+  // student's GPS. It doesn't change the current filter behavior — the
+  // search still runs without real distance math.
   if (WITHIN_KM_PATTERN.test(lower)) {
     const m = lower.match(WITHIN_KM_PATTERN);
     if (m) {
@@ -305,6 +311,10 @@ function fallbackExtractConstraints(
     }
   } else if (PROXIMITY_PATTERN.test(lower)) {
     constraints.radius_km = 5;
+    // "anywhere" wins over "nearby" if both appear (e.g. "anywhere nearby")
+    if (!constraints.location_preference) {
+      constraints.location_preference = "near_me";
+    }
   }
 
   // ── Grade detection ──
@@ -374,6 +384,7 @@ function fallbackExtractConstraints(
     // Single word proximity
     if (lower === "nearby" && !existingConstraints.radius_km) {
       constraints.radius_km = 5;
+      constraints.location_preference = "near_me";
     }
   }
 
@@ -384,7 +395,10 @@ function fallbackExtractConstraints(
   if (constraints.budget_max) parts.push(`under Rs ${constraints.budget_max}`);
   if (constraints.budget_min) parts.push(`from Rs ${constraints.budget_min}`);
   if (constraints.location_text) parts.push(`in ${constraints.location_text}`);
-  if (constraints.tutoring_mode) parts.push(constraints.tutoring_mode);
+  // Gender: keep in the semantic query so "female tutor" ranks higher.
+  // tutoring_mode/language are intentionally NOT included — they are
+  // SQL-only filters (see buildSearchQueryText / migration 010).
+  if (constraints.gender_preference) parts.push(`${constraints.gender_preference} tutor`);
   if (parts.length > 0) {
     parts.push("tutor");
     constraints.query_text = parts.join(" ");

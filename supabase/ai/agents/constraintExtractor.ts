@@ -350,7 +350,10 @@ function fallbackExtractConstraints(
   if (constraints.budget_max) parts.push(`under Rs ${constraints.budget_max}`);
   if (constraints.budget_min) parts.push(`from Rs ${constraints.budget_min}`);
   if (constraints.location_text) parts.push(`in ${constraints.location_text}`);
-  if (constraints.tutoring_mode) parts.push(constraints.tutoring_mode);
+  // Gender: keep in the semantic query so "female tutor" ranks higher.
+  // tutoring_mode/language are intentionally NOT included — they are
+  // SQL-only filters (see buildSearchQueryText / migration 010).
+  if (constraints.gender_preference) parts.push(`${constraints.gender_preference} tutor`);
   if (parts.length > 0) {
     parts.push("tutor");
     constraints.query_text = parts.join(" ");
@@ -368,6 +371,32 @@ function fallbackExtractConstraints(
   ];
   if (openLocationTriggers.some((t) => lower.includes(t))) {
     constraints.location_preference = "anywhere";
+  }
+
+  // ── Proximity (C12: map integration groundwork) ──
+  //
+  // "within 5 km" → explicit radius. "near me" / "nearby" → default 5 km
+  // AND `location_preference: "near_me"`. The preference flag is the hook
+  // the future map integration reads to prioritize location / use the
+  // student's GPS. No radius math yet — the preference flag alone is the
+  // groundwork (the user asked for ready-but-not-perfect until the map
+  // lands). Mirrors `ai/agents/constraintExtractor.ts` + `lib/ai/clientConstraintParser.ts`.
+  const withinKmPattern = /\bwithin\s+(\d+(?:\.\d+)?)\s*(?:km|kms?|kilometers?|kilometres?)\b/i;
+  const proximityPattern = /\b(nearby|near\s+me|close\s+to|walking\s+distance|near\s+my|proximity)\b/i;
+  if (withinKmPattern.test(lower)) {
+    const m = lower.match(withinKmPattern);
+    if (m) {
+      constraints.radius_km = parseFloat(m[1]);
+    }
+  } else if (proximityPattern.test(lower)) {
+    // "anywhere" wins over "nearby" if both appear (e.g. "anywhere nearby")
+    if (!constraints.location_preference) {
+      constraints.location_preference = "near_me";
+    }
+    // Mirror the root extractor + client parser (C12 parity): default 5 km.
+    // Inert today (the RPC doesn't filter by radius yet) but ready for the
+    // map integration.
+    constraints.radius_km = 5;
   }
 
   return constraints;

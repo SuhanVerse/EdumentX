@@ -187,7 +187,13 @@ export function parseMessageToConstraints(
     }
   }
 
-  // ── Radius / proximity ──
+  // ── Radius / proximity (C12: map integration groundwork) ──
+  //
+  // "within 5 km" → explicit radius. "near me" / "nearby" → default 5 km
+  // AND `location_preference: "near_me"`. The preference flag is the hook
+  // the future map integration reads to prioritize location / use the
+  // student's GPS. It doesn't change the current filter behavior — the
+  // search still runs without real distance math.
   if (WITHIN_KM_PATTERN.test(lower)) {
     const m = lower.match(WITHIN_KM_PATTERN);
     if (m) {
@@ -195,6 +201,10 @@ export function parseMessageToConstraints(
     }
   } else if (PROXIMITY_PATTERN.test(lower)) {
     out.radius_km = 5;
+    // "anywhere" wins over "nearby" if both appear (e.g. "anywhere nearby")
+    if (!out.location_preference) {
+      out.location_preference = "near_me";
+    }
   }
 
   // ── Grade ──
@@ -272,6 +282,7 @@ export function parseMessageToConstraints(
     // Single word proximity
     if (lower === "nearby" && !existing.radius_km) {
       out.radius_km = 5;
+      out.location_preference = "near_me";
     }
   }
 

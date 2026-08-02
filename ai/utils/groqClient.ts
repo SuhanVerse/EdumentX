@@ -1,11 +1,21 @@
 /**
  * EdumentX AI — Groq API Wrapper
  *
- * Lightweight Groq API client for Supabase Edge Functions (Deno runtime).
- * Uses raw fetch() instead of the groq-sdk npm package for Deno compatibility.
+ * Lightweight Groq API client. Uses raw fetch() instead of the groq-sdk
+ * npm package for Deno compatibility.
+ *
+ * RUNTIME-AGNOSTIC (C6): this module is imported from the React Native
+ * client (via `@/ai/...`), where `Deno` does not exist. The API key is
+ * resolved from whichever runtime is present:
+ *   - Deno (Edge Function):  Deno.env.get("GROQ_API_KEY")
+ *   - React Native / Node:   process.env.EXPO_PUBLIC_GROQ_API_KEY (or GROQ_API_KEY)
+ *
+ * The `Deno` global is accessed through `globalThis` so referencing it
+ * never throws a ReferenceError in React Native (the original bug).
  *
  * Environment variables:
- *   GROQ_API_KEY — from console.groq.com
+ *   GROQ_API_KEY               — server-side (Deno)
+ *   EXPO_PUBLIC_GROQ_API_KEY   — client-side (React Native, Expo inlines this)
  *
  * Model: llama-3.1-70b-versatile (free tier on Groq)
  */
@@ -48,14 +58,28 @@ export interface GroqConfig {
 }
 
 /**
- * Get the Groq API key from environment
+ * Get the Groq API key from the current runtime's environment.
+ *
+ * C6 fix: the previous implementation called `Deno.env.get(...)` directly,
+ * which threw `ReferenceError: Deno is not defined` when this file was
+ * loaded inside React Native (the `Deno` global only exists in the Deno
+ * runtime). We now probe `globalThis.Deno` and fall back to `process.env`.
  */
 function getApiKey(): string {
-  const key = Deno.env.get("GROQ_API_KEY");
-  if (!key) {
-    throw new Error("GROQ_API_KEY environment variable is not set");
-  }
-  return key;
+  const runtime = globalThis as unknown as {
+    Deno?: { env?: { get: (key: string) => string | undefined } };
+    process?: { env?: Record<string, string | undefined> };
+  };
+
+  const denoKey = runtime.Deno?.env?.get("GROQ_API_KEY");
+  if (denoKey) return denoKey;
+
+  const procKey =
+    runtime.process?.env?.EXPO_PUBLIC_GROQ_API_KEY ??
+    runtime.process?.env?.GROQ_API_KEY;
+  if (procKey) return procKey;
+
+  throw new Error("GROQ_API_KEY environment variable is not set");
 }
 
 /**

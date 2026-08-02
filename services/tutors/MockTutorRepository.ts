@@ -232,9 +232,9 @@ export const MockTutorRepository: TutorRepository = {
    * to satisfy tutor recommendation requests without a server
    * round-trip.
    */
-  async searchTutors(filters: TutorSearchFilters): Promise<TutorSearchResult> {
+  async searchTutors(filters: TutorSearchFilters, cap = 5): Promise<TutorSearchResult> {
     const filtered = applyFilters(MOCK_TUTORS, filters);
-    const ranked = rankAndCap(filtered, 5);
+    const ranked = rankAndCap(filtered, cap);
     const listings = ranked.map(profileToListing);
     return { tutors: listings, totalCount: filtered.length };
   },

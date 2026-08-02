@@ -88,6 +88,7 @@ export interface ChatResponse {
     monthlyRateNpr: number;
     rating: number;
     reviewCount: number;
+    yearsExperience?: number;
     location?: { neighborhood: string; city: string };
     photoUrl?: string | null;
     verificationStatus?: string;
@@ -151,6 +152,8 @@ function mapTutorCard(raw: Record<string, unknown>): NonNullable<ChatResponse["t
     monthlyRateNpr: Number(camel.monthlyRateNpr ?? 0),
     rating: Number(camel.rating ?? 0),
     reviewCount: Number(camel.reviewCount ?? 0),
+    yearsExperience:
+      camel.yearsExperience != null ? Number(camel.yearsExperience) : undefined,
     location: camel.location
       ? { neighborhood: String((camel.location as Record<string, unknown>).neighborhood ?? ""),
           city: String((camel.location as Record<string, unknown>).city ?? "") }
@@ -335,7 +338,7 @@ export async function sendChatMessage(
  * Generate a unique session ID client-side.
  * Format: "chat_" + timestamp + random suffix
  *
- * Used by both the chat store and the useConversation hook.
+ * Used by the chat store (which persists it across app restarts).
  */
 export function generateSessionId(): string {
   const timestamp = Date.now().toString(36);

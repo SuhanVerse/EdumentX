@@ -156,7 +156,17 @@ export async function generateEmbeddingsBatch(
 // ─── Internals ───────────────────────────────────────────────────────────────
 
 function getHfToken(): string {
-  const token = Deno.env.get("HF_API_TOKEN");
+  // RUNTIME-AGNOSTIC (C6): probe `globalThis.Deno` first (Edge Function),
+  // fall back to `process.env` (Node / React Native). Never reference
+  // `Deno` directly — it throws ReferenceError outside the Deno runtime.
+  const runtime = globalThis as unknown as {
+    Deno?: { env?: { get: (key: string) => string | undefined } };
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const token =
+    runtime.Deno?.env?.get("HF_API_TOKEN") ??
+    runtime.process?.env?.EXPO_PUBLIC_HF_API_TOKEN ??
+    runtime.process?.env?.HF_API_TOKEN;
   if (!token) {
     throw new Error("HF_API_TOKEN environment variable is not set");
   }

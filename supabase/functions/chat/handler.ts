@@ -48,9 +48,10 @@ export async function handleRequest(req: Request): Promise<Response> {
     return errorResponse(err instanceof Error ? err : new Error("Validation failed"));
   }
 
-  // Step 4: Rate limit check (per user)
+  // Step 4: Rate limit check (per user) — PostgreSQL-backed (C17),
+  // survives Edge Function cold starts.
   try {
-    checkRateLimit(user.uid);
+    await checkRateLimit(user.uid);
   } catch (err) {
     return errorResponse(err instanceof Error ? err : new Error("Rate limit exceeded"));
   }

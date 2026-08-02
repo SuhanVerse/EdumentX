@@ -22,6 +22,10 @@ export interface TutorEmbeddingSource {
   institution: string;
   neighborhood: string;
   city: string;
+  /** Monthly rate in NPR — included so budget queries rank better. */
+  monthly_rate_npr?: number;
+  /** Gender — included so "female tutor" / "male tutor" queries match. */
+  gender?: string;
 }
 
 // ─── Builder ─────────────────────────────────────────────────────────────────
@@ -67,7 +71,17 @@ export function buildEmbeddingText(tutor: Partial<TutorEmbeddingSource>): string
     parts.push(`Qualification: ${qualifications.join(", ")}.`);
   }
 
-  // 6. Location
+  // 6. Budget (monthly rate) — helps "under Rs 5000" queries match.
+  if (tutor.monthly_rate_npr && tutor.monthly_rate_npr > 0) {
+    parts.push(`Monthly rate around Rs ${tutor.monthly_rate_npr}.`);
+  }
+
+  // 7. Gender — helps "female tutor" / "male tutor" queries match.
+  if (tutor.gender) {
+    parts.push(`${tutor.gender.charAt(0).toUpperCase()}${tutor.gender.slice(1)} tutor.`);
+  }
+
+  // 8. Location
   const location = [tutor.neighborhood, tutor.city].filter(Boolean).join(", ");
   if (location) {
     parts.push(`Located in ${location}.`);
@@ -86,8 +100,8 @@ export function buildSearchQueryText(constraints: {
   budget_max?: number;
   location_text?: string;
   gender_preference?: string;
-  tutoring_mode?: string;
-  language?: string;
+  // NOTE: tutoring_mode / language are deliberately NOT part of the semantic
+  // query — they are SQL-only filters (migration 010).
 }): string {
   const parts: string[] = [];
 
@@ -99,13 +113,26 @@ export function buildSearchQueryText(constraints: {
     parts.push(`for grade ${constraints.grade_level}`);
   }
 
-  if (constraints.language) {
-    parts.push(`in ${constraints.language}`);
+  // Budget — keep the amount in the semantic query so tutors whose rate
+  // matches rank higher ("under Rs 5000" ↔ "Monthly rate around Rs 5000").
+  if (constraints.budget_max) {
+    parts.push(`under Rs ${constraints.budget_max}`);
   }
 
-  if (constraints.tutoring_mode === "online") {
-    parts.push("online tutoring");
+  // Location — "in Kathmandu" / "in Baneshwor"
+  if (constraints.location_text) {
+    parts.push(`in ${constraints.location_text}`);
   }
+
+  // Gender preference — "female tutor" / "male tutor"
+  if (constraints.gender_preference) {
+    parts.push(`${constraints.gender_preference} tutor`);
+  }
+
+  // NOTE: `language` and `tutoring_mode` are intentionally NOT included in
+  // the semantic query text — they are enforced as SQL filters only (see
+  // migration 010). Keeping them out of the embedding prevents them from
+  // skewing semantic similarity.
 
   // Add context words that help match tutor bios
   parts.push("tutor");

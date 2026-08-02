@@ -151,10 +151,11 @@ function buildUserPrompt(input: GroqRankInput): string {
   lines.push("Candidate tutors (already filtered by subject/grade/location/budget):");
   for (const c of input.candidates) {
     const loc = c.location ? `${c.location.neighborhood}, ${c.location.city}` : "—";
+    const yrs = c.yearsExperience != null ? `${c.yearsExperience}yr` : "?";
     lines.push(
       `- id=${c.id} | ${c.fullName} | ${c.headline} | ${c.subjects.join("/")} | ` +
         `Rs ${c.monthlyRateNpr.toLocaleString()} | rating ${c.rating} (${c.reviewCount} reviews) | ` +
-        `${loc} | verified=${c.verificationStatus ?? "unknown"}`,
+        `${yrs} | ${loc} | verified=${c.verificationStatus ?? "unknown"}`,
     );
   }
 
@@ -225,9 +226,12 @@ const REORDER_KEYWORDS = [
   /\barrange\s+(by|in)/i,
   /\blist\s+(by|in\s+order)/i,
   /\b(sort|order|arrange|list)\s+(by|in)/i,
-  /\b(recommend\b|best\s+match|top\s+rated|best\s+suited)\b/i,
+  /\b(best\s+match|top\s+rated|best\s+suited)\b/i,
   /\bmost\s+(qualified|experienced|popular|reviewed)\b/i,
-  /\bput\s+(the\s+)?(best|top|highest)\s+(at|on)\s+(top|first)/i,
+  /\b(by|sorted\s+by|arranged\s+by)\s+(experience|seniority|years)\b/i,
+  /\b(experience[d]?|seniority|years?\s+of\s+experience)\s+(first|top|highest)\b/i,
+  /\b(high|highest|most)\s+(experience|seniority)\b/i,
+  /\bput\s+(the\s+)?(most\s+)?(experienced|senior)\s+(at|on)\s+(top|first)/i,
 ];
 
 /**
@@ -244,6 +248,123 @@ export function hasReorderIntent(recentMessages: ReadonlyArray<{ role: "user" | 
     }
   }
   return false;
+}
+
+// ─── Deterministic Sort (LLM-free) ──────────────────────────────────────────
+
+export interface DeterministicSort {
+  key: "experience" | "rating" | "reviews" | "price";
+  direction: "asc" | "desc";
+  /** Short human phrase for the reply, e.g. "most experienced tutors first". */
+  label: string;
+}
+
+/**
+ * Patterns that map unambiguously to a deterministic re-order. When one
+ * of these matches, the mock pipeline sorts the cards directly — no Groq
+ * call, no failure mode, no latency. Only vague reorder phrases that
+ * can't be resolved here ("reorder", "best match", "best suited") fall
+ * through to the LLM re-ranker.
+ */
+const DETERMINISTIC_SORT_PATTERNS: Array<{ re: RegExp; sort: DeterministicSort }> = [
+  // ── Experience ──
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(experience|seniority|years)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(most|more)\s+experienced\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(experience[d]?|senior)\s+(first|top|highest)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\b(high|highest|most)\s+(experience|seniority)\b/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  {
+    re: /\bput\s+(the\s+)?(most\s+)?(experienced|senior)\s+(at|on)\s+(top|first)/i,
+    sort: { key: "experience", direction: "desc", label: "most experienced tutors first" },
+  },
+  // ── Rating ──
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(rating|ratings)\b/i,
+    sort: { key: "rating", direction: "desc", label: "highest rated tutors first" },
+  },
+  {
+    re: /\b(highest|best|top|most)\s+rated\b/i,
+    sort: { key: "rating", direction: "desc", label: "highest rated tutors first" },
+  },
+  // ── Reviews ──
+  {
+    re: /\b(most|top|highest)\s+reviewed\b/i,
+    sort: { key: "reviews", direction: "desc", label: "most reviewed tutors first" },
+  },
+  // ── Price / budget ──
+  {
+    re: /\b(cheapest|most\s+affordable|lowest\s+(price|budget|cost|rate|fee))\b/i,
+    sort: { key: "price", direction: "asc", label: "cheapest options first" },
+  },
+  {
+    re: /\b(most\s+expensive|highest\s+(price|budget|cost|rate|fee))\b/i,
+    sort: { key: "price", direction: "desc", label: "most expensive options first" },
+  },
+  {
+    re: /\b(by|sorted\s+by|sort\s+by|arranged\s+by|arrange\s+by)\s+(price|budget|cost|rate|fee)\b/i,
+    sort: { key: "price", direction: "asc", label: "cheapest options first" },
+  },
+];
+
+/**
+ * Detect an unambiguous sort request in a user message.
+ * Returns null when no deterministic sort can be resolved.
+ */
+export function detectDeterministicSort(message: string): DeterministicSort | null {
+  const lower = message.toLowerCase();
+  for (const { re, sort } of DETERMINISTIC_SORT_PATTERNS) {
+    if (re.test(lower)) return sort;
+  }
+  return null;
+}
+
+/**
+ * Deterministically re-order the candidate cards according to a detected
+ * sort intent. Returns the input order untouched when no sort intent is
+ * found. Ties preserve their existing relative order (stable sort).
+ */
+export function applyDeterministicSort(
+  cards: ReadonlyArray<TutorCard>,
+  message: string,
+): TutorCard[] {
+  const sort = detectDeterministicSort(message);
+  if (!sort) return [...cards];
+
+  const value = (c: TutorCard): number | null => {
+    switch (sort.key) {
+      case "experience":
+        return c.yearsExperience ?? null;
+      case "rating":
+        return c.rating ?? null;
+      case "reviews":
+        return c.reviewCount ?? null;
+      case "price":
+        return c.monthlyRateNpr ?? null;
+    }
+  };
+
+  const sorted = [...cards].sort((a, b) => {
+    const av = value(a);
+    const bv = value(b);
+    // Cards with missing sort data always sink to the bottom,
+    // regardless of direction.
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    return sort.direction === "desc" ? bv - av : av - bv;
+  });
+  return sorted;
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

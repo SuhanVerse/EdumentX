@@ -164,8 +164,12 @@ export const EXPERIENCE_PATTERNS: ReadonlyArray<ExperiencePattern> = [
   { regex: /\b(more\s+than|over|above)\s+(\d+)\s*(?:years?|yrs?)\b/i, value: (m) => parseInt(m[2], 10) },
   // "X+ experience year(s)" — words in reverse order ("6+ experience year")
   { regex: /(\d+)\s*\+\s*experience\s+(?:years?|yrs?)\b/i, value: (m) => parseInt(m[1], 10) },
-  // "experienced" or "experience" — default 3 (catch-all for bare word)
-  { regex: /\bexperience[d]?\b/i, value: () => 3 },
+  // NOTE: The old catch-all `/\bexperience[d]?\b/ → 3` was REMOVED. It made
+  // ANY sentence containing the word "experience" (e.g. "sort by experience",
+  // "I have experience learning online") set min_experience=3 and silently
+  // filter out tutors under 3 years. Bare-word handling lives in the parsers
+  // themselves: exact "experienced" → 3 and "expert" → 5 (client parser +
+  // server constraintExtractor). Only explicit number patterns belong here.
   // "at least 3 years" / "minimum 5 years" / "min 3 years"
   { regex: /\b(at\s+least|minimum|min)\s+(\d+)\s*(?:years?|yrs?)\b/i, value: (m) => parseInt(m[2], 10) },
 ];

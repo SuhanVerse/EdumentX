@@ -1,26 +1,41 @@
 /**
  * EdumentX AI — Supabase Client
  *
- * Creates a Supabase client configured for use inside
- * Supabase Edge Functions (Deno runtime).
+ * Creates a Supabase client for server-side database access
+ * (Edge Function / seed script). Uses the service_role key for
+ * unrestricted database access. Authentication is handled separately
+ * via Firebase JWT verification.
  *
- * Uses the service_role key for unrestricted database access.
- * Authentication is handled separately via Firebase JWT verification.
+ * RUNTIME-AGNOSTIC (C6): the service key is resolved from whichever
+ * runtime is present — Deno (`Deno.env`) or Node/React Native
+ * (`process.env`). Accessing `Deno` directly in a non-Deno runtime
+ * throws a ReferenceError, so we probe `globalThis` instead.
  *
  * Environment variables:
  *   SUPABASE_URL — Project URL (https://[ref].supabase.co)
- *   SUPABASE_SERVICE_ROLE_KEY — Service role key (secret)
+ *   SUPABASE_SERVICE_ROLE_KEY — Service role key (secret, never EXPO_PUBLIC_)
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 let client: ReturnType<typeof createClient> | null = null;
 
+function getEnv(name: string): string | undefined {
+  const runtime = globalThis as unknown as {
+    Deno?: { env?: { get: (key: string) => string | undefined } };
+    process?: { env?: Record<string, string | undefined> };
+  };
+  return (
+    runtime.Deno?.env?.get(name) ??
+    runtime.process?.env?.[name]
+  );
+}
+
 export function getSupabaseClient(): ReturnType<typeof createClient> {
   if (client) return client;
 
-  const url = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = getEnv("SUPABASE_URL");
+  const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!url) throw new Error("SUPABASE_URL environment variable is not set");
   if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY environment variable is not set");

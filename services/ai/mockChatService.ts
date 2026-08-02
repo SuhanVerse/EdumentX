@@ -32,7 +32,10 @@
 
 import type { ChatResponse } from "@/services/ai/chatService";
 import { MockTutorRepository } from "@/services/tutors/MockTutorRepository";
-import type { TutorSearchFilters } from "@/services/tutors/TutorRepository";
+import type {
+  TutorListing,
+  TutorSearchFilters,
+} from "@/services/tutors/TutorRepository";
 import { parseMessageToConstraints } from "@/lib/ai/clientConstraintParser";
 import {
   hasMinimumConstraints,
@@ -40,7 +43,12 @@ import {
   type ClientSearchConstraints,
 } from "@/lib/ai/minimumConstraints";
 import { MOCK_TUTORS_COUNTS } from "@/lib/mock/tutors";
-import { groqRank, hasReorderIntent } from "@/services/ai/groqRanker";
+import {
+  groqRank,
+  hasReorderIntent,
+  detectDeterministicSort,
+  applyDeterministicSort,
+} from "@/services/ai/groqRanker";
 import {
   checkResponse,
   containsOffensiveContent,
@@ -310,10 +318,121 @@ export async function sendMockChatMessage(
     };
   }
 
+  // Step 0.75: Contact-info request guard.
+  //
+  // Students occasionally ask for a tutor's phone/email. By design we NEVER
+  // share personal contact details in chat — they're surfaced only after the
+  // student enrolls with the tutor (see the privacy FAQ + checkContactInfoLeak
+  // guardrail). Answer deterministically (no LLM) so the request can't be
+  // misrouted to a search re-run or a generic FAQ answer.
+  const contactInfoPatterns = [
+    // Suffix REQUIRED (not optional) so a bare word like "phone" or "email"
+    // in an unrelated message ("my phone is broken…") doesn't false-positive.
+    // Possessive forms ("their email", "tutor's phone") are handled below.
+    /\b(phone|whatsapp|viber)\s*(numbers?|nos?\.?|contacts?|details?|ids?)\b/i,
+    /\b(mobile|cell)\s+(numbers?|nos?\.?)\b/i,
+    /\bemail\s*(addresses?|ids?)\b/i,
+    /\bcontact\s+(details?|info(?:rmation)?)\b/i,
+    /\b(contact|reach|call|message)\s+(the\s+)?(tutor|teacher|them|her|him)\b/i,
+    /\b(tutor's|their|his|her)\s+(phone|email|contact|numbers?|whatsapp|mobile)\b/i,
+  ];
+  if (msgLower.length >= 3 && contactInfoPatterns.some((p) => p.test(msgLower))) {
+    return {
+      type: "message",
+      content:
+        "I can't share tutors' personal contact details like phone numbers or emails — that protects their privacy. " +
+        "Once you enroll with a tutor through the app, you'll be connected with them directly to schedule and communicate. " +
+        "Would you like help finding a tutor?",
+      session_id: sessionId,
+      state: {
+        current_step: "collecting",
+        constraints: (currentConstraints ?? {}) as Record<string, unknown>,
+      },
+    };
+  }
+
+  // Step 0.8: Acknowledgment pre-check.
+  //
+  // "okay", "sounds good", "thanks", "great" etc. acknowledge the last
+  // message rather than start a new search. Re-running the search would
+  // just re-show identical cards (wasteful + confusing). Instead:
+  //   - still collecting constraints → continue naturally with the next
+  //     question (contextual continuation, no re-parse);
+  //   - results already shown → short warm acknowledgment pointing back
+  //     at the cards. (In-session, minimum constraints being met means a
+  //     search already ran and cards are on screen.)
+  // NOTE: `yes|yeah|yep` are included because the current collection flow
+  // only asks OPEN-ENDED questions (subject/grade/budget) — "yes" can never
+  // be a valid answer today. If a yes/no follow-up question is ever added
+  // ("Do you prefer online tutoring?"), REMOVE them from this list or the
+  // acknowledgment will silently swallow the answer.
+  const acknowledgmentPatterns = [
+    /^(ok|okay|k|kk|sure|alright|all right|fine|good|great|nice|awesome|cool|perfect|got it|understood|yes|yeah|yep)\b[.!?\s]*$/i,
+    /^(sounds (good|great|perfect)|that('s| is) (good|great|perfect|fine)|works for me|makes sense)\b[.!?\s]*$/i,
+    /^(thanks|thank you|thank u|thx|ty)(\s+(a lot|so much))?[.!?\s]*$/i,
+    /^(ok|okay|sure|alright)\s+(thanks|thank you|thank u|thx|ty)[.!?\s]*$/i,
+  ];
+  if (msgLower.length >= 1 && acknowledgmentPatterns.some((p) => p.test(msgLower))) {
+    const existingAck = (currentConstraints ?? {}) as ClientSearchConstraints;
+    // Still collecting? Continue with the next question — don't re-run.
+    if (!hasMinimumConstraints(existingAck)) {
+      const question = getNextClientQuestion(existingAck);
+      if (question) {
+        return {
+          type: "message",
+          content: question,
+          session_id: sessionId,
+          state: {
+            current_step: "collecting",
+            constraints: existingAck as Record<string, unknown>,
+          },
+        };
+      }
+    }
+    const isThanks = /^\s*(?:ok|okay|sure|alright)?\s*(?:thanks?|thank\s+(?:you|u)|thx|ty)\b[.!?\s]*$/i.test(msgLower);
+    return {
+      type: "message",
+      content: isThanks
+        ? "You're welcome! If you'd like to refine your results or search for another subject, just let me know."
+        : // Neutral on purpose: the last response may have been the empty-result
+          // hint ("No tutors match…"), in which case claiming matches are
+          // "above" would be misleading. This ack works whether cards exist
+          // or not.
+          "Got it! Let me know if you'd like to adjust your filters or search for a different subject.",
+      session_id: sessionId,
+      state: {
+        current_step: "presenting",
+        constraints: existingAck as Record<string, unknown>,
+      },
+    };
+  }
+
   // Step 1 — merge the new message into the existing patch.
   const existing = (currentConstraints ?? {}) as ClientSearchConstraints;
   const parsed = parseMessageToConstraints(message, existing);
-  const merged: ClientSearchConstraints = { ...existing, ...parsed };
+  let merged: ClientSearchConstraints = { ...existing, ...parsed };
+
+  // Step 1.5 — a pure sort phrase must not ALSO become a filter (mirrors
+  // the Edge Function's stripSortPhraseFilters). "sort by experience" sets
+  // no min_experience; "top rated" sets no min_rating — unless the user
+  // states an explicit numeric threshold ("3+ years", "4.5+ stars").
+  const earlySort = detectDeterministicSort(message);
+  if (earlySort) {
+    if (
+      earlySort.key === "experience" &&
+      merged.min_experience !== undefined &&
+      !/\b\d+\s*(?:years?|yrs?)\b/i.test(message)
+    ) {
+      delete merged.min_experience;
+    }
+    if (
+      earlySort.key === "rating" &&
+      merged.min_rating !== undefined &&
+      !/\b\d+(?:\.\d+)?\s*(?:stars?|rating|rated|out\s+of\s+5)\b/i.test(message)
+    ) {
+      delete merged.min_rating;
+    }
+  }
 
   // Step 2 — minimum-constraint gate. If not ready, ask one question.
   //
@@ -361,21 +480,7 @@ export async function sendMockChatMessage(
 
   // Step 5 — project to tutor_cards shape (matches the Edge Function
   // contract in `services/ai/chatService.ts#mapTutorCard`).
-  const tutorCards = tutors.map((t) => ({
-    id: t.uid,
-    fullName: t.fullName,
-    headline: t.headline,
-    subjects: t.subjects,
-    monthlyRateNpr: t.monthlyRateNpr,
-    rating: t.rating,
-    reviewCount: t.reviewCount,
-    location: {
-      neighborhood: t.location.neighborhood,
-      city: t.location.city,
-    },
-    photoUrl: t.photoUrl,
-    verificationStatus: t.verificationStatus,
-  }));
+  const tutorCards = toTutorCards(tutors);
 
   // Step 5b — Groq re-rank + conversational refinement.
   //
@@ -398,7 +503,24 @@ export async function sendMockChatMessage(
   let refinedMerged: ClientSearchConstraints = { ...merged };
   let replyText: string | null = null;
 
-  if (hasReorderIntent(recentMessages)) {
+  // Step 5b-i — Deterministic sort (LLM-free).
+  //
+  // Explicit sort requests ("sort by experience", "cheapest first",
+  // "highest rated") are resolved here by sorting the cards directly.
+  // This never fails, costs nothing, and is instant — no Groq call, no
+  // fallback-to-deterministic-order surprise. Only vague reorder phrases
+  // that can't be resolved here fall through to groqRank below.
+  const sortIntent = detectDeterministicSort(message);
+  if (sortIntent) {
+    // Re-fetch a LARGER pool (cap 20) so the sort can surface the best
+    // match (e.g. the most experienced tutor) even if they ranked beyond
+    // the top-5 by the default deterministic order — then sort + cap to
+    // the chat card limit. Mirrors the Edge Function's executeSearch.
+    const biggerPool = await MockTutorRepository.searchTutors(filters, 20);
+    finalCards = applyDeterministicSort(toTutorCards(biggerPool.tutors), message).slice(0, 5);
+    replyText = `Here are ${finalCards.length} tutor${finalCards.length === 1 ? "" : "s"} for you, ${sortIntent.label}.`;
+    console.log(`[mockChatService] Deterministic sort: ${sortIntent.key} (${sortIntent.direction})`);
+  } else if (hasReorderIntent(recentMessages)) {
     console.log("[mockChatService] Reorder intent detected — calling groqRank");
     const rankOutput = await groqRank({
       recentMessages,
@@ -469,6 +591,29 @@ export async function sendMockChatMessage(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Project `TutorListing[]` into the `tutor_cards` shape (matches the
+ * Edge Function contract in `services/ai/chatService.ts#mapTutorCard`).
+ */
+function toTutorCards(tutors: TutorListing[]): NonNullable<ChatResponse["tutor_cards"]> {
+  return tutors.map((t) => ({
+    id: t.uid,
+    fullName: t.fullName,
+    headline: t.headline,
+    subjects: t.subjects,
+    monthlyRateNpr: t.monthlyRateNpr,
+    rating: t.rating,
+    reviewCount: t.reviewCount,
+    yearsExperience: t.yearsExperience,
+    location: {
+      neighborhood: t.location.neighborhood,
+      city: t.location.city,
+    },
+    photoUrl: t.photoUrl,
+    verificationStatus: t.verificationStatus,
+  }));
+}
 
 /**
  * Pick the single most-restrictive filter the user has set, for the

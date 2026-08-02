@@ -2,7 +2,15 @@
  * EdumentX AI — Search Types
  *
  * Types for the hybrid search pipeline (SQL filters + vector similarity).
+ *
+ * Mirrors `supabase/ai/types/search.types.ts` (the Edge Function copy).
+ * `TutorResult` is imported from `./conversation.types` at the top — do NOT
+ * switch to inline `import("./conversation.types").TutorResult` syntax here:
+ * it makes `ScoredTutor extends TutorResult` fail typechecking in this file's
+ * consumers (see Phase 5 rankingEngine fix).
  */
+
+import type { TutorResult } from "./conversation.types";
 
 // ─── SQL Query Types ─────────────────────────────────────────────────────────
 
@@ -16,7 +24,7 @@ export interface BuiltQuery {
 
 /** Result of a hybrid search query */
 export interface HybridSearchResult {
-  tutors: import("./conversation.types").TutorResult[];
+  tutors: TutorResult[];
   total_count: number;
   query_time_ms: number;
 }
@@ -52,7 +60,7 @@ export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
 };
 
 /** A tutor with computed ranking scores */
-export interface ScoredTutor extends import("./conversation.types").TutorResult {
+export interface ScoredTutor extends TutorResult {
   scores: {
     similarity: number;
     budget: number;

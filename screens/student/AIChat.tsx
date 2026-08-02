@@ -39,6 +39,7 @@ export function AIChat() {
     isLoading,
     constraints,
     setConstraints,
+    hasHydrated,
   } = useAiChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<ScrollView | null>(null);
@@ -73,16 +74,18 @@ export function AIChat() {
   }, []);
 
   const displayMessages: Message[] =
-    messages.length === 0
-      ? [
-          {
-            id: "welcome",
-            role: "assistant",
-            text: WELCOME_MESSAGE,
-            createdAt: new Date().toISOString(),
-          },
-        ]
-      : messages;
+    !hasHydrated
+      ? [] // still restoring the saved conversation from storage
+      : messages.length === 0
+        ? [
+            {
+              id: "welcome",
+              role: "assistant",
+              text: WELCOME_MESSAGE,
+              createdAt: new Date().toISOString(),
+            },
+          ]
+        : messages;
 
   useEffect(() => {
     const sub = Keyboard.addListener("keyboardDidShow", () => {

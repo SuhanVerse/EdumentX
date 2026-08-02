@@ -297,11 +297,11 @@ function rowToSession(row: ConversationRow): SessionState {
     current_step: row.current_step,
     constraints: (row.constraints ?? {}) as SearchConstraints,
     last_results: Array.isArray(row.last_results)
-      ? row.last_results.map((r) => ({
+      ? (row.last_results.map((r) => ({
           id: String(r.tutor_id ?? ""),
           full_name: String(r.full_name ?? ""),
           similarity: Number(r.similarity ?? 0),
-        }))
+        })) as TutorResult[])
       : [],
     fallback_attempted: row.fallback_attempted ?? false,
     fallback_level: row.fallback_level ?? 0,

@@ -196,33 +196,46 @@ export function validateRequest(body: Record<string, unknown>): ValidatedRequest
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
 
 /**
- * Simple in-memory rate limiter (per-user).
- * Note: This resets on function cold start. For production, use
- * Supabase's built-in rate limiting or a PostgreSQL-based tracker.
+ * PostgreSQL-backed rate limiter (per-user). Counters live in the
+ * `rate_limits` table (migration 012) so the limit SURVIVES cold starts —
+ * the old in-memory Map reset on every instance spin-up, letting a client
+ * bypass the limit (C17).
  */
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 20; // requests
 const RATE_WINDOW_MS = 60_000; // 1 minute
 
-export function checkRateLimit(userId: string): void {
-  const now = Date.now();
-  const entry = requestCounts.get(userId);
+export async function checkRateLimit(userId: string): Promise<void> {
+  try {
+    const { getSupabaseClient } = await import("../../ai/utils/supabaseClient.ts");
+    const supabase = getSupabaseClient();
 
-  if (!entry || now > entry.resetAt) {
-    // Reset window
-    requestCounts.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return;
-  }
+    const { data, error } = await supabase.rpc("rate_limit_check", {
+      p_user_id: userId,
+      p_limit: RATE_LIMIT,
+      p_window_ms: RATE_WINDOW_MS,
+    });
 
-  entry.count++;
+    if (error) {
+      // Fail open: a rate-limit DB error must not brick the whole chat.
+      console.error("[middleware] rate_limit_check failed:", error.message);
+      return;
+    }
 
-  if (entry.count > RATE_LIMIT) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-    throw new RateLimitError(
-      `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
-      429,
-      retryAfter,
-    );
+    const result = data as { allowed: boolean; retry_after_ms: number | null } | null;
+    if (result && !result.allowed) {
+      const retryAfter = Math.ceil((result.retry_after_ms ?? RATE_WINDOW_MS) / 1000);
+      throw new RateLimitError(
+        `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
+        429,
+        retryAfter,
+      );
+    }
+  } catch (err) {
+    // Fail open: a missing/misconfigured service key or any DB error must
+    // not take down the chat endpoint. Only the intentional RateLimitError
+    // propagates as a 429.
+    if (err instanceof RateLimitError) throw err;
+    console.error("[middleware] Rate limit unavailable, failing open:", err);
   }
 }
 

@@ -220,6 +220,15 @@ function buildEmbeddingText(tutor: Record<string, unknown>): string {
   if (tutor.yearsExperience != null) {
     parts.push(`${tutor.yearsExperience} years of teaching experience`);
   }
+  // Budget + gender (Phase 4, W11) — helps "under Rs 5000" / "female tutor"
+  // queries match semantically, mirroring ai/embeddings/buildEmbeddingText.ts.
+  if (tutor.monthlyRateNpr != null && Number(tutor.monthlyRateNpr) > 0) {
+    parts.push(`Monthly rate around Rs ${tutor.monthlyRateNpr}`);
+  }
+  if (tutor.gender) {
+    const g = String(tutor.gender);
+    parts.push(`${g.charAt(0).toUpperCase()}${g.slice(1)} tutor`);
+  }
 
   return parts.join(". ") || "Tutor profile";
 }
@@ -357,7 +366,9 @@ async function seedTutors(): Promise<SeedStats> {
               tutor_id: uid,
               embedding: embedding,
               source_text: embeddingText,
-              model: EMBEDDING_MODEL,
+              // The column is `model_name` (migration 003); `model` does not
+              // exist and would make the upsert fail with a column error.
+              model_name: EMBEDDING_MODEL,
             },
             { onConflict: "tutor_id" },
           );
@@ -468,6 +479,17 @@ async function main() {
     console.log(`  Skipped (unapproved): ${stats.skipped}`);
     console.log(`  Errors:             ${stats.errors}`);
     console.log("═══════════════════════════════════════════\n");
+
+    // Phase 4 (W13): the IVFFlat index from migration 011 was created at
+    // migration time — possibly on an empty table. For optimal centroids
+    // after a large re-seed, drop and recreate it over the current data:
+    //
+    //   DROP INDEX IF EXISTS idx_tutor_embeddings_ivfflat;
+    //   CREATE INDEX idx_tutor_embeddings_ivfflat
+    //     ON public.tutor_embeddings USING ivfflat (embedding vector_cosine_ops)
+    //     WITH (lists = 10);
+    console.log("💡 Tip: after a large re-seed, rebuild the IVFFlat index so its");
+    console.log("   centroids recompute over the current data (see code comment above).");
   } catch (err) {
     console.error("\n❌ Fatal error:", err);
     process.exit(1);
