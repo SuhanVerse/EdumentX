@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -12,9 +11,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimatedPressable, usePressScale, FieldShell } from "@/components/motion";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import { motion } from "@/lib/motion";
@@ -366,8 +365,7 @@ export function EmailSignUp() {
   // ---- "pending" state — email sent, waiting for the user to click the link
   if (pendingEmail !== null) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <StatusBar style="dark" />
+      <ScreenLayout variant="background">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           className="flex-1"
@@ -418,15 +416,14 @@ export function EmailSignUp() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // ---- "form" state — collect email + password (and offer Google as
   // an alternative for users who'd rather not type a password)
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -619,7 +616,7 @@ export function EmailSignUp() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

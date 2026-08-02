@@ -28,6 +28,10 @@ import { QUALIFICATION_LABELS } from "@/data/qualifications";
 import { INSTITUTION_LABELS } from "@/data/institutions";
 import { colors } from "@/constants/colors";
 import type { LocationValue } from "@/lib/registration";
+import {
+  validateDegree,
+  validateInstitution,
+} from "@/lib/validation";
 import { TUTOR_DOC_LABEL, type TutorDocument } from "@/lib/verification/documents";
 import { useAuthStore } from "@/store/authStore";
 

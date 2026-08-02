@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import {
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -41,8 +44,8 @@ export function MapSearch() {
       {/* Hero header — matches StudentHome's slate header so the two
           screens feel like a single surface when tapped from the
           bottom nav. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-center justify-between mt-2 mb-4">
+      <ScreenHeader>
+        <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Find a tutor</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
@@ -93,18 +96,14 @@ export function MapSearch() {
             <Ionicons name="options-outline" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Content — sand background with the "coming soon" placeholder.
           We deliberately don't show any pins or fabricated map data:
           the screen must communicate "this is not real yet" so users
           don't try to tap on pins that aren't there. */}
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="pb-9"
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="px-5 pt-10">
+      <ScreenScroll className="flex-1 bg-background">
+        <View>
           <View className="bg-surface border border-border rounded-card p-6 items-center">
             <View className="w-16 h-16 rounded-pill bg-primary-light items-center justify-center mb-4">
               <Ionicons name="navigate-circle-outline" size={30} color="#2F5D50" />
@@ -161,7 +160,7 @@ export function MapSearch() {
             ))}
           </View>
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/map-search" />
 

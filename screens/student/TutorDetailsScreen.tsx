@@ -17,7 +17,6 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +29,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { Avatar } from "@/components/ui/Avatar";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
@@ -121,48 +121,47 @@ export function TutorDetailsScreen() {
   // ── Loading state ──
   if (profileLoading) {
     return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <StatusBar style="dark" />
-        <ActivityIndicator size="large" color={colors.brand.primary ?? "#26302B"} />
-        <Text className="text-body text-text-muted mt-4">
-          Loading tutor profile…
-        </Text>
-      </View>
+      <ScreenLayout variant="background">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color={colors.brand.primary ?? "#26302B"} />
+          <Text className="text-body text-text-muted mt-4">
+            Loading tutor profile…
+          </Text>
+        </View>
+      </ScreenLayout>
     );
   }
 
   // ── Guard: no tutor found ──
   if (!tutor) {
     return (
-      <View className="flex-1 bg-background items-center justify-center px-8">
-        <StatusBar style="dark" />
-        <Ionicons name="person-outline" size={40} color={colors.text.muted} />
-        <Text className="text-heading text-text-primary text-center mt-4">
-          Tutor not found
-        </Text>
-        <Text className="text-body-sm text-text-muted text-center mt-2">
-          This tutor profile could not be loaded.
-        </Text>
-        <Pressable
-          onPress={() => router.back()}
-          className="mt-5 px-6 py-3 rounded-card bg-accent active:opacity-80"
-        >
-          <Text className="text-button font-semibold text-text-inverse">Go back</Text>
-        </Pressable>
-      </View>
+      <ScreenLayout variant="background">
+        <View className="flex-1 items-center justify-center px-8">
+          <Ionicons name="person-outline" size={40} color={colors.text.muted} />
+          <Text className="text-heading text-text-primary text-center mt-4">
+            Tutor not found
+          </Text>
+          <Text className="text-body-sm text-text-muted text-center mt-2">
+            This tutor profile could not be loaded.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            className="mt-5 px-6 py-3 rounded-card bg-accent active:opacity-80"
+          >
+            <Text className="text-button font-semibold text-text-inverse">Go back</Text>
+          </Pressable>
+        </View>
+      </ScreenLayout>
     );
   }
 
   return (
-    <View className="flex-1 bg-background">
-      <StatusBar style="dark" />
-
+    <ScreenLayout variant="background">
       {/* Fixed top bar — stays in place while content scrolls underneath */}
       <TopBar
         isSaved={isSaved}
         onSaveToggle={() => setIsSaved(!isSaved)}
         onBack={() => router.back()}
-        topInset={insets.top}
       />
 
       <ScrollView
@@ -216,7 +215,7 @@ export function TutorDetailsScreen() {
         label={`${tutor.fullName} — demo lesson`}
         onClose={() => setDemoVideoVisible(false)}
       />
-    </View>
+    </ScreenLayout>
   );
 }
 
@@ -228,18 +227,13 @@ function TopBar({
   isSaved,
   onSaveToggle,
   onBack,
-  topInset = 0,
 }: {
   isSaved: boolean;
   onSaveToggle: () => void;
   onBack: () => void;
-  topInset?: number;
 }) {
   return (
-    <View
-      className="px-5 pb-2 bg-background z-10"
-      style={{ paddingTop: Math.max(topInset, 8) + 8 }}
-    >
+    <View className="px-5 pb-2 bg-background z-10">
       <View className="flex-row items-center justify-between">
         <BackButton onPress={onBack} />
         <View className="flex-row gap-3">

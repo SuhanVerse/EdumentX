@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -22,6 +25,7 @@ import { TutorCard } from "@/components/domain/TutorCard";
 import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 import { colors } from "@/constants/colors";
 import {
   getTutorRepository,
@@ -54,6 +58,10 @@ async function handleSignOut(router: ReturnType<typeof useRouter>) {
   try {
     await logout();
     useAuthStore.getState().reset();
+    // Wipe the AI chat session (history + constraint pills) so a
+    // different user logging in on this device never inherits the
+    // previous account's conversation context.
+    useAiChatStore.getState().resetSession();
   } catch (err) {
     console.error("StudentHome: sign-out failed", err);
     Alert.alert("Could not sign out", "Please try again.");
@@ -193,9 +201,9 @@ export function StudentHome() {
   return (
     <ScreenLayout variant="night">
 
-      {/* Hero header */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-start justify-between mb-4 mt-2">
+      {/* Hero header — standard ScreenHeader slot */}
+      <ScreenHeader>
+        <View className="flex-row items-start justify-between mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Good day,</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
@@ -223,16 +231,12 @@ export function StudentHome() {
             className="flex-1 text-body-lg text-text-primary"
           />
         </View>
-      </View>
+      </ScreenHeader>
 
-      {/* Content */}
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="pb-9"
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Content — standard ScreenScroll body */}
+      <ScreenScroll className="flex-1 bg-background">
         {/* Tutor list section header */}
-        <View className="px-5 pt-6 pb-3">
+        <View className="pb-3">
           <View className="flex-row items-center justify-between">
             <Text className="text-section-title font-semibold text-text-primary">
               Recommended tutors
@@ -249,7 +253,7 @@ export function StudentHome() {
         </View>
 
         {/* Tutor cards — live from Firestore */}
-        <View className="px-5 gap-4">
+        <View className="gap-4">
           {tutorsLoading ? (
             <View className="items-center py-12">
               <ActivityIndicator size="small" color={colors.text.muted} />
@@ -270,7 +274,7 @@ export function StudentHome() {
                 No tutors available yet
               </Text>
               <Text className="text-body-sm text-text-secondary text-center mt-1.5">
-                Approved tutors will appear here once they've been
+                Approved tutors will appear here once they&apos;ve been
                 verified by our team.
               </Text>
             </View>
@@ -302,7 +306,7 @@ export function StudentHome() {
             native Firebase Auth session from inside a flat-route app
             with no tab navigator. Confirms before destroying the
             session so an accidental tap doesn't log the user out. */}
-        <View className="px-5 pt-6 pb-2">
+        <View className="pb-2">
           <StudentHomeLogOut
             isSigningOut={isSigningOut}
             onPress={() => {
@@ -327,7 +331,7 @@ export function StudentHome() {
             }}
           />
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/student-home" />
     </ScreenLayout>

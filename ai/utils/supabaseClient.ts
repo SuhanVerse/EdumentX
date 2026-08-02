@@ -14,11 +14,22 @@
  * Environment variables:
  *   SUPABASE_URL — Project URL (https://[ref].supabase.co)
  *   SUPABASE_SERVICE_ROLE_KEY — Service role key (secret, never EXPO_PUBLIC_)
+ *
+ * Note: this top-level copy imports the npm package. The Deno-runnable
+ * copy lives at `supabase/ai/utils/supabaseClient.ts` and keeps the
+ * `jsr:` specifier (Deno resolves it natively); keep the two in sync.
  */
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let client: ReturnType<typeof createClient> | null = null;
+// NOTE: we type the cached client as `SupabaseClient` (default generics)
+// rather than `ReturnType<typeof createClient>`. `createClient` is a
+// generic function whose type parameters only appear in the return
+// position, so `ReturnType` instantiates them with `unknown`/`never`
+// (defaults don't apply during inference) — every `from()`/`rpc()` call
+// then errors with "property does not exist on type 'never'". The
+// explicit `SupabaseClient` type mirrors `services/supabase/client.ts`.
+let client: SupabaseClient | null = null;
 
 function getEnv(name: string): string | undefined {
   const runtime = globalThis as unknown as {
@@ -31,7 +42,7 @@ function getEnv(name: string): string | undefined {
   );
 }
 
-export function getSupabaseClient(): ReturnType<typeof createClient> {
+export function getSupabaseClient(): SupabaseClient {
   if (client) return client;
 
   const url = getEnv("SUPABASE_URL");

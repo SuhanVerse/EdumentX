@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -12,7 +11,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -23,6 +21,7 @@ import {
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { motion } from "@/lib/motion";
 import { ChipGroup } from "@/components/forms/ChipGroup";
@@ -241,8 +240,7 @@ export function StudentProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night">
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -424,7 +422,7 @@ export function StudentProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

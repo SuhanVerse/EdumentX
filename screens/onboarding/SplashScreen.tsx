@@ -20,7 +20,6 @@
  * entirely. All animations now run on the UI thread via Reanimated 4
  * worklets; JS-thread jank is gone.
  */
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import Animated, {

@@ -14,7 +14,11 @@ import {
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -1067,8 +1071,8 @@ export function VerificationQueue() {
     <ScreenLayout variant="background">
 
       {/* Hero header */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <Text className="text-body text-white/70 mb-0.5 mt-2">Moderation</Text>
+      <ScreenHeader>
+        <Text className="text-body text-white/70 mb-0.5">Moderation</Text>
         <Text className="text-screen-title font-medium text-white">
           Verification Queue
         </Text>
@@ -1080,13 +1084,9 @@ export function VerificationQueue() {
               : `${totalOpen} open · ${decided.length} decided`}
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {/* 1. New Tutor Verifications */}
         {newPending.length > 0 ? (
           <View className="mb-6">
@@ -1205,7 +1205,7 @@ export function VerificationQueue() {
         ) : null}
 
 
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
 
@@ -1812,7 +1812,7 @@ function RejectReasonDialog({
             Reject {tutorName}?
           </Text>
           <Text className="text-body-sm text-text-secondary text-center mt-1.5">
-            Tell the tutor why. They'll see this on their dashboard.
+            Tell the tutor why. They&apos;ll see this on their dashboard.
           </Text>
 
           <TextInput

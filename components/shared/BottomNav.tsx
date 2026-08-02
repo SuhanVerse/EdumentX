@@ -1,29 +1,47 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
-import { ActivePill } from "@/components/motion";
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { colors } from "@/constants/colors";
+import { motion } from "@/lib/motion";
 
 /**
- * EdumentX — Persistent bottom navigation bar
+ * EdumentX — Student bottom navigation
  *
- * Stage 6 (June 27, 2026):
- *   - Renders a 5-tab nav used by every authenticated student screen
- *     (Home → Map → AI → Enrollments → Profile).
- *   - Active tab is visually distinct: chalkboard-green pill behind the
- *     icon and green-tinted label. Amber is reserved for ratings and
- *     highlights; the nav uses the primary green active state instead.
- *   - Tapping a tab calls `router.replace(route)` — `replace` (not
- *     `navigate`) so the back stack doesn't grow with every tab switch
- *     and users can't accidentally "back" into a screen they left.
- *   - The `current` prop is optional: when omitted we fall back to
- *     `usePathname()` so the active state is correct without
- *     screens having to pass anything in.
- *   - Tutor screens reuse the same component by passing `role="tutor"`
- *     and overriding the tab set in a future iteration. For now we
- *     only ship the student nav; tutor dashboards continue to use
- *     their existing in-file sign-out until Phase 4.5.
+ * Renders the 5-tab nav used by every authenticated student screen
+ * (Home → Map → AI → Enrollments → Profile).
+ *
+ * Active-tab indicator — a compact pill that hugs only the icon:
+ *   - The pill is a fixed 48×28 bubble (same footprint as the icon
+ *     box) positioned `absolute` inside the measured tab row.
+ *   - Its left offset is computed on the JS side
+ *     (`tabWidth * index + (tabWidth − pillWidth) / 2`) and written
+ *     to a shared value inside `useEffect`, then the worklet only
+ *     reads the shared value. This is the same bulletproof pattern
+ *     the tutor bar's underline uses — the centering math never
+ *     depends on a stale worklet closure, so the pill stays dead
+ *     center under the active icon at any screen width.
+ *   - The pill is a background decoration (`pointerEvents="none"`,
+ *     rendered before the tabs) — it never affects tab layout.
+ *
+ * Labels are single-line with capped font scaling so "Enrollments"
+ * can never wrap, overflow its tab, or collide with a neighbor on
+ * narrow screens or with large accessibility font settings.
+ *
+ * Tapping a tab calls `router.replace(route)` — `replace` (not
+ * `navigate`) so the back stack doesn't grow with every tab switch
+ * and users can't accidentally "back" into a screen they left.
+ *
+ * The `current` prop is optional: when omitted we fall back to
+ * `usePathname()` so the active state is correct without screens
+ * having to pass anything in.
  */
 
 export type BottomNavRole = "student";
@@ -35,6 +53,13 @@ export type BottomNavTab = {
   route: `/${string}`;
 };
 
+/** Active pill size — matches the icon box (`w-12 h-7`) exactly. */
+const PILL_SIZE = 48;
+const PILL_HEIGHT = 28;
+
+const ACTIVE_COLOR = colors.brand.primary;
+const INACTIVE_COLOR = colors.text.muted;
+
 const STUDENT_TABS: BottomNavTab[] = [
   { icon: "home", label: "Home", route: "/student-home" },
   { icon: "map", label: "Map", route: "/map-search" },
@@ -44,10 +69,9 @@ const STUDENT_TABS: BottomNavTab[] = [
 ];
 
 /**
- * Single tab button. The active-pill background is no longer rendered
- * here — the parent row mounts a single sliding `ActivePill` behind
- * the tabs, so the visual weight of "active" comes from the pill
- * slide + the label color swap, not a per-tab class flip.
+ * Single tab button. The active-pill background is rendered by the
+ * parent row (a sliding `Animated.View` behind the tabs), so the
+ * per-tab component only swaps icon fill + label color.
  */
 function TabButton({
   tab,
@@ -58,40 +82,54 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
+  const color = active ? ACTIVE_COLOR : INACTIVE_COLOR;
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="tab"
       accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className="flex-1 items-center justify-center active:opacity-70"
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="flex-1 items-center justify-center"
     >
-      <View className="w-12 h-6 items-center justify-center">
+      {/* Icon box — same footprint as the pill so the active
+          background hugs exactly this box. */}
+      <View className="w-12 h-7 items-center justify-center">
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
-          color={active ? "#2F5D50" : "#6B7268"}
+          color={color}
         />
       </View>
+      {/* Single-line label: `adjustsFontSizeToFit` shrinks only when
+          the text would overflow its tab; `maxFontSizeMultiplier`
+          caps accessibility font scaling so labels never wrap. */}
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        maxFontSizeMultiplier={1.3}
         className={
-          active
-            ? "text-micro mt-0.5 font-semibold text-primary tracking-wide"
-            : "text-micro mt-0.5 text-text-muted"
+          active ? "text-micro mt-0.5 font-semibold" : "text-micro mt-0.5"
         }
+        style={{ color }}
       >
         {tab.label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 /**
- * Renders the 5-tab row + the sliding `ActivePill` behind it. The
- * pill width is set to exactly one-fifth of the row's measured
- * width — measured via `onLayout` so the row can be rendered at
- * `flex-1` (filling the bottom nav) without us needing a hard-coded
- * `SCREEN_WIDTH / 5` constant that breaks on tablets.
+ * Renders the 5-tab row + the sliding active pill behind it. Each tab
+ * is `flex-1` (exactly 1/5 of the measured row width — no hardcoded
+ * screen width), and the pill is centered per tab on the JS side.
  */
 function TabRow({
   tabs,
@@ -103,18 +141,39 @@ function TabRow({
   onPress: (tab: BottomNavTab) => void;
 }) {
   const [width, setWidth] = React.useState(0);
+  const tabWidth = tabs.length > 0 ? width / tabs.length : 0;
+
+  // Pill left edge = active tab's left edge + centering inset. All
+  // math happens in plain React — the worklet below only reads the
+  // shared value, so this can never go stale.
+  const pillLeft =
+    tabWidth * activeIndex + Math.max(0, (tabWidth - PILL_SIZE) / 2);
+  const pillX = useSharedValue(0);
+  React.useEffect(() => {
+    pillX.value = withSpring(pillLeft, motion.spring.indicator);
+  }, [pillLeft, pillX]);
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+  }));
+
   return (
     <View
       className="flex-row relative"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
-        <ActivePill
-          count={tabs.length}
-          activeIndex={activeIndex}
-          itemWidth={width / tabs.length}
-          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-primary-light"
-          style={{ width: width / tabs.length, height: 28, top: 6 }}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            pillStyle,
+            {
+              position: "absolute",
+              top: 0,
+              width: PILL_SIZE,
+              height: PILL_HEIGHT,
+            },
+          ]}
+          className="rounded-pill bg-primary-light"
         />
       ) : null}
       {tabs.map((tab, i) => (
@@ -144,7 +203,7 @@ export function BottomNav({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const tabs = role === "student" ? STUDENT_TABS : STUDENT_TABS;
+  const tabs = STUDENT_TABS;
   const activeRoute = current ?? pathname;
   const activeIndex = tabs.findIndex((t) => t.route === activeRoute);
 
@@ -168,9 +227,6 @@ export function BottomNav({
    * position, and replaces the current screen with the target — no
    * pop dance, no stack-position matching. This is the same pattern
    * the auth guard uses in `app/_layout.tsx`.
-   *
-   * Source: https://docs.expo.dev/router/navigating-pages/ — "Use
-   * `router.replace` for paths starting with `/`".
    */
   function goTo(route: `/${string}`) {
     if (activeRoute === route) return;
@@ -178,10 +234,7 @@ export function BottomNav({
   }
 
   return (
-    <View
-      className="bg-surface border-t border-border"
-      style={{ paddingBottom: 16, paddingTop: 6 }}
-    >
+    <View className="bg-surface border-t border-border pt-1.5 pb-2.5">
       <TabRow
         tabs={tabs}
         activeIndex={activeIndex >= 0 ? activeIndex : 0}

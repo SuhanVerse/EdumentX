@@ -1,6 +1,10 @@
 import { ActivePill } from "@/components/motion";
 import { BottomNav } from "@/components/shared/BottomNav";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import {
   BATCH_INVITATIONS,
   ENROLLMENTS,
@@ -15,7 +19,6 @@ import { useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   Text,
   View
 } from "react-native";
@@ -75,8 +78,8 @@ export function MyEnrollments() {
 
       {/* Header — slate hero, same shape as StudentHome / MapSearch
           / AIChat. */}
-      <View className="bg-night px-5 pb-5 shrink-0">
-        <Text className="text-body text-white/70 mb-0.5 mt-2">
+      <ScreenHeader>
+        <Text className="text-body text-white/70 mb-0.5">
           Your learning
         </Text>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
@@ -87,7 +90,7 @@ export function MyEnrollments() {
         <Text className="text-caption text-white/70 mt-1">
           {ENROLLMENTS.length} total enrollments
         </Text>
-      </View>
+      </ScreenHeader>
 
       {/* Tabs */}
       <EnrollmentTabs
@@ -97,11 +100,7 @@ export function MyEnrollments() {
       />
 
       {/* List */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-4 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {list.length === 0 && tab !== "active" && (
           <EmptyState
             icon="mail-open-outline"
@@ -156,7 +155,7 @@ export function MyEnrollments() {
             />
           ))}
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/enrollment" />
     </ScreenLayout>

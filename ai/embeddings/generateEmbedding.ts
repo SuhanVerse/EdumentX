@@ -221,9 +221,12 @@ async function getCachedEmbedding(queryText: string): Promise<number[] | null> {
 
     if (error || !data) return null;
 
-    // Parse the embedding from the response
-    if (data.embedding && Array.isArray(data.embedding)) {
-      return data.embedding as number[];
+    // Parse the embedding from the response. The client is created
+    // without a `Database` generic, so the RPC row type degrades to
+    // `{}` — cast to the shape we actually read.
+    const row = data as { embedding?: unknown };
+    if (row.embedding && Array.isArray(row.embedding)) {
+      return row.embedding as number[];
     }
 
     return null;

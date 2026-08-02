@@ -219,9 +219,9 @@ export const BUDGET_PATTERNS: ReadonlyArray<BudgetPattern> = [
   { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:per\s+month|monthly|in\s+total|total|max)\b/i, qualifier: "max" },
   // "above / over / min / more than / at least / from" → min
   { regex: /\b(?:above|over|minimum|more\s+than|at\s+least|from)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "min" },
-  { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:or\s+more|minimum|min)\b/i, qualifier: "min" },
-  // "around / about / approx" → vague range (±20%)
-  { regex: /\b(?:around|about|approx|approximately|roughly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "vague" },
+  { regex: /(\d[\d,]*(?:\.\d+)?)(k)?\s*(?:or\s+more|minimum|min)\b/i, qualifier: "min" },    // "around / about / approx" → approximate CEILING only: parser sets
+    // budget_max = amount + 3000 with no lower bound (see extractors).
+    { regex: /\b(?:around|about|approx|approximately|roughly)\b[^.\d]{0,15}(\d[\d,]*(?:\.\d+)?)(k)?\b/i, qualifier: "vague" },
   // Bare "k" suffix — "12k", "5k", "100k" — common shorthand for
   // thousands. No currency or qualifier needed. Goes LAST so more
   // specific patterns (with qualifier words) win if present.

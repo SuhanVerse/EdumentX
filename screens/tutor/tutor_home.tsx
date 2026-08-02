@@ -6,12 +6,15 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -381,9 +384,9 @@ export function TutorDashboard() {
   return (
     <ScreenLayout variant="night">
 
-      {/* Header */}
-      <View className="bg-night px-4 pb-5 shrink-0">
-        <View className="flex-row justify-between items-start pt-2">
+      {/* Header — standard ScreenHeader slot */}
+      <ScreenHeader>
+        <View className="flex-row justify-between items-start">
           <View>
             <Text className="text-body text-white/70">Good to see you,</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
@@ -418,7 +421,7 @@ export function TutorDashboard() {
             onToggle={() => setAvailable(!available)}
           />
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Under-review banner — surfaces when (a) the tutor's signup
           verification is still pending, (b) the admin requested more
@@ -463,11 +466,7 @@ export function TutorDashboard() {
         />
       ) : null}
 
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="p-4 pb-9"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll className="flex-1 bg-background">
         {/* Metric cards 2x2 */}
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
@@ -811,7 +810,7 @@ export function TutorDashboard() {
             </Pressable>
           ))}
         </View>
-      </ScrollView>
+      </ScreenScroll>
       <TutorBottomBar />
     </ScreenLayout>
   );

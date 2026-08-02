@@ -88,8 +88,10 @@ export function parseMessageToConstraints(
     } else if (qualifier === "min") {
       out.budget_min = amount;
     } else {
-      out.budget_min = Math.round(amount * 0.8);
-      out.budget_max = Math.round(amount * 1.2);
+      // "around / about / approx" → approximate CEILING only: raise the
+      // upper bound by a flat Rs 3,000 slack, never set a lower bound.
+      // The user is naming a rough maximum they can pay, not a range.
+      out.budget_max = amount + 3000;
     }
     break; // first match wins
   }

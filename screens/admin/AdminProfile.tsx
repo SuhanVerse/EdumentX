@@ -11,14 +11,17 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -27,6 +30,7 @@ import {
 import { colors } from "@/constants/colors";
 import { logout } from "@/services/firebase/authService";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 
 /**
  * EdumentX — Admin Profile (`/admin-profile`)
@@ -280,6 +284,10 @@ export function AdminProfile() {
     try {
       await logout();
       useAuthStore.getState().reset();
+      // Wipe the AI chat session (history + constraint pills) so a
+      // different user logging in on this device never inherits the
+      // previous account's conversation context.
+      useAiChatStore.getState().resetSession();
       router.replace("/email-signup");
     } catch (err: any) {
       console.error("AdminProfile: sign-out failed", err);
@@ -338,7 +346,7 @@ export function AdminProfile() {
             header. Dark navy bg, large white title, lighter caption.
             No sign-out pill in the hero — it's moved to the bottom of
             the form to match the Tutor Profile layout. */}
-        <View className="gap-2 px-5 pt-4 pb-10 bg-night">
+        <ScreenHeader>
           <View className="flex-row items-start justify-between">
             <View className="flex-1 min-w-0">
               <Text className="text-overline text-white/70 uppercase">
@@ -354,12 +362,10 @@ export function AdminProfile() {
               </Text>
             </View>
           </View>
-        </View>
+        </ScreenHeader>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
-          keyboardShouldPersistTaps="handled"
+        <ScreenScroll
+          contentContainerClassName="flex-grow gap-6 px-5 pt-6 pb-10 bg-background"
         >
           {/* Identity card — name + role title. The role title is what
               appears next to the admin's name on the moderation team
@@ -605,7 +611,7 @@ export function AdminProfile() {
           {/* <Text className="text-caption text-text-muted text-center mt-6">
             EdumentX · v1.0 · build 2026.07.08
           </Text> */}
-        </ScrollView>
+        </ScreenScroll>
       </KeyboardAvoidingView>
 
       {/* Admin bottom navigation — only shown for returning admins

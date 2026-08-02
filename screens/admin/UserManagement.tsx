@@ -1,5 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { ReactNode, useEffect, useState } from "react";
 import {
   Alert,
@@ -265,8 +269,8 @@ export function UserManagement() {
           non-text siblings), so the layout rendered as a single
           jagged line. Splitting them out gives them room to breathe
           and lets us lay them out with a proper `<View>`. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-center justify-between mt-2 mb-4">
+      <ScreenHeader>
+        <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Management</Text>
             <Text className="text-screen-title font-medium text-white">
@@ -298,7 +302,7 @@ export function UserManagement() {
             </Pressable>
           )}
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Filter card — single horizontal scroll containing the
           status group, a thin vertical divider, and the role group.
@@ -368,11 +372,7 @@ export function UserManagement() {
       </View>
 
       {/* List */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-5 pb-24"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {loading ? (
           <View className="items-center justify-center pt-20">
             <Text className="text-body text-text-muted">Loading users…</Text>
@@ -444,7 +444,7 @@ export function UserManagement() {
             </View>
           </View>
         ) : null}
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
 

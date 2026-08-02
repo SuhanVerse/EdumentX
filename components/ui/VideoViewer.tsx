@@ -22,6 +22,7 @@
  * ```
  */
 import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { Modal, Text, View } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -77,7 +78,10 @@ export function VideoViewerModal({
       onRequestClose={onClose}
     >
       <VideoLightboxEnter visible={visible}>
-        {/* Dark backdrop */}
+        {/* The dark backdrop hides the whole screen, so the status bar
+            needs light icons while this modal is on top. expo-status-bar
+            reverts to the previous entry when the modal unmounts. */}
+        <StatusBar style="light" />
         <View className="flex-1 bg-black/95 justify-center">
           {/* Video player area */}
           <View className="flex-1 justify-center px-4">

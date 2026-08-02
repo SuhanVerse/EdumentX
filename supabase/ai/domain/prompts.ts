@@ -88,6 +88,7 @@ IMPORTANT RULES:
 2. Do NOT guess or assume values
 3. Merging with existing constraints: new values override old, but null/undefined preserves existing
 4. Build a "query_text" field combining all constraints into a natural search query
+5. Budget with an approximate qualifier ("around 15k", "about 5000", "approx 10k"): set ONLY "budget_max" to the amount + 3000 (e.g. 18000 for 15000). NEVER set "budget_min" for approximate amounts — the user is naming a rough ceiling, not a range.
 
 --- FEW-SHOT EXAMPLES ---
 

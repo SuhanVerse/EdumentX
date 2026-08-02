@@ -25,6 +25,7 @@
  * iOS and Android via `maximumZoomScale` / `minimumZoomScale`.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -89,6 +90,10 @@ export function ImageViewer({
         onRequestClose={() => setVisible(false)}
       >
         <LightboxEnter visible={visible}>
+          {/* The dark backdrop hides the whole screen, so the status bar
+              needs light icons while this modal is on top. expo-status-bar
+              reverts to the previous entry when the modal unmounts. */}
+          <StatusBar style="light" />
           <Pressable
             accessibilityLabel="Close image viewer"
             onPress={() => setVisible(false)}
@@ -222,6 +227,7 @@ export function ImageViewerModal({
       onRequestClose={onClose}
     >
       <LightboxEnter visible={visible}>
+        <StatusBar style="light" />
         <Pressable
           accessibilityLabel="Close image viewer"
           onPress={onClose}

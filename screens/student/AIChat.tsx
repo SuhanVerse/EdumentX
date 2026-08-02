@@ -1,5 +1,9 @@
 import { BottomNav } from "@/components/shared/BottomNav";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -157,8 +161,8 @@ export function AIChat() {
 
   return (
     <ScreenLayout variant="night">
-      <View className="bg-night px-5 pb-5 shrink-0">
-        <View className="flex-row items-center gap-3 mt-2">
+      <ScreenHeader>
+        <View className="flex-row items-center gap-3">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -191,19 +195,17 @@ export function AIChat() {
             </View>
           </View>
         </View>
-      </View>
+      </ScreenHeader>
 
       <KeyboardAvoidingView
         behavior="padding"
         keyboardVerticalOffset={0}
         className="flex-1"
       >
-        <ScrollView
+        <ScreenScroll
           ref={scrollRef}
           className="flex-1 bg-background"
-          contentContainerClassName="px-4 pt-4 pb-4"
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="px-4 pt-6 pb-4"
           onContentSizeChange={scrollToBottom}
         >
           {activePills.length > 0 && (
@@ -216,7 +218,7 @@ export function AIChat() {
             <Bubble key={m.id} message={m} router={router} />
           ))}
           {isLoading && <ThinkingBubble />}
-        </ScrollView>
+        </ScreenScroll>
 
         <View className="bg-surface border-t border-border px-4 pt-2 pb-3">
         <ScrollView

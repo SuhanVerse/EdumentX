@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -10,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -27,9 +25,11 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { colors } from "@/constants/colors";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useAuthStore, type UserRole } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 import { motion } from "@/lib/motion";
 
 // Roles are persisted to Firestore in lowercase ("student" / "tutor") — the
@@ -198,8 +198,7 @@ export function RoleSelectionScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -254,6 +253,10 @@ export function RoleSelectionScreen() {
                         );
                         await logout();
                         useAuthStore.getState().reset();
+                        // Wipe the AI chat session so a different user
+                        // signing in on this device never inherits the
+                        // previous account's conversation context.
+                        useAiChatStore.getState().resetSession();
                         router.replace("/email-signup");
                       },
                     },
@@ -310,7 +313,7 @@ export function RoleSelectionScreen() {
           />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

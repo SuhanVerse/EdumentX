@@ -7,7 +7,6 @@ import {
   writeBatch,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
@@ -19,7 +18,6 @@ import {
   TextInput,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { ChipGroup } from "@/components/forms/ChipGroup";
@@ -28,6 +26,7 @@ import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import { INSTITUTION_LABELS } from "@/data/institutions";
@@ -430,8 +429,7 @@ export function TutorProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night">
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -863,7 +861,7 @@ export function TutorProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

@@ -19,6 +19,7 @@ import {
 
 import { logout } from "@/services/firebase/authService";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 
 /**
  * EdumentX — Tutor Pending Review screen (`/tutor-pending`)
@@ -186,6 +187,10 @@ export function TutorPendingReview() {
     try {
       await logout();
       useAuthStore.getState().reset();
+      // Wipe the AI chat session (history + constraint pills) so a
+      // different user logging in on this device never inherits the
+      // previous account's conversation context.
+      useAiChatStore.getState().resetSession();
     } catch (err) {
       console.error("TutorPendingReview: sign-out failed", err);
       Alert.alert("Could not sign out", "Please try again.");

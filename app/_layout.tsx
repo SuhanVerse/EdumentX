@@ -11,11 +11,13 @@ import {
 } from "@react-native-firebase/firestore";
 import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, StatusBar as NativeStatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { theme } from "@/constants/theme";
 import { useAuthStore, type UserRole, type TutorVerificationStatus } from "@/store/authStore";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -802,9 +804,23 @@ export default function RootLayout() {
   // can trigger "Cannot read property 'displayName' of undefined" when
   // the Stack tries to remount its children on the next render. The
   // loading spinner overlays the Stack instead.
+  // The app-wide status bar default. `expo-status-bar` keeps a stack of
+  // mounted `StatusBar` components: this root entry is the base layer, and
+  // per-screen `ScreenLayout` variants (night/splash = light icons,
+  // background/surface = dark icons) push their own entry on top while
+  // their screen is focused. On unmount the screen's entry pops and this
+  // default takes over again — so every screen, even ones that forget to
+  // declare a status bar, inherits dark icons on the light `bg-background`
+  // (matching `userInterfaceStyle: "automatic"` without letting the OS
+  // dark-mode default flip light-background screens to unreadable icons).
+  //
+  // The native `backgroundColor` is a fallback for devices / Android
+  // versions where the edge-to-edge scrim is not fully transparent.
   return (
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <NativeStatusBar backgroundColor={theme.colors.background} />
         <Stack screenOptions={{ headerShown: false }}>
           {/* Auth flow */}
           <Stack.Screen name="index" />

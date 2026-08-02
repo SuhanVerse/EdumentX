@@ -222,6 +222,16 @@ function mergeExtractions(
     out.budget_min = kw.budget_min;
   }
 
+  // "around/about/approx" budgets are CEILINGS — the keyword pass never
+  // sets a lower bound for them, and the LLM must not either. When a
+  // vague qualifier is present, the deterministic +3,000 keyword value
+  // OVERRIDES the LLM's (which may return the raw amount), and any
+  // LLM-invented budget_min is stripped. ("what about 5k" → 8000, no min.)
+  if (/\b(?:around|about|approx|approximately|roughly)\b/i.test(messageLower)) {
+    if (kw.budget_max !== undefined) out.budget_max = kw.budget_max;
+    delete out.budget_min;
+  }
+
   // Bare-number guard: a message that is ONLY a number (e.g. "12") is a
   // GRADE answer, never a budget — even if the LLM hallucinated a budget
   // for it. The deterministic keyword answer-inference wins. Mirrors the
@@ -321,8 +331,10 @@ function fallbackExtractConstraints(
     } else if (qualifier === "min") {
       constraints.budget_min = amount;
     } else {
-      constraints.budget_min = Math.round(amount * 0.8);
-      constraints.budget_max = Math.round(amount * 1.2);
+      // "around / about / approx" → approximate CEILING only: raise the
+      // upper bound by a flat Rs 3,000 slack, never set a lower bound.
+      // The user is naming a rough maximum they can pay, not a range.
+      constraints.budget_max = amount + 3000;
     }
     break; // first match wins
   }

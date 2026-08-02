@@ -1,4 +1,8 @@
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
 import {
@@ -15,7 +19,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -30,6 +33,7 @@ import type { TutorDocument } from "@/lib/verification/documents";
 import { logout } from "@/services/firebase/authService";
 import { uploadAvatar } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 
 /**
  * EdumentX — Tutor Profile Edit screen (`/tutor_edit_profile`)
@@ -348,6 +352,10 @@ export function EditTutorProfile() {
     try {
       await logout();
       useAuthStore.getState().reset();
+      // Wipe the AI chat session (history + constraint pills) so a
+      // different user logging in on this device never inherits the
+      // previous account's conversation context.
+      useAiChatStore.getState().resetSession();
     } catch (err) {
       console.error("EditTutorProfile: sign-out failed", err);
       Alert.alert("Could not sign out", "Please try again.");
@@ -371,20 +379,16 @@ export function EditTutorProfile() {
       {/* Hero header — shows the tutor's name (or fallback) instead
           of a hardcoded "Your account" label. The text-display token
           matches the other student/tutor surfaces. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <Text className="text-body text-white/70 mb-0.5 mt-2">Profile</Text>
+      <ScreenHeader>
+        <Text className="text-body text-white/70 mb-0.5">Profile</Text>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-display text-white">
             {form.fullName || form.email || 'Your account'}
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {/* Verification banners — surface the current state of the
             admin queue. Three tones, mutually exclusive:
               - pending:  initial review, form is locked.
@@ -650,7 +654,7 @@ export function EditTutorProfile() {
         <Text className="text-caption text-text-muted text-center mt-6">
           EdumentX · v1.0 · build 2026.07.08
         </Text>
-      </ScrollView>
+      </ScreenScroll>
 
       <TutorBottomBar />
 

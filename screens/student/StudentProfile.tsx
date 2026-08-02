@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -27,6 +30,7 @@ import { BottomNav } from "@/components/shared/BottomNav";
 import { logout } from "@/services/firebase/authService";
 import { uploadAvatar } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 
 /**
  * EdumentX — Student Profile
@@ -195,6 +199,10 @@ export function StudentProfile() {
     try {
       await logout();
       useAuthStore.getState().reset();
+      // Wipe the AI chat session (history + constraint pills) so a
+      // different user logging in on this device never inherits the
+      // previous account's conversation context.
+      useAiChatStore.getState().resetSession();
     } catch (err) {
       console.error("StudentProfile: sign-out failed", err);
       Alert.alert("Could not sign out", "Please try again.");
@@ -215,20 +223,16 @@ export function StudentProfile() {
     <ScreenLayout variant="background">
 
       {/* Hero header — slate, matches the other 4 student surfaces. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <Text className="text-body text-white/70 mb-0.5 mt-2">Profile</Text>
+      <ScreenHeader>
+        <Text className="text-body text-white/70 mb-0.5">Profile</Text>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-display text-white">
             Your account
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {/* Identity card */}
         <View className="bg-surface border border-border rounded-card p-5 items-center">
           <AvatarBubble
@@ -387,7 +391,7 @@ export function StudentProfile() {
         <Text className="text-caption text-text-muted text-center mt-6">
           EdumentX · v1.0 · build 2026.06.27
         </Text>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/stu-profile" />
 

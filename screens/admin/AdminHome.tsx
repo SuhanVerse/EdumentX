@@ -8,9 +8,13 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { useAuthStore } from "@/store/authStore";
@@ -157,8 +161,8 @@ export function AdminHome() {
       {/* Hero header — mirrors StudentHome.tsx's "Good morning, {name}"
           pattern. The right-hand slot is intentionally empty; profile
           is reachable from the bottom nav. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="mt-2">
+      <ScreenHeader>
+        <View>
           <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
           <Text
             className="text-screen-title font-medium text-white"
@@ -170,13 +174,9 @@ export function AdminHome() {
             Manage platform, verifications & users
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {sections.map((section) => (
           <Pressable
             key={section.route}
@@ -220,7 +220,7 @@ export function AdminHome() {
             <Ionicons name="chevron-forward" size={20} color="#6B7268" />
           </Pressable>
         ))}
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
     </ScreenLayout>

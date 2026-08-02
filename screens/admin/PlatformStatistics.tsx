@@ -5,9 +5,13 @@ import {
   getFirestore,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
 import { MOCK_ADMIN_STATS } from "@/data/adminStats";
@@ -71,8 +75,8 @@ export function PlatformStatistics() {
           pattern. The admin's live display name is the dominant
           element, with a small "EdumentX · July 2026" caption for
           context. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="mt-2">
+      <ScreenHeader>
+        <View>
           <Text className="text-body text-white/70 mb-0.5">Good to see you,</Text>
           <Text
             className="text-screen-title font-medium text-white"
@@ -84,17 +88,13 @@ export function PlatformStatistics() {
             EdumentX · July 2026 · Platform statistics
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8 gap-5"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll contentContainerClassName="px-5 pt-6 pb-8 gap-5">
         <KpiGrid />
         <WeeklyEnrollmentCard />
         <SubjectDemandCard />
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
     </ScreenLayout>

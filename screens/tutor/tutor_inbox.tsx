@@ -7,10 +7,14 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react-native";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 
 // TODO(firebase): replace with a Firestore `enrollmentRequests` query
@@ -103,8 +107,8 @@ export function EnrollmentInbox() {
   return (
     <ScreenLayout variant="surface">
 
-      {/* Top app bar */}
-      <View className="px-4 pt-2 pb-4 border-b border-border">
+      {/* Top app bar — standard light ScreenHeader slot */}
+      <ScreenHeader variant="light">
         <View className="self-start border-b-2 border-accent pb-0.5">
           <Text className="text-display text-text-primary">
             Enrollment inbox
@@ -113,13 +117,9 @@ export function EnrollmentInbox() {
         <Text className="text-body text-verification mt-0.5">
           {PENDING_REQUESTS.length} pending requests
         </Text>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="p-4 pb-9"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll className="flex-1 bg-background">
         <View className="flex-col gap-3.5">
           {PENDING_REQUESTS.map((req) => {
             const isCollapsed = collapsed[req.id];
@@ -138,7 +138,7 @@ export function EnrollmentInbox() {
             );
           })}
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <TutorBottomBar inboxBadgeCount={PENDING_REQUESTS.length} />
     </ScreenLayout>

@@ -56,6 +56,17 @@ export async function getOrCreateSession(
     .maybeSingle();
 
   if (existing && !existing.is_expired) {
+    // Ownership check: a conversation belongs to the user who created it.
+    // If the same session_id is presented by a DIFFERENT account (shared
+    // device logout→login, leaked id, restored device backup), the previous
+    // owner's constraints + message history must never leak across accounts.
+    // Delete the row (messages cascade via FK) and start fresh — the unique
+    // session_id constraint is freed by the delete, so re-inserting is safe.
+    if (existing.student_id !== studentId) {
+      await deleteSession(sessionId);
+      return createSession(sessionId, studentId);
+    }
+
     // Check if session has expired (30 min inactivity)
     const lastActivity = new Date(existing.last_activity).getTime();
     const now = Date.now();
