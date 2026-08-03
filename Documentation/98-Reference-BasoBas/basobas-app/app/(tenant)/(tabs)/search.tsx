@@ -1,26 +1,52 @@
-import { useState } from 'react';
-import { ScrollView, View, Text, Pressable } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ScrollView, View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, ChevronDown, SlidersHorizontal, Heart, Map } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import {
+  ArrowLeft,
+  MapPin,
+  ChevronDown,
+  SlidersHorizontal,
+  Heart,
+  Map,
+} from 'lucide-react-native';
 
 import { tokens } from '@/src/theme/tokens';
 import { FilterDrawer } from '@/src/components/property/FilterDrawer';
 import { DOCK_BOTTOM_GAP } from '@/src/components/navigation/GlassDock/GlassDock';
 import { usePropertyStore } from '@/src/store/propertyStore';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
+import { useUser } from '@clerk/expo';
+
+const { color } = tokens;
 
 const BHK_FILTERS = ['All', '1BHK', '2BHK', '3BHK', 'Studio'] as const;
 type BhkFilter = (typeof BHK_FILTERS)[number];
 
 const FAB_SIZE = 56;
 
+const fmtNpr = (n: number) => `NPR ${n.toLocaleString('en-US')}`;
+
 export default function SearchResults() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const supabase = useClerkSupabase();
+  const { user: clerkUser } = useUser();
   const [isFilterVisible, setIsFilterVisible] = useState(false);
 
-  const { filters, setFilter, toggleSaved, savedPropertyIds, getFilteredProperties } = usePropertyStore();
+  const { filters, setFilter, toggleSaved, savedPropertyIds, getFilteredProperties, hydrate, hydrated } =
+    usePropertyStore();
   const filteredProperties = getFilteredProperties();
+
+  // Keep the marketplace fresh every time the tab regains focus (a landlord
+  // may have published, or a saved toggle may have happened on a detail page).
+  useFocusEffect(
+    useCallback(() => {
+      if (clerkUser?.id) {
+        hydrate(supabase, clerkUser.id);
+      }
+    }, [clerkUser?.id, supabase, hydrate]),
+  );
 
   const dockTopEdge = insets.bottom + DOCK_BOTTOM_GAP + tokens.space.dockH;
   const fabBottom = dockTopEdge + 16; // 16px gap above the floating dock
@@ -119,50 +145,71 @@ export default function SearchResults() {
           gap: 16,
         }}
         showsVerticalScrollIndicator={false}>
-        {filteredProperties.map((row) => {
-          const isSaved = savedPropertyIds.includes(row.id);
-          return (
-            <Pressable
-              key={row.id}
-              onPress={() => router.push({ pathname: '/(tenant)/property/[id]' as any, params: { id: row.id } })}
-              accessibilityRole="button"
-              accessibilityLabel={`${row.title}, ${row.currency} ${row.priceMonthly.toLocaleString()} / month`}
-              className="flex-row items-start gap-4 rounded-card bg-bg p-4">
-              <View className="h-[80px] w-[80px] shrink-0 rounded-lg bg-placeholder-image" />
-              <View className="flex-1 justify-center py-1">
-                <Text numberOfLines={1} className="font-semibold text-body text-ink">
-                  {row.title}
-                </Text>
-                <View className="mt-1">
-                  <Text className="font-sans text-body-sm text-brand">
-                    {row.currency} {row.priceMonthly.toLocaleString()} / month
-                  </Text>
-                </View>
-                <View className="mt-1.5 flex-row items-center gap-1">
-                  <MapPin size={12} color="#888888" />
-                  <Text className="font-sans text-caption text-ink3">
-                    {row.area}
-                  </Text>
-                </View>
-              </View>
+        {!hydrated ? (
+          <View className="items-center justify-center py-20">
+            <ActivityIndicator size="small" color={color.brand} />
+          </View>
+        ) : filteredProperties.length === 0 ? (
+          <View className="items-center gap-2 px-8 py-20">
+            <Text className="font-semibold text-h3 text-ink">No rentals match</Text>
+            <Text className="text-center font-sans text-body-sm text-ink2">
+              Try widening the price range or clearing a filter.
+            </Text>
+          </View>
+        ) : (
+          filteredProperties.map((row) => {
+            const isSaved = savedPropertyIds.includes(row.id);
+            return (
               <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  toggleSaved(row.id);
-                }}
+                key={row.id}
+                onPress={() =>
+                  router.push({ pathname: '/(tenant)/property/[id]' as any, params: { id: row.id } })
+                }
                 accessibilityRole="button"
-                accessibilityLabel={isSaved ? 'Remove from saved' : 'Save property'}
-                className="h-[24px] w-[24px] items-center justify-center">
-                <Heart
-                  size={20}
-                  color={isSaved ? '#E53E3E' : '#AAAAAA'}
-                  fill={isSaved ? '#E53E3E' : 'transparent'}
-                  strokeWidth={1.5}
-                />
+                accessibilityLabel={`${row.title}, ${fmtNpr(row.price)} / month`}
+                className="flex-row items-start gap-4 rounded-card bg-bg p-4">
+                {row.photoUrls[0] ? (
+                  <Image
+                    source={{ uri: row.photoUrls[0] }}
+                    className="h-[80px] w-[80px] shrink-0 rounded-lg"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="h-[80px] w-[80px] shrink-0 rounded-lg bg-placeholder-image" />
+                )}
+                <View className="flex-1 justify-center py-1">
+                  <Text numberOfLines={1} className="font-semibold text-body text-ink">
+                    {row.title}
+                  </Text>
+                  <View className="mt-1">
+                    <Text className="font-sans text-body-sm text-brand">
+                      {fmtNpr(row.price)} / month
+                    </Text>
+                  </View>
+                  <View className="mt-1.5 flex-row items-center gap-1">
+                    <MapPin size={12} color="#888888" />
+                    <Text className="font-sans text-caption text-ink3">{row.locationArea}</Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (clerkUser?.id) toggleSaved(row.id, supabase, clerkUser.id);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSaved ? 'Remove from saved' : 'Save property'}
+                  className="h-[24px] w-[24px] items-center justify-center">
+                  <Heart
+                    size={20}
+                    color={isSaved ? '#E53E3E' : '#AAAAAA'}
+                    fill={isSaved ? '#E53E3E' : 'transparent'}
+                    strokeWidth={1.5}
+                  />
+                </Pressable>
               </Pressable>
-            </Pressable>
-          );
-        })}
+            );
+          })
+        )}
       </ScrollView>
 
       {/* ── Floating map FAB ────────────────────────────────────────────── */}
@@ -187,4 +234,3 @@ export default function SearchResults() {
     </SafeAreaView>
   );
 }
-

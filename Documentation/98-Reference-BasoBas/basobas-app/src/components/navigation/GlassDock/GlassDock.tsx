@@ -48,8 +48,15 @@ export const GlassDock = ({ items, activeTab, onTabPress }: GlassDockProps) => {
       <View className="h-dock-h w-dock-w rounded-pill" style={styles.shadow}>
         {/* Pill clip — overflow:hidden shapes every absolutely-filled child */}
         <View className="absolute inset-0 overflow-hidden rounded-pill border border-white/[0.15]">
-          {/* Blur — frosted-glass effect */}
-          <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFillObject} />
+          {/* Blur — frosted-glass effect (substantially blurs content behind).
+              On Android the blur is opt-in via experimentalBlurMethod;
+              without it expo-blur just renders the translucent tint. */}
+          <BlurView
+            intensity={60}
+            tint="light"
+            experimentalBlurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFillObject}
+          />
 
           {/* Background color from Figma: rgba(100, 100, 100, 0.35) */}
           <View

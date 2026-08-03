@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -171,18 +172,6 @@ export default function PhoneEntryScreen() {
               onPress={() => setPickerOpen(true)}
               accessibilityLabel="Select country code"
               accessibilityRole="button">
-              <CountryPicker
-                countryCode={countryCode}
-                withFlag
-                withCallingCode
-                withFilter
-                withAlphaFilter
-                preferredCountries={PREFERRED}
-                visible={pickerOpen}
-                onSelect={onCountrySelect}
-                onClose={() => setPickerOpen(false)}
-                renderFlagButton={() => null}
-              />
               <Text style={styles.flagEmoji}>{countryCodeToFlag(countryCode)}</Text>
               <Text style={styles.callingCode}>+{callingCode}</Text>
               <ChevronDown size={12} color={tokens.color.ink3} strokeWidth={2} />
@@ -221,6 +210,30 @@ export default function PhoneEntryScreen() {
             <Text style={styles.privacyText}>Your number is never shared with anyone.</Text>
           </View>
         </ScrollView>
+
+        {/* Country code picker sheet — wrapped in safe-area-aware modal so the
+            list never overlaps the notch / status bar */}
+        <Modal
+          visible={pickerOpen}
+          animationType="slide"
+          transparent={false}
+          statusBarTranslucent
+          onRequestClose={() => setPickerOpen(false)}>
+          <SafeAreaView style={styles.pickerSheet}>
+            <CountryPicker
+              countryCode={countryCode}
+              withFlag
+              withCallingCode
+              withFilter
+              withAlphaFilter
+              preferredCountries={PREFERRED}
+              withModal={false}
+              onSelect={onCountrySelect}
+              onClose={() => setPickerOpen(false)}
+              renderFlagButton={() => null}
+            />
+          </SafeAreaView>
+        </Modal>
 
         {/* CTA above keyboard */}
         <View style={styles.ctaArea}>
@@ -321,6 +334,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
+  pickerSheet: {
+    flex: 1,
+    backgroundColor: tokens.color.bg,
+  },
   privacyText: {
     fontFamily: tokens.font.sans,
     fontSize: tokens.size.bodySm,

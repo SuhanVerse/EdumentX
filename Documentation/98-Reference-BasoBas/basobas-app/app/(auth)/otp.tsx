@@ -45,6 +45,11 @@ export default function OTPVerificationScreen() {
   const inputRef = useRef<TextInput>(null);
   const isLoading = busy;
 
+  // Synchronous re-entry guard — `busy` state updates async, so the
+  // auto-submit effect could fire verify() twice before the re-render;
+  // two concurrent verifies on the same sign-in attempt corrupt it.
+  const busyRef = useRef(false);
+
   // Countdown for resend button
   useEffect(() => {
     if (countdown <= 0) return;
@@ -58,12 +63,15 @@ export default function OTPVerificationScreen() {
   }, [code]);
 
   const verify = async (otp: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setError(null);
     setBusy(true);
 
     try {
       if (flow === 'sign-in') {
-        // Step 1: Verify the code (Future API)
+        // Step 1: Verify the code (Future API) — on success the sign-in is
+        // complete and the session is created server-side.
         const { error: verifyError } = await signIn!.phoneCode.verifyCode({ code: otp });
         if (verifyError) {
           console.error('[OTP] sign-in verifyCode error:', {
@@ -74,30 +82,34 @@ export default function OTPVerificationScreen() {
           return;
         }
 
-        // Step 2: Finalize the sign-in to create a Clerk session
+        // Step 2: Finalize the sign-in to create a Clerk session.
+        // IMPORTANT: the Future API's finalize() calls clerk.setActive()
+        // internally with the created session — do NOT call setActive again
+        // afterwards. A second activation with the same session id fails
+        // server-side with "No session was found with id ..." and leaves
+        // the sign-in attempt consumed, so every retry then fails with
+        // "`identifier` is required when `strategy` is `phone_code`".
         const { error: finalizeError } = await signIn!.finalize();
         if (finalizeError) {
           console.error('[OTP] sign-in finalize error:', {
             code: finalizeError.code,
             message: finalizeError.longMessage ?? finalizeError.message,
           });
+          // Clear the broken attempt so the user can retry cleanly.
+          await signIn!.reset().catch(() => {});
           setError(finalizeError.longMessage ?? 'Could not complete sign in.');
           codeSet('');
           return;
         }
+        console.log('[OTP] Sign-in finalized — session activated');
 
-        // Step 3: Activate the session so Clerk knows the user is signed in
+        // Step 3: Check if the user has already completed onboarding.
+        // IMPORTANT: after finalize (which activates the session), use
+        // getClerkInstance() to get the current user — useUser() from the
+        // hook still has the stale pre-render value. We also create a fresh
+        // supabase client so the getToken closure captures the newly
+        // activated session, not the stale one from the previous render.
         const clerk = getClerkInstance();
-        if (signIn!.createdSessionId && clerk) {
-          console.log('[OTP] Activating session:', signIn!.createdSessionId);
-          await clerk.setActive({ session: signIn!.createdSessionId });
-        }
-
-        // Step 4: Check if the user has already completed onboarding.
-        // IMPORTANT: After setActive, we must use getClerkInstance() to get the
-        // current user — useUser() from the hook still has the stale pre-render value.
-        // We also create a fresh supabase client so the getToken closure captures
-        // the newly activated session, not the stale one from the previous render.
         const currentUserId = clerk?.user?.id
         if (currentUserId) {
           console.log('[OTP] Checking onboarding status for user:', currentUserId);
@@ -180,6 +192,11 @@ export default function OTPVerificationScreen() {
 
       console.error('[OTP] Verification exception:', { code, message }, e);
 
+      // The attempt may be consumed/broken after a failed activation —
+      // clear it so the user can restart cleanly instead of hitting
+      // "`identifier` is required" on every retry.
+      await signIn?.reset().catch(() => {});
+
       if (code) {
         handleClerkCode(code);
       } else {
@@ -188,6 +205,7 @@ export default function OTPVerificationScreen() {
       codeSet('');
     } finally {
       setBusy(false);
+      busyRef.current = false;
     }
   };
 

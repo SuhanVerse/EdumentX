@@ -1,2 +1,2 @@
 # basobas-app
-A AI Powered Mobile app for rental accomodation
+An AI Powered Mobile app for rental accomodation

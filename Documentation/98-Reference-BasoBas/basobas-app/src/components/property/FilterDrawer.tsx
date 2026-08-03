@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, Pressable, Modal, ScrollView, Animated, PanResponder } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePropertyStore } from '@/src/store/propertyStore';
+import { usePropertyStore, type BhkFilter } from '@/src/store/propertyStore';
 
 type FilterDrawerProps = {
   visible: boolean;
@@ -12,12 +12,30 @@ const PROPERTY_TYPES = ['All', '1BHK', '2BHK', 'Studio', '3BHK'] as const;
 const AMENITIES = ['Wi-Fi', 'Parking', 'Furnished', 'Balcony', 'Gym'] as const;
 const SORT_OPTIONS = ['Newest', 'Price: Low to High'] as const;
 
+/** Mirror of the store's type matcher (bedrooms + property_type based). */
+const matchesType = (p: { bedrooms: number | null; propertyType: string }, type: string): boolean => {
+  if (type === 'All') return true;
+  const beds = p.bedrooms ?? 0;
+  switch (type) {
+    case '1BHK':
+      return beds === 1;
+    case '2BHK':
+      return beds === 2;
+    case '3BHK':
+      return beds === 3;
+    case 'Studio':
+      return p.propertyType === 'FLAT' && beds === 0;
+    default:
+      return true;
+  }
+};
+
 export const FilterDrawer = ({ visible, onClose }: FilterDrawerProps) => {
   const insets = useSafeAreaInsets();
   
   const { filters, setFilter, properties } = usePropertyStore();
 
-  const [activeType, setActiveType] = useState<string>(filters.type);
+  const [activeType, setActiveType] = useState<BhkFilter>(filters.type);
   const [activeAmenities, setActiveAmenities] = useState<string[]>(filters.amenities);
   const [activeSort, setActiveSort] = useState<string>(filters.sortBy);
   const [minPrice, setMinPrice] = useState<number>(filters.minPrice);
@@ -90,9 +108,9 @@ export const FilterDrawer = ({ visible, onClose }: FilterDrawerProps) => {
 
   const handleApply = () => {
     // Commit local draft filters to the propertyStore
-    setFilter('type', activeType as any);
+    setFilter('type', activeType);
     setFilter('amenities', activeAmenities);
-    setFilter('sortBy', activeSort as any);
+    setFilter('sortBy', activeSort as 'Newest' | 'Price: Low to High');
     setFilter('minPrice', minPrice);
     setFilter('maxPrice', maxPrice);
     onClose();
@@ -100,19 +118,17 @@ export const FilterDrawer = ({ visible, onClose }: FilterDrawerProps) => {
 
   // Dynamically count matching results based on current draft filters
   const draftFilteredCount = properties.filter((property) => {
-    if (activeType !== 'All' && property.type !== activeType) {
+    if (!matchesType(property, activeType)) {
       return false;
     }
-    if (filters.city !== 'All' && property.location !== filters.city) {
+    if (filters.city !== 'All' && !property.locationArea.toLowerCase().includes(filters.city.toLowerCase())) {
       return false;
     }
-    if (property.priceMonthly < minPrice || property.priceMonthly > maxPrice) {
+    if (property.price < minPrice || property.price > maxPrice) {
       return false;
     }
     if (activeAmenities.length > 0) {
-      const hasAll = activeAmenities.every((amenity) =>
-        property.amenityStrings.includes(amenity),
-      );
+      const hasAll = activeAmenities.every((amenity) => property.amenities.includes(amenity));
       if (!hasAll) return false;
     }
     return true;

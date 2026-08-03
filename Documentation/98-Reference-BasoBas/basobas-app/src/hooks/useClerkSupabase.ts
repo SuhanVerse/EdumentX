@@ -6,6 +6,11 @@ import { createClerkSupabaseClient } from '@/src/lib/supabase'
  * Returns a Supabase client that automatically injects
  * the current Clerk session token on every request.
  *
+ * Sends the **raw Clerk session token** (no JWT template needed).
+ * The Edge Functions verify it manually using `jose` against
+ * Clerk's public JWKS endpoint, so no Supabase JWT template or
+ * custom signing key configuration is required.
+ *
  * The client is memoized and only recreated when the
  * Clerk session changes.
  *

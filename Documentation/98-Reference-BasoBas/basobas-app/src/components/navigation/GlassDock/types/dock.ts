@@ -12,6 +12,8 @@ export interface DockItem {
   key: string;
   /** Lucide icon component (passed as the class, not an element). */
   icon: LucideIcon;
+  /** Optional unread/notification count shown as a red badge. */
+  badge?: number;
 }
 
 export interface GlassDockProps {

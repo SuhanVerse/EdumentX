@@ -16,6 +16,11 @@ if (!supabaseUrl || !supabaseAnon) {
  * Supabase passes this token in the Authorization header.
  * The RLS policies read requesting_user_id() from this token.
  *
+ * Sends the **raw Clerk session token** (no JWT template needed).
+ * The Edge Functions verify it manually using `jose` against
+ * Clerk's public JWKS endpoint, so no Supabase JWT template or
+ * custom signing key configuration is required.
+ *
  * Usage:
  *   const supabase = createClerkSupabaseClient(() => session.getToken())
  *   const { data } = await supabase.from('profiles').select('*')

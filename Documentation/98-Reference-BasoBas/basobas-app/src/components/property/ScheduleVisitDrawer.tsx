@@ -1,28 +1,22 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Check,
-} from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Clock, Check } from 'lucide-react-native';
 
 import { tokens } from '@/src/theme/tokens';
 
 const { color } = tokens;
+
+const NOTE_MAX = 200;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ScheduleSelection {
   date: Date;
   time: string;
+  /** Optional message to the landlord. */
+  note?: string;
 }
 
 export interface ScheduleVisitDrawerProps {
@@ -39,14 +33,7 @@ export interface ScheduleVisitDrawerProps {
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-const DEFAULT_TIME_SLOTS = [
-  '9:00 AM',
-  '10:30 AM',
-  '11:30 AM',
-  '1:00 PM',
-  '2:00 PM',
-  '4:30 PM',
-];
+const DEFAULT_TIME_SLOTS = ['9:00 AM', '10:30 AM', '11:30 AM', '1:00 PM', '2:00 PM', '4:30 PM'];
 
 // ─── Month Grid Calculator ───────────────────────────────────────────────────
 
@@ -73,8 +60,18 @@ function buildMonthGrid(year: number, month: number): MonthGridDay[] {
 }
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -114,30 +111,22 @@ export const ScheduleVisitDrawer = ({
   const sheetRef = useRef<BottomSheet>(null);
 
   const today = useMemo(() => new Date(), []);
-  const [viewYear, setViewYear] = useState(
-    initialDate?.getFullYear() ?? today.getFullYear(),
-  );
-  const [viewMonth, setViewMonth] = useState(
-    initialDate?.getMonth() ?? today.getMonth(),
-  );
+  const [viewYear, setViewYear] = useState(initialDate?.getFullYear() ?? today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initialDate?.getMonth() ?? today.getMonth());
 
   // Auto-select the first available date: initialDate or today
   const initialDay = initialDate?.getDate() ?? today.getDate();
   const [selectedDay, setSelectedDay] = useState<number | null>(
-    isPastDate(new Date(viewYear, viewMonth, initialDay))
-      ? null
-      : initialDay,
+    isPastDate(new Date(viewYear, viewMonth, initialDay)) ? null : initialDay
   );
   const [selectedTime, setSelectedTime] = useState(availableTimeSlots[0] ?? '');
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [confirmState, setConfirmState] = useState<
-    'idle' | 'loading' | 'success' | 'error'
-  >('idle');
-
-  const grid = useMemo(
-    () => buildMonthGrid(viewYear, viewMonth),
-    [viewYear, viewMonth],
+  const [note, setNote] = useState('');
+  const [confirmState, setConfirmState] = useState<'idle' | 'loading' | 'success' | 'error'>(
+    'idle'
   );
+
+  const grid = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
 
   // ── Open/close sync ──────────────────────────────────────────────────────
 
@@ -147,6 +136,7 @@ export const ScheduleVisitDrawer = ({
       // Reset state on open
       setSelectedTime(availableTimeSlots[0] ?? '');
       setShowTimePicker(false);
+      setNote('');
       setConfirmState('idle');
     } else {
       sheetRef.current?.close();
@@ -198,7 +188,7 @@ export const ScheduleVisitDrawer = ({
     const date = new Date(viewYear, viewMonth, selectedDay);
     setConfirmState('loading');
     try {
-      await onConfirm({ date, time: selectedTime });
+      await onConfirm({ date, time: selectedTime, note: note.trim() || undefined });
       setConfirmState('success');
       // Auto-close after showing success feedback
       setTimeout(() => {
@@ -207,12 +197,9 @@ export const ScheduleVisitDrawer = ({
     } catch {
       setConfirmState('error');
     }
-  }, [selectedDay, selectedTime, viewYear, viewMonth, onConfirm, onClose]);
+  }, [selectedDay, selectedTime, viewYear, viewMonth, note, onConfirm, onClose]);
 
-  const selectedDateObj =
-    selectedDay != null
-      ? new Date(viewYear, viewMonth, selectedDay)
-      : null;
+  const selectedDateObj = selectedDay != null ? new Date(viewYear, viewMonth, selectedDay) : null;
 
   // ── Bottom sheet index ───────────────────────────────────────────────────
 
@@ -223,7 +210,7 @@ export const ScheduleVisitDrawer = ({
   return (
     <BottomSheet
       ref={sheetRef}
-      index={isOpen ? 0 : -1}
+      index={0}
       snapPoints={snapPoints}
       enablePanDownToClose
       backgroundStyle={sheetStyles.background}
@@ -232,16 +219,11 @@ export const ScheduleVisitDrawer = ({
         if (idx === -1 && isOpen) onClose();
       }}>
       <BottomSheetScrollView
-        contentContainerStyle={[
-          sheetStyles.scrollContent,
-          { paddingBottom: 24 + insets.bottom },
-        ]}
+        contentContainerStyle={[sheetStyles.scrollContent, { paddingBottom: 24 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         {/* ── Heading ──────────────────────────────────────────────────── */}
-        <Text className="px-6 font-display text-h1 leading-tight text-ink">
-          Schedule a Visit
-        </Text>
+        <Text className="px-6 font-display text-h1 leading-tight text-ink">Schedule a Visit</Text>
         <Text className="mt-1 px-6 font-sans text-body text-ink2">
           {propertyTitle} · {propertyLocation}
         </Text>
@@ -285,7 +267,10 @@ export const ScheduleVisitDrawer = ({
             {grid.map((cell, i) => {
               if (cell.day == null) {
                 return (
-                  <View key={`pad-${i}`} className="aspect-square flex-1 basis-[14.28%] items-center justify-center" />
+                  <View
+                    key={`pad-${i}`}
+                    className="aspect-square flex-1 basis-[14.28%] items-center justify-center"
+                  />
                 );
               }
               const cellDate = cell.date!;
@@ -303,20 +288,12 @@ export const ScheduleVisitDrawer = ({
                   accessibilityRole="button"
                   accessibilityState={{ selected, disabled: past }}>
                   <View
-                    className={`aspect-square h-10 w-10 items-center justify-center rounded-lg ${
-                      selected
-                        ? 'bg-ink'
-                        : past
-                          ? 'bg-transparent'
-                          : 'bg-transparent'
+                    className={`aspect-square h-10 w-10 items-center justify-center rounded-pill ${
+                      selected ? 'bg-ink' : past ? 'bg-transparent' : 'bg-transparent'
                     }`}>
                     <Text
                       className={`font-semibold text-body-sm ${
-                        selected
-                          ? 'text-white'
-                          : past
-                            ? 'text-placeholder'
-                            : 'text-ink'
+                        selected ? 'text-white' : past ? 'text-placeholder' : 'text-ink'
                       }`}>
                       {cell.day}
                     </Text>
@@ -331,9 +308,7 @@ export const ScheduleVisitDrawer = ({
         </View>
 
         {/* ── Time Slot ────────────────────────────────────────────────── */}
-        <Text className="mt-5 px-6 font-semibold text-h3 text-ink">
-          Time Slot
-        </Text>
+        <Text className="mt-5 px-6 font-semibold text-h3 text-ink">Time Slot</Text>
 
         <View className="mx-6 mt-2">
           {/* Time selector row */}
@@ -343,9 +318,7 @@ export const ScheduleVisitDrawer = ({
             accessibilityLabel={`Selected time: ${selectedTime}. Tap to change.`}
             accessibilityRole="button">
             <Clock size={18} color={color.ink2} />
-            <Text className="ml-3 flex-1 font-sans text-body text-ink">
-              {selectedTime}
-            </Text>
+            <Text className="ml-3 flex-1 font-sans text-body text-ink">{selectedTime}</Text>
             <ChevronRight
               size={18}
               color={color.ink2}
@@ -388,25 +361,38 @@ export const ScheduleVisitDrawer = ({
           )}
         </View>
 
+        {/* ── Note (optional) ─────────────────────────────────────────── */}
+        <Text className="mt-5 px-6 font-semibold text-h3 text-ink">Message</Text>
+
+        <View className="mx-6 mt-2 rounded-card border border-line bg-bg p-4">
+          <TextInput
+            style={sheetStyles.noteInput}
+            placeholder="Add a note for the landlord (optional)"
+            placeholderTextColor={color.placeholder}
+            multiline
+            maxLength={NOTE_MAX}
+            value={note}
+            onChangeText={setNote}
+            textAlignVertical="top"
+          />
+          <Text style={sheetStyles.noteCounter}>
+            {note.length}/{NOTE_MAX}
+          </Text>
+        </View>
+
         {/* ── Confirm Button ───────────────────────────────────────────── */}
         <View className="mx-6 mt-6">
           {confirmState === 'success' ? (
             <View className="flex-row items-center justify-center rounded-pill bg-brand-light py-4">
               <Check size={18} color={color.brand} strokeWidth={3} />
-              <Text className="ml-2 font-semibold text-body text-brand">
-                Visit Requested!
-              </Text>
+              <Text className="ml-2 font-semibold text-body text-brand">Visit Requested!</Text>
             </View>
           ) : (
             <Pressable
               onPress={handleConfirm}
-              disabled={
-                confirmState === 'loading' || selectedDay == null || !selectedTime
-              }
+              disabled={confirmState === 'loading' || selectedDay == null || !selectedTime}
               className={`h-[56px] items-center justify-center rounded-pill ${
-                selectedDay != null && selectedTime
-                  ? 'bg-ink'
-                  : 'bg-placeholder'
+                selectedDay != null && selectedTime ? 'bg-ink' : 'bg-placeholder'
               }`}
               accessibilityRole="button"
               accessibilityLabel={
@@ -451,5 +437,19 @@ const sheetStyles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 8,
+  },
+  noteInput: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 14,
+    color: '#0A0A0A',
+    lineHeight: 20,
+    minHeight: 72,
+  },
+  noteCounter: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: '#AAAAAA',
+    textAlign: 'right',
+    marginTop: 4,
   },
 });

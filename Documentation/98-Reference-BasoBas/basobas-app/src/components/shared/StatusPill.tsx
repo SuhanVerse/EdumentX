@@ -8,7 +8,10 @@ type Status =
   | 'verified'
   | 'scheduled'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'kyc-pending'
+  | 'kyc-verified'
+  | 'kyc-rejected';
 
 const STATUS_STYLES: Record<Status, { bg: string; text: string; label: string; dotColor: string }> =
   {
@@ -40,6 +43,25 @@ const STATUS_STYLES: Record<Status, { bg: string; text: string; label: string; d
       dotColor: '#22C55E',
     },
     cancelled: { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelled', dotColor: '#EF4444' },
+    // KYC variants — match the status palette in tokens.ts / tailwind.config.
+    'kyc-pending': {
+      bg: 'bg-warn-bg',
+      text: 'text-warn',
+      label: 'Under Review',
+      dotColor: '#B45309',
+    },
+    'kyc-verified': {
+      bg: 'bg-success-bg',
+      text: 'text-success-dark',
+      label: 'Verified',
+      dotColor: '#22C55E',
+    },
+    'kyc-rejected': {
+      bg: 'bg-danger-bg',
+      text: 'text-danger',
+      label: 'Rejected',
+      dotColor: '#E53E3E',
+    },
   };
 
 type Props = {

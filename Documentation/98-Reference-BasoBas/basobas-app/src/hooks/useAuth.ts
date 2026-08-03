@@ -4,6 +4,7 @@ import { useAuth as useClerkAuth } from '@clerk/expo'
 
 import { useAuthStore } from '@/src/store/authStore'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
+import { useUserStore } from '@/src/store/userStore'
 
 /**
  * Wraps Clerk's auth with our app's logout flow:
@@ -26,6 +27,7 @@ export function useAuth() {
     }
     useAuthStore.getState().clearAll()
     useOnboardingStore.getState().reset()
+    useUserStore.getState().reset()
     router.replace('/(auth)/phone')
   }
 

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, Heart } from 'lucide-react-native';
 
@@ -73,12 +73,16 @@ export const PropertyHero = ({
             onIndexChange?.(page);
           }}
           className="flex-1">
-          {images.map((_img, i) => (
+          {images.map((img, i) => (
             <View
               key={i}
               style={{ width: SCREEN_WIDTH }}
-              className="items-center justify-center bg-canvas">
-              <Text className="font-sans text-body-sm text-ink3">Photo {i + 1}</Text>
+              className="bg-canvas">
+              <Image
+                source={{ uri: img }}
+                style={{ width: SCREEN_WIDTH, height }}
+                resizeMode="cover"
+              />
             </View>
           ))}
         </ScrollView>

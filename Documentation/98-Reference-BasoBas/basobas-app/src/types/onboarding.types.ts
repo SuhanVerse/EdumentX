@@ -2,12 +2,6 @@ export type UserRole = 'tenant' | 'landlord'
 
 export type DocumentType = 'CITIZENSHIP' | 'NATIONAL_ID'
 
-export type KYCStatus =
-  | 'UNVERIFIED'
-  | 'UNDER_REVIEW'
-  | 'VERIFIED'
-  | 'REJECTED'
-
 export type PropertyPreference =
   | 'ROOM'
   | 'APARTMENT'

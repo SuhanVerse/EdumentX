@@ -4,6 +4,9 @@ import { ChevronRight } from 'lucide-react-native';
 type Props = {
   label: string;
   subtitle?: string;
+  /** Optional Tailwind class override for the subtitle (e.g. to color it green
+   *  when a feature is active). Defaults to `text-ink2` when omitted. */
+  subtitleClassName?: string;
   onPress?: () => void;
   icon?: React.ReactNode;
   rightSlot?: React.ReactNode;
@@ -16,6 +19,7 @@ type Props = {
 export const MenuRow = ({
   label,
   subtitle,
+  subtitleClassName = 'text-ink2',
   onPress,
   icon,
   rightSlot,
@@ -30,7 +34,9 @@ export const MenuRow = ({
     {icon && <View className="mr-3">{icon}</View>}
     <View className="flex-1">
       <Text className="font-medium text-body text-ink">{label}</Text>
-      {subtitle && <Text className="mt-0.5 font-sans text-caption text-ink2">{subtitle}</Text>}
+      {subtitle && (
+        <Text className={`mt-0.5 font-sans text-caption ${subtitleClassName}`}>{subtitle}</Text>
+      )}
     </View>
     {rightSlot || (showChevron && <ChevronRight size={18} color="#AAAAAA" />)}
   </Pressable>

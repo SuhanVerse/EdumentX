@@ -1,18 +1,34 @@
 import { useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePropertyStore } from '@/src/store/propertyStore';
+import { usePropertyStore, type BhkFilter } from '@/src/store/propertyStore';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const PROPERTY_TYPES = ['All', '1BHK', '2BHK', 'Studio', '3BHK'] as const;
-type PropertyType = (typeof PROPERTY_TYPES)[number];
-
 const AMENITIES = ['Wi-Fi', 'Parking', 'Furnished', 'Balcony', 'Gym'] as const;
 type Amenity = (typeof AMENITIES)[number];
 
 const SORTS = ['Newest', 'Price: Low to High'] as const;
 type SortOption = (typeof SORTS)[number];
+
+/** Mirror of the store's type matcher (bedrooms + property_type based). */
+const matchesType = (p: { bedrooms: number | null; propertyType: string }, type: string): boolean => {
+  if (type === 'All') return true;
+  const beds = p.bedrooms ?? 0;
+  switch (type) {
+    case '1BHK':
+      return beds === 1;
+    case '2BHK':
+      return beds === 2;
+    case '3BHK':
+      return beds === 3;
+    case 'Studio':
+      return p.propertyType === 'FLAT' && beds === 0;
+    default:
+      return true;
+  }
+};
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -21,9 +37,9 @@ export default function FilterDrawer() {
   
   const { filters, setFilter, properties } = usePropertyStore();
 
-  const [type, setType] = useState<PropertyType>(filters.type as PropertyType);
+  const [type, setType] = useState<BhkFilter>(filters.type);
   const [amenities, setAmenities] = useState<Set<Amenity>>(new Set(filters.amenities as Amenity[]));
-  const [sort, setSort] = useState<SortOption>(filters.sortBy as SortOption);
+  const [sort, setSort] = useState<SortOption>(filters.sortBy);
   const [minPrice, setMinPrice] = useState<number>(filters.minPrice);
   const [maxPrice, setMaxPrice] = useState<number>(filters.maxPrice);
 
@@ -47,18 +63,18 @@ export default function FilterDrawer() {
 
   // Dynamically count matching results based on current draft filters
   const draftFilteredCount = properties.filter((property) => {
-    if (type !== 'All' && property.type !== type) {
+    if (!matchesType(property, type)) {
       return false;
     }
-    if (filters.city !== 'All' && property.location !== filters.city) {
+    if (filters.city !== 'All' && !property.locationArea.toLowerCase().includes(filters.city.toLowerCase())) {
       return false;
     }
-    if (property.priceMonthly < minPrice || property.priceMonthly > maxPrice) {
+    if (property.price < minPrice || property.price > maxPrice) {
       return false;
     }
     if (amenities.size > 0) {
       const hasAll = Array.from(amenities).every((amenity) =>
-        property.amenityStrings.includes(amenity),
+        property.amenities.includes(amenity),
       );
       if (!hasAll) return false;
     }

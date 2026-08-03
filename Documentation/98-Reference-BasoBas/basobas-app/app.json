@@ -15,7 +15,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "@clerk/expo"
+      "@clerk/expo",
+      [
+        "expo-maps",
+        {
+          "requestLocationPermission": true,
+          "locationPermission":"Allow ${PRODUCT_NAME} to access this device's location?"
+        }
+      ]
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -36,6 +43,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyA3-iCgl3Ow2fxbIuZUsklb3gZymYiPHJI"
+        }
       }
     }
   }

@@ -341,7 +341,8 @@ enabled = true
 # Obtain from https://clerk.com/setup/supabase
 # ⚠️ Replace with your actual Clerk domain from the Clerk Dashboard
 #    (Configure → Connect → Supabase)
-domain = "your-app.clerk.accounts.dev"
+#    NOTE: bare host only — no scheme, no trailing slash.
+domain = "lenient-gnat-77.clerk.accounts.dev"
 
 # OAuth server configuration
 [auth.oauth_server]
@@ -389,9 +390,44 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 enabled = true
 verify_jwt = false
 import_map = "./functions/hello-world/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/hello-world/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/hello-world/*.html" ]
+
+[functions.create-esewa-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/create-esewa-order/deno.json"
+entrypoint = "./functions/create-esewa-order/index.ts"
+
+[functions.verify-esewa-payment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/verify-esewa-payment/deno.json"
+entrypoint = "./functions/verify-esewa-payment/index.ts"
+
+[functions.esewa-payment-failed]
+enabled = true
+verify_jwt = false
+import_map = "./functions/esewa-payment-failed/deno.json"
+entrypoint = "./functions/esewa-payment-failed/index.ts"
+
+[functions.check-payment-status]
+enabled = true
+verify_jwt = false
+import_map = "./functions/check-payment-status/deno.json"
+entrypoint = "./functions/check-payment-status/index.ts"
+
+# These verify the Clerk JWT manually inside the function (see
+# functions/_shared/auth.ts), so the platform must not demand a
+# Supabase JWT — otherwise the app's Clerk token is rejected before
+# the function ever runs.
+[functions.geocode]
+enabled = true
+verify_jwt = false
+import_map = "./functions/geocode/deno.json"
+entrypoint = "./functions/geocode/index.ts"
+
+[functions.reverse-geocode]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reverse-geocode/deno.json"
+entrypoint = "./functions/reverse-geocode/index.ts"

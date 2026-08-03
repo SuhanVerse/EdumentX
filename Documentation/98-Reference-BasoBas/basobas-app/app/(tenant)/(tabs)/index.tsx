@@ -1,32 +1,50 @@
-import { useState } from 'react';
-import { ScrollView, View, Text, Pressable } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Bell, Search } from 'lucide-react-native';
 
 import { ScreenBody } from '@/src/components/layout/ScreenBody';
 import { usePropertyStore } from '@/src/store/propertyStore';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
+import { useUser } from '@clerk/expo';
+import { tokens } from '@/src/theme/tokens';
+
+const { color } = tokens;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const CITIES = ['Kathmandu', 'Lalitpur', 'Bhaktapur'] as const;
 type City = (typeof CITIES)[number];
 
+const fmtNpr = (n: number) => `NPR ${n.toLocaleString('en-US')}`;
+
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function HomeTab() {
   const router = useRouter();
+  const supabase = useClerkSupabase();
+  const { user: clerkUser } = useUser();
   const [activeCity, setActiveCity] = useState<City>('Kathmandu');
 
-  const { properties, setFilter } = usePropertyStore((state) => ({
-    properties: state.properties,
-    setFilter: state.setFilter,
-  }));
+  const { properties, hydrated, hydrate, hydrateError, setFilter } = usePropertyStore(
+    (state) => ({
+      properties: state.properties,
+      hydrated: state.hydrated,
+      hydrate: state.hydrate,
+      hydrateError: state.hydrateError,
+      setFilter: state.setFilter,
+    }),
+  );
 
-  // Select featured property (e.g. highest rated in Kathmandu)
-  const featuredProperty = properties.find((p) => p.id === 'p1') || properties[0];
+  // Hydrate the real marketplace from Supabase on first mount.
+  useEffect(() => {
+    if (!hydrated && clerkUser?.id) {
+      hydrate(supabase, clerkUser.id);
+    }
+  }, [hydrated, clerkUser?.id, supabase, hydrate]);
 
-  // Select recommended properties (e.g. p2, p3, p4)
-  const recommendedProperties = properties.filter((p) => p.id !== featuredProperty.id).slice(0, 3);
+  const featuredProperty = properties[0];
+  const recommendedProperties = properties.slice(1, 4);
 
   const handleCityPress = (city: City) => {
     setActiveCity(city);
@@ -99,59 +117,111 @@ export default function HomeTab() {
           })}
         </View>
 
-        {/* Featured property card */}
-        <View className="px-[24px] pt-6">
-          <Pressable
-            onPress={() => handlePropertyPress(featuredProperty.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`Featured: ${featuredProperty.title}`}
-            className="w-full overflow-hidden rounded-hero bg-canvas pb-2">
-            <View className="h-[210px] w-full bg-placeholder-image" />
-            <View className="px-5 py-4">
-              <Text numberOfLines={1} className="font-semibold text-h3 text-ink">
-                {featuredProperty.title}
-              </Text>
-              <Text className="mt-1 font-sans text-body text-brand">
-                {featuredProperty.currency} {featuredProperty.priceMonthly.toLocaleString()} / month
-              </Text>
-              <Text className="mt-[6px] font-sans text-body-sm text-ink2">
-                {featuredProperty.area} · Verified
-              </Text>
+        {/* ── Loading ─────────────────────────────────────────────────── */}
+        {!hydrated ? (
+          <View className="items-center justify-center gap-3 px-[24px] pt-16">
+            {hydrateError ? (
+              <>
+                <Text className="text-center font-sans text-body-sm text-danger">
+                  Couldn&apos;t load rentals. Pull down or reopen to retry.
+                </Text>
+                <Pressable
+                  onPress={() => clerkUser?.id && hydrate(supabase, clerkUser.id)}
+                  accessibilityRole="button"
+                  className="h-[44px] items-center justify-center rounded-pill bg-ink px-6">
+                  <Text className="font-semibold text-body-sm text-white">Retry</Text>
+                </Pressable>
+              </>
+            ) : (
+              <ActivityIndicator size="small" color={color.brand} />
+            )}
+          </View>
+        ) : properties.length === 0 ? (
+          /* ── Empty state (no live listings) ─────────────────────────── */
+          <View className="items-center gap-2 px-[24px] pt-16">
+            <Text className="font-semibold text-h3 text-ink">No rentals available yet</Text>
+            <Text className="text-center font-sans text-body-sm text-ink2">
+              New listings from verified landlords will appear here as soon as they&apos;re live.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Featured property card */}
+            <View className="px-[24px] pt-6">
+              <Pressable
+                onPress={() => handlePropertyPress(featuredProperty.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Featured: ${featuredProperty.title}`}
+                className="w-full overflow-hidden rounded-hero bg-canvas pb-2">
+                {featuredProperty.photoUrls[0] ? (
+                  <Image
+                    source={{ uri: featuredProperty.photoUrls[0] }}
+                    className="h-[210px] w-full"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="h-[210px] w-full bg-placeholder-image" />
+                )}
+                <View className="px-5 py-4">
+                  <Text numberOfLines={1} className="font-semibold text-h3 text-ink">
+                    {featuredProperty.title}
+                  </Text>
+                  <Text className="mt-1 font-sans text-body text-brand">
+                    {fmtNpr(featuredProperty.price)} / month
+                  </Text>
+                  <Text className="mt-[6px] font-sans text-body-sm text-ink2">
+                    {featuredProperty.locationArea}
+                  </Text>
+                </View>
+              </Pressable>
             </View>
-          </Pressable>
-        </View>
 
-        {/* Recommended heading */}
-        <View className="px-[24px] pt-8">
-          <Text className="font-semibold text-h2 text-ink">Recommended</Text>
-        </View>
+            {/* Recommended heading */}
+            {recommendedProperties.length > 0 && (
+              <>
+                <View className="px-[24px] pt-8">
+                  <Text className="font-semibold text-h2 text-ink">Recommended</Text>
+                </View>
 
-        {/* Recommended rows */}
-        <View className="px-[24px] pt-4">
-          {recommendedProperties.map((row, idx) => (
-            <Pressable
-              key={row.id}
-              onPress={() => handlePropertyPress(row.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Recommended: ${row.title}`}
-              className={`flex-row items-center gap-4 py-4 ${
-                idx < recommendedProperties.length - 1 ? 'border-b border-divider' : ''
-              }`}>
-              <View className="h-[72px] w-[72px] rounded-lg bg-placeholder-image" />
-              <View className="flex-1">
-                <Text numberOfLines={1} className="font-semibold text-body text-ink">
-                  {row.title}
-                </Text>
-                <Text className="mt-1 font-sans text-body-sm text-ink2">
-                  {row.currency} {row.priceMonthly.toLocaleString()} / month
-                </Text>
-                <Text className="mt-1 font-sans text-caption text-placeholder">{row.area}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+                {/* Recommended rows */}
+                <View className="px-[24px] pt-4">
+                  {recommendedProperties.map((row, idx) => (
+                    <Pressable
+                      key={row.id}
+                      onPress={() => handlePropertyPress(row.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Recommended: ${row.title}`}
+                      className={`flex-row items-center gap-4 py-4 ${
+                        idx < recommendedProperties.length - 1 ? 'border-b border-divider' : ''
+                      }`}>
+                      {row.photoUrls[0] ? (
+                        <Image
+                          source={{ uri: row.photoUrls[0] }}
+                          className="h-[72px] w-[72px] rounded-lg"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="h-[72px] w-[72px] rounded-lg bg-placeholder-image" />
+                      )}
+                      <View className="flex-1">
+                        <Text numberOfLines={1} className="font-semibold text-body text-ink">
+                          {row.title}
+                        </Text>
+                        <Text className="mt-1 font-sans text-body-sm text-ink2">
+                          {fmtNpr(row.price)} / month
+                        </Text>
+                        <Text className="mt-1 font-sans text-caption text-placeholder">
+                          {row.locationArea}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
     </ScreenBody>
   );
 }
-

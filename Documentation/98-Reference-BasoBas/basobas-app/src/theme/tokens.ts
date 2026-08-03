@@ -17,6 +17,12 @@ export const tokens = {
     dangerBg: '#FEE2E2',
     rating: '#F5A623',
     dockSurface: 'rgba(18, 18, 18, 0.78)',
+    // KYC status palette — matches existing property-status chip pattern.
+    warn:        '#B45309',
+    warnBg:      '#FFF3E0',
+    success:     '#22C55E',
+    successBg:   '#DCFCE7',
+    successDark: '#15803D',
   },
   font: {
     display: 'DMSerifDisplay_400Regular',
