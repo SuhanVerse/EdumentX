@@ -9,10 +9,19 @@
  * - Tapping an option or the custom row sets the value and closes the
  *   dropdown
  * - Fits the EdumentX design system (FieldShell-compatible)
+ *
+ * Single source of truth: `onChange` is fired on EVERY keystroke (not
+ * just on select/clear), so the parent's value always mirrors what is
+ * actually in the input. This is what keeps the form's `valid` prop and
+ * submit validation honest — if the user clears the text, the parent
+ * sees "" and the green tick disappears (previously the stale selected
+ * value kept the tick and let the form submit with a visually empty
+ * field). The dropdown also re-opens after clearing + re-typing because
+ * the blur-close timer is cancelable and never fights a fresh focus.
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -87,12 +96,37 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [searchText, setSearchText] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
+  // The blur-close delay must be cancelable: a stale timer firing after
+  // the user cleared + re-focused the field would lock `isFocused` to
+  // false and the dropdown would never re-open on re-typing.
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function cancelBlurTimer() {
+    if (blurTimer.current !== null) {
+      clearTimeout(blurTimer.current);
+      blurTimer.current = null;
+    }
+  }
 
   // When `value` changes from outside (e.g. edit screen hydration),
-  // sync the local searchText via an effect.
+  // sync the local searchText via an effect. Because `onChange` fires
+  // on every keystroke, `value` always equals `searchText` during user
+  // interaction, so this is a no-op there — it only matters for
+  // externally hydrated values (edit screen preload).
   useEffect(() => {
     setSearchText(value);
   }, [value]);
+
+  // Clear any pending blur timer on unmount so we never setState on a
+  // dead component. Inline the cleanup so it doesn't depend on the
+  // render-scoped `cancelBlurTimer` (refs are stable, the function is not).
+  useEffect(() => {
+    return () => {
+      if (blurTimer.current !== null) {
+        clearTimeout(blurTimer.current);
+      }
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const trimmed = searchText.trim();
@@ -119,14 +153,23 @@ export function SearchableSelect({
   const showDropdown = isFocused && (filtered.length > 0 || showCustom);
 
   function selectOption(option: string) {
+    cancelBlurTimer();
     setSearchText(option);
     onChange(option);
     setIsFocused(false);
   }
 
   function handleClear() {
+    cancelBlurTimer();
     setSearchText("");
     onChange("");
+    // Keep the dropdown armed to re-open. After `selectOption` set
+    // `isFocused` to false (to close the dropdown), tapping the ✕ — a
+    // sibling Pressable — does NOT fire `onFocus` on the TextInput, so
+    // without this the field would stay stuck closed when the user
+    // retypes. The blur race is handled by `cancelBlurTimer()` above
+    // (pending timers are cleared; a later real blur schedules a fresh
+    // timer that the next tap's `onFocus` cancels).
     setIsFocused(true);
   }
 
@@ -135,7 +178,7 @@ export function SearchableSelect({
       {/* Label + description */}
       <View className="flex-row items-center justify-between">
         <Text className="text-caption text-text-secondary">{label}</Text>
-        {searchText.length > 0 && value === searchText ? (
+        {searchText.length > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Clear"
@@ -162,11 +205,27 @@ export function SearchableSelect({
         <TextInput
           className="flex-1 text-text-primary text-body"
           value={searchText}
-          onChangeText={setSearchText}
-          onFocus={() => setIsFocused(true)}
+          onChangeText={(text) => {
+            // Fire onChange on every keystroke so the parent's value is
+            // always the true current text (see header comment). This is
+            // what clears the stale-value green tick when the user
+            // backspaces the whole field and blocks submit-on-empty.
+            setSearchText(text);
+            onChange(text);
+          }}
+          onFocus={() => {
+            cancelBlurTimer();
+            setIsFocused(true);
+          }}
           onBlur={() => {
-            // Delay hiding the dropdown so the tap on a list item registers
-            setTimeout(() => setIsFocused(false), 200);
+            // Delay hiding the dropdown so the tap on a list item
+            // registers, but keep the timer cancelable so a fresh focus
+            // or clear can never be overridden by a stale close.
+            cancelBlurTimer();
+            blurTimer.current = setTimeout(() => {
+              setIsFocused(false);
+              blurTimer.current = null;
+            }, 200);
           }}
           placeholder={placeholder}
           placeholderTextColor={colors.text.muted}

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -28,7 +28,9 @@ import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
+import { useFieldScroll } from "@/hooks/useFieldScroll";
 import { registration } from "@/lib/registration";
+import { validateEmail, validateFullName, validatePhone, validateUsername } from "@/lib/validation";
 import { useAuthStore } from "@/store/authStore";
 
 const GRADES = [
@@ -52,21 +54,13 @@ const SUBJECTS = [
   "English",
 ] as const;
 
-import {
-  validateEmail,
-  validateFullName,
-  validatePhone,
-  validateUsername,
-  validateRequired,
-  validateSelection,
-} from "@/lib/validation";
-
 type FormErrors = {
   fullName?: string;
   username?: string;
   phone?: string;
   grade?: string;
   subjects?: string;
+  location?: string;
   avatar?: string;
 };
 
@@ -86,6 +80,13 @@ export function StudentProfileScreen() {
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { registerField, scrollToFirstInvalid } = useFieldScroll();
+
+  // The profile picture is a required field, exactly like the others.
+  // Exposed as a named flag so it can participate in `canSubmit` and
+  // drive `AvatarUploader`'s error/valid visual states.
+  const isProfilePictureValid = avatarUri !== null;
 
   function toggleSubject(option: string) {
     setSubjects((prev) =>
@@ -102,7 +103,7 @@ export function StudentProfileScreen() {
     subjects.length >= 1 &&
     location !== null &&
     location.city.trim().length > 0 &&
-    avatarUri !== null;
+    isProfilePictureValid;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
@@ -122,10 +123,27 @@ export function StudentProfileScreen() {
     if (phoneErr) validationErrors.phone = phoneErr;
     if (!grade) validationErrors.grade = "Select your grade.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
+    if (!location || !location.city.trim()) {
+      validationErrors.location = "Add your location.";
+    }
     if (!avatarUri) validationErrors.avatar = "Upload a profile photo to continue.";
     setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length > 0) return;
+    if (Object.keys(validationErrors).length > 0) {
+      // Standard UX: the button stays enabled and a failed submit
+      // scrolls to the first incomplete section (document order) so
+      // the user immediately sees why they can't continue.
+      const sections: string[] = [];
+      if (validationErrors.avatar) sections.push("avatar");
+      if (validationErrors.fullName) sections.push("nameEmail");
+      if (validationErrors.username || validationErrors.phone)
+        sections.push("usernamePhone");
+      if (validationErrors.grade) sections.push("grade");
+      if (validationErrors.subjects) sections.push("subjects");
+      if (validationErrors.location) sections.push("location");
+      scrollToFirstInvalid(scrollRef, sections);
+      return;
+    }
 
     // Cache the draft in the registration shim so the in-flight navigation
     // can read it before Firestore round-trip completes. The shim will be
@@ -284,33 +302,42 @@ export function StudentProfileScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
-          <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
-          {errors.avatar ? (
-            <Text className="text-caption text-danger text-center -mt-4">
-              {errors.avatar}
-            </Text>
-          ) : null}
+          <View onLayout={registerField("avatar")}>
+            <AvatarUploader
+              value={avatarUri}
+              onChange={setAvatarUri}
+              error={!isProfilePictureValid}
+              valid={isProfilePictureValid}
+              errorMessage={errors.avatar}
+            />
+          </View>
 
-          <NameEmailFields
-            fullName={fullName}
-            email={authEmail}
-            emailDisabled
-            errors={errors}
-            fullNameValid={
-              fullName.trim().length > 0 && validateFullName(fullName) === null
-            }
-            fullNameError={!!errors.fullName}
-            onChangeFullName={setFullName}
-            onChangeEmail={() => {
-              /* email is locked — sourced from verified auth identity */
-            }}
-          />
+          <View onLayout={registerField("nameEmail")}>
+            <NameEmailFields
+              fullName={fullName}
+              email={authEmail}
+              emailDisabled
+              errors={errors}
+              fullNameValid={
+                fullName.trim().length > 0 && validateFullName(fullName) === null
+              }
+              fullNameError={!!errors.fullName}
+              onChangeFullName={setFullName}
+              onChangeEmail={() => {
+                /* email is locked — sourced from verified auth identity */
+              }}
+            />
+          </View>
 
-          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("usernamePhone")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
             <Text className="text-label text-ink-muted">
               Username & phone
             </Text>
@@ -381,7 +408,10 @@ export function StudentProfileScreen() {
             </View>
           </View>
 
-          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("grade")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
             <Text className="text-label text-ink-muted">
               Grade / class
             </Text>
@@ -400,15 +430,24 @@ export function StudentProfileScreen() {
             ) : null}
           </View>
 
-          <ChipGroup
-            label="Subjects needed"
-            options={SUBJECTS}
-            selected={subjects}
-            onToggle={toggleSubject}
-            error={errors.subjects}
-          />
+          <View onLayout={registerField("subjects")}>
+            <ChipGroup
+              label="Subjects needed"
+              options={SUBJECTS}
+              selected={subjects}
+              onToggle={toggleSubject}
+              error={errors.subjects}
+            />
+          </View>
 
-          <LocationField value={location} onChange={setLocation} />
+          <View onLayout={registerField("location")}>
+            <LocationField value={location} onChange={setLocation} />
+            {errors.location ? (
+              <Text className="text-caption text-danger mt-1">
+                {errors.location}
+              </Text>
+            ) : null}
+          </View>
           <View className="w-full mt-6">
             <PrimaryButton
               label={isSaving ? "Saving..." : "Finish setup"}
@@ -416,9 +455,15 @@ export function StudentProfileScreen() {
               variant="accent"
               size="lg"
               loading={isSaving}
-              disabled={!canSubmit}
+              disabled={isSaving}
               className="w-full"
             />
+            {!canSubmit && !isSaving ? (
+              <Text className="text-caption text-text-muted text-center mt-2">
+                Some required fields are incomplete — tap Finish setup to
+                see what&apos;s missing.
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

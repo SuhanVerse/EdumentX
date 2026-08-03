@@ -7,7 +7,7 @@ import {
   writeBatch,
 } from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -29,10 +29,12 @@ import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motio
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
+import { useFieldScroll } from "@/hooks/useFieldScroll";
 import { INSTITUTION_LABELS } from "@/data/institutions";
 import { QUALIFICATION_LABELS } from "@/data/qualifications";
 import { motion } from "@/lib/motion";
 import { registration } from "@/lib/registration";
+import { validateDegree, validateEmail, validateFullName, validateInstitution, validatePhone, validateUsername } from "@/lib/validation";
 import type { TutorDocument } from "@/lib/verification/documents";
 import { useAuthStore } from "@/store/authStore";
 
@@ -58,14 +60,6 @@ const GRADES = [
   "Language",
 ] as const;
 
-import {
-  validateDegree,
-  validateEmail,
-  validateFullName,
-  validateInstitution,
-  validatePhone,
-  validateUsername
-} from "@/lib/validation";
 const HEADLINE_MAX = 80;
 const BIO_MAX = 280;
 
@@ -110,6 +104,13 @@ export function TutorProfileScreen() {
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { registerField, scrollToFirstInvalid } = useFieldScroll();
+
+  // The profile picture is a required field, exactly like the others.
+  // Exposed as a named flag so it can participate in `canSubmit` and
+  // drive `AvatarUploader`'s error/valid visual states.
+  const isProfilePictureValid = avatarUri !== null;
 
   /**
    * Three verification documents. Two required (citizenship,
@@ -169,7 +170,7 @@ export function TutorProfileScreen() {
     validateInstitution(institution) === null &&
     hasCitizenship &&
     hasCertificate &&
-    avatarUri !== null;
+    isProfilePictureValid;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
@@ -207,10 +208,31 @@ export function TutorProfileScreen() {
         "Please upload a degree, transcript, or enrollment letter before submitting.",
       );
     }
+    if (!location || !location.city.trim()) {
+      validationErrors.location = "Add your location.";
+    }
     if (!avatarUri) validationErrors.avatar = "Upload a profile photo to continue.";
     setErrors(validationErrors);
     if (!hasCitizenship || !hasCertificate) return;
-    if (Object.keys(validationErrors).length > 0) return;
+    if (Object.keys(validationErrors).length > 0) {
+      // Standard UX: the button stays enabled and a failed submit
+      // scrolls to the first incomplete section (document order) so
+      // the user immediately sees why they can't continue.
+      const sections: string[] = [];
+      if (validationErrors.avatar) sections.push("avatar");
+      if (validationErrors.fullName) sections.push("nameEmail");
+      if (validationErrors.username || validationErrors.phone)
+        sections.push("usernamePhone");
+      if (validationErrors.headline) sections.push("headline");
+      if (validationErrors.degree || validationErrors.institution)
+        sections.push("credentials");
+      if (validationErrors.subjects) sections.push("subjects");
+      if (validationErrors.grades) sections.push("grades");
+      if (validationErrors.monthlyRate) sections.push("rate");
+      if (validationErrors.location) sections.push("location");
+      scrollToFirstInvalid(scrollRef, sections);
+      return;
+    }
 
     const phoneDisplay = phone.trim() ? `+977 ${phone.trim()}` : "";
 
@@ -473,34 +495,43 @@ export function TutorProfileScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
-          <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
-          {errors.avatar ? (
-            <Text className="text-caption text-danger text-center -mt-4">
-              {errors.avatar}
-            </Text>
-          ) : null}
+          <View onLayout={registerField("avatar")}>
+            <AvatarUploader
+              value={avatarUri}
+              onChange={setAvatarUri}
+              error={!isProfilePictureValid}
+              valid={isProfilePictureValid}
+              errorMessage={errors.avatar}
+            />
+          </View>
 
-          <NameEmailFields
-            fullName={fullName}
-            email={authEmail}
-            emailDisabled
-            errors={errors}
-            fullNameValid={
-              fullName.trim().length > 0 && validateFullName(fullName) === null
-            }
-            fullNameError={!!errors.fullName}
-            onChangeFullName={setFullName}
-            onChangeEmail={() => {
-              /* email is locked — sourced from verified auth identity */
-            }}
-          />
+          <View onLayout={registerField("nameEmail")}>
+            <NameEmailFields
+              fullName={fullName}
+              email={authEmail}
+              emailDisabled
+              errors={errors}
+              fullNameValid={
+                fullName.trim().length > 0 && validateFullName(fullName) === null
+              }
+              fullNameError={!!errors.fullName}
+              onChangeFullName={setFullName}
+              onChangeEmail={() => {
+                /* email is locked — sourced from verified auth identity */
+              }}
+            />
+          </View>
 
           {/* Username + phone (editable — for parent-initiated contact) */}
-          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("usernamePhone")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
             <Text className="text-label text-ink-muted">
               Username & phone
             </Text>
@@ -612,7 +643,10 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Headline */}
-          <View className="gap-1 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("headline")}
+            className="gap-1 p-5 border border-border rounded-card bg-surface"
+          >
             <View className="flex-row items-center justify-between">
               <Text className="text-label text-ink-muted">Headline</Text>
               <Text className="text-caption text-text-muted">
@@ -676,7 +710,10 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Credentials — degree + institution */}
-          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("credentials")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
             <Text className="text-label text-ink-muted">
               Your credentials
             </Text>
@@ -713,24 +750,31 @@ export function TutorProfileScreen() {
             />
           </View>
 
-          <ChipGroup
-            label="Subjects you teach"
-            options={SUBJECTS}
-            selected={subjects}
-            onToggle={toggleSubject}
-            error={errors.subjects}
-          />
+          <View onLayout={registerField("subjects")}>
+            <ChipGroup
+              label="Subjects you teach"
+              options={SUBJECTS}
+              selected={subjects}
+              onToggle={toggleSubject}
+              error={errors.subjects}
+            />
+          </View>
 
-          <ChipGroup
-            label="Grade levels you teach"
-            options={GRADES}
-            selected={gradesTeaching}
-            onToggle={toggleGrade}
-            error={errors.grades}
-          />
+          <View onLayout={registerField("grades")}>
+            <ChipGroup
+              label="Grade levels you teach"
+              options={GRADES}
+              selected={gradesTeaching}
+              onToggle={toggleGrade}
+              error={errors.grades}
+            />
+          </View>
 
           {/* Stepper + rate */}
-          <View className="gap-4 p-5 border border-border rounded-card bg-surface">
+          <View
+            onLayout={registerField("rate")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
             <View className="gap-1">
               <Text className="text-label text-ink-muted">
                 Years of experience
@@ -792,7 +836,14 @@ export function TutorProfileScreen() {
             </View>
           </View>
 
-          <LocationField value={location} onChange={setLocation} />
+          <View onLayout={registerField("location")}>
+            <LocationField value={location} onChange={setLocation} />
+            {errors.location ? (
+              <Text className="text-caption text-danger mt-1">
+                {errors.location}
+              </Text>
+            ) : null}
+          </View>
 
           {/* Verification documents — two required (citizenship +
               academic certificate) and one optional (demo video).
@@ -855,9 +906,15 @@ export function TutorProfileScreen() {
               variant="accent"
               size="lg"
               loading={isSaving}
-              disabled={!canSubmit}
+              disabled={isSaving}
               className="w-full"
             />
+            {!canSubmit && !isSaving ? (
+              <Text className="text-caption text-text-muted text-center mt-2">
+                Some required fields are incomplete — tap Finish setup to
+                see what&apos;s missing.
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
