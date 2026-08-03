@@ -1,30 +1,36 @@
+import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { FieldShell } from "@/components/motion";
+import { AdminNav } from "@/components/shared/AdminNav";
 import { Ionicons } from "@expo/vector-icons";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "@react-native-firebase/firestore";
 
 import { colors } from "@/constants/colors";
 import { logout } from "@/services/firebase/authService";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
 
 /**
  * EdumentX — Admin Profile (`/admin-profile`)
@@ -41,7 +47,7 @@ import { useAuthStore } from "@/store/authStore";
  *
  * Visual language mirrors `screens/auth/StudentProfileScreen.tsx`:
  * `bg-night` hero with white text, `bg-background` body, `bg-surface`
- * form cards with `border-border-subtle`. The dark hero + amber-style
+ * form cards with `border-border-subtle`. The dark hero + accent-style
  * accent is the same shape the student setup uses, so admins
  * recognize the flow as "complete your profile" rather than a
  * separate admin-only surface.
@@ -71,9 +77,11 @@ import { useAuthStore } from "@/store/authStore";
  * rule needed. The `email` field is locked at the form level
  * (read-only input); admins can't spoof someone else's profile email.
  */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\d{7,15}$/;
-const NAME_REGEX = /^[a-zA-Z\s.'-]{2,80}$/;
+import {
+  validateEmail,
+  validateFullName,
+  validatePhone,
+} from "@/lib/validation";
 const ROLE_TITLE_MAX = 60;
 
 type AdminProfile = {
@@ -98,6 +106,11 @@ export function AdminProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof AdminProfile, string>>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  // Snapshot of the profile at the moment editing began, used to
+  // detect whether any actual changes were made and to enable the
+  // Save button only when something has changed.
+  const [editingSnapshot, setEditingSnapshot] = useState<AdminProfile | null>(null);
 
   // Load existing profile (if any). On first sign-in the doc is
   // missing, the snapshot returns `undefined`, and we leave the
@@ -162,23 +175,20 @@ export function AdminProfile() {
 
   function validate(p: AdminProfile): Partial<Record<keyof AdminProfile, string>> {
     const e: Partial<Record<keyof AdminProfile, string>> = {};
-    if (!NAME_REGEX.test(p.fullName.trim())) {
-      e.fullName =
-        p.fullName.trim().length === 0
-          ? "Enter your full name."
-          : "Use 2–80 letters, spaces, dots, apostrophes, or hyphens only.";
-    }
+    const nameErr = validateFullName(p.fullName);
+    if (nameErr) e.fullName = nameErr;
     if (p.roleTitle.trim().length === 0) {
       e.roleTitle = "Enter your role title (e.g. 'Lead Moderator').";
     } else if (p.roleTitle.trim().length > ROLE_TITLE_MAX) {
       e.roleTitle = `Keep it under ${ROLE_TITLE_MAX} characters.`;
     }
-    if (p.phone.length > 0 && !PHONE_REGEX.test(p.phone.trim())) {
-      e.phone = "Use 7–15 digits, no spaces or symbols.";
+    // Phone is optional for admins, so only validate when non-empty
+    if (p.phone.trim().length > 0) {
+      const phoneErr = validatePhone(p.phone);
+      if (phoneErr) e.phone = phoneErr;
     }
-    if (!EMAIL_REGEX.test(p.email.trim())) {
-      e.email = "Email looks invalid.";
-    }
+    const emailErr = validateEmail(p.email);
+    if (emailErr) e.email = emailErr;
     return e;
   }
 
@@ -239,32 +249,20 @@ export function AdminProfile() {
     }
   }
 
+  // Inline confirm dialog state — matches the pattern used in
+  // `tutor/edit_profile.tsx` and `StudentProfile.tsx` (custom
+  // `ConfirmDialog` overlay instead of a native Alert).
+  const [confirmLogout, setConfirmLogout] = useState(false);
+
   /**
-   * Sign-out confirmation wrapper.
-   *
-   * `Alert.alert` is a native confirm dialog on both iOS and
-   * Android — pressing the destructive button is the only path
-   * to the real `handleSignOut`. This matches the pattern used
-   * in `StudentHome.tsx` and `tutor/edit_profile.tsx` so admins
-   * get the same "Are you sure?" affordance students and tutors
-   * see. A misplaced tap should never end a session.
+   * Sign-out confirmation handler. Uses the custom `ConfirmDialog`
+   * overlay (matching the Tutor Profile pattern) instead of a native
+   * Alert. The dialog shows "Log out?" / "Log out" / "Stay signed in"
+   * to match the language used on the student and tutor profiles.
    */
   function handleSignOutConfirm() {
     if (isSigningOut) return;
-    Alert.alert(
-      "Sign out?",
-      "You'll need to sign in again next time.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign out",
-          style: "destructive",
-          onPress: () => {
-            void handleSignOut();
-          },
-        },
-      ],
-    );
+    setConfirmLogout(true);
   }
 
   /**
@@ -276,15 +274,20 @@ export function AdminProfile() {
    * `router.back()`, which silently no-op'd when the stack was
    * empty — leaving the admin trapped on this screen. The only
    * safe ways out are: (a) finish the form and save, or (b) sign
-   * out. We expose (b) prominently in the hero so the admin is
-   * never stuck.
+   * out. We expose (b) at the bottom of the form so the admin can
+   * always find it, matching the Tutor Profile layout.
    */
   async function handleSignOut() {
+    setConfirmLogout(false);
     if (isSigningOut) return;
     setIsSigningOut(true);
     try {
       await logout();
       useAuthStore.getState().reset();
+      // Wipe the AI chat session (history + constraint pills) so a
+      // different user logging in on this device never inherits the
+      // previous account's conversation context.
+      useAiChatStore.getState().resetSession();
       router.replace("/email-signup");
     } catch (err: any) {
       console.error("AdminProfile: sign-out failed", err);
@@ -297,24 +300,53 @@ export function AdminProfile() {
     }
   }
 
+  /** Start editing — save a snapshot of the current values so we
+   *  can detect dirty state and discard cleanly. */
+  function startEditing() {
+    setEditingSnapshot({ ...profile });
+    setIsEditing(true);
+    setErrors({});
+  }
+
+  /** Discard changes — revert to the snapshot and exit edit mode. */
+  function discardEditing() {
+    if (editingSnapshot) {
+      setProfile({ ...editingSnapshot });
+    }
+    setIsEditing(false);
+    setEditingSnapshot(null);
+    setErrors({});
+  }
+
+  // Determine if the form has any actual modifications compared to
+  // the snapshot. The save button is disabled when nothing changed.
+  const hasChanges =
+    !!editingSnapshot &&
+    (profile.fullName !== editingSnapshot.fullName ||
+      profile.roleTitle !== editingSnapshot.roleTitle ||
+      profile.phone !== editingSnapshot.phone);
+
+  // During first-time setup, the admin is always in "editing" mode
+  // and doesn't need `hasChanges` to be true (the form starts empty).
+  // For returning admins, they must enter edit mode AND make changes.
   const canSave =
     !isSaving &&
     !loading &&
     profile.fullName.trim().length > 0 &&
-    profile.roleTitle.trim().length > 0;
+    profile.roleTitle.trim().length > 0 &&
+    (isFirstTime || (isEditing && hasChanges));
 
   return (
-    <SafeAreaView className="flex-1 bg-night">
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
         {/* Hero — mirrors StudentProfileScreen's "Set up your profile"
             header. Dark navy bg, large white title, lighter caption.
-            The Sign out pill lives in the top-right so a stranded
-            admin can always reach it, even before scrolling. */}
-        <View className="gap-2 px-5 pt-4 pb-10 bg-night">
+            No sign-out pill in the hero — it's moved to the bottom of
+            the form to match the Tutor Profile layout. */}
+        <ScreenHeader>
           <View className="flex-row items-start justify-between">
             <View className="flex-1 min-w-0">
               <Text className="text-overline text-white/70 uppercase">
@@ -329,29 +361,11 @@ export function AdminProfile() {
                   : "Update your display name, role title, or phone."}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign out"
-              onPress={handleSignOutConfirm}
-              disabled={isSigningOut}
-              className="flex-row items-center gap-1.5 px-3 py-2 rounded-pill bg-white/10 active:opacity-70 disabled:opacity-50"
-            >
-              <Ionicons
-                color="#FFFFFF"
-                name="log-out-outline"
-                size={16}
-              />
-              <Text className="text-button-sm font-medium text-white">
-                {isSigningOut ? "Signing out..." : "Sign out"}
-              </Text>
-            </Pressable>
           </View>
-        </View>
+        </ScreenHeader>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
-          keyboardShouldPersistTaps="handled"
+        <ScreenScroll
+          contentContainerClassName="flex-grow gap-6 px-5 pt-6 pb-10 bg-background"
         >
           {/* Identity card — name + role title. The role title is what
               appears next to the admin's name on the moderation team
@@ -365,23 +379,38 @@ export function AdminProfile() {
               <Text className="text-caption text-text-secondary">
                 Full name
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="person-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  textContentType="name"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, fullName: v }))}
-                  placeholder="e.g. Asim Poudel"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.fullName}
-                />
-              </View>
+              <FieldShell
+                value={profile.fullName}
+                error={!!errors.fullName}
+                valid={
+                  profile.fullName.length > 0 &&
+                  validateFullName(profile.fullName) === null
+                }
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="person-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      textContentType="name"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, fullName: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g. Asim Poudel"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.fullName}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.fullName ? (
                 <Text className="text-caption text-danger">{errors.fullName}</Text>
               ) : null}
@@ -391,27 +420,39 @@ export function AdminProfile() {
               <Text className="text-caption text-text-secondary">
                 Role title
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="briefcase-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="words"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, roleTitle: v }))}
-                  placeholder="e.g. Lead Moderator, Trust & Safety"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.roleTitle}
-                  maxLength={ROLE_TITLE_MAX}
-                />
-              </View>
+              <FieldShell
+                value={profile.roleTitle}
+                error={!!errors.roleTitle}
+                valid={profile.roleTitle.trim().length > 0}
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="briefcase-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="words"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, roleTitle: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="e.g. Lead Moderator, Trust & Safety"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.roleTitle}
+                      maxLength={ROLE_TITLE_MAX}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.roleTitle ? (
                 <Text className="text-caption text-danger">{errors.roleTitle}</Text>
               ) : (
                 <Text className="text-caption text-text-muted">
-                  How you'd be described on the moderation team page.
+                  {/* How you'd be described on the moderation team page. */}
                 </Text>
               )}
             </View>
@@ -425,28 +466,42 @@ export function AdminProfile() {
 
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
-                Phone (optional)
+                 Phone {/* (optional) */}
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons
-                  color={colors.text.muted}
-                  name="call-outline"
-                  size={18}
-                />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  keyboardType="phone-pad"
-                  onChangeText={(v) => setProfile((p) => ({ ...p, phone: v }))}
-                  placeholder="Digits only, e.g. 9841234567"
-                  placeholderTextColor={colors.text.muted}
-                  value={profile.phone}
-                />
-              </View>
+              <FieldShell
+                value={profile.phone}
+                error={!!errors.phone}
+                valid={
+                  profile.phone.length > 0 && validatePhone(profile.phone) === null
+                }
+                className="h-btn bg-surface rounded-md"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-btn flex-row items-center px-3 gap-2">
+                    <Ionicons
+                      color={colors.text.muted}
+                      name="call-outline"
+                      size={18}
+                    />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      keyboardType="phone-pad"
+                      onChangeText={(v) => setProfile((p) => ({ ...p, phone: v }))}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="Digits only, e.g. 9841234567"
+                      placeholderTextColor={colors.text.muted}
+                      value={profile.phone}
+                      editable={isFirstTime || isEditing}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.phone ? (
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : (
                 <Text className="text-caption text-text-muted">
-                  Used for urgent platform contact only. Never shown publicly.
+                  {/* Used for urgent platform contact only. Never shown publicly. */}
                 </Text>
               )}
             </View>
@@ -468,55 +523,117 @@ export function AdminProfile() {
                   placeholderTextColor={colors.text.muted}
                 />
               </View>
-              <Text className="text-caption text-text-muted">
+              {/* <Text className="text-caption text-text-muted">
                 Locked to your Firebase Auth identity. Contact the dev team to change it.
-              </Text>
+              </Text> */}
             </View>
           </View>
 
-          {/* Save button — bg-night matches the hero palette (the
-              admin app's accent color is dark navy, not amber like
-              the student app). */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isFirstTime ? "Save and continue" : "Save changes"}
-            disabled={!canSave}
-            onPress={handleSave}
-            className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-night active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              {isSaving
-                ? "Saving..."
-                : isFirstTime
-                  ? "Save and continue"
-                  : "Save changes"}
-            </Text>
-          </Pressable>
+          {/* Action buttons — two modes:
+                First-time setup: always show "Save and continue"
+                Returning admin: show "Edit" → then "Save changes" + "Discard changes" */}
+          {isFirstTime ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save and continue"
+              disabled={!canSave}
+              onPress={handleSave}
+              className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-night active:opacity-90 active:scale-[0.98] disabled:opacity-60 self-center w-full max-w-sm"
+            >
+              <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
+                {isSaving ? "Saving..." : "Save and continue"}
+              </Text>
+            </Pressable>
+          ) : !isEditing ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile"
+              onPress={startEditing}
+              className="min-h-btn-lg rounded-card items-center justify-center border-2 border-border bg-surface active:opacity-80 self-center w-full max-w-sm flex-row gap-2"
+            >
+              <Ionicons name="pencil-outline" size={18} color="#26302B" />
+              <Text className="text-button text-base font-semibold text-text-primary">
+                Edit
+              </Text>
+            </Pressable>
+          ) : (
+            <View className="flex-row gap-3 w-full max-w-sm self-center">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Discard changes"
+                onPress={discardEditing}
+                disabled={isSaving}
+                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-surface border border-border active:opacity-80 disabled:opacity-60"
+              >
+                <Text className="text-button font-medium text-text-secondary">
+                  Discard changes
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save changes"
+                disabled={!canSave}
+                onPress={handleSave}
+                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-night active:opacity-90 disabled:opacity-60"
+              >
+                <Text className="text-button font-semibold text-white disabled:text-text-muted">
+                  {isSaving ? "Saving..." : "Save changes"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {!isFirstTime ? (
-            <Text className="text-caption text-text-muted text-center">
+            <Text className="text-caption text-text-muted text-center mb-4">
               Last updated: {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </Text>
-          ) : null}
+          ) : (
+            <View className="mb-4" />
+          )}
 
-          {/* Sign-out escape hatch, also rendered below the form so
-              an admin who has scrolled the hero out of view still
-              has a way out. `router.back()` is unreliable here
-              because the auth guard routes brand-new admins straight
-              to this screen with an empty back stack. */}
+          {/* Log out — at the bottom, matching the Tutor Profile and
+              Student Profile layout. Uses the same styling:
+              `bg-surface border border-border` card with a danger-
+              colored icon and label. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Sign out"
+            accessibilityLabel="Log out"
             onPress={handleSignOutConfirm}
             disabled={isSigningOut}
-            className="min-h-pill-sm items-center justify-center mt-2 active:opacity-70 disabled:opacity-50"
+            className="min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
           >
-            <Text className="text-button-sm text-text-muted">
-              {isSigningOut ? "Signing out..." : "Sign out instead"}
+            <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+            <Text className="text-button font-semibold text-danger">
+              {isSigningOut ? "Logging out..." : "Log out"}
             </Text>
           </Pressable>
-        </ScrollView>
+
+          {/* <Text className="text-caption text-text-muted text-center mt-6">
+            EdumentX · v1.0 · build 2026.07.08
+          </Text> */}
+        </ScreenScroll>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Admin bottom navigation — only shown for returning admins
+          (not during first-time setup). During setup the nav would
+          tempt the admin to skip the profile form by tapping a tab,
+          which defeats the purpose of funneling them through the
+          setup flow. Once they save and return to edit mode, the
+          nav reappears so they can navigate between admin screens. */}
+      {!isFirstTime ? <AdminNav /> : null}
+
+      {/* Custom confirmation overlay — not a native Alert, matches
+          the Tutor Profile and Student Profile pattern. */}
+      <ConfirmDialog
+        visible={confirmLogout}
+        title="Log out?"
+        message="You'll need to sign in again next time you open EdumentX."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        destructive
+        onConfirm={handleSignOut}
+        onCancel={() => setConfirmLogout(false)}
+      />
+    </ScreenLayout>
   );
 }

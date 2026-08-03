@@ -13,11 +13,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, StatusBar as NativeStatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { useAuthStore, type UserRole } from "@/store/authStore";
+import { theme } from "@/constants/theme";
+import { useAuthStore, type UserRole, type TutorVerificationStatus } from "@/store/authStore";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // The native splash module is not always available in dev. Safe to ignore.
@@ -53,15 +54,32 @@ export default function RootLayout() {
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.role);
   const hasAdminProfile = useAuthStore((state) => state.hasAdminProfile);
+  const tutorVerificationStatus = useAuthStore(
+    (state) => state.tutorVerificationStatus,
+  );
   const isLoading = useAuthStore((state) => state.isLoading);
   const setUser = useAuthStore((state) => state.setUser);
   const setRole = useAuthStore((state) => state.setRole);
   const setHasAdminProfile = useAuthStore((state) => state.setHasAdminProfile);
+  const setHasExistingRole = useAuthStore((state) => state.setHasExistingRole);
+  const setTutorVerificationStatus = useAuthStore(
+    (state) => state.setTutorVerificationStatus,
+  );
   const setLoading = useAuthStore((state) => state.setLoading);
 
   // Track the currently-signed-in uid so we only fetch the user doc when it
   // actually changes (not on every state callback).
   const lastUidRef = useRef<string | null>(null);
+
+  // Debounce timer for the navigation guard. The effect can fire
+  // multiple times in rapid succession (e.g. auth state change →
+  // user doc fetch → role update → segments change). Instead of a
+  // fragile lock that can race, we debounce: each re-render resets
+  // the timer, and only the LAST render's effect actually runs the
+  // navigation decision. This prevents overlapping `router.replace()`
+  // calls, which would trigger React Navigation's "configured linking
+  // in multiple places" warning.
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Give gesture-handler one frame to register its TurboModule before
@@ -118,135 +136,197 @@ export default function RootLayout() {
     if (!isNavigatorReady) return;
     if (isLoading) return;
 
-    // No rAF wrap here — the reference working commit fires
-    // `router.replace` synchronously inside the effect body once
-    // `useRootNavigationState().key` is truthy. The previous Round 3
-    // rAF wrap deferred past the navigator's internal mount handoff,
-    // but the user reports that restore-to-reference is the
-    // authoritative fix for the auth-flow regressions. If the
-    // "navigate before mounting" error recurs in a future emulator
-    // run we can reintroduce the rAF with the cancelAnimationFrame
-    // cleanup; for now parity with the working reference wins.
-    const currentRoute = segments.join("/");
+    // Debounce: cancel any pending navigation timer from a prior
+    // effect run. This ensures only the LAST render in a burst
+    // of state changes actually executes the navigation decision,
+    // preventing overlapping `router.replace()` calls that would
+    // trigger React Navigation's "configured linking in multiple
+    // places" warning.
+    if (navTimerRef.current) {
+      clearTimeout(navTimerRef.current);
+      navTimerRef.current = null;
+    }
 
-    if (!user) {
-      // Signed out — only onboarding + the auth entry screen are
-      // allowed. `/email-signup` is where users create an account or
-      // log in. Phone OTP was removed in the June 21, 2026 pivot.
-      const allowedForSignedOut = new Set([
-        "",
-        "index",
-        "onboarding",
-        "email-signup",
+    // Schedule the navigation decision after a 150ms quiet period.
+    const timer = setTimeout(() => {
+      navTimerRef.current = null;
+
+      const currentRoute = segments.join("/");
+
+      if (!user) {
+        // Signed out — only onboarding + the auth entry screen are
+        // allowed. `/email-signup` is where users create an account or
+        // log in. Phone OTP was removed in the June 21, 2026 pivot.
+        const allowedForSignedOut = new Set([
+          "",
+          "index",
+          "onboarding",
+          "email-signup",
+        ]);
+        if (!allowedForSignedOut.has(currentRoute)) {
+          router.replace("/email-signup");
+        }
+        return;
+      }
+
+      // Signed in via email/password but unverified — bounce to the
+      // "check your inbox" pending state on /email-signup until they
+      // click the link. They can also sit on /email-signup freely
+      // (the screen itself owns the reload + recheck flow).
+      const isEmailPasswordUser = !!user.providerData.some(
+        (p) => p.providerId === "password",
+      );
+      const emailVerified = user.emailVerified ?? true;
+      if (isEmailPasswordUser && !emailVerified) {
+        if (currentRoute !== "email-signup") {
+          router.replace("/email-signup");
+        }
+        return;
+      }
+
+      // Signed in + verified. The store already knows whether the user
+      // has a `role` (we fetched it on the onAuthStateChanged callback
+      // below). The presence of a role means there's a `users/{uid}` doc
+      // — Source of Truth.
+      if (!role) {
+        if (currentRoute !== "role-selection") {
+          router.replace("/role-selection");
+        }
+        return;
+      }
+
+      // First-time admin: a user whose role resolves to "admin" but who
+      // has not yet saved an `adminProfile` doc. Funnel them through
+      // /admin-profile so they fill in their display name, role title,
+      // and phone before reaching the admin dashboard. The setup
+      // screen's save handler sets `hasAdminProfile = true` and
+      // `router.replace("/admin-home")`, which clears this branch on
+      // the next render.
+      if (role === "admin" && !hasAdminProfile) {
+        if (currentRoute !== "admin-profile") {
+          router.replace("/admin-profile");
+        }
+        return;
+      }
+
+      // Tutor pending admin review: a brand-new tutor (or a tutor who
+      // got rejected and is resubmitting) whose
+      // `tutorVerifications/{uid}.status === "pending"`. We block the
+      // real dashboard and route to /tutor-pending, which is a static
+      // "we're reviewing your account" screen. The dashboard's
+      // `ReviewBanner` covers the `rejected` / `more_info` /
+      // `hasPendingUpdate` cases — those tutors fall through to the
+      // catch-all branch below and see the dashboard *with* a banner,
+      // which lets them reach the edit-profile screen and resubmit.
+      // Only `pending` is fully blocked here.
+      if (
+        role === "tutor" &&
+        tutorVerificationStatus === "pending" &&
+        currentRoute !== "tutor-pending"
+      ) {
+        router.replace("/tutor-pending");
+        return;
+      }
+
+      // Signed in + verified + has role → route to the matching
+      // dashboard. We allow the auth-flow screens and the student
+      // dashboard sub-screens through so a signed-in student can move
+      // freely between Home / Map / AI / Enrollments / Profile without
+      // being bounced back to the dashboard.
+      //
+      // We deliberately do **not** allow `email-signup`: a verified
+      // user with a role who is sitting on /email-signup is the
+      // "post-login flash" trap — the redirect tree sent them there
+      // for one render while `role` was still `null`, and the guard
+      // sees them there, finds them in the allowlist, and refuses to
+      // advance them. Drop them from the list so the next render
+      // pushes them to the dashboard.
+      //
+      // We DO allow `admin-profile`: a returning admin with a populated
+      // profile is allowed to view and edit their profile from the
+      // "My profile" pill on /admin-home. The first-time branch above
+      // is what sends new admins here on their initial sign-in; once
+      // they save, we never bounce them off the page on subsequent
+      // visits.
+      const target = dashboardPathForRole(role);
+      const allowedForSignedIn = new Set<string>([
+        "role-selection",
+        "profile-student",
+        "profile-tutor",
+        "student-home",
+        "tutor-home",
+        "admin-home",
+        // Student sub-screens (Phase 4 dashboard shell). These are
+        // reachable via the BottomNav; the guard must allow them or
+        // it will replace them back to the dashboard on the next
+        // render.
+        "map-search",
+        "AI-chat",
+        "enrollment",
+        "stu-profile",
+        // Tutor sub-screens (feature/tutor merge). Reachable from the
+        // TutorBottomBar.
+        "batches",
+        "tutor-inbox",
+        "tutor_edit_profile",
+        // Tutor high-risk edit screen. Reachable from
+        // `tutor_edit_profile`'s "Subjects, rate & location" row.
+        // The screen itself routes the user to /tutor-pending
+        // after save, but we list it here so the layout guard
+        // doesn't bounce them back to /tutor-home mid-edit.
+        "tutor_edit_teaching_details",
+        // Tutor under-review screen. Reached automatically when
+        // `tutorVerificationStatus === "pending"`. The tutor sits
+        // here until an admin decides; we must not bounce them off
+        // the page on the next render.
+        "tutor-pending",
+        // Shared screens reachable from student surfaces (e.g.
+        // StudentProfile's "Notifications" row routes to
+        // /notification).
+        "notification",
+        "filters-sheet",
+        // Admin sub-screens (AdminNav targets)
+        "platform-statistics",
+        "verification-queue",
+        "user-management",
+        // Admin profile — first-time setup and view/edit. The first-time
+        // branch above forces brand-new admins here; returning admins
+        // reach it via the "My profile" pill on /admin-home.
+        "admin-profile",
       ]);
-      if (!allowedForSignedOut.has(currentRoute)) {
-        router.replace("/email-signup");
-      }
-      return;
-    }
 
-    // Signed in via email/password but unverified — bounce to the
-    // "check your inbox" pending state on /email-signup until they
-    // click the link. They can also sit on /email-signup freely
-    // (the screen itself owns the reload + recheck flow).
-    const isEmailPasswordUser = !!user.providerData.some(
-      (p) => p.providerId === "password",
-    );
-    const emailVerified = user.emailVerified ?? true;
-    if (isEmailPasswordUser && !emailVerified) {
-      if (currentRoute !== "email-signup") {
-        router.replace("/email-signup");
-      }
-      return;
-    }
+      // Nested route prefixes that should always be allowed for
+      // signed-in users. Dynamic routes like `/tutor/[id]` result in
+      // segments like `["tutor", "t-001"]` which don't exist in the
+      // flat `allowedForSignedIn` set — we check prefix matches here
+      // to avoid redirecting back to the dashboard.
+      const allowedNestedPrefixes = ["tutor/"];
+      const isNestedAllowed = allowedNestedPrefixes.some((p) =>
+        currentRoute.startsWith(p),
+      );
 
-    // Signed in + verified. The store already knows whether the user
-    // has a `role` (we fetched it on the onAuthStateChanged callback
-    // below). The presence of a role means there's a `users/{uid}` doc
-    // — Source of Truth.
-    if (!role) {
-      if (currentRoute !== "role-selection") {
-        router.replace("/role-selection");
+      if (
+        !isNestedAllowed &&
+        !allowedForSignedIn.has(currentRoute) &&
+        currentRoute !== target
+      ) {
+        router.replace(target);
       }
-      return;
-    }
+    }, 150);
 
-    // First-time admin: a user whose role resolves to "admin" but who
-    // has not yet saved an `adminProfile` doc. Funnel them through
-    // /admin-profile so they fill in their display name, role title,
-    // and phone before reaching the admin dashboard. The setup
-    // screen's save handler sets `hasAdminProfile = true` and
-    // `router.replace("/admin-home")`, which clears this branch on
-    // the next render.
-    if (role === "admin" && !hasAdminProfile) {
-      if (currentRoute !== "admin-profile") {
-        router.replace("/admin-profile");
+    navTimerRef.current = timer;
+
+    return () => {
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current);
+        navTimerRef.current = null;
       }
-      return;
-    }
-
-    // Signed in + verified + has role → route to the matching
-    // dashboard. We allow the auth-flow screens and the student
-    // dashboard sub-screens through so a signed-in student can move
-    // freely between Home / Map / AI / Enrollments / Profile without
-    // being bounced back to the dashboard.
-    //
-    // We deliberately do **not** allow `email-signup`: a verified
-    // user with a role who is sitting on /email-signup is the
-    // "post-login flash" trap — the redirect tree sent them there
-    // for one render while `role` was still `null`, and the guard
-    // sees them there, finds them in the allowlist, and refuses to
-    // advance them. Drop them from the list so the next render
-    // pushes them to the dashboard.
-    //
-    // We DO allow `admin-profile`: a returning admin with a populated
-    // profile is allowed to view and edit their profile from the
-    // "My profile" pill on /admin-home. The first-time branch above
-    // is what sends new admins here on their initial sign-in; once
-    // they save, we never bounce them off the page on subsequent
-    // visits.
-    const target = dashboardPathForRole(role);
-    const allowedForSignedIn = new Set<string>([
-      "role-selection",
-      "profile-student",
-      "profile-tutor",
-      "student-home",
-      "tutor-home",
-      "admin-home",
-      // Student sub-screens (Phase 4 dashboard shell). These are
-      // reachable via the BottomNav; the guard must allow them or
-      // it will replace them back to the dashboard on the next
-      // render.
-      "map-search",
-      "AI-chat",
-      "enrollment",
-      "stu-profile",
-      // Tutor sub-screens (feature/tutor merge). Reachable from the
-      // TutorBottomBar.
-      "batches",
-      "tutor-inbox",
-      "tutor_edit_profile",
-      // Shared screens reachable from student surfaces (e.g.
-      // StudentProfile's "Notifications" row routes to
-      // /notification).
-      "notification",
-      "filters-sheet",
-      // Admin sub-screens (AdminNav targets)
-      "platform-statistics",
-      "verification-queue",
-      "user-management",
-      // Admin profile — first-time setup and view/edit. The first-time
-      // branch above forces brand-new admins here; returning admins
-      // reach it via the "My profile" pill on /admin-home.
-      "admin-profile",
-    ]);
-    if (!allowedForSignedIn.has(currentRoute) && currentRoute !== target) {
-      router.replace(target);
-    }
+    };
   }, [
     user,
     role,
     hasAdminProfile,
+    tutorVerificationStatus,
     isLoading,
     isNavigatorReady,
     segments,
@@ -328,6 +408,7 @@ export default function RootLayout() {
           lastUidRef.current = null;
           setRole(null);
           setHasAdminProfile(false);
+          setTutorVerificationStatus(null);
           setLoading(false);
           return;
         }
@@ -341,8 +422,7 @@ export default function RootLayout() {
         // If `role` is null (e.g. the user just signed back in
         // after `reset()`), always re-fetch — the doc may now
         // contain a role that wasn't there before.
-        const cachedRole = useAuthStore.getState().role;
-        if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
+        const cachedRole = useAuthStore.getState().role;          if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
           setLoading(false);
           return;
         }
@@ -390,6 +470,21 @@ export default function RootLayout() {
           const finalRole: UserRole = isAdmin ? "admin" : roleValue;
           if (isAdmin) {
             setRole("admin");
+            setHasExistingRole(true);
+          }
+
+          // If the role came from Firestore (not from a local
+          // RoleSelection setRole), mark it as existing so the
+          // profile screen Back button knows to route to the
+          // dashboard instead of clearing the role and going back
+          // to role-selection.
+          const isReturningUser =
+            !isAdmin && roleValue !== null;
+          if (isReturningUser) {
+            setHasExistingRole(true);
+          } else if (!isAdmin) {
+            // First-time user with no role in Firestore.
+            setHasExistingRole(false);
           }
 
           // If this user is now an admin, look up their
@@ -408,6 +503,22 @@ export default function RootLayout() {
             // Defensive: a non-admin signing in shouldn't have a
             // stale `true` lying around from a prior session.
             setHasAdminProfile(false);
+          }
+
+          // Tutor verification status. Only meaningful for tutors —
+            // we read it from `users/{uid}/tutorProfile/default`
+            // (the denormalized cache) so the layout guard has
+            // everything it needs to decide between `/tutor-pending`
+            // and `/tutor-home` on its first render, without
+            // waiting for a second `getDoc` after the redirect.
+            //
+            // For students we reset the flag to null; the redirect
+            // tree only consults it on the `role === "tutor"`
+            // branch, so the value is irrelevant for them.
+            if (finalRole === "tutor") {
+            await checkTutorVerificationStatus(nextUser.uid);
+          } else {
+            setTutorVerificationStatus(null);
           }
 
           // ---- One-time heal of the `users/{uid}` root doc ----
@@ -484,7 +595,7 @@ export default function RootLayout() {
       },
     );
     return subscriber;
-  }, [setUser, setRole, setHasAdminProfile, setLoading]);
+  }, [setUser, setRole, setHasAdminProfile, setTutorVerificationStatus, setLoading]);
 
   /**
    * Check if the current user is an admin by looking up `admins/{uid}`.
@@ -501,6 +612,155 @@ export default function RootLayout() {
     } catch (err) {
       console.warn("RootLayout: failed to read admins/{uid}", err);
       return false;
+    }
+  }
+
+  /**
+   * For a tutor user, read `users/{uid}/tutorProfile/default` and
+   * write the denormalized `verificationStatus` to the store. The
+   * routing guard reads this flag to decide between /tutor-pending
+   * (status === "pending") and /tutor-home (anything else).
+   *
+   * The profile doc is the denormalized *cache* — the source of
+   * truth is `tutorVerifications/{uid}.status` (written by the
+   * admin's approve / reject handlers). The cache is updated in two
+   * places: (a) by the new-tutor `writeBatch` in
+   * `screens/auth/TutorProfileScreen.tsx`, and (b) by the admin
+   * approve / reject handlers in `screens/admin/VerificationQueue.tsx`.
+   * Both flows also write the queue doc so the two stay in lockstep.
+   *
+   * **Three states, three results.** The doc's presence matters as
+   * much as the field's value, so we branch on `profileSnap.exists()`
+   * *before* reading `verificationStatus`:
+   *
+   *   1. **Doc does not exist** — the user has `role: "tutor"` on
+   *      their user doc but never submitted the onboarding form
+   *      (closed the app mid-fill, or routed to /profile-tutor but
+   *      never tapped Finish Setup). After the
+   *      `RoleSelection`-removal refactor, this should be
+   *      unreachable in practice (the user doc only gets a tutor
+   *      role inside `TutorProfileScreen.handleSubmit`'s
+   *      `writeBatch`, which also creates this profile doc
+   *      atomically). But if it ever does happen — e.g. an admin
+   *      flips `role: "tutor"` directly via the console, or a
+   *      legacy account predates the refactor — we treat the user
+   *      as "still onboarding" and set status to `"pending"` so
+   *      the layout guard sends them to /tutor-pending (which has
+   *      a back-to-form path) instead of letting them land on
+   *      /tutor-home with no profile data. Treating "no doc" as
+   *      `"approved"` was the bug behind the
+   *      "new tutor lands on /tutor-home" report.
+   *
+   *   2. **Doc exists, no `verificationStatus` field** — a pre-
+   *      pipeline tutor (their profile was created before the
+   *      verification pipeline shipped). Treat as `"approved"` so
+   *      they keep their existing access, and backfill the missing
+   *      field on the same read.
+   *
+   *   3. **Doc exists with a canonical value** — mirror the value
+   *      directly. Backfill any *other* missing fields
+   *      (`isVerifiedProfessional`, `hasPendingUpdate`,
+   *      `rejectionReason`) so subsequent dashboard reads have a
+   *      fully-populated shape.
+   *
+   * Read failures are non-fatal. We leave the flag at `null` so the
+   * guard falls through to the catch-all dashboard branch — better
+   * to land the tutor on the real dashboard than to gate them on a
+   * transient network blip. The next auth-state change will retry.
+   */
+  async function checkTutorVerificationStatus(uid: string): Promise<void> {
+    try {
+      const app = getApp();
+      const firebaseDb = getFirestore(app);
+      const profileRef = doc(
+        firebaseDb,
+        "users",
+        uid,
+        "tutorProfile",
+        "default",
+      );
+      const profileSnap = await getDoc(profileRef);
+
+      // Case 1: a user with a tutor role but no profile doc —
+      // either an admin-console edit, a legacy account, or a
+      // pathological write that lost atomicity. Treat as "still
+      // onboarding" so the guard sends them to /tutor-pending,
+      // where they can use the back-to-form affordance to
+      // re-submit. Skip the backfill — there's nothing to write
+      // into.
+      if (!profileSnap.exists()) {
+        setTutorVerificationStatus("pending");
+        return;
+      }
+
+      const data = profileSnap.data() as
+        | {
+            verificationStatus?: string | null;
+            isVerifiedProfessional?: boolean;
+            hasPendingUpdate?: boolean;
+            rejectionReason?: string | null;
+          }
+        | undefined;
+
+      const raw = data?.verificationStatus;
+      // Case 2 + 3: doc exists. Either the field is one of the four
+      // canonical values (case 3) or it's missing/invalid (case 2 —
+      // pre-pipeline tutor). Map the missing case to "approved" so
+      // existing tutors keep their access.
+      const status: TutorVerificationStatus =
+        raw === "pending" ||
+        raw === "approved" ||
+        raw === "rejected" ||
+        raw === "more_info"
+          ? raw
+          : "approved";
+
+      setTutorVerificationStatus(status);
+
+      // Backfill any missing verification fields so subsequent
+      // `onSnapshot` reads in the dashboards have a populated shape.
+      // We only write if at least one field is missing; otherwise
+      // we leave the doc alone.
+      const needsStatusHeal = raw !== status;
+      const needsProfessionalHeal =
+        typeof data?.isVerifiedProfessional !== "boolean";
+      const needsPendingHeal =
+        typeof data?.hasPendingUpdate !== "boolean";
+      const needsReasonHeal =
+        typeof data?.rejectionReason !== "string" &&
+        typeof data?.rejectionReason !== "object";
+      if (
+        needsStatusHeal ||
+        needsProfessionalHeal ||
+        needsPendingHeal ||
+        needsReasonHeal
+      ) {
+        try {
+          await setDoc(
+            profileRef,
+            {
+              verificationStatus: status,
+              isVerifiedProfessional: status === "approved",
+              hasPendingUpdate: data?.hasPendingUpdate ?? false,
+              rejectionReason: data?.rejectionReason ?? null,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        } catch (healErr) {
+          // Non-fatal. The next login will retry.
+          console.warn(
+            "RootLayout: failed to backfill tutor verification fields",
+            healErr,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "RootLayout: failed to read tutorProfile/{default}",
+        err,
+      );
+      setTutorVerificationStatus(null);
     }
   }
 
@@ -544,9 +804,23 @@ export default function RootLayout() {
   // can trigger "Cannot read property 'displayName' of undefined" when
   // the Stack tries to remount its children on the next render. The
   // loading spinner overlays the Stack instead.
+  // The app-wide status bar default. `expo-status-bar` keeps a stack of
+  // mounted `StatusBar` components: this root entry is the base layer, and
+  // per-screen `ScreenLayout` variants (night/splash = light icons,
+  // background/surface = dark icons) push their own entry on top while
+  // their screen is focused. On unmount the screen's entry pops and this
+  // default takes over again — so every screen, even ones that forget to
+  // declare a status bar, inherits dark icons on the light `bg-background`
+  // (matching `userInterfaceStyle: "automatic"` without letting the OS
+  // dark-mode default flip light-background screens to unreadable icons).
+  //
+  // The native `backgroundColor` is a fallback for devices / Android
+  // versions where the edge-to-edge scrim is not fully transparent.
   return (
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <NativeStatusBar backgroundColor={theme.colors.background} />
         <Stack screenOptions={{ headerShown: false }}>
           {/* Auth flow */}
           <Stack.Screen name="index" />
@@ -569,6 +843,12 @@ export default function RootLayout() {
           <Stack.Screen name="batches" />
           <Stack.Screen name="tutor-inbox" />
           <Stack.Screen name="tutor_edit_profile" />
+          <Stack.Screen name="tutor_edit_teaching_details" />
+          {/* Tutor under-review screen. Reached via the layout guard
+              when `tutorVerificationStatus === "pending"`. */}
+          <Stack.Screen name="tutor-pending" />
+          {/* Tutor details — student-facing profile page */}
+          <Stack.Screen name="tutor/[id]" />
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />
@@ -589,7 +869,6 @@ export default function RootLayout() {
             <ActivityIndicator size="large" color="#0F172A" />
           </View>
         ) : null}
-        <StatusBar style="dark" />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

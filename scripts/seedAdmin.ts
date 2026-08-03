@@ -35,10 +35,10 @@
  *   3. Skips + warns if no `users` doc is found for that email.
  */
 
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
-const ADMIN_EMAILS = ["asimdkt63@gmail.com"];
+const ADMIN_EMAILS = ["asimdkt63@gmail.com","khsuhan100@gmail.com"];
 const GRANTED_BY = "seed-script";
 
 function printHelp() {

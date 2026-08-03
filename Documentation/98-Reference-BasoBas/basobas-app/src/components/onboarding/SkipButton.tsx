@@ -8,7 +8,7 @@ interface SkipButtonProps {
 const SkipButton: React.FC<SkipButtonProps> = React.memo(({ onPress }) => {
   return (
     <Pressable onPress={onPress}>
-      <Text className="text-body-sm text-ink2 font-medium">Skip</Text>
+      <Text className="font-medium text-body-sm text-ink2">Skip</Text>
     </Pressable>
   );
 });

@@ -1,7 +1,27 @@
+import { ImageViewerModal } from "@/components/ui/ImageViewer";
+import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { getApp } from "@react-native-firebase/app";
 import {
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from "@react-native-firebase/firestore";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -10,9 +30,20 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminNav } from "@/components/shared/AdminNav";
+import {
+  TUTOR_DOC_LABEL,
+  formatBytes,
+  type TutorDocument,
+} from "@/lib/verification/documents";
+import {
+  notificationCopy,
+  writeNotification,
+} from "@/lib/verification/notifications";
+import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
+import { useAuthStore } from "@/store/authStore";
+
 
 /**
  * EdumentX — Verification Queue (Admin)
@@ -39,11 +70,22 @@ import { AdminNav } from "@/components/shared/AdminNav";
  *
  * Reject action opens a small inline `RejectReasonDialog` modal so the
  * admin can capture the reason (a free-text string). The reason is
- * stored on the verification doc as `adminNotes`; the tutor sees it
- * on their home screen via the `ReviewBanner` with `tone="rejected"`.
+ * stored on the verification doc as `adminNotes` and mirrored onto
+ * the profile doc as `rejectionReason` (the tutor sees the latter via
+ * `ReviewBanner` with `tone="rejected"`).
  *
- * Mock data is fine for this phase. Phase 5 will wire real reads +
- * writes against `tutorVerifications/{uid}` and `tutorProfileUpdates/{uid}`.
+ * Data layer (Phase 5+):
+ *   - `tutorVerifications` collection — `onSnapshot` over all docs,
+ *     partitioned into the four sections by `status`.
+ *   - `tutorProfileUpdates` collection — `onSnapshot` over
+ *     `status == "pending"` only. Edit approvals/rejections write
+ *     back to the source profile doc and clear the `hasPendingUpdate`
+ *     flag in a single `writeBatch`.
+ *
+ * Security: writes follow the rules in `firebase/firestore.rules` —
+ * only admins can mutate `tutorVerifications.status` and
+ * `tutorProfileUpdates`; the `admins/{uid}` doc check happens in
+ * the `isAdmin()` rule helper.
  */
 
 type QueueStatus = "pending" | "approved" | "rejected" | "more_info";
@@ -54,112 +96,38 @@ type Verification = {
   avatar: string;
   email: string;
   phone: string;
+  /** ISO string or human label — UI shows a relative label so we
+   *  keep this as the human form for now and let the parent format
+   *  it (server timestamps are converted by the snapshot handler). */
   submitted: string;
   subjects: string[];
   level: string;
   rate: number;
   experience: string;
+  institution: string;
+  degree: string;
   bio: string;
-  documents: string[];
+  documents: TutorDocument[];
   status: QueueStatus;
+  /** Rejection / info-request reason captured by the admin. Surfaced
+   *  in the expanded card so reviewers can see context for past
+   *  decisions. Null on first submission. */
+  adminNotes: string | null;
+  /** True if the admin has already decided (approved / rejected) on
+   *  this tutor's initial verification — derived from `status`. */
+  decided: boolean;
 };
-
-const NEW_VERIFICATIONS: Verification[] = [
-  {
-    id: "v1",
-    name: "Bishal Acharya",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bishal",
-    email: "bishal.acharya@example.com",
-    phone: "+977 9841234567",
-    submitted: "2 days ago",
-    subjects: ["Physics", "Mathematics"],
-    level: "+2 Science",
-    rate: 6000,
-    experience: "3 years teaching +2 Science",
-    bio: "Passionate physics teacher with a master's degree. Helped 50+ students crack entrance exams.",
-    documents: [
-      "Citizenship Front",
-      "Citizenship Back",
-      "Teaching License",
-      "Degree Certificate",
-      "Experience Letter",
-    ],
-    status: "pending",
-  },
-  {
-    id: "v2",
-    name: "Sita Thapa",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sita",
-    email: "sita.thapa@example.com",
-    phone: "+977 9851234567",
-    submitted: "5 days ago",
-    subjects: ["English", "Nepali"],
-    level: "SEE",
-    rate: 4500,
-    experience: "2 years tutoring",
-    bio: "English literature graduate. Focus on grammar, writing, and communication skills.",
-    documents: [
-      "Citizenship Front",
-      "Citizenship Back",
-      "Degree Certificate",
-    ],
-    status: "pending",
-  },
-];
-
-const INFO_REQUESTED: Verification[] = [
-  {
-    id: "v4",
-    name: "Priya Maharjan",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
-    email: "priya.maharjan@example.com",
-    phone: "+977 9871234567",
-    submitted: "3 days ago",
-    subjects: ["Chemistry", "Biology"],
-    level: "+2 Science",
-    rate: 5500,
-    experience: "1 year tutoring",
-    bio: "Recent medical student. Specializes in NEET preparation and +2 board exams.",
-    documents: [
-      "Citizenship Front",
-      "Citizenship Back",
-      "Student ID",
-      "Transcript",
-    ],
-    status: "more_info",
-  },
-];
-
-const DECIDED: Verification[] = [
-  {
-    id: "v3",
-    name: "Ram Karki",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ram",
-    email: "ram.karki@example.com",
-    phone: "+977 9861234567",
-    submitted: "1 week ago",
-    subjects: ["Computer Science"],
-    level: "Bachelor's",
-    rate: 7000,
-    experience: "4 years industry + 1 year teaching",
-    bio: "Software engineer turned educator. Teaches programming fundamentals and web development.",
-    documents: [
-      "Citizenship Front",
-      "Citizenship Back",
-      "Degree Certificate",
-      "Experience Letter",
-    ],
-    status: "approved",
-  },
-];
 
 /**
  * A pending edit = an already-verified tutor asking to change their
  * profile. We render old (current) vs new (proposed) values side by
  * side so the admin sees exactly what would change if they approve.
  *
- * The `id` matches the tutor's `users/{uid}` so Phase 5 can correlate
- * the diff back to the live tutorProfile doc.
+ * `current` and `proposed` are the live values read from the
+ * `tutorProfileUpdates/{uid}` doc — `proposed` is the full set of
+ * fields the tutor wants to change, and `current` is a snapshot of
+ * the profile at the time the edit was submitted. The diff is
+ * computed in-memory so we never miss a field.
  */
 type EditField = {
   label: string;
@@ -174,36 +142,27 @@ type PendingEdit = {
   email: string;
   submitted: string;
   fields: EditField[];
+  /** The proposed (new) documents the tutor wants to submit —
+   *  extracted from `proposed.documents` so PendingEditCard can
+   *  render actual image thumbnails instead of text labels. */
+  proposedDocuments: TutorDocument[];
+  /** The current (old) documents on the live profile — extracted
+   *  from `current.documents` so the admin can compare old vs new. */
+  currentDocuments: TutorDocument[];
 };
 
-const PENDING_EDITS: PendingEdit[] = [
-  {
-    id: "v3",
-    name: "Ram Karki",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ram",
-    email: "ram.karki@example.com",
-    submitted: "1 day ago",
-    fields: [
-      {
-        label: "Monthly rate",
-        oldValue: "Rs 7,000",
-        newValue: "Rs 8,500",
-      },
-      {
-        label: "Location",
-        oldValue: "Lalitpur, Patan",
-        newValue: "Kathmandu, Baluwatar",
-      },
-      {
-        label: "Headline",
-        oldValue: "Software engineer turned educator",
-        newValue: "Web development and DSA coach — 5+ yrs industry",
-      },
-    ],
-  },
-];
+/** Status config — kept in a single switch so the badge / row /
+ *  "decided" stamp all stay in lock-step. The explicit return type
+ *  narrows `icon` to the Ionicons `name` union so the `<Ionicons
+ *  name={config.icon} ... />` usage in `StatusBadge` typechecks. */
+type StatusConfig = {
+  label: string;
+  bgClass: string;
+  textClass: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
 
-function getStatusConfig(status: QueueStatus) {
+function getStatusConfig(status: QueueStatus): StatusConfig {
   switch (status) {
     case "pending":
       return {
@@ -236,76 +195,871 @@ function getStatusConfig(status: QueueStatus) {
   }
 }
 
-export function VerificationQueue() {
-  // Local status overrides for new verifications + info-requested
-  // items (decided items are immutable in this UI). The initial
-  // value seeds from the mock so a `pending` card shows pending on
-  // first render; subsequent decisions mutate this map and the card
-  // moves to the right section.
-  const [statuses, setStatuses] = useState<Record<string, QueueStatus>>(() => {
-    const init: Record<string, QueueStatus> = {};
-    NEW_VERIFICATIONS.forEach((v) => { init[v.id] = v.status; });
-    INFO_REQUESTED.forEach((v) => { init[v.id] = v.status; });
-    return init;
+/**
+ * Convert a Firestore `Timestamp` (or `Date` / ISO string / null) to
+ * a short relative label like "2 days ago". Mirrors the format the
+ * mock data used so the visual rhythm of the cards doesn't shift
+ * once we go live.
+ */
+function formatRelativeTime(value: unknown): string {
+  if (!value) return "recently";
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === "string") {
+    date = new Date(value);
+  } else if (typeof value === "object" && value !== null && "toDate" in value) {
+    // Firestore `Timestamp` exposes `.toDate()`.
+    date = (value as { toDate: () => Date }).toDate();
+  } else {
+    return "recently";
+  }
+  const ms = Date.now() - date.getTime();
+  if (Number.isNaN(ms)) return "recently";
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} wk${weeks > 1 ? "s" : ""} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} mo ago`;
+}
+
+/**
+ * Friendly labels for the field names that show up in the edit-diff.
+ * Anything not in this map falls back to the raw key in Title Case.
+ */
+const EDIT_FIELD_LABELS: Record<string, string> = {
+  fullName: "Full name",
+  headline: "Headline",
+  bio: "Bio",
+  photoUrl: "Photo",
+  monthlyRateNpr: "Monthly rate",
+  subjects: "Subjects",
+  gradesTeaching: "Grades",
+  location: "Location",
+  yearsExperience: "Experience",
+  phone: "Phone",
+  institution: "Institution",
+  degree: "Degree",
+};
+
+/**
+ * Async enrichment pass for the verification queue snapshot handler.
+ * For entries where the `photoUrl` is a DiceBear fallback (meaning
+ * the verification doc was created before the `photoUrl` mirroring
+ * fix was deployed), read the real avatar from the profile doc
+ * (`users/{uid}/tutorProfile/default`) and persist it back to the
+ * verification doc so subsequent snapshots don't need the extra read.
+ *
+ * This is called after `setVerifications` and `setLoading` so the
+ * queue renders immediately; the avatars update in-place as the
+ * enrichment completes.
+ */
+
+/**
+ * Resubmission check: tutors who were previously rejected (or asked
+ * for more info) and then submitted a fresh profile via the
+ * onboarding flow write to their profile doc with `verificationStatus:
+ * "pending"` but do NOT update the source-of-truth
+ * `tutorVerifications/{uid}` doc (the security rules only permit
+ * admin updates on existing verification docs).
+ *
+ * This function reads the profile doc for each "rejected" /
+ * "more_info" entry and, if the profile doc now shows
+ * `verificationStatus === "pending"`, promotes that entry back to
+ * "pending" so the admin sees the resubmission in the queue.
+ *
+ * Called after `setVerifications` so the queue renders immediately;
+ * the status updates in-place as the check completes.
+ */
+async function checkResubmissions(
+  db: ReturnType<typeof getFirestore>,
+  rows: Verification[],
+): Promise<Verification[]> {
+  // Only check entries that are currently "rejected" or "more_info" —
+  // these are the only states from which a tutor can resubmit. New
+  // ("pending") entries and decided ("approved") entries don't need
+  // checking.
+  const candidates = rows.filter(
+    (r) => r.status === "rejected" || r.status === "more_info",
+  );
+  if (candidates.length === 0) return rows;
+
+  const enriched = await Promise.all(
+    candidates.map(async (row) => {
+      try {
+        const profileRef = doc(
+          db,
+          "users",
+          row.id,
+          "tutorProfile",
+          "default",
+        );
+        const profileSnap = await getDoc(profileRef);
+        if (!profileSnap.exists()) return row;
+
+        const data = profileSnap.data() as
+          | { verificationStatus?: string | null }
+          | undefined;
+        const profileStatus = data?.verificationStatus ?? null;
+
+        // If the profile doc says "pending", the tutor has
+        // resubmitted. Promote this entry back to "pending" so
+        // the admin sees it in the "New Tutor Verifications"
+        // section instead of "Decided".
+        if (profileStatus === "pending") {
+          return { ...row, status: "pending" as QueueStatus, decided: false };
+        }
+      } catch {
+        // Profile read failed — leave the entry at its current
+        // status. The next snapshot cycle will retry.
+      }
+      return row;
+    }),
+  );
+
+  // Merge the enriched rows back into the full list.
+  const enrichedMap = new Map<string, Verification>();
+  for (const r of enriched) enrichedMap.set(r.id, r);
+  return rows.map((r) => enrichedMap.get(r.id) ?? r);
+}
+async function enrichMissingAvatars(
+  db: ReturnType<typeof getFirestore>,
+  rows: Verification[],
+): Promise<Verification[]> {
+  const dicebearPattern = "api.dicebear.com";
+  const enriched = await Promise.all(
+    rows.map(async (row) => {
+      // Skip entries that already have a real avatar URL (not DiceBear).
+      if (!row.avatar.includes(dicebearPattern)) return row;
+      try {
+        const profileRef = doc(
+          db,
+          "users",
+          row.id,
+          "tutorProfile",
+          "default",
+        );
+        const profileSnap = await getDoc(profileRef);
+        const profileData = profileSnap.data() as
+          | { photoUrl?: string | null }
+          | undefined;
+        const fallbackPhoto =
+          typeof profileData?.photoUrl === "string" &&
+          profileData.photoUrl.length > 0
+            ? profileData.photoUrl
+            : null;
+        if (fallbackPhoto) {
+          // Persist back to the verification doc so subsequent
+          // snapshot cycles don't need this extra read.
+          const verificationRef = doc(db, "tutorVerifications", row.id);
+          setDoc(verificationRef, { photoUrl: fallbackPhoto }, { merge: true }).catch(
+            () => {
+              /* non-fatal — next snapshot will re-enrich */
+            },
+          );
+          return { ...row, avatar: fallbackPhoto };
+        }
+      } catch {
+        // Fallback read failed — leave the DiceBear URL in place.
+      }
+      return row;
+    }),
+  );
+  return enriched;
+}
+
+function labelForField(key: string): string {
+  return (
+    EDIT_FIELD_LABELS[key] ??
+    key
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (c) => c.toUpperCase())
+      .trim()
+  );
+}
+
+/** Build the diff rows for a pending edit. Compares `current` and
+ *  `proposed` field-by-field and returns one row per changed field.
+ *  We only show fields that actually differ — `proposed` may include
+ *  every field, but the diff only cares about the ones that moved. */
+function buildDiffRows(
+  current: Record<string, unknown> | null,
+  proposed: Record<string, unknown>,
+): EditField[] {
+  const rows: EditField[] = [];
+  Object.keys(proposed).forEach((key) => {
+    // Documents are handled separately by PendingEditCard with actual
+    // image thumbnails — skip them here to avoid a redundant text row.
+    if (key === "documents") return;
+
+    const next = proposed[key];
+    const prev = current?.[key];
+    if (JSON.stringify(prev) === JSON.stringify(next)) return;
+    let newLabel = String(next ?? "");
+    let oldLabel = String(prev ?? "");
+    if (key === "monthlyRateNpr") {
+      newLabel = `Rs ${Number(next ?? 0).toLocaleString()}`;
+      oldLabel = prev != null ? `Rs ${Number(prev).toLocaleString()}` : "—";
+    } else if (Array.isArray(next)) {
+      newLabel = (next as unknown[]).join(", ");
+    }
+    if (Array.isArray(prev) && !Array.isArray(next)) {
+      oldLabel = (prev as unknown[]).join(", ");
+    }
+    rows.push({
+      label: labelForField(key),
+      oldValue: oldLabel || "—",
+      newValue: newLabel || "—",
+    });
   });
+  return rows;
+}
+
+export function VerificationQueue() {
+  const admin = useAuthStore((state) => state.user);
+
+  // Live lists, kept in local state so the existing visual sub-
+  // components can keep receiving plain data (no Firestore types
+  // bleeding into the UI layer). We subscribe once on mount and
+  // unsubscribe in the effect cleanup.
+  const [verifications, setVerifications] = useState<Verification[]>([]);
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+    // Full-screen image preview state. When the admin taps an image
+  // document thumbnail we show the ImageViewerModal instead of leaving
+  // the app.
+  const [previewImage, setPreviewImage] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
+
+  // Full-screen video preview state. When the admin taps a demo video
+  // thumbnail we show the VideoViewerModal instead of leaving the app.
+  const [previewVideo, setPreviewVideo] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
 
   // `rejecting` is set to the id of the verification being rejected.
   // The RejectReasonDialog reads from this and writes back the
-  // captured reason. Keeping it as a string (not an object) so we
-  // can also pass it to the dialog as a single `key`.
+  // captured reason. Same shape for edit-rejects.
   const [rejecting, setRejecting] = useState<{
     id: string;
     name: string;
+    kind: "verification" | "edit";
   } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  // Optimistic in-flight guard — disables Approve / Reject buttons
+  // for the specific row currently being written so a double-tap
+  // can't issue a second `writeBatch` against the same doc.
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // A moveable flag for the "Decided" section so the admin can
   // collapse it out of the way once the queue is empty.
   const [decidedExpanded, setDecidedExpanded] = useState(false);
 
+  useEffect(() => {
+    const db = getFirestore(getApp());
+
+    // Live read of every verification doc. We partition client-side
+    // into the four sections based on `status` — keeping one query
+    // is simpler than four `where` queries and the queue will stay
+    // small in the demo (tens, not thousands). If collection size
+    // ever grows we'd switch to per-section `where` queries.
+    const verificationsQuery = query(collection(db, "tutorVerifications"));
+    const unsubVerifications = onSnapshot(
+      verificationsQuery,
+      (snap) => {
+        // Guard: `onSnapshot` should always pass a valid snapshot,
+        // but a race between navigation and listener cleanup can
+        // leave `snap` undefined if the component unmounts mid-
+        // callback. Defensively guard against `null` to prevent
+        // "Cannot read property 'docs' of null" errors when the
+        // admin navigates rapidly between screens.
+        if (!snap) {
+          if (__DEV__) {
+            console.warn(
+              "[VerificationQueue] received null snapshot for tutorVerifications",
+            );
+          }
+          return;
+        }
+      // Build rows synchronously — the queue renders immediately
+      // with whatever data is available on the verification doc.
+      // Entries that lack `photoUrl` get a DiceBear fallback URL
+      // initially; a separate async enrichment pass (below)
+      // backfills the real avatar from the profile doc.
+      const rows: Verification[] = snap.docs.map((d) => {
+        const data = d.data() as {
+          fullName?: string;
+          email?: string;
+          phone?: string;
+          phoneDisplay?: string;
+          subjects?: string[];
+          gradesTeaching?: string[];
+          yearsExperience?: string;
+          monthlyRateNpr?: number;
+          location?: string;
+          headline?: string;
+          bio?: string;
+          institution?: string;
+          degree?: string;
+          documents?: TutorDocument[];
+          /** Avatar stored directly on the verification doc. Written
+           *  by `TutorProfileScreen`'s batch set under the `photoUrl`
+           *  key. The field was historically called `avatarUrl` but
+           *  that name was never written — we read both for backward
+           *  compatibility. */
+          photoUrl?: string | null;
+          avatarUrl?: string | null;
+          status?: QueueStatus;
+          adminNotes?: string | null;
+          createdAt?: unknown;
+          updatedAt?: unknown;
+        };
+        const status: QueueStatus = data.status ?? "pending";
+        return {
+          id: d.id,
+          name: data.fullName ?? "Unknown tutor",
+          // Prefer `photoUrl` (the field actually written by the
+          // onboarding flow) over `avatarUrl` (a historical alias
+          // that was never persisted). Fall back to DiceBear only
+          // when neither is present.
+          avatar:
+            data.photoUrl ??
+            data.avatarUrl ??
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+              data.fullName ?? d.id,
+            )}`,
+          email: data.email ?? "",
+          phone: data.phoneDisplay ?? data.phone ?? "",
+          // Prefer the most recent timestamp the server gave us;
+          // the mock data used "submitted" so the field is reused
+          // as a human label.
+          submitted: formatRelativeTime(
+            data.updatedAt ?? data.createdAt ?? null,
+          ),
+          subjects: data.subjects ?? [],
+          level: (data.gradesTeaching ?? []).join(", ") || "—",
+          rate: data.monthlyRateNpr ?? 0,
+          experience: data.yearsExperience ?? "—",
+          institution: data.institution ?? "",
+          degree: data.degree ?? "",
+          bio: data.bio ?? "",
+          documents: data.documents ?? [],
+          status,
+          adminNotes: data.adminNotes ?? null,
+          decided: status === "approved" || status === "rejected",
+        };
+      });
+
+      // Render immediately so the queue doesn't wait for the
+      // fallback reads. The enrichment pass below will update
+      // any DiceBear avatars with the real photo.
+      setVerifications(rows);
+      setLoading(false);
+
+      // Async enrichment: for entries that lack `photoUrl` on the
+      // verification doc, try to read it from the profile doc
+      // (`users/{uid}/tutorProfile/default`). This backfills old
+      // entries created before `TutorProfileScreen` started
+      // mirroring `photoUrl` onto the verification doc. The result
+      // is also persisted back to the verification doc so
+      // subsequent snapshot cycles don't need the extra reads.
+      enrichMissingAvatars(db, rows).then(setVerifications).catch(() => {
+        // Non-fatal — rows already rendered with DiceBear fallback.
+      });
+
+      // Async resubmission check: tutors who were rejected (or asked
+      // for more info) and then resubmitted their profile via the
+      // onboarding screen write to their profile doc with
+      // `verificationStatus: "pending"` but CANNOT update the source-
+      // of-truth `tutorVerifications/{uid}` doc (the security rules
+      // only permit admin updates on existing verification docs).
+      // This pass reads the profile doc for each "rejected" /
+      // "more_info" entry and, if the profile doc now shows
+      // `verificationStatus === "pending"`, promotes that entry back
+      // to "pending" so the admin sees the resubmission in the queue.
+      checkResubmissions(db, rows).then(setVerifications).catch(() => {
+        // Non-fatal — the next snapshot cycle will retry.
+      });
+    },
+    // Error callback: if the `tutorVerifications` collection read
+    // fails (e.g. permission denied, network error), log the error
+    // but don't crash. The component stays mounted and shows an
+    // empty queue (or whatever state it last had) until the next
+    // successful snapshot.
+    (err) => {
+      if (__DEV__) {
+        console.warn(
+          "[VerificationQueue] tutorVerifications onSnapshot error",
+          err,
+        );
+      }
+      setLoading(false);
+    },
+  );
+
+    // Pending edits only — admin reviews these; decided edits are
+    // history we don't need to render in this view.
+    const editsQuery = query(
+      collection(db, "tutorProfileUpdates"),
+      where("status", "==", "pending"),
+    );
+    const unsubEdits = onSnapshot(editsQuery, (snap) => {
+      const rows: PendingEdit[] = snap.docs.map((d) => {
+        const data = d.data() as {
+          fullName?: string;
+          email?: string;
+          current?: Record<string, unknown> | null;
+          proposed?: Record<string, unknown>;
+          submittedAt?: unknown;
+        };
+        const fields = buildDiffRows(
+          data.current ?? null,
+          data.proposed ?? {},
+        );
+        // Extract document arrays so PendingEditCard can render
+        // image thumbnails instead of text labels.
+        const proposedDocs: TutorDocument[] = Array.isArray(
+          (data.proposed as Record<string, unknown> | undefined)?.documents,
+        )
+          ? ((data.proposed as Record<string, unknown>).documents as TutorDocument[])
+          : [];
+        const currentDocs: TutorDocument[] = Array.isArray(
+          (
+            (data.current as Record<string, unknown> | undefined) ??
+            {}
+          ).documents,
+        )
+          ? (
+              ((data.current as Record<string, unknown>) ?? {}).documents as TutorDocument[]
+            )
+          : [];
+        // Attempt to read the current avatar URL from the
+        // `current` snapshot that EditTeachingDetails writes.
+        // This is the only place photoUrl lives on the update doc
+        // (it's not a `proposed` field unless the tutor explicitly
+        // changed it via the edit-profile screen).
+        const currentPhotoUrl: string | null | undefined =
+          (
+            (data.current as Record<string, unknown> | undefined) ??
+            {}
+          ).photoUrl as string | null | undefined;
+
+        return {
+          id: d.id,
+          name: data.fullName ?? "Unknown tutor",
+          avatar:
+            currentPhotoUrl ??
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+              data.fullName ?? d.id,
+            )}`,
+          email: data.email ?? "",
+          submitted: formatRelativeTime(data.submittedAt ?? null),
+          fields,
+          proposedDocuments: proposedDocs,
+          currentDocuments: currentDocs,
+        };
+      });
+      setPendingEdits(rows);
+    });
+
+    return () => {
+      unsubVerifications();
+      unsubEdits();
+    };
+  }, []);
+
+  // Section partitioning. We split the live list by `status` so the
+  // existing sub-components can keep receiving a plain array.
   const newPending = useMemo(
-    () => NEW_VERIFICATIONS.filter((v) => (statuses[v.id] ?? v.status) === "pending"),
-    [statuses],
+    () => verifications.filter((v) => v.status === "pending"),
+    [verifications],
   );
   const infoRequested = useMemo(
-    () => INFO_REQUESTED.filter((v) => (statuses[v.id] ?? v.status) === "more_info"),
-    [statuses],
+    () => verifications.filter((v) => v.status === "more_info"),
+    [verifications],
   );
-  // Items the admin has decided on locally — kept separately from
-  // the seed `DECIDED` array so a fresh `pending → approved` action
-  // shows up here without losing its identity.
-  const decided = useMemo(() => {
-    const decidedFromActions = Object.entries(statuses)
-      .filter(([, s]) => s === "approved" || s === "rejected")
-      .map(([id, s]) => {
-        const v =
-          NEW_VERIFICATIONS.find((x) => x.id === id) ??
-          INFO_REQUESTED.find((x) => x.id === id);
-        if (!v) return null;
-        return { ...v, status: s };
-      })
-      .filter((x): x is Verification => x !== null);
-    return [...DECIDED, ...decidedFromActions];
-  }, [statuses]);
+  const decided = useMemo(
+    () => verifications.filter((v) => v.decided),
+    [verifications],
+  );
 
-  function handleAction(id: string, newStatus: QueueStatus) {
-    setStatuses((p) => ({ ...p, [id]: newStatus }));
+
+
+  const totalOpen = newPending.length + infoRequested.length + pendingEdits.length;
+
+  /** Persist a verification status change atomically: flip the
+   *  `tutorVerifications/{uid}.status` AND mirror the denormalized
+   *  flags onto `users/{uid}/tutorProfile/default` in one batch.
+   *  This is the only place those two writes are tied together —
+   *  keeping them batched means the tutor's dashboard and the
+   *  layout guard can never see a half-applied decision. */
+  async function applyVerificationDecision(
+    uid: string,
+    newStatus: QueueStatus,
+    notes: string | null,
+  ) {
+    const db = getFirestore(getApp());
+    const batch = writeBatch(db);
+    const verificationRef = doc(db, "tutorVerifications", uid);
+    const profileRef = doc(db, "users", uid, "tutorProfile", "default");
+
+    batch.update(verificationRef, {
+      status: newStatus,
+      adminNotes: notes,
+      reviewedBy: admin?.uid ?? null,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Mirror the decision onto the denormalized profile flags. These
+    // are the fields the layout guard, the tutor dashboard's
+    // `ReviewBanner`, and the student-side filter all read.
+    const profilePatch: Record<string, unknown> = {
+      verificationStatus: newStatus,
+      rejectionReason: newStatus === "rejected" ? notes ?? null : null,
+      hasPendingUpdate: false,
+      updatedAt: serverTimestamp(),
+    };
+    if (newStatus === "approved") {
+      profilePatch.isVerifiedProfessional = true;
+    } else if (newStatus === "rejected" || newStatus === "more_info") {
+      profilePatch.isVerifiedProfessional = false;
+    }
+    batch.set(profileRef, profilePatch, { merge: true });
+
+    // Populate (or remove from) the student-facing `tutors/{uid}`
+    // denormalized collection. On approval, we mirror the profile
+    // fields the student cards need. On reject / more_info, we
+    // either remove the doc or mark it filtered — we choose to
+    // delete so the student query never returns stale data.
+    const tutorDirRef = doc(db, "tutors", uid);
+    if (newStatus === "approved") {
+      // Read the profile doc to get the display fields for the
+      // tutors collection. We need the full profile to populate
+      // the student-facing card.
+      try {
+        const profileSnap = await getDoc(profileRef);
+        const profileData = profileSnap.data() as
+          | Record<string, unknown>
+          | undefined;
+        batch.set(
+          tutorDirRef,
+          {
+            uid,
+            fullName: profileData?.fullName ?? null,
+            username: profileData?.username ?? null,
+            headline: profileData?.headline ?? null,
+            subjects: profileData?.subjects ?? [],
+            // The AI search filters on these fields — without them the
+            // `tutors/{uid}` doc is incomplete and the seed stores
+            // empty grades / null gender in Supabase, which zeroes
+            // every chatbot search (grade is a minimum constraint).
+            gradesTeaching: Array.isArray(profileData?.gradesTeaching)
+              ? profileData!.gradesTeaching
+              : [],
+            monthlyRateNpr: profileData?.monthlyRateNpr ?? 0,
+            location: profileData?.location ?? null,
+            photoUrl: profileData?.photoUrl ?? null,
+            yearsExperience: profileData?.yearsExperience ?? 0,
+            bio: profileData?.bio ?? "",
+            gender:
+              profileData?.gender === "male" ||
+              profileData?.gender === "female" ||
+              profileData?.gender === "other"
+                ? profileData.gender
+                : null,
+            tutoringMode:
+              profileData?.tutoringMode === "home" ||
+              profileData?.tutoringMode === "online" ||
+              profileData?.tutoringMode === "both"
+                ? profileData.tutoringMode
+                : "both",
+            languages: Array.isArray(profileData?.languages)
+              ? profileData!.languages
+              : ["English", "Nepali"],
+            rating: typeof profileData?.rating === "number" ? profileData.rating : 0,
+            reviewCount:
+              typeof profileData?.reviewCount === "number"
+                ? profileData.reviewCount
+                : 0,
+            responseRate:
+              typeof profileData?.responseRate === "number"
+                ? profileData.responseRate
+                : 0,
+            verificationStatus: "approved",
+            isVerifiedProfessional: true,
+            hasPendingUpdate: false,
+            degree: profileData?.degree ?? null,
+            institution: profileData?.institution ?? null,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (readErr) {
+        // If the profile read fails, write a minimal doc with
+        // what we know — the batch.commit below will still write
+        // the verification flags.
+        console.warn(
+          "[VerificationQueue] profile read for tutors/{uid} failed",
+          readErr,
+        );
+        batch.set(
+          tutorDirRef,
+          {
+            uid,
+            fullName: null,
+            username: null,
+            verificationStatus: "approved",
+            isVerifiedProfessional: true,
+            hasPendingUpdate: false,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    } else {
+      // Rejected or more_info — remove from the tutor directory so
+      // the student query doesn't see them. The tutor can resubmit
+      // later.
+      batch.delete(tutorDirRef);
+    }
+
+    await batch.commit();
+
+    // Notify the tutor once the decision is committed. We do this
+    // AFTER `batch.commit()` returns so a failed batch never leaves
+    // a stale "approved" notification sitting in the tutor's inbox.
+    // Each branch picks the matching copy helper from
+    // `lib/verification/notifications.ts`; the helper carries the
+    // title, body, and the reason text the admin captured.
+    try {
+      if (newStatus === "approved") {
+        await writeNotification(uid, notificationCopy.approved);
+      } else if (newStatus === "rejected") {
+        await writeNotification(uid, notificationCopy.rejected(notes ?? ""));
+      } else if (newStatus === "more_info") {
+        await writeNotification(uid, notificationCopy.moreInfo(notes ?? ""));
+      }
+    } catch (err) {
+      // Notification failures are non-fatal — the verification
+      // decision already landed. Log and move on; we can rebuild
+      // notifications from the verification doc if needed.
+      console.warn("[VerificationQueue] notification write failed", err);
+    }
   }
 
-  function openRejectDialog(id: string, name: string) {
-    setRejecting({ id, name });
+  /** Approve an edit: read the pending `tutorProfileUpdates/{uid}`
+   *  doc, merge `proposed` into the live profile, clear the
+   *  `hasPendingUpdate` flag, AND update the `tutors/{uid}`
+   *  denormalized doc — all in one batch.
+   *
+   *  The `tutors/{uid}` update is critical: without it, edits to
+   *  subjects, rate, location, etc. would never reflect in the
+   *  student-facing discovery list, silently serving stale data. */
+  async function applyEditApproval(uid: string) {
+    const db = getFirestore(getApp());
+    const updateRef = doc(db, "tutorProfileUpdates", uid);
+    const profileRef = doc(db, "users", uid, "tutorProfile", "default");
+    const tutorDirRef = doc(db, "tutors", uid);
+
+    // Read the proposed payload first; we need its contents to
+    // spread into the profile. A small extra read is fine here —
+    // approvals are rare and the alternative is a transaction
+    // that's harder to read.
+    const snap = await getDoc(updateRef);
+    const data = snap.data() as
+      | { proposed?: Record<string, unknown> }
+      | undefined;
+    const proposed = data?.proposed ?? {};
+
+    // Read the current profile to mirror applicable fields to
+    // the tutors/{uid} discovery doc.
+    let profileData: Record<string, unknown> | undefined;
+    try {
+      const profileSnap = await getDoc(profileRef);
+      profileData = profileSnap.data() as Record<string, unknown> | undefined;
+    } catch {
+      // Non-fatal — we'll still update the profile and the edit doc.
+      profileData = undefined;
+    }
+
+    const batch = writeBatch(db);
+
+    // 1. Mark the edit as approved
+    batch.update(updateRef, {
+      status: "approved",
+      reviewedBy: admin?.uid ?? null,
+      reviewedAt: serverTimestamp(),
+    });
+
+    // 2. Merge the proposed changes into the live profile
+    batch.set(
+      profileRef,
+      {
+        ...proposed,
+        hasPendingUpdate: false,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    // 3. Update the tutors/{uid} discovery doc with changed fields
+    //    that matter for the student-facing list. We only overwrite
+    //    specific fields (not the full doc) via merge: true.
+    const tutorPatch: Record<string, unknown> = {
+      hasPendingUpdate: false,
+      updatedAt: serverTimestamp(),
+    };
+    // Mirror proposed fields that affect the tutor card display
+    if ("subjects" in proposed) tutorPatch.subjects = proposed.subjects;
+    // gradesTeaching is filterable by the AI search (grade is a minimum
+    // constraint) — must reach the tutors/{uid} doc or the seed stores
+    // an empty grades array and the chatbot returns 0 tutors.
+    if ("gradesTeaching" in proposed) tutorPatch.gradesTeaching = proposed.gradesTeaching;
+    if ("monthlyRateNpr" in proposed) tutorPatch.monthlyRateNpr = proposed.monthlyRateNpr;
+    if ("location" in proposed) tutorPatch.location = proposed.location;
+    if ("headline" in proposed) tutorPatch.headline = proposed.headline;
+    if ("yearsExperience" in proposed) tutorPatch.yearsExperience = proposed.yearsExperience;
+    if ("bio" in proposed) tutorPatch.bio = proposed.bio;
+    if ("gender" in proposed) tutorPatch.gender = proposed.gender;
+    if ("tutoringMode" in proposed) tutorPatch.tutoringMode = proposed.tutoringMode;
+    if ("languages" in proposed) tutorPatch.languages = proposed.languages;
+    if ("degree" in proposed) tutorPatch.degree = proposed.degree;
+    if ("institution" in proposed) tutorPatch.institution = proposed.institution;
+    // FullName/username changes are rare but we mirror them too
+    if ("fullName" in proposed) tutorPatch.fullName = proposed.fullName;
+    if ("username" in proposed) tutorPatch.username = proposed.username;
+    // Bio doesn't affect the card but keep the tutor doc consistent
+    if ("bio" in proposed) tutorPatch.bio = proposed.bio;
+    // Photo URL changes come through the live-edit screen, not edits
+    // Fall back to current profile data for fields NOT in proposed
+    if (profileData) {
+      if (!("photoUrl" in tutorPatch)) tutorPatch.photoUrl = profileData.photoUrl ?? null;
+      if (!("subjects" in tutorPatch)) tutorPatch.subjects = profileData.subjects ?? [];
+      if (!("monthlyRateNpr" in tutorPatch)) tutorPatch.monthlyRateNpr = profileData.monthlyRateNpr ?? 0;
+      if (!("location" in tutorPatch)) tutorPatch.location = profileData.location ?? null;
+      if (!("headline" in tutorPatch)) tutorPatch.headline = profileData.headline ?? "";
+      if (!("fullName" in tutorPatch)) tutorPatch.fullName = profileData.fullName ?? "";
+      if (!("username" in tutorPatch)) tutorPatch.username = profileData.username ?? "";
+    }
+    batch.set(tutorDirRef, tutorPatch, { merge: true });
+
+    await batch.commit();
+
+    // Tell the tutor their edit landed. Same ordering as the
+    // verification handler: only fire after the batch succeeds.
+    try {
+      await writeNotification(uid, notificationCopy.editApproved);
+    } catch (err) {
+      console.warn("[VerificationQueue] edit-approval notification failed", err);
+    }
+  }
+
+  /** Reject an edit: just flip the update doc to `rejected` and
+   *  clear the `hasPendingUpdate` flag on the profile so the tutor
+   *  can keep editing live-editable fields immediately. We do NOT
+   *  re-verify the tutor on edit-reject — they're still a verified
+   *  professional; we just didn't like this specific change. */
+  async function applyEditRejection(uid: string, notes: string | null) {
+    const db = getFirestore(getApp());
+    const batch = writeBatch(db);
+    const updateRef = doc(db, "tutorProfileUpdates", uid);
+    const profileRef = doc(db, "users", uid, "tutorProfile", "default");
+    batch.update(updateRef, {
+      status: "rejected",
+      adminNotes: notes,
+      reviewedBy: admin?.uid ?? null,
+      reviewedAt: serverTimestamp(),
+    });
+    batch.set(
+      profileRef,
+      {
+        hasPendingUpdate: false,
+        rejectionReason: notes,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await batch.commit();
+
+    // Tell the tutor the edit wasn't applied. The reason text the
+    // admin typed rides along in the notification so they don't have
+    // to dig into the queue to find it.
+    try {
+      await writeNotification(uid, notificationCopy.editRejected(notes ?? ""));
+    } catch (err) {
+      console.warn("[VerificationQueue] edit-rejection notification failed", err);
+    }
+  }
+
+  async function handleAction(id: string, newStatus: QueueStatus) {
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      await applyVerificationDecision(id, newStatus, null);
+    } catch (err) {
+      // Surface the failure inline; the onSnapshot listener will
+      // re-render with whatever the server actually persisted.
+      console.warn("[VerificationQueue] action failed", err);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function openRejectDialog(
+    id: string,
+    name: string,
+    kind: "verification" | "edit" = "verification",
+  ) {
+    setRejecting({ id, name, kind });
     setRejectReason("");
   }
 
-  function confirmReject() {
-    if (!rejecting) return;
-    // In Phase 5 the reason would be persisted to the verification
-    // doc's `adminNotes` (or `rejectionReason` field). For now we
-    // just flip the status — the captured reason is in the dialog
-    // state and would be piped to the write call.
-    handleAction(rejecting.id, "rejected");
+  async function confirmReject() {
+    if (!rejecting || rejectReason.trim().length === 0) return;
+    if (busyId) return;
+    const target = rejecting;
+    setBusyId(target.id);
     setRejecting(null);
     setRejectReason("");
+    try {
+      if (target.kind === "edit") {
+        await applyEditRejection(target.id, rejectReason);
+      } else {
+        await applyVerificationDecision(
+          target.id,
+          "rejected",
+          rejectReason,
+        );
+      }
+    } catch (err) {
+      console.warn("[VerificationQueue] reject failed", err);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleEditApprove(id: string) {
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      await applyEditApproval(id);
+    } catch (err) {
+      console.warn("[VerificationQueue] edit approve failed", err);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function cancelReject() {
@@ -313,31 +1067,26 @@ export function VerificationQueue() {
     setRejectReason("");
   }
 
-  const totalOpen = newPending.length + infoRequested.length + PENDING_EDITS.length;
-
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <Text className="text-body text-white/70 mb-0.5 mt-2">Moderation</Text>
+      <ScreenHeader>
+        <Text className="text-body text-white/70 mb-0.5">Moderation</Text>
         <Text className="text-screen-title font-medium text-white">
           Verification Queue
         </Text>
         <View className="flex-row items-center gap-2 mt-1">
           <View className="w-1.5 h-1.5 rounded-full bg-warning" />
           <Text className="text-caption text-white/70">
-            {totalOpen} open · {decided.length} decided
+            {loading
+              ? "Loading queue…"
+              : `${totalOpen} open · ${decided.length} decided`}
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {/* 1. New Tutor Verifications */}
         {newPending.length > 0 ? (
           <View className="mb-6">
@@ -351,30 +1100,44 @@ export function VerificationQueue() {
               <VerificationCard
                 key={item.id}
                 item={item}
-                status={statuses[item.id] ?? item.status}
+                status={item.status}
+                busy={busyId === item.id}
                 onApprove={() => handleAction(item.id, "approved")}
-                onReject={() => openRejectDialog(item.id, item.name)}
+                onReject={() => openRejectDialog(item.id, item.name, "verification")}
                 onRequestInfo={() => handleAction(item.id, "more_info")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
         ) : null}
 
         {/* 2. Pending Edits */}
-        {PENDING_EDITS.length > 0 ? (
+        {pendingEdits.length > 0 ? (
           <View className="mb-6">
             <SectionHeader
-              title="Pending Profile Edits"
-              count={PENDING_EDITS.length}
-              accent="ai"
-              helper="Verified tutors asking to change their profile. Approving writes the new values; rejecting discards them. While pending, the tutor is hidden from student discovery."
+              title="Pending Edits"
+              count={pendingEdits.length}
+              accent="verification"
+              helper="Verified tutors requesting changes to their profile. Approve to apply, reject to discard."
             />
-            {PENDING_EDITS.map((edit) => (
+            {pendingEdits.map((edit) => (
               <PendingEditCard
                 key={edit.id}
                 edit={edit}
-                onApprove={() => handleAction(edit.id, "approved")}
-                onReject={() => openRejectDialog(edit.id, edit.name)}
+                busy={busyId === edit.id}
+                onApprove={() => handleEditApprove(edit.id)}
+                onReject={() => openRejectDialog(edit.id, edit.name, "edit")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
@@ -387,16 +1150,23 @@ export function VerificationQueue() {
               title="Info Requested"
               count={infoRequested.length}
               accent="ai"
-              helper="Waiting on the tutor to upload more documents or details."
+              helper="Tutors waiting on a response — they see your request on their dashboard."
             />
             {infoRequested.map((item) => (
               <VerificationCard
                 key={item.id}
                 item={item}
-                status={statuses[item.id] ?? item.status}
+                status={item.status}
+                busy={busyId === item.id}
                 onApprove={() => handleAction(item.id, "approved")}
-                onReject={() => openRejectDialog(item.id, item.name)}
+                onReject={() => openRejectDialog(item.id, item.name, "verification")}
                 onRequestInfo={() => handleAction(item.id, "more_info")}
+                onPreviewDocument={(url, label) =>
+                  setPreviewImage({ uri: url, label })
+                }
+                onPreviewVideo={(url, label) =>
+                  setPreviewVideo({ uri: url, label })
+                }
               />
             ))}
           </View>
@@ -404,7 +1174,7 @@ export function VerificationQueue() {
 
         {/* 4. Decided (collapsed by default) */}
         {decided.length > 0 ? (
-          <View>
+          <View className="mb-6">
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={decidedExpanded ? "Hide decided" : "Show decided"}
@@ -415,7 +1185,7 @@ export function VerificationQueue() {
               <Ionicons
                 name={decidedExpanded ? "chevron-down" : "chevron-forward"}
                 size={16}
-                color="#64748B"
+                color="#6B7268"
               />
               <Text className="text-section-title font-medium text-text-primary">
                 Decided
@@ -430,15 +1200,18 @@ export function VerificationQueue() {
           </View>
         ) : null}
 
-        {totalOpen === 0 && decided.length === 0 ? (
+        {!loading && totalOpen === 0 && decided.length === 0 ? (
           <EmptyState />
         ) : null}
-      </ScrollView>
+
+
+      </ScreenScroll>
 
       <AdminNav />
 
-      {/* Reject reason dialog — captured locally, would be persisted
-          to the verification doc's `adminNotes` in Phase 5. */}
+      {/* Reject reason dialog — captured locally, persisted to the
+          verification / update doc's `adminNotes` field via the
+          `apply*` handlers above. */}
       <RejectReasonDialog
         visible={!!rejecting}
         tutorName={rejecting?.name ?? ""}
@@ -447,9 +1220,29 @@ export function VerificationQueue() {
         onCancel={cancelReject}
         onConfirm={confirmReject}
       />
-    </SafeAreaView>
+
+      {/* Full-screen image preview. Shows inside the app instead of
+          opening the system browser. Only image documents open here. */}
+      <ImageViewerModal
+        visible={!!previewImage}
+        uri={previewImage?.uri ?? ""}
+        label={previewImage?.label ?? ""}
+        onClose={() => setPreviewImage(null)}
+      />
+
+      {/* Full-screen video player. Shows inside the app instead of
+          opening the system browser. Only demo videos open here. */}
+      <VideoViewerModal
+        visible={!!previewVideo}
+        uri={previewVideo?.uri ?? ""}
+        label={previewVideo?.label ?? ""}
+        onClose={() => setPreviewVideo(null)}
+      />
+    </ScreenLayout>
   );
 }
+
+
 
 function SectionHeader({
   title,
@@ -488,31 +1281,60 @@ function SectionHeader({
 function VerificationCard({
   item,
   status,
+  busy,
   onApprove,
   onReject,
   onRequestInfo,
+  onPreviewDocument,
+  onPreviewVideo,
 }: {
   item: Verification;
   status: QueueStatus;
+  busy: boolean;
   onApprove: () => void;
   onReject: () => void;
   onRequestInfo: () => void;
+  /** Called when an image document thumbnail is tapped. Opens the
+   *  in-app ImageViewerModal instead of the system browser. */
+  onPreviewDocument?: (url: string, label: string) => void;
+  /** Called when the demo video thumbnail is tapped. Opens the
+   *  in-app VideoViewerModal instead of the system browser. */
+  onPreviewVideo?: (url: string, label: string) => void;
 }) {
   return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
+    <View className="bg-surface border border-border rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
-        <Image
-          source={{ uri: item.avatar }}
-          className="w-12 h-12 rounded-full bg-sand"
-          resizeMode="cover"
-        />
+        {/*
+          The dicebear fallback in the snapshot handler always
+          produces a URL, but defensive-guard anyway: a missing
+          `avatarUrl` on a freshly-created verification doc, or a
+          malformed seed, would otherwise crash the queue with
+          "Cannot read property 'indexOf' of undefined" on Android.
+        */}
+        {typeof item.avatar === "string" && item.avatar.length > 0 ? (
+          <Image
+            source={{ uri: item.avatar }}
+            className="w-12 h-12 rounded-full bg-sand"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
+              {(item.name?.charAt(0) ?? "?").toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View className="flex-1 min-w-0">
           <Text className="text-card-title font-medium text-text-primary">{item.name}</Text>
           <View className="flex-row flex-wrap gap-1.5 mt-1">
             <Text className="text-caption text-text-muted">{item.email}</Text>
-            <Text className="text-caption text-text-muted">·</Text>
-            <Text className="text-caption text-text-muted">{item.phone}</Text>
+            {item.phone ? (
+              <>
+                <Text className="text-caption text-text-muted">·</Text>
+                <Text className="text-caption text-text-muted">{item.phone}</Text>
+              </>
+            ) : null}
           </View>
           <Text className="text-caption text-text-muted mt-1">Submitted {item.submitted}</Text>
         </View>
@@ -523,50 +1345,67 @@ function VerificationCard({
 
       {/* Details Grid */}
       <View className="flex-row flex-wrap gap-2 mb-3">
-        <DetailItem label="Subjects" value={item.subjects.join(", ")} />
+        <DetailItem label="Subjects" value={item.subjects.join(", ") || "—"} />
         <DetailItem label="Level" value={item.level} />
         <DetailItem label="Rate" value={`Rs ${item.rate.toLocaleString()}/mo`} />
         <DetailItem label="Experience" value={item.experience} />
+        <DetailItem label="Degree" value={item.degree || "—"} />
+        <DetailItem label="Institution" value={item.institution || "—"} />
       </View>
 
       {/* Bio */}
-      <View className="bg-sand rounded-md p-3 mb-3">
-        <Text className="text-micro text-text-muted uppercase tracking-wider mb-1">Bio</Text>
-        <Text className="text-body-sm text-text-secondary">{item.bio}</Text>
-      </View>
+      {item.bio ? (
+        <View className="bg-sand rounded-md p-3 mb-3">
+          <Text className="text-micro text-text-muted uppercase tracking-wider mb-1">Bio</Text>
+          <Text className="text-body-sm text-text-secondary">{item.bio}</Text>
+        </View>
+      ) : null}
 
-      {/* Documents */}
-      <View className="mb-3">
-        <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">Documents</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
-          {item.documents.map((doc, i) => (
-            <View
-              key={i}
-              className="w-28 h-20 rounded-lg border border-border items-center justify-center bg-sand"
-            >
-              <Text className="text-[8px] font-medium text-text-secondary text-center px-1">
-                {doc}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Documents — tappable thumbnails using the shared
+          DocumentThumbnail component so both VerificationCard and
+          PendingEditCard render identical previews. */}
+      {item.documents.length > 0 ? (
+        <View className="mb-3">
+          <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">Documents</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+            {item.documents.map((doc, i) => (
+              <DocumentThumbnail
+                key={`${doc.kind}-${i}`}
+                doc={doc}
+                tutorName={item.name}
+                onPreviewDocument={onPreviewDocument}
+                onPreviewVideo={onPreviewVideo}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Admin notes (visible if a previous decision captured a reason) */}
+      {item.adminNotes ? (
+        <View className="bg-danger-bg rounded-md p-3 mb-3">
+          <Text className="text-micro text-danger uppercase tracking-wider mb-1">Admin note</Text>
+          <Text className="text-body-sm text-text-secondary">{item.adminNotes}</Text>
+        </View>
+      ) : null}
 
       {/* Actions */}
       {status === "pending" || status === "more_info" ? (
-        <View className="flex-row gap-2 pt-2 border-t border-border-subtle">
-          <Pressable
-            onPress={onApprove}
-            className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
-            accessibilityRole="button"
-            accessibilityLabel="Approve"
-          >
+        <View className="flex-row gap-2 pt-2 border-t border-border">
+            <Pressable
+              onPress={onApprove}
+              disabled={busy}
+              className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
+              accessibilityRole="button"
+              accessibilityLabel="Approve"
+            >
             <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
           </Pressable>
           <Pressable
             onPress={onReject}
-            className="flex-1 h-10 bg-danger rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
+            disabled={busy}
+            className="flex-1 h-10 bg-danger rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
             accessibilityRole="button"
             accessibilityLabel="Reject"
           >
@@ -576,7 +1415,8 @@ function VerificationCard({
           {status === "pending" ? (
             <Pressable
               onPress={onRequestInfo}
-              className="flex-1 h-10 bg-ai rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
+              disabled={busy}
+              className="flex-1 h-10 bg-ai rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
               accessibilityRole="button"
               accessibilityLabel="Request more info"
             >
@@ -591,30 +1431,146 @@ function VerificationCard({
 }
 
 /**
+ * Shared document thumbnail component used by both VerificationCard
+ * and PendingEditCard. Resolves the public URL via
+ * `getVerificationDocPublicUrl`, handles cache-busting with the
+ * `uploadedAt` timestamp, and dispatches to ImageViewerModal or
+ * VideoViewerModal on tap. Renders a 128px-wide card with the image
+ * scan (or an icon fallback for videos/missing URLs), a label, and
+ * the file size — exactly matching the admin queue's existing visual.
+ */
+function DocumentThumbnail({
+  doc,
+  tutorName,
+  onPreviewDocument,
+  onPreviewVideo,
+}: {
+  doc: TutorDocument;
+  tutorName: string;
+  onPreviewDocument?: (url: string, label: string) => void;
+  onPreviewVideo?: (url: string, label: string) => void;
+}) {
+  const isImage = doc.kind === "citizenship" || doc.kind === "certificate";
+  let publicUrl: string | null = null;
+  if (typeof doc.path === "string" && doc.path.length > 0) {
+    try {
+      publicUrl = getVerificationDocPublicUrl(doc.path);
+    } catch (err) {
+      if (__DEV__) {
+        console.warn(
+          "[DocumentThumbnail] getVerificationDocPublicUrl failed",
+          err,
+        );
+      }
+    }
+  }
+  // Compute a single, consistent display URL that both the thumbnail
+  // <Image> and the lightbox use. Without this, the thumbnail would
+  // use the cache-busted URL (`?t=uploadedAt`) while the lightbox
+  // receives the raw `publicUrl` — React Native's <Image> caches by
+  // URI, so the lightbox would show a stale cached version while the
+  // thumbnail shows the correct new one.
+  const displayUrl =
+    isImage && publicUrl && doc.uploadedAt
+      ? `${publicUrl}?t=${encodeURIComponent(doc.uploadedAt)}`
+      : publicUrl;
+
+  return (
+    <Pressable
+      onPress={() => {
+        if (isImage && displayUrl) {
+          onPreviewDocument?.(displayUrl, TUTOR_DOC_LABEL[doc.kind]);
+        } else if (!isImage && publicUrl) {
+          onPreviewVideo?.(publicUrl, TUTOR_DOC_LABEL[doc.kind]);
+        } else {
+          Alert.alert(
+            "Document unavailable",
+            "This document's storage path is missing.",
+          );
+        }
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${TUTOR_DOC_LABEL[doc.kind]} for ${tutorName}`}
+      className="w-32 rounded-lg border border-border items-center bg-sand active:opacity-80 overflow-hidden"
+    >
+      {isImage && displayUrl ? (
+        <Image
+          source={{ uri: displayUrl }}
+          className="w-full h-20 bg-sand"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-full h-20 items-center justify-center bg-accent-light">
+          <Ionicons
+            name={isImage ? "image-outline" : "play-circle"}
+            size={28}
+            color="#E5A03B"
+          />
+        </View>
+      )}
+      <View className="w-full p-1.5">
+        <Text
+          className="text-[9px] font-semibold text-text-primary text-center"
+          numberOfLines={1}
+        >
+          {TUTOR_DOC_LABEL[doc.kind]}
+        </Text>
+        <Text className="text-[8px] text-text-muted text-center mt-0.5">
+          {formatBytes(doc.bytes)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/**
  * Pending edit card — renders a row per changed field with the old
  * value (struck through, dimmed) and the new value (highlighted in
- * amber). Approve/Reject buttons at the bottom. There is no
+ * accent). If the edit includes document changes, the proposed
+ * documents are shown as image thumbnails (same size as the
+ * VerificationCard preview) so the admin can visually verify the
+ * new scans. Approve/Reject buttons at the bottom. There is no
  * "Request more info" — the only question for an edit is "do you
  * accept this change?".
  */
 function PendingEditCard({
   edit,
+  busy,
   onApprove,
   onReject,
+  onPreviewDocument,
+  onPreviewVideo,
 }: {
   edit: PendingEdit;
+  busy: boolean;
   onApprove: () => void;
   onReject: () => void;
+  /** Called when an image document thumbnail is tapped. Opens the
+   *  in-app ImageViewerModal — same as VerificationCard. */
+  onPreviewDocument?: (url: string, label: string) => void;
+  /** Called when the demo video thumbnail is tapped. Opens the
+   *  in-app VideoViewerModal — same as VerificationCard. */
+  onPreviewVideo?: (url: string, label: string) => void;
 }) {
+  const hasDocChanges = edit.proposedDocuments.length > 0;
+
   return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4 mb-3">
+    <View className="bg-surface border border-border rounded-card p-4 mb-3">
       {/* Header */}
       <View className="flex-row items-start gap-3 mb-3">
-        <Image
-          source={{ uri: edit.avatar }}
-          className="w-12 h-12 rounded-full bg-sand"
-          resizeMode="cover"
-        />
+        {typeof edit.avatar === "string" && edit.avatar.length > 0 ? (
+          <Image
+            source={{ uri: edit.avatar }}
+            className="w-12 h-12 rounded-full bg-sand"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+            <Text className="text-card-title font-medium text-accent">
+              {(edit.name?.charAt(0) ?? "?").toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View className="flex-1 min-w-0">
           <Text className="text-card-title font-medium text-text-primary">
             {edit.name}
@@ -634,37 +1590,72 @@ function PendingEditCard({
         </View>
       </View>
 
+      {/* Proposed document thumbnails — uses the shared
+          DocumentThumbnail component so both VerificationCard and
+          PendingEditCard render identical previews. */}
+      {hasDocChanges ? (
+        <View className="mb-3">
+          <Text className="text-micro text-text-muted uppercase tracking-wider mb-2">
+            Updated documents
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-row gap-2"
+          >
+            {edit.proposedDocuments.map((doc, i) => (
+              <DocumentThumbnail
+                key={`${doc.kind}-${i}`}
+                doc={doc}
+                tutorName={edit.name}
+                onPreviewDocument={onPreviewDocument}
+                onPreviewVideo={onPreviewVideo}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {/* Diff rows */}
-      <View className="bg-sand rounded-md p-3 mb-3 gap-3">
-        {edit.fields.map((f, i) => (
-          <View key={i}>
-            <Text className="text-micro text-text-muted uppercase tracking-wider mb-1">
-              {f.label}
-            </Text>
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text
-                className="text-body-sm text-text-muted line-through"
-                numberOfLines={1}
-              >
-                {f.oldValue}
+      {edit.fields.length > 0 ? (
+        <View className="bg-sand rounded-md p-3 mb-3 gap-3">
+          {edit.fields.map((f, i) => (
+            <View key={i}>
+              <Text className="text-micro text-text-muted uppercase tracking-wider mb-1">
+                {f.label}
               </Text>
-              <Ionicons name="arrow-forward" size={12} color="#94A3B8" />
-              <Text
-                className="text-body-sm font-medium text-amber"
-                numberOfLines={1}
-              >
-                {f.newValue}
-              </Text>
+              <View className="flex-row flex-wrap items-center gap-2">
+                <Text
+                  className="text-body-sm text-text-muted line-through"
+                  numberOfLines={1}
+                >
+                  {f.oldValue}
+                </Text>
+                <Ionicons name="arrow-forward" size={12} color="#6B7268" />
+                <Text
+                  className="text-body-sm font-medium text-accent"
+                  numberOfLines={1}
+                >
+                  {f.newValue}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ) : (
+        <View className="bg-sand rounded-md p-3 mb-3">
+          <Text className="text-body-sm text-text-secondary">
+            No changed fields detected.
+          </Text>
+        </View>
+      )}
 
       {/* Actions */}
-      <View className="flex-row gap-2 pt-2 border-t border-border-subtle">
+      <View className="flex-row gap-2 pt-2 border-t border-border">
         <Pressable
           onPress={onApprove}
-          className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
+          disabled={busy}
+          className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
           accessibilityRole="button"
           accessibilityLabel="Approve edit"
         >
@@ -675,7 +1666,8 @@ function PendingEditCard({
         </Pressable>
         <Pressable
           onPress={onReject}
-          className="flex-1 h-10 bg-danger rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
+          disabled={busy}
+          className="flex-1 h-10 bg-danger rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
           accessibilityRole="button"
           accessibilityLabel="Reject edit"
         >
@@ -691,13 +1683,21 @@ function DecidedRow({ item }: { item: Verification }) {
   const config = getStatusConfig(item.status);
   return (
     <Pressable
-      className="bg-surface border border-border-subtle rounded-card p-3 mb-2 flex-row items-center gap-3 opacity-80 active:opacity-60"
+      className="bg-surface border border-border rounded-card p-3 mb-2 flex-row items-center gap-3 opacity-80 active:opacity-60"
     >
-      <Image
-        source={{ uri: item.avatar }}
-        className="w-10 h-10 rounded-full bg-sand"
-        resizeMode="cover"
-      />
+      {typeof item.avatar === "string" && item.avatar.length > 0 ? (
+        <Image
+          source={{ uri: item.avatar }}
+          className="w-10 h-10 rounded-full bg-sand"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-10 h-10 rounded-full bg-accent-light items-center justify-center">
+          <Text className="text-card-title font-medium text-accent">
+            {(item.name?.charAt(0) ?? "?").toUpperCase()}
+          </Text>
+        </View>
+      )}
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-card-title font-medium text-text-primary">
@@ -708,7 +1708,10 @@ function DecidedRow({ item }: { item: Verification }) {
           ) : null}
         </View>
         <Text className="text-caption text-text-muted mt-0.5">
-          Submitted {item.submitted} · {item.subjects.join(", ")}
+          {item.submitted === "just now" || item.submitted === "recently"
+            ? "Decided recently"
+            : `Decided ${item.submitted}`}{" "}
+          · {item.subjects.join(", ") || "—"}
         </Text>
       </View>
       <View className={`${config.bgClass} px-2.5 py-1 rounded-md`}>
@@ -746,8 +1749,8 @@ function StatusBadge({ status }: { status: QueueStatus }) {
 function EmptyState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
-      <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name="shield-checkmark" size={26} color="#B45309" />
+      <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
+        <Ionicons name="shield-checkmark" size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         Queue is clear
@@ -762,9 +1765,10 @@ function EmptyState() {
 /**
  * Reject reason dialog — admin must enter a short reason before the
  * rejection is finalised. The reason is captured for the verification
- * doc's `adminNotes` (Phase 5), which the tutor sees via the
- * `ReviewBanner` with `tone="rejected"`. The dialog is dismissable
- * via the backdrop or the cancel button.
+ * / update doc's `adminNotes` (and mirrored onto the profile doc's
+ * `rejectionReason`), which the tutor sees via the `ReviewBanner`
+ * with `tone="rejected"`. The dialog is dismissable via the
+ * backdrop or the cancel button.
  */
 function RejectReasonDialog({
   visible,
@@ -781,9 +1785,6 @@ function RejectReasonDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  // A small "are you sure?" guard would be nice but a second
-  // confirmation is overkill here — once the reason is captured the
-  // admin can always flip the card back to `pending` in Phase 5.
   return (
     <Modal
       visible={visible}
@@ -803,7 +1804,7 @@ function RejectReasonDialog({
         >
           <View className="items-center mb-3">
             <View className="w-12 h-12 rounded-pill bg-danger-bg items-center justify-center">
-              <Ionicons name="close-circle" size={24} color="#DC2626" />
+              <Ionicons name="close-circle" size={24} color="#C1503D" />
             </View>
           </View>
 
@@ -811,14 +1812,14 @@ function RejectReasonDialog({
             Reject {tutorName}?
           </Text>
           <Text className="text-body-sm text-text-secondary text-center mt-1.5">
-            Tell the tutor why. They'll see this on their dashboard.
+            Tell the tutor why. They&apos;ll see this on their dashboard.
           </Text>
 
           <TextInput
             value={reason}
             onChangeText={onChangeReason}
             placeholder="e.g. Documents are unclear. Please re-upload a clearer citizenship scan."
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#6B7268"
             multiline
             numberOfLines={4}
             className="mt-4 bg-sand rounded-card p-3 text-body text-text-primary min-h-[96px]"

@@ -11,7 +11,7 @@ export default function PropertyReviewsScreen() {
       <ScreenHeader title="62 Reviews" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
         {/* Rating summary */}
-        <View className="rounded-card bg-canvas p-4 mb-5 items-center">
+        <View className="mb-5 items-center rounded-card bg-canvas p-4">
           <Text className="font-bold text-[40px] text-ink">4.5</Text>
           <Text className="font-sans text-body-sm text-ink2">out of 5 · 62 reviews</Text>
         </View>
@@ -19,8 +19,12 @@ export default function PropertyReviewsScreen() {
         {/* Filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
           {['All', '5★', '4★', '3★', 'With photos'].map((chip, i) => (
-            <Pressable key={chip} className={`mr-2 rounded-pill px-4 py-2 ${i === 0 ? 'bg-ink' : 'bg-canvas'}`}>
-              <Text className={`font-medium text-body-sm ${i === 0 ? 'text-white' : 'text-ink'}`}>{chip}</Text>
+            <Pressable
+              key={chip}
+              className={`mr-2 rounded-pill px-4 py-2 ${i === 0 ? 'bg-ink' : 'bg-canvas'}`}>
+              <Text className={`font-medium text-body-sm ${i === 0 ? 'text-white' : 'text-ink'}`}>
+                {chip}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -28,8 +32,8 @@ export default function PropertyReviewsScreen() {
         {/* Reviews list */}
         {[1, 2, 3].map((i) => (
           <View key={i} className="mb-4 rounded-card border border-line p-4">
-            <View className="flex-row items-center mb-2">
-              <View className="h-10 w-10 rounded-pill bg-canvas items-center justify-center mr-3">
+            <View className="mb-2 flex-row items-center">
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-pill bg-canvas">
                 <Text className="font-sans text-body-sm text-ink3">T</Text>
               </View>
               <View>
@@ -38,7 +42,8 @@ export default function PropertyReviewsScreen() {
               </View>
             </View>
             <Text className="font-sans text-body text-ink2">
-              Great property in a prime location. The landlord is very responsive and the apartment is well maintained.
+              Great property in a prime location. The landlord is very responsive and the apartment
+              is well maintained.
             </Text>
           </View>
         ))}

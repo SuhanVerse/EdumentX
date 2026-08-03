@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,7 +11,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -22,11 +20,17 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
+import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { motion } from "@/lib/motion";
 import { ChipGroup } from "@/components/forms/ChipGroup";
 import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { colors } from "@/constants/colors";
+import { useFieldScroll } from "@/hooks/useFieldScroll";
 import { registration } from "@/lib/registration";
+import { validateEmail, validateFullName, validatePhone, validateUsername } from "@/lib/validation";
 import { useAuthStore } from "@/store/authStore";
 
 const GRADES = [
@@ -50,16 +54,14 @@ const SUBJECTS = [
   "English",
 ] as const;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_REGEX = /^[a-zA-Z0-9_.]{3,30}$/;
-const PHONE_REGEX = /^\d{7,15}$/;
-
 type FormErrors = {
   fullName?: string;
   username?: string;
   phone?: string;
   grade?: string;
   subjects?: string;
+  location?: string;
+  avatar?: string;
 };
 
 export function StudentProfileScreen() {
@@ -78,6 +80,13 @@ export function StudentProfileScreen() {
   const [location, setLocation] = useState<{ neighborhood: string; city: string } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { registerField, scrollToFirstInvalid } = useFieldScroll();
+
+  // The profile picture is a required field, exactly like the others.
+  // Exposed as a named flag so it can participate in `canSubmit` and
+  // drive `AvatarUploader`'s error/valid visual states.
+  const isProfilePictureValid = avatarUri !== null;
 
   function toggleSubject(option: string) {
     setSubjects((prev) =>
@@ -87,18 +96,20 @@ export function StudentProfileScreen() {
 
   const canSubmit =
     fullName.trim().length >= 3 &&
-    EMAIL_REGEX.test(authEmail.trim()) &&
-    USERNAME_REGEX.test(username.trim()) &&
-    PHONE_REGEX.test(phone.trim()) &&
+    validateEmail(authEmail) === null &&
+    validateUsername(username) === null &&
+    validatePhone(phone) === null &&
     grade !== null &&
     subjects.length >= 1 &&
     location !== null &&
-    location.city.trim().length > 0;
+    location.city.trim().length > 0 &&
+    isProfilePictureValid;
 
   async function handleSubmit() {
     const validationErrors: FormErrors = {};
-    if (fullName.trim().length < 3) validationErrors.fullName = "Enter your full name.";
-    if (!EMAIL_REGEX.test(authEmail.trim())) {
+    const nameErr = validateFullName(fullName);
+    if (nameErr) validationErrors.fullName = nameErr;
+    if (validateEmail(authEmail) !== null) {
       Alert.alert(
         "Account email is missing",
         "Please sign in again so we can attach your profile to the verified email.",
@@ -106,19 +117,33 @@ export function StudentProfileScreen() {
       router.replace("/email-signup");
       return;
     }
-    if (!USERNAME_REGEX.test(username.trim())) {
-      validationErrors.username =
-        "Username must be 3–30 characters: letters, digits, underscore, or dot.";
-    }
-    if (!PHONE_REGEX.test(phone.trim())) {
-      validationErrors.phone =
-        "Enter a valid phone number (7–15 digits, no country code).";
-    }
+    const usernameErr = validateUsername(username);
+    if (usernameErr) validationErrors.username = usernameErr;
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) validationErrors.phone = phoneErr;
     if (!grade) validationErrors.grade = "Select your grade.";
     if (subjects.length < 1) validationErrors.subjects = "Select at least one subject.";
+    if (!location || !location.city.trim()) {
+      validationErrors.location = "Add your location.";
+    }
+    if (!avatarUri) validationErrors.avatar = "Upload a profile photo to continue.";
     setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length > 0) return;
+    if (Object.keys(validationErrors).length > 0) {
+      // Standard UX: the button stays enabled and a failed submit
+      // scrolls to the first incomplete section (document order) so
+      // the user immediately sees why they can't continue.
+      const sections: string[] = [];
+      if (validationErrors.avatar) sections.push("avatar");
+      if (validationErrors.fullName) sections.push("nameEmail");
+      if (validationErrors.username || validationErrors.phone)
+        sections.push("usernamePhone");
+      if (validationErrors.grade) sections.push("grade");
+      if (validationErrors.subjects) sections.push("subjects");
+      if (validationErrors.location) sections.push("location");
+      scrollToFirstInvalid(scrollRef, sections);
+      return;
+    }
 
     // Cache the draft in the registration shim so the in-flight navigation
     // can read it before Firestore round-trip completes. The shim will be
@@ -233,68 +258,118 @@ export function StudentProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-night">
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        <View className="gap-1 px-5 pt-4 pb-12 bg-night">
+        <View className="gap-1 px-5 pt-4 pb-8 bg-night">
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
-            onPress={() => router.replace("/role-selection")}
+            onPress={() => {
+              // If the user's role was read from Firestore (returning
+              // user), route to the dashboard. Otherwise (first-time
+              // user), clear the local role so the layout guard routes
+              // to /role-selection instead of bouncing back to the
+              // dashboard — and the user can abort the onboarding flow.
+              const hasExisting = useAuthStore.getState().hasExistingRole;
+              const currentRole = useAuthStore.getState().role;
+              if (hasExisting && currentRole) {
+                router.replace("/student-home");
+              } else {
+                // First-time user: clear the locally-set role so the
+                // layout guard sees `!role` and routes to
+                // /role-selection. The user can then use the Alert
+                // dialog's "Sign out" option to leave cleanly.
+                useAuthStore.getState().setRole(null);
+                router.replace("/role-selection");
+              }
+            }}
             className="min-h-touch self-start flex-row items-center gap-1 -ml-1 active:opacity-70"
           >
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
             <Text className="text-body text-white opacity-80">Back</Text>
           </Pressable>
-          <Text className="text-header-title text-white">
-            Set up your profile
-          </Text>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
+            <Text className="text-display text-white">
+              Set up your profile
+            </Text>
+          </View>
           <Text className="text-body text-white opacity-70 mt-0.5">
             This helps tutors understand your learning needs.
           </Text>
         </View>
 
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
           keyboardShouldPersistTaps="handled"
         >
-          <AvatarUploader value={avatarUri} onChange={setAvatarUri} />
+          <View onLayout={registerField("avatar")}>
+            <AvatarUploader
+              value={avatarUri}
+              onChange={setAvatarUri}
+              error={!isProfilePictureValid}
+              valid={isProfilePictureValid}
+              errorMessage={errors.avatar}
+            />
+          </View>
 
-          <NameEmailFields
-            fullName={fullName}
-            email={authEmail}
-            emailDisabled
-            errors={errors}
-            onChangeFullName={setFullName}
-            onChangeEmail={() => {
-              /* email is locked — sourced from verified auth identity */
-            }}
-          />
+          <View onLayout={registerField("nameEmail")}>
+            <NameEmailFields
+              fullName={fullName}
+              email={authEmail}
+              emailDisabled
+              errors={errors}
+              fullNameValid={
+                fullName.trim().length > 0 && validateFullName(fullName) === null
+              }
+              fullNameError={!!errors.fullName}
+              onChangeFullName={setFullName}
+              onChangeEmail={() => {
+                /* email is locked — sourced from verified auth identity */
+              }}
+            />
+          </View>
 
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-            <Text className="text-overline text-text-muted uppercase">
+          <View
+            onLayout={registerField("usernamePhone")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
+            <Text className="text-label text-ink-muted">
               Username & phone
             </Text>
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="at-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  onChangeText={setUsername}
-                  placeholder="your_handle"
-                  placeholderTextColor={colors.text.muted}
-                  value={username}
-                />
-              </View>
+              <FieldShell
+                value={username}
+                error={!!errors.username}
+                valid={
+                  username.length > 0 && validateUsername(username) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="at-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setUsername}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="your_handle"
+                      placeholderTextColor={colors.text.muted}
+                      value={username}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.username ? (
                 <Text className="text-caption text-danger">{errors.username}</Text>
               ) : null}
@@ -303,78 +378,130 @@ export function StudentProfileScreen() {
               <Text className="text-caption text-text-secondary">
                 Phone (digits only — for parents to reach tutors)
               </Text>
-              <View className="h-btn flex-row items-center border border-border rounded-md bg-surface px-3 gap-2">
-                <Ionicons color={colors.text.muted} name="call-outline" size={18} />
-                <TextInput
-                  className="flex-1 text-text-primary text-body"
-                  keyboardType="phone-pad"
-                  onChangeText={setPhone}
-                  placeholder="98XXXXXXXX"
-                  placeholderTextColor={colors.text.muted}
-                  value={phone}
-                />
-              </View>
+              <FieldShell
+                value={phone}
+                error={!!errors.phone}
+                valid={
+                  phone.length > 0 && validatePhone(phone) === null
+                }
+                className="h-input bg-surface rounded-card"
+              >
+                {({ onFocus, onBlur }) => (
+                  <View className="h-input flex-row items-center px-3 gap-2">
+                    <Ionicons color={colors.text.muted} name="call-outline" size={18} />
+                    <TextInput
+                      className="flex-1 text-text-primary text-body"
+                      keyboardType="phone-pad"
+                      onChangeText={setPhone}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                      placeholder="98XXXXXXXX"
+                      placeholderTextColor={colors.text.muted}
+                      value={phone}
+                    />
+                  </View>
+                )}
+              </FieldShell>
               {errors.phone ? (
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : null}
             </View>
           </View>
 
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
-            <Text className="text-overline text-text-muted uppercase">
+          <View
+            onLayout={registerField("grade")}
+            className="gap-4 p-5 border border-border rounded-card bg-surface"
+          >
+            <Text className="text-label text-ink-muted">
               Grade / class
             </Text>
             <View className="flex-row flex-wrap gap-2">
-              {GRADES.map((item) => {
-                const active = grade === item;
-                return (
-                  <Pressable
-                    key={item}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setGrade(item)}
-                    className={`min-h-btn-sm px-4 py-2 rounded-md border-emphasis active:opacity-85 ${
-                      active ? "bg-night border-night" : "bg-surface border-border"
-                    }`}
-                  >
-                    <Text
-                      className={`text-button-sm ${
-                        active ? "text-white" : "text-text-secondary"
-                      }`}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {GRADES.map((item) => (
+                <GradeChip
+                  key={item}
+                  item={item}
+                  active={grade === item}
+                  onPress={() => setGrade(item)}
+                />
+              ))}
             </View>
             {errors.grade ? (
               <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
             ) : null}
           </View>
 
-          <ChipGroup
-            label="Subjects needed"
-            options={SUBJECTS}
-            selected={subjects}
-            onToggle={toggleSubject}
-            error={errors.subjects}
-          />
+          <View onLayout={registerField("subjects")}>
+            <ChipGroup
+              label="Subjects needed"
+              options={SUBJECTS}
+              selected={subjects}
+              onToggle={toggleSubject}
+              error={errors.subjects}
+            />
+          </View>
 
-          <LocationField value={location} onChange={setLocation} />
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSubmit || isSaving}
-            onPress={handleSubmit}
-            className="min-h-btn-lg mt-4 rounded-card items-center justify-center shadow-md bg-amber active:opacity-90 active:scale-[0.98] disabled:bg-border-strong disabled:opacity-60 self-center w-full max-w-sm"
-          >
-            <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
-              {isSaving ? "Saving..." : "Finish setup"}
-            </Text>
-          </Pressable>
+          <View onLayout={registerField("location")}>
+            <LocationField value={location} onChange={setLocation} />
+            {errors.location ? (
+              <Text className="text-caption text-danger mt-1">
+                {errors.location}
+              </Text>
+            ) : null}
+          </View>
+          <View className="w-full mt-6">
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Finish setup"}
+              onPress={handleSubmit}
+              variant="accent"
+              size="lg"
+              loading={isSaving}
+              disabled={isSaving}
+              className="w-full"
+            />
+            {!canSubmit && !isSaving ? (
+              <Text className="text-caption text-text-muted text-center mt-2">
+                Some required fields are incomplete — tap Finish setup to
+                see what&apos;s missing.
+              </Text>
+            ) : null}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenLayout>
+  );
+}
+
+function GradeChip({
+  item,
+  active,
+  onPress,
+}: {
+  item: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`min-h-btn-sm px-4 py-2 rounded-sm border ${
+        active ? "bg-primary border-primary" : "bg-surface-muted border-border"
+      }`}
+    >
+      <Text
+        className={`text-button-sm ${
+          active ? "text-white" : "text-text-secondary"
+        }`}
+      >
+        {item}
+      </Text>
+    </AnimatedPressable>
   );
 }

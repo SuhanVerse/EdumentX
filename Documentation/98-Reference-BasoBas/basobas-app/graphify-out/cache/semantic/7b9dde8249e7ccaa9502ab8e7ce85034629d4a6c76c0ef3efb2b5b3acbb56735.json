@@ -1,1 +1,38 @@
-{"nodes": [{"id": "tabs_listings_listingstab", "label": "ListingsTab", "file_type": "code", "source_file": "app/(landlord)/(tabs)/listings.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tabs_listings_listingstab", "target": "new_step_1_newlistingstep1", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(landlord)/(tabs)/listings.tsx", "source_location": null, "weight": 1.0}, {"source": "tabs_listings_listingstab", "target": "listing__id__listingdetailscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(landlord)/(tabs)/listings.tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tabs_listings_listingstab",
+      "label": "ListingsTab",
+      "file_type": "code",
+      "source_file": "app/(landlord)/(tabs)/listings.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tabs_listings_listingstab",
+      "target": "new_step_1_newlistingstep1",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(landlord)/(tabs)/listings.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tabs_listings_listingstab",
+      "target": "listing__id__listingdetailscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(landlord)/(tabs)/listings.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

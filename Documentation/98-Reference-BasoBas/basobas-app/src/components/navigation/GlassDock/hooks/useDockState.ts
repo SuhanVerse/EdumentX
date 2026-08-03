@@ -24,7 +24,7 @@ export function useDockState(activeKey: string): DockAnimationState {
   // Increment the tick on every active key change so derived animations
   // can react without knowing the key value.
   // NOTE: This runs on the JS thread and is intentionally lightweight.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   tabChangeTick.value += 1;
 
   return { tabChangeTick };

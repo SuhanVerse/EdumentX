@@ -54,6 +54,11 @@ export type RegistrationState = {
      *  presents tutor pricing as a flat monthly figure so parents can
      *  budget without doing arithmetic. */
     monthlyRateNpr: number;
+    // tutor credentials (degree + institution)
+    degree: string;
+    institution: string;
+    // Gender (Male / Female / Other — collected during tutor onboarding)
+    gender: "male" | "female" | "other" | null;
   };
 };
 
@@ -73,6 +78,9 @@ const initialState: RegistrationState = {
     gradesTeaching: [],
     yearsExperience: 0,
     monthlyRateNpr: 0,
+    degree: "",
+    institution: "",
+    gender: null,
   },
 };
 

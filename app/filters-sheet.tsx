@@ -5,12 +5,12 @@
 // renders a blank page with a "back to map" affordance.
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenLayout } from "@/components/shared/ScreenLayout";
 
 export default function FiltersSheetRoute() {
   const router = useRouter();
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <ScreenLayout variant="background">
       <View className="flex-1 items-center justify-center px-6">
         <Text className="text-screen-title font-medium text-text-primary text-center">
           Filters
@@ -28,6 +28,6 @@ export default function FiltersSheetRoute() {
           </Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

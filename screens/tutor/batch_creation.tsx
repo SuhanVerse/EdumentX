@@ -2,6 +2,11 @@ import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { Plus } from "lucide-react-native";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 
 interface Batch {
   id: string;
@@ -44,18 +49,20 @@ export function BatchesScreen() {
   const handleCreateNewBatch = () => setShowPickStudents(true);
 
   return (
-    <View className="flex-1 bg-night">
-      {/* Header */}
-      <View className="px-6 pt-12 pb-6 bg-surface border-b border-border">
+    <ScreenLayout variant="night">
+      {/* Header — standard light header slot. The old `pt-12` manual
+          status-bar compensation is gone: `ScreenLayout`'s safe area
+          now provides the top inset like every other screen. */}
+      <ScreenHeader variant="light">
         <Text className="text-2xl font-bold text-text-primary">
           Group Batches
         </Text>
         <Text className="text-text-secondary mt-1">
           Combine students into shared batches
         </Text>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScreenScroll className="flex-1">
         <Pressable
           onPress={handleCreateNewBatch}
           className="bg-ai rounded-card py-4 px-6 flex-row items-center justify-center gap-2 active:opacity-90 mb-8"
@@ -147,7 +154,7 @@ export function BatchesScreen() {
             </View>
           ))}
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <TutorBottomBar />
 
@@ -181,6 +188,6 @@ export function BatchesScreen() {
           </View>
         </View>
       )}
-    </View>
+    </ScreenLayout>
   );
 }

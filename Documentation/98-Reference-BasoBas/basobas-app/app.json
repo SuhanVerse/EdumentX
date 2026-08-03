@@ -14,7 +14,15 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "@clerk/expo",
+      [
+        "expo-maps",
+        {
+          "requestLocationPermission": true,
+          "locationPermission":"Allow ${PRODUCT_NAME} to access this device's location?"
+        }
+      ]
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,17 +32,22 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.utsavdotdev.basobas-app"
+      "bundleIdentifier": "com.wcc.basobas"
     },
     "android": {
+      "newArchEnabled": true,
+      "package": "com.wcc.basobas",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyA3-iCgl3Ow2fxbIuZUsklb3gZymYiPHJI"
+        }
       }
     }
   }

@@ -6,7 +6,7 @@ type Props = {
 };
 
 export const SectionLabel = ({ label, className = '' }: Props) => (
-  <Text className={`font-bold text-caption tracking-[1.2px] text-ink3 uppercase ${className}`}>
+  <Text className={`font-bold text-caption uppercase tracking-[1.2px] text-ink3 ${className}`}>
     {label}
   </Text>
 );

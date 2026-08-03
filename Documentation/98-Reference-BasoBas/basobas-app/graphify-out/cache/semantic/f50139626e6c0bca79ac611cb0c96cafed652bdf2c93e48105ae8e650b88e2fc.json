@@ -1,1 +1,28 @@
-{"nodes": [{"id": "landlord_notifications_notificationsscreen", "label": "NotificationsScreen (landlord)", "file_type": "code", "source_file": "app/(landlord)/notifications.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "landlord_notifications_notificationsscreen", "target": "tabs_index_hometab", "relation": "semantically_similar_to", "confidence": "INFERRED", "confidence_score": 0.65, "source_file": "app/(landlord)/notifications.tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "landlord_notifications_notificationsscreen",
+      "label": "NotificationsScreen (landlord)",
+      "file_type": "code",
+      "source_file": "app/(landlord)/notifications.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "landlord_notifications_notificationsscreen",
+      "target": "tabs_index_hometab",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "app/(landlord)/notifications.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

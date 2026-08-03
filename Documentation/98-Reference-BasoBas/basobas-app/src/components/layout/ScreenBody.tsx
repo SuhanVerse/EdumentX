@@ -15,6 +15,7 @@ export const dockBottomReserve = (safeBottom: number) =>
 
 interface ScreenBodyProps {
   children: ReactNode;
+  className?: string;
 }
 
 /**
@@ -24,12 +25,10 @@ interface ScreenBodyProps {
  * Reserves `dockH + 8 + safeBottom + 8` of empty space at the bottom so
  * the absolutely-positioned dock never covers content.
  */
-export const ScreenBody = ({ children }: ScreenBodyProps) => {
-  const insets = useSafeAreaInsets();
+export const ScreenBody = ({ children, className = 'flex-1 bg-bg' }: ScreenBodyProps) => {
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-bg">
+    <SafeAreaView edges={['top']} className={className}>
       {children}
-      <View style={{ height: dockBottomReserve(insets.bottom) }} pointerEvents="none" />
     </SafeAreaView>
   );
 };

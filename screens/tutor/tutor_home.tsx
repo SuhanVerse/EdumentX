@@ -1,23 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
+import { getApp } from "@react-native-firebase/app";
+import {
+  doc,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
+import { useRouter } from "expo-router";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { getApp } from "@react-native-firebase/app";
-import {
-  getFirestore,
-  doc,
-  onSnapshot,
-} from "@react-native-firebase/firestore";
-
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { colors } from "@/constants/colors";
+import { motion } from "@/lib/motion";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
+import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -55,8 +66,15 @@ interface TutorDashboardData {
   rejectionReason?: string | null;
 }
 
+// `FALLBACK.fullName` is the empty string rather than a placeholder
+// like "Tutor" — the dashboard renders a "Complete your profile"
+// empty state when the name is empty, so a brand-new tutor (or any
+// tutor whose profile hasn't been read yet) never sees a fake
+// first-name as if it were real data. (Previously the literal
+// "Tutor" was rendered, which masked the "user has no profile"
+// bug as a cosmetic issue.)
 const FALLBACK: TutorDashboardData = {
-  fullName: "Tutor",
+  fullName: "",
   isVerifiedProfessional: false,
   capacity: 0,
   currentStudents: 0,
@@ -235,16 +253,34 @@ export function TutorDashboard() {
   const [available, setAvailable] = useState(true);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
+  // The under-review banner is dismissable for the current session
+  // — once the tutor has read it, the "Got it" button hides the
+  // banner without affecting the underlying `verificationStatus`
+  // field. A fresh sign-in (or a real status change in the
+  // snapshot) brings the banner back. We keep the dismissed state
+  // local because (a) the snapshot already drives re-render, and
+  // (b) persisting a "banner seen" flag to Firestore would be
+  // more work than it's worth for a UI affordance.
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Live read from the tutorProfile subcollection. We subscribe via
   // `onSnapshot` so future Phase-5 "Edit profile" writes propagate to
   // the dashboard without a reload. The student's home screen uses
   // the same pattern (see `StudentHome.tsx`).
   const [data, setData] = useState<TutorDashboardData>(FALLBACK);
+  // `hasLoaded` flips true once the first `onSnapshot` callback has
+  // returned (with any data — even `undefined`). It distinguishes
+  // "we're still waiting for the first read" from "we read the
+  // doc and it's empty / missing". The dashboard's empty-state
+  // branch (further down) only renders when `hasLoaded && data has
+  // no name`, so a fresh mount doesn't flash a "Complete your
+  // profile" CTA while the read is still in flight.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setData(FALLBACK);
+      setHasLoaded(true);
       return;
     }
     const db = getFirestore(getApp());
@@ -255,13 +291,21 @@ export function TutorDashboard() {
         const d = snap.data() as Partial<TutorDashboardData> | undefined;
         if (!d) {
           setData(FALLBACK);
+          setHasLoaded(true);
           return;
         }
         setData({
+          // Empty string is intentional: the dashboard's empty-state
+          // branch (line 320 / 372) detects `fullName === ""` and
+          // renders a "Complete your profile" CTA instead of
+          // pretending an empty profile is a real tutor. The
+          // previous fallback to "Tutor" was a placeholder from the
+          // mock-data era that masked the "no profile yet" bug as
+          // a cosmetic glitch.
           fullName:
             typeof d.fullName === "string" && d.fullName.trim().length > 0
               ? d.fullName.trim()
-              : "Tutor",
+              : "",
           isVerifiedProfessional: !!(d as { isVerifiedProfessional?: boolean })
             .isVerifiedProfessional,
           capacity: toNum((d as { capacity?: number }).capacity),
@@ -288,10 +332,12 @@ export function TutorDashboard() {
           rejectionReason:
             (d as { rejectionReason?: string | null }).rejectionReason ?? null,
         });
+        setHasLoaded(true);
       },
       (err) => {
         console.warn("TutorDashboard: profile read failed", err);
         setData(FALLBACK);
+        setHasLoaded(true);
       },
     );
     return () => unsub();
@@ -307,21 +353,50 @@ export function TutorDashboard() {
         ? "bg-warning"
         : "bg-verification";
 
-  return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+  // When the underlying verification status changes (e.g. admin
+  // approval, a new edit goes pending, or a fresh "more_info"
+  // request), re-show the banner even if the tutor had dismissed
+  // it. Without this, a dismissed banner would stay hidden through
+  // subsequent state changes — the dismiss only "absorbs" a
+  // *seen* state, not future changes.
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [data.verificationStatus, data.hasPendingUpdate]);
 
-      {/* Header */}
-      <View className="bg-night px-4 pb-5 shrink-0">
-        <View className="flex-row justify-between items-start pt-2">
+  // **Empty-state guard.** The dashboard only renders its full
+  // content once we have a profile doc with a populated `fullName`.
+  // If the snapshot fired but the doc is missing or has no name,
+  // the user is "not a real tutor yet" (e.g. they closed the app
+  // mid-onboarding, or a partial write lost atomicity). Show a
+  // "Complete your profile" CTA instead of an empty dashboard
+  // with placeholder zeros.
+  //
+  // We deliberately do *not* redirect to /profile-tutor from
+  // here — the layout guard already handles the
+  // `verificationStatus === "pending"` case by routing to
+  // /tutor-pending, and that screen's back-button takes the tutor
+  // to the role-selection or profile-tutor flow. This empty state
+  // is the last line of defense.
+  if (hasLoaded && data.fullName === "") {
+    return <TutorDashboardEmptyState />;
+  }
+
+  return (
+    <ScreenLayout variant="night">
+
+      {/* Header — standard ScreenHeader slot */}
+      <ScreenHeader>
+        <View className="flex-row justify-between items-start">
           <View>
-            <Text className="text-body text-white/70">Welcome back,</Text>
-            <Text className="text-screen-title font-medium text-white mt-0.5">
-              {data.fullName || "Tutor"}
-            </Text>
+            <Text className="text-body text-white/70">Good to see you,</Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+              <Text className="text-screen-title font-medium text-white mt-0.5">
+                {data.fullName}
+              </Text>
+            </View>
             {data.isVerifiedProfessional ? (
               <View className="flex-row items-center gap-1 px-2.5 py-1 rounded-pill bg-verification-light mt-2 self-start">
-                <Ionicons name="shield-checkmark" size={12} color="#A7F3D0" />
+                <Ionicons name="shield-checkmark" size={12} color="#3F8A5A" />
                 <Text className="text-caption text-success font-medium">
                   Verified Professional
                 </Text>
@@ -331,7 +406,7 @@ export function TutorDashboard() {
         </View>
 
         {/* Availability toggle */}
-        <View className="bg-white/15 rounded-lg px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center">
+        <View className="bg-white/12 rounded-card px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center">
           <View className="flex-1 pr-3">
             <Text className="text-body font-medium text-white">
               {available ? "Available for new students" : "Hidden from search"}
@@ -341,47 +416,39 @@ export function TutorDashboard() {
               results
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: available }}
-            accessibilityLabel="Toggle availability"
-            onPress={() => setAvailable(!available)}
-            className={`w-11 h-6 rounded-full px-0.5 active:opacity-80 ${
-              available ? "bg-verification" : "bg-white/20"
-            }`}
-          >
-            <View
-              className={`w-[22px] h-[22px] rounded-full bg-white
-              ${
-                available ? "left-5" : "left-0.5"
-              }`}
-            />
-          </Pressable>
+          <AvailabilitySwitch
+            checked={available}
+            onToggle={() => setAvailable(!available)}
+          />
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Under-review banner — surfaces when (a) the tutor's signup
           verification is still pending, (b) the admin requested more
           info, (c) the admin rejected the submission, or (d) the
           tutor has a `tutorProfileUpdates/{uid}` doc in `pending`
           state (i.e. an edit is being reviewed). The banner sits
-          between the dark hero and the white dashboard body so the
-          amber/ai/danger accent stays visible above the metrics grid.
-          The banner manages its own `mx-5` gutter; the scroll content
-          below uses `px-4`, which is a 4-px wider banner on each
-          side. That's intentional — the banner reads as a distinct
-          full-width surface, not as a card. */}
-      {data.verificationStatus === "pending" ? (
+          flush between the dark hero and the white dashboard body
+          (no `mx-5` gutter) so the dark night background doesn't
+          bleed through on the sides — that bleed is what made the
+          banner look "blended" with the availability toggle
+          above it. The banner's own `border-t` paints a clean
+          amber/blue/red line under the hero, and the dismiss
+          button is a clear visual affordance rather than a piece
+          of body text. */}
+      {!bannerDismissed && data.verificationStatus === "pending" ? (
         <ReviewBanner
           tone="pending"
           message="Your account is being reviewed. You'll get full access once an admin approves your profile."
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.verificationStatus === "more_info" ? (
+      ) : !bannerDismissed && data.verificationStatus === "more_info" ? (
         <ReviewBanner
           tone="info"
           message="An admin has asked for more information. Please update your profile and re-submit."
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.verificationStatus === "rejected" ? (
+      ) : !bannerDismissed && data.verificationStatus === "rejected" ? (
         <ReviewBanner
           tone="rejected"
           message={
@@ -389,25 +456,23 @@ export function TutorDashboard() {
               ? `Reason: ${data.rejectionReason}. Please update your profile and re-submit.`
               : "Your submission was rejected. Please update your profile and re-submit."
           }
+          onDismiss={() => setBannerDismissed(true)}
         />
-      ) : data.hasPendingUpdate ? (
+      ) : !bannerDismissed && data.hasPendingUpdate ? (
         <ReviewBanner
           tone="pending"
           message="Your recent profile changes are under review. Your profile isn't being shown to students right now."
+          onDismiss={() => setBannerDismissed(true)}
         />
       ) : null}
 
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="p-4 pb-9"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll className="flex-1 bg-background">
         {/* Metric cards 2x2 */}
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
             iconName="people"
-            colorClass="bg-amber-light"
-            iconColor="amber"
+            colorClass="bg-accent-light"
+            iconColor="accent"
             label="Active students"
             value={String(currentStudents)}
           />
@@ -444,7 +509,7 @@ export function TutorDashboard() {
           className="bg-surface border border-border rounded-card p-4 mb-3.5 active:opacity-70"
         >
           <View className="flex-row items-center gap-2 mb-2.5">
-            <Ionicons name="people" size={16} color="#B45309" />
+            <Ionicons name="people" size={16} color="#2F5D50" />
             <Text className="flex-1 text-button-sm font-medium text-text-primary">
               Capacity
             </Text>
@@ -455,7 +520,7 @@ export function TutorDashboard() {
             >
               {currentStudents} of {capacity} filled
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="#64748B" />
+            <Ionicons name="chevron-forward" size={16} color="#6B7268" />
           </View>
           <View className="h-2 rounded-full bg-background overflow-hidden">
             <View
@@ -473,11 +538,11 @@ export function TutorDashboard() {
           <View className="flex-row items-center gap-2.5">
             <View className="flex-1 h-1.5 rounded-full bg-background overflow-hidden">
               <View
-                className="h-full bg-amber rounded-full"
+                className="h-full bg-accent rounded-full"
                 style={{ width: `${data.profileCompletion}%` }}
               />
             </View>
-            <Text className="text-button-sm text-amber font-medium">
+            <Text className="text-button-sm text-accent font-medium">
               {data.profileCompletion}%
             </Text>
           </View>
@@ -487,9 +552,9 @@ export function TutorDashboard() {
             land in Phase 5 alongside the collections that back
             them. We deliberately don't show fake names or stats
             here. */}
-        <View className="bg-surface border border-border-subtle rounded-card p-6 mb-3.5 items-center">
-          <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-            <Ionicons name="briefcase-outline" size={26} color="#B45309" />
+        <View className="bg-surface border border-border rounded-card p-6 mb-3.5 items-center">
+          <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
+            <Ionicons name="briefcase-outline" size={26} color="#E5A03B" />
           </View>
           {TODAY_SESSIONS.length === 0 ? (
             <Text className="text-caption text-text-muted py-2">
@@ -500,10 +565,10 @@ export function TutorDashboard() {
               <View
                 key={s.time}
                 className={`flex-row items-center gap-3 py-2.5 ${
-                  i > 0 ? "border-t border-border-subtle" : ""
+                  i > 0 ? "border-t border-border" : ""
                 }`}
               >
-                <Text className="w-[60px] text-caption font-medium text-amber">{s.time}</Text>
+                <Text className="w-[60px] text-caption font-medium text-accent">{s.time}</Text>
                 <View className="flex-1">
                   <Text className="text-button-sm text-text-primary">{s.student}</Text>
                   <Text className="text-caption text-text-muted mt-0.5">
@@ -525,52 +590,20 @@ export function TutorDashboard() {
               onPress={() => showComingSoon("Inbox")}
               className="flex-row items-center gap-0.5 active:opacity-70"
             >
-              <Text className="text-button-sm text-amber">See all</Text>
-              <Ionicons name="chevron-forward" size={14} color="amber" />
+              <Text className="text-button-sm text-primary">See all</Text>
+              <Ionicons name="chevron-forward" size={14} color="#2F5D50" />
             </Pressable>
           </View>
 
           {/* Sub-tabs */}
-          <View className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5">
-            {(
-              [
-                { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
-                { key: "batches",     label: "Batch requests",  count: BATCH_REQUESTS.length },
-              ] as const
-            ).map((t) => {
-              const on = reqTab === t.key;
-              return (
-                <Pressable
-                  key={t.key}
-                  onPress={() => setReqTab(t.key)}
-                  className={`flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 ${
-                    on ? "bg-night" : "bg-transparent"
-                  }`}
-                >
-                  <Text
-                    className={`text-caption font-medium ${
-                      on ? "text-white" : "text-text-secondary"
-                    }`}
-                  >
-                    {t.label}
-                  </Text>
-                  <View
-                    className={`px-1.5 py-[1px] rounded-full ${
-                      on ? "bg-white/25" : "bg-background"
-                    }`}
-                  >
-                    <Text
-                      className={`text-micro font-semibold ${
-                        on ? "text-white" : "text-text-muted"
-                      }`}
-                    >
-                      {t.count}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <RequestsSubTabs
+            activeKey={reqTab}
+            onChange={setReqTab}
+            tabs={[
+              { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
+              { key: "batches", label: "Batch requests", count: BATCH_REQUESTS.length },
+            ]}
+          />
 
           {reqTab === "enrollments" && (
             <View className="flex-col gap-2.5">
@@ -640,7 +673,7 @@ export function TutorDashboard() {
                       style={{ opacity: action ? 0.85 : 1 }}
                     >
                       <View
-                        className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-pill border mb-2.5 ${accent.bg} ${accent.border}`}
+                        className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-sm border mb-2.5 ${accent.bg} ${accent.border}`}
                       >
                         <Ionicons name={accent.icon} size={11} color={accent.iconColor} />
                         <Text className={`text-micro font-semibold tracking-wider ${accent.color}`}>
@@ -661,7 +694,7 @@ export function TutorDashboard() {
                           {br.kind === "join" && slot ? (
                             <View className="mt-2 bg-background border border-border rounded-lg px-2.5 py-1.5">
                               <View className="flex-row items-center gap-1.5">
-                                <Ionicons name="lock-closed" size={11} color="#4F46E5" />
+                                <Ionicons name="lock-closed" size={11} color="#4A7FA5" />
                                 <Text className="text-caption font-medium text-text-secondary">
                                   {slot.label}
                                 </Text>
@@ -704,7 +737,7 @@ export function TutorDashboard() {
                             <Ionicons
                               name="checkmark"
                               size={13}
-                              color={blocked ? "#9CA3AF" : "#FFFFFF"}
+                              color={blocked ? "#6B7268" : "#FFFFFF"}
                             />
                             <Text
                               className={`text-caption font-medium ${
@@ -720,7 +753,7 @@ export function TutorDashboard() {
                             }
                             className="flex-1 h-9 bg-surface border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
                           >
-                            <Ionicons name="close" size={13} color="#DC2626" />
+                            <Ionicons name="close" size={13} color="#C1503D" />
                             <Text className="text-caption font-medium text-danger">Decline</Text>
                           </Pressable>
                         </View>
@@ -759,7 +792,7 @@ export function TutorDashboard() {
               Combine 2–6 students into a shared batch
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#4F46E5" />
+          <Ionicons name="chevron-forward" size={18} color="#4A7FA5" />
         </Pressable>
 
         {/* Quick actions row */}
@@ -777,9 +810,9 @@ export function TutorDashboard() {
             </Pressable>
           ))}
         </View>
-      </ScrollView>
+      </ScreenScroll>
       <TutorBottomBar />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
@@ -799,18 +832,18 @@ type MetricProps = {
 
 /**
  * Pill styling for a batch-request card header. Two kinds currently:
- *   - "join":       student wants to join a slot (amber).
+ *   - "join":       student wants to join a slot (accent).
  *   - "conversion": student wants to upgrade from trial to weekly
  *                   (verification green).
  */
 function statusAccent(kind: "join" | "conversion") {
   if (kind === "join") {
     return {
-      bg: "bg-amber/10",
-      border: "border-amber/30",
+      bg: "bg-accent/10",
+      border: "border-accent/30",
       icon: "person-add-outline" as const,
-      iconColor: "#B45309",
-      color: "text-amber",
+      iconColor: "#E5A03B",
+      color: "text-accent",
       label: "Join request",
     };
   }
@@ -818,7 +851,7 @@ function statusAccent(kind: "join" | "conversion") {
     bg: "bg-verification/10",
     border: "border-verification/30",
     icon: "swap-horizontal-outline" as const,
-    iconColor: "#047857",
+    iconColor: "#3F8A5A",
     color: "text-verification",
     label: "Conversion",
   };
@@ -831,12 +864,12 @@ function statusAccent(kind: "join" | "conversion") {
  * `colorClass` token we use for the tile background.
  */
 const ICON_COLOR_MAP = {
-  amber: "#B45309",
-  verification: "#047857",
-  warning: "#B45309",
-  danger: "#DC2626",
-  ai: "#4F46E5",
-  success: "#047857",
+  accent: "#E5A03B",
+  verification: "#3F8A5A",
+  warning: "#E5A03B",
+  danger: "#C1503D",
+  ai: "#4A7FA5",
+  success: "#3F8A5A",
 } as const;
 
 function Metric({ iconName, colorClass, iconColor, label, value, trend, trendUp }: MetricProps) {
@@ -855,10 +888,10 @@ function Metric({ iconName, colorClass, iconColor, label, value, trend, trendUp 
             color={ICON_COLOR_MAP[iconColor]}
           />
         </View>
-        {trendUp ? <Ionicons name="trending-up" size={14} color="#047857" /> : null}
+        {trendUp ? <Ionicons name="trending-up" size={14} color="#3F8A5A" /> : null}
       </View>
-      <Text className="text-caption text-text-muted uppercase tracking-wider mb-1">{label}</Text>
-      <Text className="text-section-title font-medium text-text-primary leading-tight">{value}</Text>
+      <Text className="text-label text-ink-muted mb-1">{label}</Text>
+      <Text className="text-heading text-text-primary leading-tight">{value}</Text>
       <Text
         className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}
       >
@@ -879,8 +912,8 @@ type SubjectChipProps = {
  */
 function SubjectChip({ label }: SubjectChipProps) {
   return (
-    <View className="px-2 py-0.5 rounded-pill bg-amber-light">
-      <Text className="text-micro text-amber font-medium">{label}</Text>
+    <View className="px-2 py-0.5 rounded-sm bg-accent-light">
+      <Text className="text-micro text-accent font-medium">{label}</Text>
     </View>
   );
 }
@@ -897,7 +930,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
   };
   const { bg, text, label } = palette[status];
   return (
-    <View className={`px-2 py-0.5 rounded-pill ${bg}`}>
+    <View className={`px-2 py-0.5 rounded-sm ${bg}`}>
       <Text className={`text-micro font-semibold ${text}`}>{label}</Text>
     </View>
   );
@@ -913,11 +946,200 @@ type AvatarCircleProps = { uri: string };
  */
 function AvatarCircle({ uri }: AvatarCircleProps) {
   return (
-    <View className="w-10 h-10 rounded-full bg-amber-light items-center justify-center">
-      <Ionicons name="person-outline" size={20} color="#B45309" />
+    <View className="w-10 h-10 rounded-full bg-surface-muted items-center justify-center">
+      <Ionicons name="person-outline" size={20} color="#6B7268" />
       {/* Network image would render here in the wired version:
             <Image source={{ uri }} className="w-10 h-10 rounded-full" /> */}
       <Text className="sr-only">{uri}</Text>
+    </View>
+  );
+}
+
+/**
+ * Empty-state shown when the dashboard's `onSnapshot` returned but
+ * the profile doc is missing or has no `fullName`. The layout
+ * guard's primary fix is to route these users to /tutor-pending
+ * (which the user navigates back through to re-submit), but this
+ * is the last line of defense in case the guard ever lets a
+ * partially-onboarded user slip through to /tutor-home. The
+ * "Complete your profile" CTA takes them to /profile-tutor.
+ */
+function TutorDashboardEmptyState() {
+  const router = useRouter();
+  return (
+    <ScreenLayout variant="background">
+      <View className="flex-1 items-center justify-center px-8">
+        <FloatingEmptyIcon
+          iconName="document-text-outline"
+          iconColor="#E5A03B"
+          iconBgClass="bg-accent-soft"
+          size={28}
+          sizeClass="w-16 h-16"
+        />
+        <Text className="text-section-title font-medium text-text-primary text-center">
+          Your tutor profile isn&apos;t set up yet
+        </Text>
+        <Text className="text-body text-text-secondary text-center mt-2 leading-relaxed">
+          Finish your tutor profile to unlock the dashboard. You&apos;ll
+          add your subjects, rate, location, and verification
+          documents.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Complete your tutor profile"
+          onPress={() => router.replace("/profile-tutor")}
+          className="mt-6 min-h-btn-lg rounded-card bg-accent items-center justify-center px-8 active:opacity-90"
+        >
+          <Text className="text-button text-text-inverse font-semibold">
+            Complete your profile
+          </Text>
+        </Pressable>
+        <Text className="text-caption text-text-muted text-center mt-5">
+          Already submitted? You may be under admin review — check
+          the &quot;Under review&quot; page.
+        </Text>
+      </View>
+    </ScreenLayout>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+const TRACK_WIDTH = 44;
+const THUMB_SIZE = 20;
+
+/**
+ * Animated availability switch. Replaces the previous class-swap
+ * (`bg-verification` vs `bg-white/20` + `left-5` vs `left-0.5`) with
+ * a spring-sliding thumb and a smoothly interpolated track color
+ * (white/20 → verification green). Wrapped in a `Pressable` so the
+ * tap target stays tappable on the full 44×24 area.
+ */
+function AvailabilitySwitch({
+  checked,
+  onToggle,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  // Track bg color — interpolated between the off (white/20) and on
+  // (verification green) tokens. Using the same hex lookups that
+  // exist elsewhere in the codebase so we don't introduce new colors.
+  const TRACK_OFF = "rgba(255,255,255,0.20)";
+  const TRACK_ON = colors.brand.verification;
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(checked ? 1 : 0, {
+      duration: motion.duration.medium,
+    });
+  }, [checked, progress]);
+
+  const trackStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [TRACK_OFF, TRACK_ON],
+      ),
+    };
+  });
+
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked }}
+      accessibilityLabel="Toggle availability"
+      onPress={onToggle}
+      className="w-11 h-6 rounded-full px-0.5 justify-center"
+    >
+      <Animated.View
+        style={trackStyle}
+        className="absolute inset-0 rounded-full"
+      />
+      <SwitchThumb
+        checked={checked}
+        trackWidth={TRACK_WIDTH}
+        thumbSize={THUMB_SIZE}
+        thumbClassName="w-5 h-5 rounded-full bg-white shadow-sm"
+        style={{ elevation: 2 }}
+      />
+    </Pressable>
+  );
+}
+
+/**
+ * Two-tab segmented control for the requests section ("New
+ * enrollments" / "Batch requests"). The active tab is signaled by
+ * a single sliding `ActivePill` behind the labels (and the count
+ * chip), instead of a per-tab `bg-primary` class-swap.
+ */
+function RequestsSubTabs<TKey extends string>({
+  tabs,
+  activeKey,
+  onChange,
+}: {
+  tabs: { key: TKey; label: string; count: number }[];
+  activeKey: TKey;
+  onChange: (key: TKey) => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((t) => t.key === activeKey),
+  );
+  return (
+    <View
+      className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5 relative"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <ActivePill
+          count={tabs.length}
+          activeIndex={activeIndex}
+          itemWidth={width / tabs.length}
+          pillClassName="absolute top-1 h-9 rounded-lg bg-primary"
+          style={{
+            top: 4,
+            height: 36,
+            width: width / tabs.length - 8,
+            marginLeft: 4,
+            backgroundColor: "#2F5D50",
+          }}
+        />
+      ) : null}
+      {tabs.map((t, i) => {
+        const on = i === activeIndex;
+        return (
+          <Pressable
+            key={t.key}
+            onPress={() => onChange(t.key)}
+            className="flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 active:opacity-80 z-10"
+          >
+            <Text
+              className={`text-caption font-medium ${
+                on ? "text-white" : "text-text-secondary"
+              }`}
+            >
+              {t.label}
+            </Text>
+            <View
+              className={`px-1.5 py-[1px] rounded-full ${
+                on ? "bg-white/25" : "bg-background"
+              }`}
+            >
+              <Text
+                className={`text-micro font-semibold ${
+                  on ? "text-white" : "text-text-muted"
+                }`}
+              >
+                {t.count}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

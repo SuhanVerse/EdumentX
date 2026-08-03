@@ -1,1 +1,28 @@
-{"nodes": [{"id": "tenant_visit_visitdetailscreen", "label": "VisitDetailScreen", "file_type": "code", "source_file": "app/(tenant)/visit/[id].tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_schedulevisit_schedulevisitscreen", "target": "tenant_visit_visitdetailscreen", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "app/(tenant)/visit/[id].tsx", "source_location": null, "weight": 0.7}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tenant_visit_visitdetailscreen",
+      "label": "VisitDetailScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/visit/[id].tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_schedulevisit_schedulevisitscreen",
+      "target": "tenant_visit_visitdetailscreen",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "app/(tenant)/visit/[id].tsx",
+      "source_location": null,
+      "weight": 0.7
+    }
+  ],
+  "hyperedges": []
+}

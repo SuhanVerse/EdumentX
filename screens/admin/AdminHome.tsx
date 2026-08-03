@@ -1,18 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
-  getFirestore,
+  collection,
   doc,
+  getDocs,
+  getFirestore,
   onSnapshot,
 } from "@react-native-firebase/firestore";
+import { useRouter } from "expo-router";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
+import { useEffect, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { MOCK_ADMIN_STATS } from "@/data/adminStats";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -64,12 +68,43 @@ export function AdminHome() {
     return unsub;
   }, [user]);
 
-  // Count badges are derived from MOCK_ADMIN_STATS for now. Phase 5
-  // will swap this for a `useEffect` reading Firestore count
-  // queries on mount.
-  const pendingTutorReviews = MOCK_ADMIN_STATS.pendingTutorReviews;
-  const totalUsers = MOCK_ADMIN_STATS.totalUsers;
-  const suspendedUsers = MOCK_ADMIN_STATS.suspendedUsers;
+  // Live user counts fetched from Firestore on mount. Includes
+  // all users (students, tutors, and admins). Falls back to 0
+  // while loading or on error.
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [suspendedUsers, setSuspendedUsers] = useState(0);
+  const pendingTutorReviews = null;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCounts() {
+      try {
+        const db = getFirestore(getApp());
+        const usersRef = collection(db, "users");
+        // One-shot read of all user docs — no composite index needed.
+        const snap = await getDocs(usersRef);
+        if (cancelled) return;
+
+        let total = 0;
+        let suspended = 0;
+        snap.forEach((d) => {
+          const data = d.data() as { status?: string } | undefined;
+          total++;
+          if (data?.status === "suspended") suspended++;
+        });
+        setTotalUsers(total);
+        setSuspendedUsers(suspended);
+      } catch (err) {
+        console.warn("AdminHome: failed to fetch user counts", err);
+        if (!cancelled) {
+          setTotalUsers(0);
+          setSuspendedUsers(0);
+        }
+      }
+    }
+    fetchCounts();
+    return () => { cancelled = true; };
+  }, []);
 
   const sections = [
     {
@@ -105,8 +140,8 @@ export function AdminHome() {
       title: "User Management",
       subtitle: "View & manage all registered users",
       icon: "people" as keyof typeof Ionicons.glyphMap,
-      color: "text-amber",
-      bgClass: "bg-amber-light",
+      color: "text-accent",
+      bgClass: "bg-accent-light",
       route: "/user-management",
       // Show the active + suspended counts so the admin sees
       // actionable user state at a glance. We deliberately don't
@@ -115,20 +150,19 @@ export function AdminHome() {
       countLabel: suspendedUsers > 0
         ? `${totalUsers - suspendedUsers} active · ${suspendedUsers} suspended`
         : `${totalUsers} users`,
-      countBg: "bg-amber",
+      countBg: "bg-accent",
       countFg: "text-text-inverse",
     },
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Hero header — mirrors StudentHome.tsx's "Good morning, {name}"
           pattern. The right-hand slot is intentionally empty; profile
           is reachable from the bottom nav. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="mt-2">
+      <ScreenHeader>
+        <View>
           <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
           <Text
             className="text-screen-title font-medium text-white"
@@ -140,18 +174,14 @@ export function AdminHome() {
             Manage platform, verifications & users
           </Text>
         </View>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-6 pb-8"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {sections.map((section) => (
           <Pressable
             key={section.route}
             onPress={() => router.push(section.route as any)}
-            className="bg-surface border border-border-subtle rounded-card p-4 flex-row items-center gap-4 mb-4 active:opacity-80"
+            className="bg-surface border border-border rounded-card p-4 flex-row items-center gap-4 mb-4 active:opacity-80"
             accessibilityRole="button"
             accessibilityLabel={
               section.count
@@ -187,13 +217,13 @@ export function AdminHome() {
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={20} color="#6B7268" />
           </Pressable>
         ))}
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

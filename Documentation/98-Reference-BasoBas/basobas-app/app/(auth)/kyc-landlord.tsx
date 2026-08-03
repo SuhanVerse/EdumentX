@@ -14,12 +14,15 @@ import { Upload, X, Shield, Check, Zap, CheckCheck } from 'lucide-react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as Haptics from 'expo-haptics'
+import { useUser } from '@clerk/expo'
 
 import { OnboardingHeader } from '@/src/components/onboarding/OnboardingHeader'
 import { StepProgressBar } from '@/src/components/onboarding/StepProgressBar'
 import { OnboardingEyebrow } from '@/src/components/onboarding/OnboardingEyebrow'
-import { PrimaryButton } from '@/src/components/form/PrimaryButton'
+import { PrimaryButton } from '@/src/components/shared/PrimaryButton'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
+import { completeOnboarding } from '@/src/services/onboarding.service'
 import { tokens } from '@/src/theme/tokens'
 import type { DocumentType } from '@/src/types/onboarding.types'
 
@@ -160,12 +163,20 @@ const DocTypeChip: React.FC<DocTypeChipProps> = ({ label, active, onPress }) => 
 
 export default function KYCLandlordScreen() {
   const router = useRouter()
+  const { user } = useUser()
+  const supabase = useClerkSupabase()
+
   const {
+    roles,
+    profile,
     kyc,
     setFrontImage,
     setBackImage,
     setDocumentType,
     setElectricityBill,
+    setSubmitting,
+    setSubmitError,
+    setOnboardingComplete,
     isSubmitting,
   } = useOnboardingStore()
 
@@ -179,10 +190,43 @@ export default function KYCLandlordScreen() {
   )
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit) return
+    if (!canSubmit || !user) return
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
+    setSubmitting(true)
+
+    const result = await completeOnboarding({
+      clerkId: user.id,
+      phone: user.phoneNumbers?.[0]?.phoneNumber ?? '',
+      roles,
+      fullName: profile.fullName,
+      city: profile.city,
+      avatarLocalUri: profile.avatarUri,
+      preferences: profile.preferences as any,
+      supabase,
+      kyc: {
+        documentType:            documentType ?? 'CITIZENSHIP',
+        frontLocalUri:           frontImageUri!,
+        backLocalUri:            backImageUri!,
+        electricityBillLocalUri: electricityBillUri ?? undefined,
+      },
+    })
+
+    setSubmitting(false)
+
+    if (!result.success) {
+      setSubmitError(result.error)
+      Alert.alert(
+        'Verification Failed',
+        result.error,
+        [{ text: 'Try Again' }]
+      )
+      return
+    }
+
+    setOnboardingComplete(true)
     router.replace('/(auth)/confirmation')
-  }, [canSubmit, router])
+  }, [canSubmit, user, roles, profile, kyc, frontImageUri, backImageUri, electricityBillUri, documentType, supabase, router, setSubmitting, setSubmitError, setOnboardingComplete])
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>

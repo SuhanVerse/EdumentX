@@ -1,1 +1,46 @@
-{"nodes": [{"id": "tenant_settings_settingsscreen", "label": "SettingsScreen", "file_type": "code", "source_file": "app/(tenant)/settings.tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_settings_settingsscreen", "target": "tenant_notificationsprefs_notificationprefsmodal", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.75, "source_file": "app/(tenant)/settings.tsx", "source_location": "Settings menu includes Notifications entry", "weight": 0.6}], "hyperedges": [{"id": "tenant_account_management_flow", "label": "Tenant Account Management Flow", "nodes": ["tenant_settings_settingsscreen", "tenant_editprofile_editprofilescreen", "tenant_preferences_preferencesscreen", "tenant_aipreferences_aipreferencesscreen", "tenant_kycupload_kycuploadscreen", "tenant_notifications_notificationsscreen", "tenant_notificationsprefs_notificationprefsmodal"], "relation": "participate_in", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "app/(tenant)/settings.tsx"}]}
+{
+  "nodes": [
+    {
+      "id": "tenant_settings_settingsscreen",
+      "label": "SettingsScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/settings.tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_settings_settingsscreen",
+      "target": "tenant_notificationsprefs_notificationprefsmodal",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "app/(tenant)/settings.tsx",
+      "source_location": "Settings menu includes Notifications entry",
+      "weight": 0.6
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "tenant_account_management_flow",
+      "label": "Tenant Account Management Flow",
+      "nodes": [
+        "tenant_settings_settingsscreen",
+        "tenant_editprofile_editprofilescreen",
+        "tenant_preferences_preferencesscreen",
+        "tenant_aipreferences_aipreferencesscreen",
+        "tenant_kycupload_kycuploadscreen",
+        "tenant_notifications_notificationsscreen",
+        "tenant_notificationsprefs_notificationprefsmodal"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "app/(tenant)/settings.tsx"
+    }
+  ]
+}

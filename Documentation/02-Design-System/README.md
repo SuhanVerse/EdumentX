@@ -1,25 +1,28 @@
 # 02 — Design System
 
-> **Placeholder.** This folder will hold design-token reference docs and
-> component specifications once Phase 4 (Figma Make prompt + design
-> system extraction) completes.
+This folder holds design-token reference docs and component
+specifications for EdumentX.
 
-For now, the **canonical design-token source of truth** lives in two
-places:
+The **canonical design-token source of truth** lives in two places:
 
 1. **`tailwind.config.js`** at the project root — every color, spacing
    value, radius, and font-size used in production code.
 2. **`01-Architecture/ARCHITECTURE.md` §0** — the conceptual token table
    (Night / Sand / Amber / Surface / Verification / AI).
 
-**What will go here in Phase 4**:
+## Documents in this folder
+
+- [`premium_ui_ux_guidelines.md`](./premium_ui_ux_guidelines.md) —
+  premium-tier visual guidelines, type scale, and elevation tokens.
+- [`motion.md`](./motion.md) — **the motion & interactivity system.**
+  Token constants, hooks, primitives, patterns by surface, and the
+  CssInterop caveat. Read this before adding or modifying any
+  Reanimated motion in the app.
+
+## Future work
+
 - A `tokens.md` listing every Tailwind token with hex values and use-case
   guidance ("use `bg-night` for primary CTAs, `text-amber` for links, etc.").
 - A `component-library.md` describing the shared components in
   `components/ui/` and `components/forms/` with their props and
   accessibility considerations.
-- A `motion.md` describing the animation primitives (Reanimated worklets,
-  Pressable feedback, screen transitions).
-
-Until then, treat this folder as read-only and refer to the two sources
-above.

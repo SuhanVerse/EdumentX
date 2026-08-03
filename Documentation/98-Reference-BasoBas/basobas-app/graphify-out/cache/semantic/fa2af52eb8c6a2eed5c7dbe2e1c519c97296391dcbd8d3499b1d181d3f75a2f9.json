@@ -1,1 +1,49 @@
-{"nodes": [{"id": "config_tailwind", "label": "tailwind.config.js - nativewind preset + design tokens", "file_type": "code", "source_file": "tailwind.config.js", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "concept_design_token_palette", "label": "BasoBas design token palette (brand green, neutrals)", "file_type": "concept", "source_file": "tailwind.config.js", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "config_tailwind", "target": "config_nativewind_env", "relation": "conceptually_related_to", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "tailwind.config.js", "source_location": null, "weight": 1.0}, {"source": "concept_design_token_palette", "target": "config_tailwind", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "tailwind.config.js", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "config_tailwind",
+      "label": "tailwind.config.js - nativewind preset + design tokens",
+      "file_type": "code",
+      "source_file": "tailwind.config.js",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "concept_design_token_palette",
+      "label": "BasoBas design token palette (brand green, neutrals)",
+      "file_type": "concept",
+      "source_file": "tailwind.config.js",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "config_tailwind",
+      "target": "config_nativewind_env",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tailwind.config.js",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "concept_design_token_palette",
+      "target": "config_tailwind",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "tailwind.config.js",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

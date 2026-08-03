@@ -1,176 +1,362 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
+  View,
   Text,
   TextInput,
-  View,
-  Alert,
-  ActivityIndicator,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, ChevronDown, Lock } from 'lucide-react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import { useSignIn, useSignUp, useAuth, getClerkInstance } from '@clerk/expo';
+import CountryPicker, { type Country, type CountryCode } from 'react-native-country-picker-modal';
+import { ArrowLeft, ChevronDown, Lock } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { tokens } from '@/src/theme/tokens';
 
-import { sendOTP } from '@/src/services/auth.service';
+// Countries to show at the top of the picker list
+const PREFERRED: CountryCode[] = ['NP', 'IN', 'US', 'GB', 'AU', 'CA'];
 
-// Nepal mobile numbers are exactly 10 digits (9XXXXXXXXX)
-const PHONE_LENGTH = 10;
-
-export default function PhoneScreen() {
+export default function PhoneEntryScreen() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+
+  // Clerk hooks — both needed for sign-in-or-up flow
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
+  const { signOut, isSignedIn } = useAuth();
+
+  const [phone, phoneSet] = useState('');
+  const [countryCode, setCountryCode] = useState<CountryCode>('NP');
+  const [callingCode, setCallingCode] = useState('977');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isValid = phone.length === PHONE_LENGTH;
+  const digits = phone.replace(/\D/g, '');
+  const canSend = digits.length >= 6 && !isPending;
+  const fullPhone = `+${callingCode}${digits}`;
 
-  // ── Screen enter animation ─────────────────────────────────────────────────
-  const enterOpacity = useSharedValue(0);
-  const enterY = useSharedValue(18);
-
-  useEffect(() => {
-    enterOpacity.value = withTiming(1, { duration: 420 });
-    enterY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const onCountrySelect = useCallback((country: Country) => {
+    setCountryCode(country.cca2);
+    setCallingCode(String(country.callingCode?.[0] ?? ''));
+    setPickerOpen(false);
   }, []);
 
-  const enterStyle = useAnimatedStyle(() => ({
-    opacity: enterOpacity.value,
-    transform: [{ translateY: enterY.value }],
-  }));
+  const handleSend = async () => {
+    if (!canSend) return;
+    setError(null);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsPending(true);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleChange = (text: string) => {
-    // Digits only, max 10
-    setPhone(text.replace(/\D/g, '').slice(0, PHONE_LENGTH));
-  };
-
-  const handleContinue = async () => {
-    if (!isValid || isSending) return;
-
-    setIsSending(true);
-    const result = await sendOTP(phone);
-    setIsSending(false);
-
-    if (!result.success) {
-      Alert.alert('Failed to send code', result.error);
-      return;
+    // ── Guard: sign out any existing Clerk session before starting fresh auth ──
+    // This prevents the "You are already signed in" error when a different user
+    // tries to register on a device that has a stale Clerk session from a previous user.
+    if (isSignedIn) {
+      console.warn('[PhoneEntry] Existing Clerk session detected — signing out first');
+      try {
+        await signOut();
+      } catch (signOutErr) {
+        console.warn('[PhoneEntry] signOut during warmup failed (non-fatal):', signOutErr);
+      }
     }
 
-    router.push(`/(auth)/otp?phone=${encodeURIComponent(phone)}`);
+    try {
+      // ——— Step 1: Try sign-in (works if user already exists) ———
+      const signInAttempt = await signIn!.create({ identifier: fullPhone });
+
+      // Clerk may return errors as objects (not throw) — normalize here
+      if (signInAttempt?.error) {
+        throw signInAttempt.error;
+      }
+
+      // Success — send the OTP code
+      await signIn!.phoneCode.sendCode();
+      setIsPending(false);
+      router.push({ pathname: '/(auth)/otp', params: { phone: fullPhone, flow: 'sign-in' } });
+      return;
+    } catch (siErr: any) {
+      // ——— Step 2: signIn.create() failed — try sign-up as fallback ———
+      // Clerk may return various error codes (form_identifier_not_found,
+      // api_response_error, etc.). We attempt sign-up for ANY error to
+      // handle both new users and edge cases robustly.
+      const siCode =
+        siErr?.code ?? siErr?.errors?.[0]?.code ?? '';
+      const siMessage =
+        siErr?.longMessage ??
+        siErr?.errors?.[0]?.longMessage ??
+        siErr?.message ??
+        '';
+
+      console.warn('[PhoneEntry] signIn.create error — trying sign-up fallback:', { code: siCode, message: siMessage });
+
+      try {
+        console.log('[PhoneEntry] Trying sign-up for:', fullPhone);
+        // Use the underlying Clerk client (Standard API) consistently
+        const clerk = getClerkInstance();
+        if (!clerk) {
+          throw new Error('Clerk not loaded. Please restart the app.');
+        }
+
+        const afterCreate = await clerk.client!.signUp.create({ phoneNumber: fullPhone });
+        console.log('[PhoneEntry] Sign-up created, missing fields:', (afterCreate as any)?.missingFields);
+
+        // Must specify strategy explicitly for the Standard API
+        const afterPrepare = await clerk.client!.signUp.preparePhoneNumberVerification({
+          strategy: 'phone_code',
+        });
+        console.log('[PhoneEntry] Verification prepared, status:', (afterPrepare as any)?.status);
+
+        setIsPending(false);
+        router.push({ pathname: '/(auth)/otp', params: { phone: fullPhone, flow: 'sign-up' } });
+        return;
+      } catch (suErr: any) {
+        const suCode =
+          suErr?.code ?? suErr?.errors?.[0]?.code ?? '';
+        const suMessage =
+          suErr?.longMessage ??
+          suErr?.errors?.[0]?.longMessage ??
+          suErr?.message ??
+          '';
+
+        console.error('[PhoneEntry] signUp.create error:', { code: suCode, message: suMessage });
+
+        // If the user already exists in Clerk, guide to sign in
+        if (suCode === 'form_identifier_exists') {
+          setError('This number is already registered. Please try signing in.');
+        } else {
+          setError(
+            suMessage ||
+              `Could not create account (${suCode || 'unknown'}). Check Clerk Dashboard: ensure Phone strategy is enabled.`
+          );
+        }
+        setIsPending(false);
+      }
+    }
   };
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-bg">
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}>
-        <Animated.View className="flex-1" style={enterStyle}>
-          {/* ── Scrollable content ──────────────────────────────────── */}
-          <View className="flex-1 px-6 pt-4">
-            {/* Back button */}
-            <Pressable
-              onPress={() => router.back()}
-              className="mb-7 h-10 w-10 items-center justify-center rounded-full bg-canvas"
-              hitSlop={8}>
-              <ArrowLeft size={18} color="#0A0A0A" strokeWidth={2.2} />
-            </Pressable>
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {/* Back */}
+          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+            <ArrowLeft size={20} color={tokens.color.ink} strokeWidth={2} />
+          </TouchableOpacity>
 
-            {/* Overline */}
-            <Text className="mb-2 font-semibold text-label uppercase tracking-widest text-brand">
-              Phone Verification
-            </Text>
+          {/* Eyebrow */}
+          <Text style={styles.eyebrow}>PHONE VERIFICATION</Text>
 
-            {/* Headline */}
-            <Text className="mb-3 font-display text-[30px] text-ink" style={{ lineHeight: 37 }}>
-              {'Welcome to\nBasoBas'}
-            </Text>
+          {/* Headline */}
+          <Text style={styles.headline}>{"What's your\nphone number?"}</Text>
 
-            {/* Subtitle */}
-            <Text className="mb-8 font-sans text-body text-ink2" style={{ lineHeight: 22 }}>
-              {"Enter your Nepal phone number.\nWe'll send you a one-time code."}
-            </Text>
+          {/* Body */}
+          <Text style={styles.body}>
+            {"We'll send a 6-digit code to verify.\nNo password needed — ever."}
+          </Text>
 
-            {/* Input row ─────────────────────────────────────────────── */}
-            <View className="mb-2.5 flex-row items-center gap-2">
-              {/* +977 country code — non-editable pill */}
-              <View className="h-14 flex-row items-center gap-1.5 rounded-lg bg-canvas px-4">
-                <Text className="font-semibold text-body text-ink">+977</Text>
-                <ChevronDown size={14} color="#6B6B6B" strokeWidth={2} />
-              </View>
+          {/* Input row */}
+          <View style={styles.inputRow}>
+            {/* Country picker pill */}
+            <TouchableOpacity
+              style={styles.countryPill}
+              onPress={() => setPickerOpen(true)}
+              accessibilityLabel="Select country code"
+              accessibilityRole="button">
+              <Text style={styles.flagEmoji}>{countryCodeToFlag(countryCode)}</Text>
+              <Text style={styles.callingCode}>+{callingCode}</Text>
+              <ChevronDown size={12} color={tokens.color.ink3} strokeWidth={2} />
+            </TouchableOpacity>
 
-              {/* Phone number input */}
-              <TextInput
-                className="h-14 flex-1 rounded-lg px-4 font-semibold text-body text-ink"
-                style={[styles.input, isFocused ? styles.inputFocused : styles.inputIdle]}
-                placeholder="9800000000"
-                placeholderTextColor="#C0C0C0"
-                keyboardType="phone-pad"
-                returnKeyType="done"
-                maxLength={PHONE_LENGTH}
-                value={phone}
-                onChangeText={handleChange}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onSubmitEditing={handleContinue}
-                autoFocus
-              />
-            </View>
-
-            {/* Hint */}
-            <Text className="mb-2 text-caption text-ink3">Nepal (+977) · 10 digits</Text>
-
-            {/* Privacy notice */}
-            <View className="flex-row items-center gap-1.5">
-              <Lock size={12} color="#AAAAAA" />
-              <Text className="text-caption text-ink3">Your number is never shared publicly.</Text>
-            </View>
+            {/* Phone number input */}
+            <TextInput
+              style={[
+                styles.phoneInput,
+                isFocused && styles.phoneInputActive,
+                error ? styles.phoneInputErr : null,
+              ]}
+              value={phone}
+              onChangeText={(v) => {
+                phoneSet(v);
+                setError(null);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={countryCode === 'NP' ? '98XXXXXXXX' : 'Phone number'}
+              placeholderTextColor={tokens.color.placeholder}
+              keyboardType="phone-pad"
+              returnKeyType="done"
+              onSubmitEditing={handleSend}
+              autoFocus
+              accessibilityLabel="Phone number input"
+            />
           </View>
 
-          {/* ── Bottom CTA ─────────────────────────────────────────── */}
-          <View className="px-6 pb-3">
-            <Pressable
-              onPress={handleContinue}
-              disabled={!isValid || isSending}
-              className="h-14 flex-row items-center justify-center gap-2 rounded-pill bg-ink"
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : isValid && !isSending ? 1 : 0.45 })}>
-              {isSending ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <Text className="font-semibold text-body text-white">Send Verification Code</Text>
-                  <ArrowRight size={18} color="white" strokeWidth={2.2} />
-                </>
-              )}
-            </Pressable>
+          {/* Error */}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {/* Privacy */}
+          <View style={styles.privacyRow}>
+            <Lock size={12} color={tokens.color.ink3} strokeWidth={2} />
+            <Text style={styles.privacyText}>Your number is never shared with anyone.</Text>
           </View>
-        </Animated.View>
+        </ScrollView>
+
+        {/* Country code picker sheet — wrapped in safe-area-aware modal so the
+            list never overlaps the notch / status bar */}
+        <Modal
+          visible={pickerOpen}
+          animationType="slide"
+          transparent={false}
+          statusBarTranslucent
+          onRequestClose={() => setPickerOpen(false)}>
+          <SafeAreaView style={styles.pickerSheet}>
+            <CountryPicker
+              countryCode={countryCode}
+              withFlag
+              withCallingCode
+              withFilter
+              withAlphaFilter
+              preferredCountries={PREFERRED}
+              withModal={false}
+              onSelect={onCountrySelect}
+              onClose={() => setPickerOpen(false)}
+              renderFlagButton={() => null}
+            />
+          </SafeAreaView>
+        </Modal>
+
+        {/* CTA above keyboard */}
+        <View style={styles.ctaArea}>
+          <TouchableOpacity
+            style={[styles.btn, !canSend && styles.btnDisabled]}
+            onPress={handleSend}
+            disabled={!canSend}
+            accessibilityRole="button">
+            <Text style={[styles.btnText, !canSend && styles.btnTextDisabled]}>
+              {isPending ? 'Sending...' : 'Send Verification Code'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// StyleSheet for the border states that className can't express dynamically
+// Convert ISO country code to flag emoji
+function countryCodeToFlag(code: string): string {
+  return code
+    .toUpperCase()
+    .split('')
+    .map((c) => String.fromCodePoint(c.charCodeAt(0) + 127397))
+    .join('');
+}
+
 const styles = StyleSheet.create({
-  input: {
-    backgroundColor: '#FFFFFF',
+  safe: { flex: 1, backgroundColor: tokens.color.bg },
+  scroll: { padding: tokens.space.screenH, paddingTop: 32, flexGrow: 1 },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 40,
+    backgroundColor: tokens.color.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
   },
-  inputIdle: {
+  eyebrow: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.label,
+    color: tokens.color.brand,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  headline: {
+    fontFamily: tokens.font.display,
+    fontSize: 30,
+    color: tokens.color.ink,
+    lineHeight: 37,
+    marginBottom: 12,
+  },
+  body: {
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.body,
+    color: tokens.color.ink2,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  inputRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  countryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: tokens.space.inputH,
+    paddingHorizontal: 16,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.color.canvas,
     borderWidth: 1.5,
-    borderColor: '#E8E8E8',
+    borderColor: tokens.color.line,
   },
-  inputFocused: {
-    borderWidth: 2,
-    borderColor: '#0A0A0A',
+  flagEmoji: { fontSize: 20 },
+  callingCode: {
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.size.body,
+    color: tokens.color.ink,
   },
+  phoneInput: {
+    flex: 1,
+    height: tokens.space.inputH,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.color.input,
+    borderWidth: 1.5,
+    borderColor: tokens.color.line,
+    paddingHorizontal: 16,
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.h3,
+    color: tokens.color.ink,
+  },
+  phoneInputActive: { borderColor: tokens.color.ink, borderWidth: 2 },
+  phoneInputErr: { borderColor: tokens.color.danger },
+  error: {
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.bodySm,
+    color: tokens.color.danger,
+    marginBottom: 8,
+  },
+  privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12 },
+  pickerSheet: {
+    flex: 1,
+    backgroundColor: tokens.color.bg,
+  },
+  privacyText: {
+    fontFamily: tokens.font.sans,
+    fontSize: tokens.size.bodySm,
+    color: tokens.color.ink3,
+  },
+  ctaArea: {
+    paddingHorizontal: tokens.space.screenH,
+    paddingBottom: 24,
+    paddingTop: 8,
+    backgroundColor: tokens.color.bg,
+  },
+  btn: {
+    height: tokens.space.buttonH,
+    backgroundColor: tokens.color.ink,
+    borderRadius: tokens.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisabled: { opacity: 0.45 },
+  btnText: { fontFamily: tokens.font.semibold, fontSize: tokens.size.body, color: tokens.color.bg },
+  btnTextDisabled: { color: tokens.color.ink3 },
 });

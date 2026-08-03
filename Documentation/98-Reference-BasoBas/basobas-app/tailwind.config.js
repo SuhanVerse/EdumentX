@@ -1,10 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    './app/**/*.{js,ts,tsx}',
-    './src/**/*.{js,ts,tsx}',
-    './components/**/*.{js,ts,tsx}',
-  ],
+  content: ['./app/**/*.{js,ts,tsx}', './src/**/*.{js,ts,tsx}', './components/**/*.{js,ts,tsx}'],
 
   presets: [require('nativewind/preset')],
   theme: {
@@ -27,6 +23,13 @@ module.exports = {
         'danger-bg': '#FEE2E2',
         rating: '#F5A623',
         'dock-surface': 'rgba(18, 18, 18, 0.78)',
+        'placeholder-image': '#D8DDD6',
+        // KYC status palette
+        warn: '#B45309',
+        'warn-bg': '#FFF3E0',
+        success: '#22C55E',
+        'success-bg': '#DCFCE7',
+        'success-dark': '#15803D',
       },
       fontFamily: {
         display: ['DMSerifDisplay_400Regular'],
@@ -59,7 +62,7 @@ module.exports = {
         'section-gap': '20px',
         'input-h': '56px',
         'button-h': '56px',
-        'dock-h': '64px',
+        'dock-h': '72px',
         'dock-w': '312px',
         'header-h': '56px',
       },

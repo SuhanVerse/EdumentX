@@ -1,0 +1,258 @@
+
+@article{chung2022mentor,
+author = {Chung, Sheng-Hung and Tan, Seng Chee},
+year = {2022},
+month = {09},
+pages = {386-391},
+title = {MENTOR – Intelligent Mobile Online Peer Tutoring Application for Face-to-Face and Remote Peer Tutoring},
+journal = {ASCILITE Publications},
+doi = {10.14742/apubs.2019.293}
+}
+
+@misc{lewis2021retrievalaugmentedgenerationknowledgeintensivenlp,
+      title={Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks}, 
+      author={Patrick Lewis and Ethan Perez and Aleksandra Piktus and Fabio Petroni and Vladimir Karpukhin and Naman Goyal and Heinrich Küttler and Mike Lewis and Wen-tau Yih and Tim Rocktäschel and Sebastian Riedel and Douwe Kiela},
+      year={2021},
+      eprint={2005.11401},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      pages = {2--3},
+      url={https://arxiv.org/abs/2005.11401}, 
+}
+
+@article{kim2019shadow,
+  author  = {Kim, Y. C. and Jung, J. H.},
+  title   = {Shadow education as worldwide curriculum studies},
+  journal = {Curriculum Studies Worldwide},
+  year    = {2019},
+  volume  = {1},
+  number  = {1},
+  pages   = {1--15},
+  month   = {April}
+}
+
+@article{swacha2025retrieval,
+  title={Retrieval-augmented generation (RAG) chatbots for education: A survey of applications},
+  author={Swacha, Jakub and Gracel, Micha{\l}},
+  journal={Applied Sciences},
+  volume={15},
+  number={8},
+  pages={4234},
+  year={2025},
+  publisher={MDPI}
+}
+
+
+@misc{preply2025report,
+  author       = {{Preply Research Team}},
+  title        = {The State of Online Tutoring 2025: Trends in Location-Based and AI-Powered Matching},
+  year         = {2025},
+  howpublished = {\url{https://preply.com/research}},
+  note         = {Accessed: February 2026}
+}
+
+
+
+@startuml
+top to bottom direction
+
+' ── Styling ────────────────────────────────────────────────────────────────
+skinparam shadowing false
+skinparam BackgroundColor white
+
+skinparam usecase {
+  BackgroundColor   #F5A623
+  BorderColor       #B8760A
+  FontColor         #1a1a1a
+  FontStyle         bold
+  FontSize          12
+  BorderThickness   1.8
+  ArrowColor        #444444
+  ArrowFontColor    #333333
+  ArrowFontStyle    italic
+  ArrowFontSize     11
+}
+
+skinparam usecase<<sys>> {
+  BackgroundColor   #8FD88F
+  BorderColor       #2E7D32
+  FontColor         #1a1a1a
+  FontStyle         bold
+  FontSize          11
+  BorderThickness   1.8
+}
+
+skinparam actor {
+  FontStyle         bold
+  FontSize          13
+  FontColor         #111111
+  BorderColor       #111111
+  BackgroundColor   #111111
+}
+
+skinparam actor<<tutor>> {
+  FontColor         #1b5e20
+  BorderColor       #1b5e20
+  BackgroundColor   #1b5e20
+}
+
+skinparam actor<<admin>> {
+  FontColor         #7B0000
+  BorderColor       #7B0000
+  BackgroundColor   #7B0000
+}
+
+skinparam rectangle {
+  BackgroundColor   #f8f8f8
+  BorderColor       #555555
+  BorderThickness   2.5
+  RoundCorner       14
+  FontSize          14
+  FontStyle         bold
+  FontColor         #222222
+}
+
+' ── Actors ─────────────────────────────────────────────────────────────────
+actor "Student / Parent" as Student
+actor "Tutor"            as Tutor   <<tutor>>
+actor "Admin"            as Admin   <<admin>>
+
+' ── System Boundary ────────────────────────────────────────────────────────
+rectangle "EdumentX System" {
+
+  ' ┌─────────────────────────────────────────────────────────┐
+  ' │  STUDENT use cases  (will sit left of system sub-cases) │
+  ' └─────────────────────────────────────────────────────────┘
+  together {
+    usecase "Register & Login"            as UC_S1
+    usecase "Turn on Location"            as UC_S2
+    usecase "Search Tutors\n(Filter & Map)" as UC_S3
+    usecase "Search Tutors\n(AI Chatbot)" as UC_S4
+    usecase "Send Enrollment\nRequest"    as UC_S5
+    usecase "View Tutor Profile"          as UC_S6
+    usecase "Rate & Review Tutor"         as UC_S7
+
+    UC_S1 -[hidden]down-> UC_S2
+    UC_S2 -[hidden]down-> UC_S3
+    UC_S3 -[hidden]down-> UC_S4
+    UC_S4 -[hidden]down-> UC_S5
+    UC_S5 -[hidden]down-> UC_S6
+    UC_S6 -[hidden]down-> UC_S7
+  }
+
+  ' ┌───────────────────────────────────────────────────────────┐
+  ' │  SYSTEM sub-cases (green)  —  centre column               │
+  ' └───────────────────────────────────────────────────────────┘
+  together {
+    usecase "Retrieve GPS\nCoordinates"    as SYS_GPS   <<sys>>
+    usecase "Haversine + KNN\nTutor Ranking" as SYS_RANK <<sys>>
+    usecase "RAG Query\nProcessing"        as SYS_RAG   <<sys>>
+    usecase "Check Tutor\nCapacity"        as SYS_CAP   <<sys>>
+    usecase "Send Push\nNotification"      as SYS_PUSH  <<sys>>
+    usecase "Review Submitted\nDocuments"  as SYS_RDOC  <<sys>>
+
+    SYS_GPS  -[hidden]down-> SYS_RANK
+    SYS_RANK -[hidden]down-> SYS_RAG
+    SYS_RAG  -[hidden]down-> SYS_CAP
+    SYS_CAP  -[hidden]down-> SYS_PUSH
+    SYS_PUSH -[hidden]down-> SYS_RDOC
+  }
+
+  ' ┌─────────────────────────────────────────────────────────┐
+  ' │  TUTOR use cases  (will sit right of system sub-cases)  │
+  ' └─────────────────────────────────────────────────────────┘
+  together {
+    usecase "Register & Login"              as UC_T1
+    usecase "Upload Resume & Docs"          as UC_T2
+    usecase "Manage Profile &\nAvailability" as UC_T3
+    usecase "Respond to\nEnrollment"        as UC_T4
+    usecase "Create Group Batch"            as UC_T5
+    usecase "Manage Capacity\n& Slots"      as UC_T6
+
+    UC_T1 -[hidden]down-> UC_T2
+    UC_T2 -[hidden]down-> UC_T3
+    UC_T3 -[hidden]down-> UC_T4
+    UC_T4 -[hidden]down-> UC_T5
+    UC_T5 -[hidden]down-> UC_T6
+  }
+
+  ' ┌──────────────────────────────────────────────────────────┐
+  ' │  ADMIN use cases  (bottom row)                           │
+  ' └──────────────────────────────────────────────────────────┘
+  together {
+    usecase "Admin Login"              as UC_A1
+    usecase "Verify Tutor Credentials" as UC_A2
+    usecase "Grant Blue / Gold Tick"   as UC_A3
+    usecase "Manage Users"             as UC_A4
+    usecase "View Platform Stats"      as UC_A5
+
+    UC_A1 -[hidden]right-> UC_A2
+    UC_A2 -[hidden]right-> UC_A3
+    UC_A3 -[hidden]right-> UC_A4
+    UC_A4 -[hidden]right-> UC_A5
+  }
+
+  ' ── Force 3-column layout: Student | System | Tutor ──────────
+  UC_S1 -[hidden]right-> SYS_GPS
+  SYS_GPS -[hidden]right-> UC_T1
+
+  ' ── Push Admin row below the 3 columns ──────────────────────
+  UC_S7 -[hidden]down-> UC_A1
+  SYS_RDOC -[hidden]down-> UC_A3
+  UC_T6 -[hidden]down-> UC_A5
+}
+
+' ── Actor positions: Student left, Tutor right, Admin below ─────
+Student -[hidden]right-> UC_S1
+Tutor   -[hidden]left->  UC_T1
+Admin   -[hidden]up->    UC_A3
+
+' ══════════════════════════════════════════════════════════════════
+' STUDENT ASSOCIATIONS
+' ══════════════════════════════════════════════════════════════════
+Student --> UC_S1
+Student --> UC_S2
+Student --> UC_S3
+Student --> UC_S4
+Student --> UC_S5
+Student --> UC_S6
+Student --> UC_S7
+
+' ══════════════════════════════════════════════════════════════════
+' TUTOR ASSOCIATIONS
+' ══════════════════════════════════════════════════════════════════
+Tutor --> UC_T1
+Tutor --> UC_T2
+Tutor --> UC_T3
+Tutor --> UC_T4
+Tutor --> UC_T5
+Tutor --> UC_T6
+
+' ══════════════════════════════════════════════════════════════════
+' ADMIN ASSOCIATIONS
+' ══════════════════════════════════════════════════════════════════
+Admin --> UC_A1
+Admin --> UC_A2
+Admin --> UC_A3
+Admin --> UC_A4
+Admin --> UC_A5
+
+' ══════════════════════════════════════════════════════════════════
+' INCLUDE RELATIONSHIPS
+' ══════════════════════════════════════════════════════════════════
+UC_S2 .down.> SYS_GPS  : <<include>>
+UC_S3 .down.> SYS_GPS  : <<include>>
+UC_S3 .down.> SYS_RANK : <<include>>
+UC_S4 .down.> SYS_RAG  : <<include>>
+UC_S5 .down.> SYS_CAP  : <<include>>
+UC_T4 .down.> SYS_PUSH : <<include>>
+UC_T6 .down.> SYS_CAP  : <<include>>
+UC_T2 .down.> SYS_RDOC : <<include>>
+UC_A2 .up.>   SYS_RDOC : <<include>>
+UC_A3 .up.>   SYS_RDOC : <<include>>
+
+' ══════════════════════════════════════════════════════════════════
+' EXTEND RELATIONSHIPS
+' ══════════════════════════════════════════════════════════════════
+UC_S7 .down.> UC_S6 : <<extend>>
+@enduml

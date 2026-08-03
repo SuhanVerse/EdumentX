@@ -7,15 +7,20 @@ export default function ListPropertyScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <ScreenHeader title="Become a Landlord" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
-        <View className="items-center mt-10">
-          <Text className="font-display text-h1 text-ink mb-2 text-center">List your property</Text>
-          <Text className="font-sans text-body text-ink2 text-center mb-8">
+        <View className="mt-10 items-center">
+          <Text className="mb-2 text-center font-display text-h1 text-ink">List your property</Text>
+          <Text className="mb-8 text-center font-sans text-body text-ink2">
             Start earning by listing your property on BasoBas. Reach thousands of verified tenants.
           </Text>
           <View className="w-full">
-            {['Create your listing', 'Get verified tenants', 'Manage visits easily', 'Track performance'].map((item, i) => (
-              <View key={item} className="flex-row items-center mb-4">
-                <View className="h-8 w-8 rounded-pill bg-brand-light items-center justify-center mr-3">
+            {[
+              'Create your listing',
+              'Get verified tenants',
+              'Manage visits easily',
+              'Track performance',
+            ].map((item, i) => (
+              <View key={item} className="mb-4 flex-row items-center">
+                <View className="mr-3 h-8 w-8 items-center justify-center rounded-pill bg-brand-light">
                   <Text className="font-bold text-caption text-brand">{i + 1}</Text>
                 </View>
                 <Text className="font-medium text-body text-ink">{item}</Text>

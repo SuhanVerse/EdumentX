@@ -12,14 +12,14 @@ export default function WriteReviewScreen() {
       <ScreenHeader title="Write a Review" showBack centerTitle rightText={{ label: 'Submit' }} />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
         {/* Property card */}
-        <View className="rounded-card border border-line p-4 mb-5">
+        <View className="mb-5 rounded-card border border-line p-4">
           <Text className="font-semibold text-body text-ink">Modern 2BHK in Thamel</Text>
           <Text className="font-sans text-body-sm text-ink2">Visit #{visitId}</Text>
         </View>
 
         {/* Star rating */}
-        <Text className="font-semibold text-h3 text-ink mb-3">Your Rating</Text>
-        <View className="flex-row mb-5">
+        <Text className="mb-3 font-semibold text-h3 text-ink">Your Rating</Text>
+        <View className="mb-5 flex-row">
           {[1, 2, 3, 4, 5].map((star) => (
             <Pressable key={star} className="mr-2">
               <Star size={32} color="#F5A623" fill={star <= 3 ? '#F5A623' : 'transparent'} />
@@ -28,17 +28,19 @@ export default function WriteReviewScreen() {
         </View>
 
         {/* Quick tags */}
-        <Text className="font-semibold text-h3 text-ink mb-3">Quick Tags</Text>
-        <View className="flex-row flex-wrap mb-5">
-          {['Clean', 'Spacious', 'Good location', 'Responsive landlord', 'Value for money'].map((tag) => (
-            <Pressable key={tag} className="mr-2 mb-2 rounded-pill bg-canvas px-3 py-1.5">
-              <Text className="font-sans text-body-sm text-ink">{tag}</Text>
-            </Pressable>
-          ))}
+        <Text className="mb-3 font-semibold text-h3 text-ink">Quick Tags</Text>
+        <View className="mb-5 flex-row flex-wrap">
+          {['Clean', 'Spacious', 'Good location', 'Responsive landlord', 'Value for money'].map(
+            (tag) => (
+              <Pressable key={tag} className="mb-2 mr-2 rounded-pill bg-canvas px-3 py-1.5">
+                <Text className="font-sans text-body-sm text-ink">{tag}</Text>
+              </Pressable>
+            )
+          )}
         </View>
 
         {/* Textarea */}
-        <Text className="font-semibold text-h3 text-ink mb-2">Your Review</Text>
+        <Text className="mb-2 font-semibold text-h3 text-ink">Your Review</Text>
         <TextInput
           placeholder="Share your experience..."
           multiline
@@ -48,7 +50,7 @@ export default function WriteReviewScreen() {
           placeholderTextColor="#C0C0C0"
           textAlignVertical="top"
         />
-        <Text className="font-sans text-caption text-ink3 mt-1">0/500</Text>
+        <Text className="mt-1 font-sans text-caption text-ink3">0/500</Text>
       </ScrollView>
     </SafeAreaView>
   );

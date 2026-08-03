@@ -1,20 +1,43 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { getApp } from "@react-native-firebase/app";
 import { getAuth } from "@react-native-firebase/auth";
-import { Alert, Image, Pressable, Text, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Alert, Image, Text, View } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { colors } from "@/constants/colors";
 import { uploadAvatar } from "@/services/supabase/storage";
 
 type AvatarUploaderProps = {
   value: string | null;
   onChange: (uri: string | null) => void;
+  /**
+   * Red ring + helper message when the profile picture is missing.
+   * Drives the same `error` visual language as `FieldShell` / inputs.
+   */
+  error?: boolean;
+  /**
+   * Green ring + check overlay when a photo is uploaded. Mirrors the
+   * inline checkmark other validated fields show.
+   */
+  valid?: boolean;
+  /**
+   * Error message shown below the avatar. Falls back to
+   * "Profile picture is required" when omitted.
+   */
+  errorMessage?: string;
 };
 
 /**
  * 96×96 circular avatar + "Upload photo" / "Change photo" label.
  * Used by both the student and tutor profile forms.
+ *
+ * Validation: the profile picture is a *required* field, so this
+ * component participates in the same error/valid system as the text
+ * fields — a red ring + "Required" badge + helper text when no photo
+ * is uploaded, and a green ring + checkmark when one is. No colors-only
+ * signal: the state is always conveyed by border color, an icon, and
+ * text so it works for every user (accessibility requirement).
  *
  * Phase 5.1 wiring: when the user picks an image, we immediately
  * upload it to Supabase `public-avatars/{uid}.jpg` and pass the
@@ -27,7 +50,13 @@ type AvatarUploaderProps = {
  * have a current user and the upload will succeed on the very first
  * pick.
  */
-export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
+export function AvatarUploader({
+  value,
+  onChange,
+  error = false,
+  valid = false,
+  errorMessage,
+}: AvatarUploaderProps) {
   async function handlePick() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -83,30 +112,91 @@ export function AvatarUploader({ value, onChange }: AvatarUploaderProps) {
     }
   }
 
+  // A photo counts as complete when `valid` is true or `value` is set
+  // (defensive: some callers may only pass `value`).
+  const isComplete = valid || value != null;
+  const ringClass = isComplete
+    ? "border-verification"
+    : error
+      ? "border-accent"
+      : "border-border";
+
   return (
-    <View className="items-center gap-2 mb-4">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={value ? "Change profile photo" : "Upload profile photo"}
-        onPress={handlePick}
-        className="w-24 h-24 rounded-full border-4 border-surface bg-border items-center justify-center active:opacity-80"
-      >
-        {value ? (
-          <Image
-            source={{ uri: value }}
-            className="w-avatar-uploader h-avatar-uploader rounded-full"
-          />
+    <View className="items-center gap-1.5">
+      <View className="relative">
+        <UploadButton
+          value={value}
+          handlePick={handlePick}
+          ringClass={ringClass}
+          accessibilityLabel={
+            value
+              ? "Change profile photo"
+              : "Upload profile photo (required)"
+          }
+        />
+
+        {/* Completion state — an icon + color, never color alone. */}
+        {isComplete ? (
+          <View
+            accessibilityElementsHidden
+            className="absolute -bottom-1 -right-1 w-6 h-6 rounded-pill bg-verification border-2 border-surface items-center justify-center"
+          >
+            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+          </View>
         ) : (
-          <Ionicons
-            color={colors.brand.primary}
-            name="person-outline"
-            size={40}
-          />
+          <View>
+          </View>
         )}
-      </Pressable>
+      </View>
+
       <Text className="text-caption text-text-secondary font-medium">
         {value ? "Change photo" : "Upload photo"}
       </Text>
+
+      {/* Helper text — the visible reason the field is incomplete. */}
+      {!isComplete ? (
+        <Text className="text-caption text-danger text-center">
+          {errorMessage ?? "Profile picture is required"}
+        </Text>
+      ) : null}
     </View>
+  );
+}
+
+function UploadButton({
+  value,
+  handlePick,
+  ringClass,
+  accessibilityLabel,
+}: {
+  value: string | null;
+  handlePick: () => void;
+  ringClass: string;
+  accessibilityLabel: string;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={handlePick}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`w-24 h-24 rounded-full border-2 bg-surface-muted items-center justify-center ${ringClass}`}
+    >
+      {value ? (
+        <Image
+          source={{ uri: value }}
+          className="w-avatar-uploader h-avatar-uploader rounded-full"
+        />
+      ) : (
+        <Ionicons
+          color={colors.brand.primary}
+          name="person-outline"
+          size={40}
+        />
+      )}
+    </AnimatedPressable>
   );
 }

@@ -1,1 +1,94 @@
-{"nodes": [{"id": "tenant_searchresults_searchresultsscreen", "label": "SearchResultsScreen", "file_type": "code", "source_file": "app/(tenant)/search-results.tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_filter_filtermodal", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push /_modal/filter line 19", "weight": 1.0}, {"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_map_mapscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push /map line 34", "weight": 1.0}, {"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_property_propertydetailscreen", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push /property/${i} line 46", "weight": 1.0}, {"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_property_propertydetailscreen", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push line 46", "weight": 1.0}, {"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_filter_filtermodal", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push line 19", "weight": 1.0}, {"source": "tenant_searchresults_searchresultsscreen", "target": "tenant_map_mapscreen", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx", "source_location": "router.push line 34", "weight": 1.0}], "hyperedges": [{"id": "tenant_property_discovery_flow", "label": "Tenant Property Discovery Flow", "nodes": ["tenant_searchresults_searchresultsscreen", "tenant_filter_filtermodal", "tenant_map_mapscreen", "tenant_property_propertydetailscreen", "tenant_property_gallery_gallerymodal"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "app/(tenant)/search-results.tsx"}]}
+{
+  "nodes": [
+    {
+      "id": "tenant_searchresults_searchresultsscreen",
+      "label": "SearchResultsScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_filter_filtermodal",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push /_modal/filter line 19",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_map_mapscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push /map line 34",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_property_propertydetailscreen",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push /property/${i} line 46",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_property_propertydetailscreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push line 46",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_filter_filtermodal",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push line 19",
+      "weight": 1.0
+    },
+    {
+      "source": "tenant_searchresults_searchresultsscreen",
+      "target": "tenant_map_mapscreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx",
+      "source_location": "router.push line 34",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "tenant_property_discovery_flow",
+      "label": "Tenant Property Discovery Flow",
+      "nodes": [
+        "tenant_searchresults_searchresultsscreen",
+        "tenant_filter_filtermodal",
+        "tenant_map_mapscreen",
+        "tenant_property_propertydetailscreen",
+        "tenant_property_gallery_gallerymodal"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/(tenant)/search-results.tsx"
+    }
+  ]
+}

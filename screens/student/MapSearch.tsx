@@ -1,18 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import {
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { BottomNav } from "@/components/shared/BottomNav";
 import { FiltersSheet } from "@/screens/student/FiltersSheet";
+import { Skeleton } from "@/components/motion";
 
 /**
  * EdumentX — Student Map Search
@@ -37,19 +39,20 @@ export function MapSearch() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
       {/* Hero header — matches StudentHome's slate header so the two
           screens feel like a single surface when tapped from the
           bottom nav. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-center justify-between mt-2 mb-4">
+      <ScreenHeader>
+        <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Find a tutor</Text>
-            <Text className="text-screen-title font-medium text-white">
-              Near you
-            </Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+                <Text className="text-screen-title font-medium text-white">
+                  Near you
+                </Text>
+              </View>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -65,13 +68,13 @@ export function MapSearch() {
             same row as the search input so it's visually grouped — per
             the Stage 1 spec ("top-right, beside the search bar"). */}
         <View className="flex-row gap-2">
-          <View className="flex-1 bg-surface rounded-xl h-12 flex-row items-center px-3 gap-2.5">
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+          <View className="flex-1 bg-surface rounded-card h-12 flex-row items-center px-3 gap-2.5">
+            <Ionicons name="search-outline" size={18} color="#6B7268" />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search tutors, subjects…"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#6B7268"
               className="flex-1 text-body-lg text-text-primary"
             />
             {search.length > 0 && (
@@ -80,7 +83,7 @@ export function MapSearch() {
                 onPress={() => setSearch("")}
                 className="active:opacity-70"
               >
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={18} color="#6B7268" />
               </Pressable>
             )}
           </View>
@@ -93,21 +96,17 @@ export function MapSearch() {
             <Ionicons name="options-outline" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Content — sand background with the "coming soon" placeholder.
           We deliberately don't show any pins or fabricated map data:
           the screen must communicate "this is not real yet" so users
           don't try to tap on pins that aren't there. */}
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="pb-9"
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="px-5 pt-10">
-          <View className="bg-surface border border-border-subtle rounded-card p-6 items-center">
-            <View className="w-16 h-16 rounded-pill bg-amber-light items-center justify-center mb-4">
-              <Ionicons name="map-outline" size={30} color="#B45309" />
+      <ScreenScroll className="flex-1 bg-background">
+        <View>
+          <View className="bg-surface border border-border rounded-card p-6 items-center">
+            <View className="w-16 h-16 rounded-pill bg-primary-light items-center justify-center mb-4">
+              <Ionicons name="navigate-circle-outline" size={30} color="#2F5D50" />
             </View>
             <Text className="text-card-title font-medium text-text-primary text-center">
               Google Maps integration coming soon
@@ -116,16 +115,16 @@ export function MapSearch() {
               className="text-body text-text-secondary text-center mt-2"
               style={{ maxWidth: 320 }}
             >
-              We&apos;re wiring up OpenStreetMap tiles for Phase 5.2 — no
+              {/* We&apos;re wiring up OpenStreetMap tiles for Phase 5.2 — no
               API key or credit card required. Once it&apos;s live,
               you&apos;ll see verified tutors plotted on a real map
-              around your saved location.
+              around your saved location. */}
             </Text>
-            <View className="flex-row items-center gap-2 mt-5">
-              <Ionicons name="navigate-outline" size={14} color="#64748B" />
+            <View className="flex-row items-center gap-2 mt">
+              {/* <Ionicons name="navigate-outline" size={14} color="#6B7268" />
               <Text className="text-caption text-text-muted">
                 Phase 5.2 · Map tiles via OpenStreetMap
-              </Text>
+              </Text> */}
             </View>
           </View>
 
@@ -146,22 +145,22 @@ export function MapSearch() {
             {[1, 2, 3].map((i) => (
               <View
                 key={i}
-                className="bg-surface border border-border-subtle rounded-card p-4 flex-row items-center gap-3"
+                className="bg-surface border border-border rounded-card p-4 flex-row items-center gap-3"
               >
-                <View className="w-avatar-card h-avatar-card rounded-pill bg-sand" />
+                <Skeleton className="w-avatar-card h-avatar-card rounded-pill" />
                 <View className="flex-1 gap-2">
-                  <View className="h-3 w-2/3 rounded bg-sand" />
-                  <View className="h-2.5 w-1/2 rounded bg-sand" />
-                  <View className="h-2.5 w-1/3 rounded bg-sand" />
+                  <Skeleton className="h-3 w-2/3 rounded-md" />
+                  <Skeleton className="h-2.5 w-1/2 rounded-md" />
+                  <Skeleton className="h-2.5 w-1/3 rounded-md" />
                 </View>
-                <View className="w-10 h-10 rounded-pill bg-sand items-center justify-center">
-                  <Ionicons name="ellipsis-horizontal" size={16} color="#9CA3AF" />
+                <View className="w-10 h-10 rounded-pill bg-surface-muted items-center justify-center">
+                  <Ionicons name="ellipsis-horizontal" size={16} color="#6B7268" />
                 </View>
               </View>
             ))}
           </View>
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/map-search" />
 
@@ -173,6 +172,6 @@ export function MapSearch() {
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

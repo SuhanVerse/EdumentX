@@ -72,7 +72,7 @@ function Dot({
       <AnimatedView
         style={style}
         className={`h-2 rounded-pill ${
-          active ? 'bg-night' : 'bg-border-strong'
+          active ? 'bg-primary' : 'bg-surface-muted'
         }`}
       />
     </Pressable>

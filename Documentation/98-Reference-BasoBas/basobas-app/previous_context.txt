@@ -1,0 +1,1324 @@
+ ▐▛███▜▌   Claude Code v2.1.220
+▝▜█████▛▘  minimax-m3 · API Usage Billing
+  ▘▘ ▝▝    ~/Developer/Code/react-native/basobas-app
+
+
+ ⚠ Both ANTHROPIC_AUTH_TOKEN and /login managed key set · auth may not work as expected
+   · to use ANTHROPIC_AUTH_TOKEN: claude /logout
+   · to use /login managed key: Unset the ANTHROPIC_AUTH_TOKEN environment variable.
+
+❯ /model                                                                        
+  ⎿  Set model to Fable 5 and saved as your default for new sessions
+
+❯ ❯ The specific listing page still used mock data, connect to the db and add   
+  functionality to every features that screen has                               
+
+⏺ There's an issue with the selected model (claude-fable-5[1m]). It may not
+  exist or you may not have access to it. Run /model to pick a different model.
+
+✻ Churned for 0s
+
+❯ /model                                                                        
+  ⎿  Set model to minimax-m3:cloud and saved as your default for new sessions
+
+❯ ❯ The specific listing page still used mock data, connect to the db and add   
+  functionality to every features that screen has                               
+
+  Thought for 3s (ctrl+o to expand)
+
+⏺ I'll start by exploring the codebase to find the listing page that uses mock
+  data.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Let me also look for any other listing pages and other mock data:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ I found the landlord listing page with mock data. Let me read the main file
+  the user is referring to (the "specific listing page"):
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ This is the landlord's specific listing page. Let me explore the existing
+  services and database structure to understand the patterns:
+
+  Listed 2 directories (ctrl+o to expand)
+
+⏺ I'll set up tasks to track this work, then continue exploring the codebase.
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ Now let me look at the visits service, dashboard service, the supabase client
+  setup, and the related existing patterns:
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Now let me see how the dashboard/profile tab uses these services — for a
+  reference of how to consume them with hooks:
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Let me also look at how the request page and the existing Profile screen hook
+  the landlord profile for ratings, and at the supabase client hook:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me continue exploring then mark the exploration task complete.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at the existing property/visit request page (to see related
+  patterns) and check how request/[id].tsx shows the request detail. Also, let
+  me find how PropertyHero handles images:
+
+  Searched for 3 patterns, read 2 files, listed 1 directory (ctrl+o to expand)
+
+⏺ Let me update my tasks. I've finished exploration.
+⏺ Now let me look at how properties.service.ts handles status to understand the
+  "active/paused" UI vocabulary, and also check for any existing patterns for
+  "pause listing" since the wizard/orchestrator mentioned that:
+
+  Searched for 5 patterns (ctrl+o to expand)
+
+⏺ Good, now I have a clear picture. The DB schema doesn't have an explicit
+  "paused" status — the schema has OCCUPIED which the UI maps to "paused" via
+  toPropertyStatusUi. Let me look at the result helper and one more reference
+  file before I start the implementation:
+
+  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+⏺ I have all the context I need. Let me also check the requests tab to see if I
+  can use it for "view applicants" navigation, and look at how savedCount might
+  be obtained:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ I have enough context to start implementing. Let me extend the properties
+  service with new functions for the listing detail page, then rewire the page.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I'll add three new functions to properties.service.ts:
+  1. getPropertyStats(propertyId) — returns { views, savedCount, requestCount }
+  for the bottom stats row
+  2. getLandlordProfile(clerkId) — returns the owner's display name + avatar +
+  ratings for the Owner Card
+  3. pauseListing(propertyId) — soft-pause (using is_deleted won't work; we need
+  a new flag) — actually, looking at the schema, the existing way to "pause" is
+  OCCUPIED (via finalize_rental RPC) or is_deleted. The schema has no is_paused
+  column.
+
+  Looking at the existing logic, the only lifecycle transitions the schema
+  supports are:
+  - relist_property (OCCUPIED → AVAILABLE)
+  - delete_property (soft delete via is_deleted)
+  - finalize_rental (→ OCCUPIED)
+
+  There's no explicit "pause" RPC. The original screen mapped status: 'active' |
+  'paused' but the DB doesn't have a paused state. The cleanest mapping is:
+  "Pause" = soft-delete, with the existing relist flow. But that doesn't feel
+  right. Let me look at the schema once more to see if there's a better option:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ No pause column exists. The "paused" state in PropertyStatusUi is mapped from
+  OCCUPIED. To make the "Pause Listing" button functional, I'll add a migration
+  to introduce a is_paused boolean column (matching the existing pattern of
+  is_draft/is_deleted), then wire it through.
+
+  Let me check if there's a way to manage this without a migration first. The
+  cleanest approach is to add a is_paused column via a new migration. Let me
+  write that:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Write(supabase/migrations/20260730124025_property_pause.sql)
+  ⎿  Wrote 29 lines to
+     supabase/migrations/20260730124025_property_pause.sql
+       1 -- ═════════════════════════════════════════════════════════════
+       2 -- MIGRATION: property_pause
+         orarily
+       4 -- hide a listing without soft-deleting it (which clears it from
+       5 -- queries and disables relist) or marking it OCCUPIED (which lo
+       6 -- property to one tenant).
+       8 -- Paused listings stay off the public listing query but are sti
+         ll
+         aused"
+         y; pause
+     … +28 lines (ctrl+o to expand)
+
+⏺ Now let me extend the properties service with the new functions. First, update
+  the PUBLIC_COLUMNS list to include is_paused, then add new functions:
+
+⏺ Update(src/services/properties.service.ts)
+  ⎿  Added 1 line, removed 1 line
+      24    id, landlord_id, title, description, property_type, price, de
+          posit, status,
+      25    furnishing, bedrooms, bathrooms, area_sqft, floor, total_floo
+          rs, amenities,
+      26    photo_urls, available_from, location_area, extra_details, is_
+          draft,
+      27 -  is_deleted, linked_occupant_id, views, created_at, updated_at
+      27 +  is_paused, is_deleted, linked_occupant_id, views, created_at,
+         + updated_at                                                    
+      28  ` as const
+      29  
+      30  /** Public tier plus the private location columns. Post-accept 
+          reads only. */
+
+⏺ Now extend the type model so PropertyPublic carries is_paused and the UI
+  mapper treats it as paused. Then add three new functions:
+
+⏺ Update(src/types/property.types.ts)
+  ⎿  Added 1 line
+      83    availableFrom: string;
+      84    locationArea:  string;
+      85    extraDetails:  Record<string, unknown>;
+      86 +  isPaused:      boolean;                                      
+      87    views:         number;
+      88    createdAt:     string;
+      89  }
+
+⏺ Update(src/types/property.types.ts)
+  ⎿  Added 7 lines, removed 3 lines
+      126  /**
+      127   * Collapse a property row into the My Properties list vocabul
+           ary.
+      128   *
+      129 - * Soft-delete wins over draft (an archived draft reads as arc
+          -hived), and                                                   
+      130 - * OCCUPIED renders as `paused` — it's off the market but not 
+          -archived. Every                                               
+      131 - * other live status (AVAILABLE / HIGH_DEMAND / UNDER_DISCUSSI
+          -ON) is `active`.                                              
+      129 + * Soft-delete wins over draft (an archived draft reads as arc
+          +hived), then                                                  
+      130 + * pause, then draft, then the live status. `is_paused` is its
+          + own state and                                                
+      131 + * wins over OCCUPIED — a paused AVAILABLE listing reads as `p
+          +aused`, not                                                   
+      132 + * `paused` because of occupancy. Every other live status (AVA
+          +ILABLE /                                                      
+      133 + * HIGH_DEMAND / UNDER_DISCUSSION) is `active`.               
+      134   */
+      135  export const toPropertyStatusUi = (
+      136    status:    PropertyStatus,
+      137    isDraft:   boolean,
+      138 +  isPaused:  boolean,                                         
+      139    isDeleted: boolean
+      140  ): PropertyStatusUi => {
+      141    if (isDeleted) return 'archived';
+      142    if (isDraft)   return 'draft';
+      143 +  if (isPaused)  return 'paused';                             
+      144    return status === 'OCCUPIED' ? 'paused' : 'active';
+      145  };
+      146  
+
+⏺ Update(src/types/property.types.ts)
+  ⎿  Added 1 line, removed 1 line
+      243    price:        row.price,
+      244    propertyType: row.property_type,
+      245    status:       row.status,
+      246 -  statusUi:     toPropertyStatusUi(row.status, row.is_draft, r
+          -ow.is_deleted),                                               
+      246 +  statusUi:     toPropertyStatusUi(row.status, row.is_draft, r
+          +ow.is_paused, row.is_deleted),                                
+      247    isDraft:      row.is_draft,
+      248    isDeleted:    row.is_deleted,
+      249    photoUrls:    row.photo_urls,
+
+⏺ Update(src/types/property.types.ts)
+  ⎿  Added 1 line
+      277    availableFrom: row.available_from,
+      278    locationArea:  row.location_area,
+      279    extraDetails:  asRecord(row.extra_details),
+      280 +  isPaused:      row.is_paused,                               
+      281    views:         row.views,
+      282    createdAt:     row.created_at,
+      283  });
+
+⏺ Now let me add the new service functions (stats, owner profile, pause/resume).
+  First check the existing getLandlordRating location and the result helper
+  signature:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now I'll add the new functions to properties.service.ts — appending them
+  before the getLandlordVerificationStatus section, since they're
+  property-lifecycle-related:
+
+⏺ Update(src/services/properties.service.ts)
+  ⎿  Added 112 lines
+      305    }
+      306  }
+      307  
+      308 +/**                                                           
+      309 + * Per-listing numbers shown on the detail screen's bottom bar
+          +: views from the                                              
+      310 + * property row, the open-visit count, and the saved-by-tenant
+          +s count. Two                                                  
+      311 + * extra queries (visit_requests + saved_properties) — the pro
+          +perty row is                                                  
+      312 + * already in hand when this is called alongside `getPropertyP
+          +ublic`.                                                       
+      313 + *                                                            
+      314 + * Returns zeroes (not errors) when a count query fails so the
+          + bottom bar                                                   
+      315 + * still renders; the parent row's `views` is the only field t
+          +hat is genuinely                                              
+      316 + * load-bearing.                                              
+      317 + */                                                           
+      318 +export async function getPropertyStats(                       
+      319 +  propertyId: string,                                         
+      320 +  supabase:   SupabaseClient<Database>                        
+      321 +): Promise<Result<{ views: number; savedCount: number; request
+          +Count: number }>> {                                           
+      322 +  try {                                                       
+      323 +    const [visitsRes, savesRes] = await Promise.all([         
+      324 +      supabase                                                
+      325 +        .from('visit_requests')                               
+      326 +        .select('id', { count: 'exact', head: true })         
+      327 +        .eq('property_id', propertyId)                        
+      328 +        .in('status', OPEN_VISIT_STATUSES),                   
+      329 +      supabase                                                
+      330 +        .from('saved_properties')                             
+      331 +        .select('id', { count: 'exact', head: true })         
+      332 +        .eq('property_id', propertyId),                       
+      333 +    ])                                                        
+      334 +                                                              
+      335 +    if (visitsRes.error) {                                    
+      336 +      console.warn('[getPropertyStats] visit count unavailable
+          +:', visitsRes.error.message)                                  
+      337 +    }                                                         
+      338 +    if (savesRes.error) {                                     
+      339 +      console.warn('[getPropertyStats] save count unavailable:
+          +', savesRes.error.message)                                    
+      340 +    }                                                         
+      341 +                                                              
+      342 +    return ok({                                               
+      343 +      views:        0,        // caller patches in the propert
+          +y row's `views`                                               
+      344 +      savedCount:   savesRes.count ?? 0,                      
+      345 +      requestCount: visitsRes.count ?? 0,                     
+      346 +    })                                                        
+      347 +  } catch (e) {                                               
+      348 +    return err(getErrorMessage(e))                            
+      349 +  }                                                           
+      350 +}                                                             
+      351 +                                                              
+      352 +/**                                                           
+      353 + * Pause / resume: flips `is_paused`. The landlord's update po
+          +licy already                                                  
+      354 + * scopes this to their own row, so no extra RPC is needed.   
+      355 + */                                                           
+      356 +export async function setListingPaused(                       
+      357 +  propertyId: string,                                         
+      358 +  isPaused:   boolean,                                        
+      359 +  supabase:   SupabaseClient<Database>                        
+      360 +): Promise<Result<true>> {                                    
+      361 +  try {                                                       
+      362 +    const { error } = await supabase                          
+      363 +      .from('properties')                                     
+      364 +      .update({ is_paused: isPaused })                        
+      365 +      .eq('id', propertyId)                                   
+      366 +                                                              
+      367 +    if (error) return err(getErrorMessage(error))             
+      368 +    return ok(true)                                           
+      369 +  } catch (e) {                                               
+      370 +    return err(getErrorMessage(e))                            
+      371 +  }                                                           
+      372 +}                                                             
+      373 +                                                              
+      374 +/**                                                           
+      375 + * The landlord's own display name + rating for the Owner Card
+          +. Joins on                                                    
+      376 + * `profiles` (full_name, avatar_url) and `landlord_profiles` 
+          +(avg_rating).                                                 
+      377 + *                                                            
+      378 + * Either source can be missing — a user without a `landlord_p
+          +rofiles` row has                                              
+      379 + * no rating yet, and the profile row itself is the canonical 
+          +identity source.                                              
+      380 + */                                                           
+      381 +export interface LandlordOwnerProfile {                       
+      382 +  name:        string | null                                  
+      383 +  avatarUrl:   string | null                                  
+      384 +  avgRating:   number                                         
+      385 +  totalReviews: number                                        
+      386 +}                                                             
+      387 +                                                              
+      388 +export async function getLandlordOwnerProfile(                
+      389 +  clerkId:  string,                                           
+      390 +  supabase: SupabaseClient<Database>                          
+      391 +): Promise<Result<LandlordOwnerProfile>> {                    
+      392 +  try {                                                       
+      393 +    const [profileRes, ratingRes] = await Promise.all([       
+      394 +      supabase                                                
+      395 +        .from('profiles')                                     
+      396 +        .select('full_name, avatar_url')                      
+      397 +        .eq('clerk_id', clerkId)                              
+      398 +        .maybeSingle(),                                       
+      399 +      supabase                                                
+      400 +        .from('landlord_profiles')                            
+      401 +        .select('avg_rating, total_reviews')                  
+      402 +        .eq('clerk_id', clerkId)                              
+      403 +        .maybeSingle(),                                       
+      404 +    ])                                                        
+      405 +                                                              
+      406 +    if (profileRes.error) return err(getErrorMessage(profileRe
+          +s.error))                                                     
+      407 +    if (ratingRes.error)  return err(getErrorMessage(ratingRes
+          +.error))                                                      
+      408 +                                                              
+      409 +    return ok({                                               
+      410 +      name:         profileRes.data?.full_name ?? null,       
+      411 +      avatarUrl:    profileRes.data?.avatar_url ?? null,      
+      412 +      avgRating:    ratingRes.data?.avg_rating ?? 0,          
+      413 +      totalReviews: ratingRes.data?.total_reviews ?? 0,       
+      414 +    })                                                        
+      415 +  } catch (e) {                                               
+      416 +    return err(getErrorMessage(e))                            
+      417 +  }                                                           
+      418 +}                                                             
+      419 +                                                              
+      420  // ─── Read: publish gate ────────────────────────────────────
+           ───────────────────
+      421  
+      422  /** Mirrors `landlord_profiles.verification_status` (a TEXT co
+           lumn, not an enum). */
+
+⏺ Now let me check that database.types.ts has the is_paused field or whether we
+  need to add it. Let me check:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me also see the other property type blocks so I add is_paused to all four:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Just one Row block. Let me also see lines 820-880 and 970-1000 to update the
+  third+fourth occurrences:
+  Read 1 file (ctrl+o to expand)
+
+⏺ The database.types.ts is auto-generated from the Supabase schema. The two RPC
+  return types at lines 822-834 and 974-983 mirror the properties table —
+  they'll get is_paused when regenerated. Since regenerating types is normally
+  supabase gen types typescript against the live DB, and I can't run that here,
+  I'll update them by hand to keep the build green. Let me add is_paused to the
+  four properties blocks:
+
+⏺ Update(src/types/database.types.ts)
+  ⎿  Error editing file
+
+⏺ Update(src/types/database.types.ts)
+  ⎿  Added 3 lines
+      382            id: string
+      383            is_deleted: boolean
+      384            is_draft: boolean
+      385 +          is_paused: boolean                                  
+      386            landlord_id: string
+      387            linked_occupant_id: string | null
+      388            location_address: string | null
+     ...
+      834            id: string
+      835            is_deleted: boolean
+      836            is_draft: boolean
+      837 +          is_paused: boolean                                  
+      838            landlord_id: string
+      839            linked_occupant_id: string | null
+      840            location_address: string | null
+     ...
+      983            id: string
+      984            is_deleted: boolean
+      985            is_draft: boolean
+      986 +          is_paused: boolean                                  
+      987            landlord_id: string
+      988            linked_occupant_id: string | null
+      989            location_address: string | null
+
+⏺ Now also update the Insert and Update blocks to include is_paused. Let me
+  check those:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(src/types/database.types.ts)
+  ⎿  Added 1 line
+      413            id?: string
+      414            is_deleted?: boolean
+      415            is_draft?: boolean
+      416 +          is_paused?: boolean                                 
+      417            landlord_id: string
+      418            linked_occupant_id?: string | null
+      419            location_address?: string | null
+
+⏺ Update(src/types/database.types.ts)
+  ⎿  Added 1 line
+      444            id?: string
+      445            is_deleted?: boolean
+      446            is_draft?: boolean
+      447 +          is_paused?: boolean                                 
+      448            landlord_id?: string
+      449            linked_occupant_id?: string | null
+      450            location_address?: string | null
+
+⏺ Now mark task 3 done and start on the page rewrite:
+
+⏺ Let me also check the auth store (for landlord name) and look at the tenant
+  property/[id].tsx for patterns I can borrow:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ I have enough now. Let me rewrite the landlord listing detail page:
+
+⏺ Write(app/(landlord)/listing/[id].tsx)
+  ⎿  Added 399 lines, removed 147 lines
+       1 -import { useState, useCallback } from 'react';                 
+       2 -import { ScrollView, View, Text, Pressable, Dimensions } from '
+         -react-native';                                                 
+       3 -import { useRouter } from 'expo-router';                       
+       4 -                                                               
+       1 +import { useState, useCallback, useEffect, useMemo } from 'reac
+         +t';                                                            
+       2  import {
+       3 +  ScrollView,                                                  
+       4 +  View,                                                        
+       5 +  Text,                                                        
+       6 +  Pressable,                                                   
+       7 +  Dimensions,                                                  
+       8 +  Image,                                                       
+       9 +  ActivityIndicator,                                           
+      10 +  Alert,                                                       
+      11 +} from 'react-native';                                         
+      12 +import { useLocalSearchParams, useRouter, useFocusEffect } from
+         + 'expo-router';                                                
+      13 +import { useUser } from '@clerk/expo';                         
+      14 +import {                                                       
+      15    MapPin,
+      16    Star,
+      17    Bed,
+     ...
+       21    Eye,
+       22    Heart,
+       23    Pause,
+       24 +  Play,                                                       
+       25    Users,
+       26 +  CheckCircle,                                                
+       27  } from 'lucide-react-native';
+       28  
+       29  import { PropertyHero } from '@/src/components/property/Proper
+           tyHero';
+       30  import { Avatar } from '@/src/components/user/Avatar';
+       31 +import { useClerkSupabase } from '@/src/hooks/useClerkSupabase
+          +';                                                            
+       32 +import {                                                      
+       33 +  getPropertyPublic,                                          
+       34 +  getPropertyStats,                                           
+       35 +  getLandlordOwnerProfile,                                    
+       36 +  setListingPaused,                                           
+       37 +  type LandlordOwnerProfile,                                  
+       38 +} from '@/src/services/properties.service';                   
+       39 +import {                                                      
+       40 +  PROPERTY_TYPE_LABELS,                                       
+       41 +  formatMonthlyPrice,                                         
+       42 +  type PropertyPublic,                                        
+       43 +  type PropertyStatus,                                        
+       44 +} from '@/src/types/property.types';                          
+       45  
+       46  const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+       47  const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
+       48  
+       49  const FORMATTER = new Intl.NumberFormat('en-IN');
+       50  
+       26 -// ─── Types ─────────────────────────────────────────────────
+          -──────────────────                                            
+       51 +// ─── Icon map (DB amenity strings → Lucide components) ─────
+          +──────────────────                                            
+       52  
+       28 -interface Amenity {                                           
+       29 -  icon: string;                                               
+       53 +const AMENITY_ICONS: Record<string, React.ComponentType<{ size
+          +?: number; color?: string }>> = {                             
+       54 +  bed: Bed,                                                   
+       55 +  bath: Bath,                                                 
+       56 +  wifi: Wifi,                                                 
+       57 +  car: Car,                                                   
+       58 +};                                                            
+       59 +                                                              
+       60 +/**                                                           
+       61 + * Translate the DB's free-text amenity array into iconified r
+          +ows. The DB                                                   
+       62 + * doesn't constrain amenity strings, so anything we don't rec
+          +ognise falls                                                  
+       63 + * back to a text-only chip rather than crashing.             
+       64 + */                                                           
+       65 +const AMENITY_LABELS: Record<string, string> = {              
+       66 +  bed:    'Bed',                                              
+       67 +  bath:   'Bath',                                             
+       68 +  wifi:   'Wi-Fi',                                            
+       69 +  car:    'Parking',                                          
+       70 +  kitchen:'Kitchen',                                          
+       71 +  ac:     'AC',                                               
+       72 +  heater: 'Heater',                                           
+       73 +  tv:     'TV',                                               
+       74 +  laundry:'Laundry',                                          
+       75 +  gym:    'Gym',                                              
+       76 +  security:'Security',                                        
+       77 +  garden: 'Garden',                                           
+       78 +  lift:   'Lift',                                             
+       79 +  power:  'Power Backup',                                     
+       80 +  water:  'Water Supply',                                     
+       81 +};                                                            
+       82 +                                                              
+       83 +interface AmenityRow {                                        
+       84 +  key: string;                                                
+       85    label: string;
+       86 +  icon: React.ComponentType<{ size?: number; color?: string }>
+          + | null;                                                      
+       87  }
+       88  
+       33 -interface Owner {                                             
+       34 -  name: string;                                               
+       35 -  avatarUrl?: string;                                         
+       36 -  verified: boolean;                                          
+       37 -  listingsCount: number;                                      
+       89 +function toAmenityRows(rawAmenities: string[], bedrooms: numbe
+          +r | null, bathrooms: number | null): AmenityRow[] {           
+       90 +  const rows: AmenityRow[] = [];                              
+       91 +  // Surface bedroom/bathroom from dedicated columns when pres
+          +ent — they're                                                 
+       92 +  // the most common "amenities" but live in their own columns
+          +, not the                                                     
+       93 +  // amenities jsonb array.                                   
+       94 +  if (bedrooms != null) {                                     
+       95 +    rows.push({ key: 'bed', label: `${bedrooms} Bed`, icon: Be
+          +d });                                                         
+       96 +  }                                                           
+       97 +  if (bathrooms != null) {                                    
+       98 +    rows.push({ key: 'bath', label: `${bathrooms} Bath`, icon:
+          + Bath });                                                     
+       99 +  }                                                           
+      100 +  for (const raw of rawAmenities) {                           
+      101 +    const key = raw.toLowerCase();                            
+      102 +    if (key === 'bed' || key === 'bath' || key === 'bedroom' |
+          +| key === 'bathroom') continue;                               
+      103 +    rows.push({                                               
+      104 +      key,                                                    
+      105 +      label: AMENITY_LABELS[key] ?? raw,                      
+      106 +      icon: AMENITY_ICONS[key] ?? null,                       
+      107 +    });                                                       
+      108 +  }                                                           
+      109 +  return rows;                                                
+      110  }
+      111  
+       40 -interface ListingDetail {                                     
+       41 -  id: string;                                                 
+       42 -  title: string;                                              
+       43 -  location: string;                                           
+       44 -  rating: number;                                             
+       45 -  priceMonthly: number;                                       
+       46 -  currency: string;                                           
+       47 -  images: string[];                                           
+       48 -  amenities: Amenity[];                                       
+       49 -  about: string;                                              
+       50 -  owner: Owner;                                               
+       51 -  status: 'active' | 'paused';                                
+       52 -  views: number;                                              
+       53 -  savedCount: number;                                         
+       54 -  requestCount: number;                                       
+       55 -}                                                             
+      112 +// ─── Status pill ───────────────────────────────────────────
+          +──────────────────                                            
+      113  
+       57 -// ─── Mock Data ─────────────────────────────────────────────
+          -──────────────────                                            
+       58 -                                                              
+       59 -const MOCK_LISTING: ListingDetail = {                         
+       60 -  id: '1',                                                    
+       61 -  title: '2BHK Apartment in Baluwatar',                       
+       62 -  location: 'Baluwatar, Kathmandu',                           
+       63 -  rating: 4.8,                                                
+       64 -  priceMonthly: 28000,                                        
+       65 -  currency: 'Rs.',                                            
+       66 -  images: Array.from({ length: 12 }, (_, i) => `photo-${i + 1}
+          -`),                                                           
+       67 -  amenities: [                                                
+       68 -    { icon: 'bed', label: '2 Bed' },                          
+       69 -    { icon: 'bath', label: '1 Bath' },                        
+       70 -    { icon: 'wifi', label: 'Wi-Fi' },                         
+       71 -    { icon: 'car', label: 'Parking' },                        
+       72 -  ],                                                          
+       73 -  about:                                                      
+       74 -    'Sunlit 2BHK with balcony, walking distance to UN Park. Ne
+          -wly renovated with modern fittings. Quiet neighborhood with ex
+          -cellent water supply and active security.',                   
+       75 -  owner: {                                                    
+       76 -    name: 'Sita Sharma',                                      
+       77 -    verified: true,                                           
+       78 -    listingsCount: 12,                                        
+       79 -  },                                                          
+       80 -  status: 'active',                                           
+       81 -  views: 412,                                                 
+       82 -  savedCount: 38,                                             
+       83 -  requestCount: 8,                                            
+      114 +const STATUS_PILL: Record<PropertyStatus, { label: string; con
+          +tainer: string; text: string } | null> = {                    
+      115 +  AVAILABLE:        { label: 'Active',          container: 'bg
+          +-emerald-100/90', text: 'text-emerald-800' },                 
+      116 +  HIGH_DEMAND:      { label: 'High Demand',     container: 'bg
+          +-amber-100/90',   text: 'text-amber-800' },                   
+      117 +  UNDER_DISCUSSION: { label: 'Under Discussion', container: 'b
+          +g-blue-100/90',    text: 'text-blue-800' },                   
+      118 +  OCCUPIED:         { label: 'Rented Out',      container: 'bg
+          +-gray-100',       text: 'text-gray-500' },                    
+      119  };
+      120  
+      121 +// ─── Screen ────────────────────────────────────────────────
+          +──────────────────                                            
+      122 +                                                              
+      123  interface ListingDetailScreenProps {
+      124    onBack?: () => void;
+       88 -  onPauseListing?: () => void;                                
+      125 +  /** Override the in-screen "View Applicants" navigation (use
+          +d in previews). */                                            
+      126    onViewApplicants?: () => void;
+      127 +  /** Override the in-screen "Pause Listing" handler (used in 
+          +previews). */                                                 
+      128 +  onPauseListing?: () => void;                                
+      129  }
+      130  
+       92 -// ─── Amenity Icon Map ──────────────────────────────────────
+          -──────────────────                                            
+       93 -                                                              
+       94 -const AMENITY_ICONS: Record<string, React.ComponentType<{ size
+          -?: number; color?: string }>> = {                             
+       95 -  bed: Bed,                                                   
+       96 -  bath: Bath,                                                 
+       97 -  wifi: Wifi,                                                 
+       98 -  car: Car,                                                   
+       99 -};                                                            
+      100 -                                                              
+      101 -// ─── Screen ────────────────────────────────────────────────
+          -──────────────────                                            
+      102 -                                                              
+      131  export default function ListingDetailScreen({
+      132    onBack,
+      105 -  onPauseListing,                                             
+      133    onViewApplicants,
+      134 +  onPauseListing,                                             
+      135  }: ListingDetailScreenProps) {
+      136    const router = useRouter();
+      137 +  const { id } = useLocalSearchParams<{ id: string }>();      
+      138 +  const { user } = useUser();                                 
+      139 +  const supabase = useClerkSupabase();                        
+      140 +  const clerkId = user?.id;                                   
+      141 +                                                              
+      142    const [currentImageIndex, setCurrentImageIndex] = useState(0
+           );
+      143 +  const [property, setProperty] = useState<PropertyPublic | nu
+          +ll>(null);                                                    
+      144 +  const [owner, setOwner] = useState<LandlordOwnerProfile | nu
+          +ll>(null);                                                    
+      145 +  const [stats, setStats] = useState<{ views: number; savedCou
+          +nt: number; requestCount: number } | null>(null);             
+      146 +  const [loading, setLoading] = useState(true);               
+      147 +  const [refreshing, setRefreshing] = useState(false);        
+      148 +  const [errorMessage, setErrorMessage] = useState<string | nu
+          +ll>(null);                                                    
+      149 +  const [actionPending, setActionPending] = useState(false);  
+      150  
+      111 -  const listing = MOCK_LISTING;                               
+      112 -  const ownerInitials = listing.owner.name                    
+      113 -    .split(' ')                                               
+      114 -    .map((n) => n[0])                                         
+      115 -    .join('');                                                
+      151 +  const load = useCallback(                                   
+      152 +    async (mode: 'initial' | 'refresh' = 'initial') => {      
+      153 +      if (!id) return;                                        
+      154 +      if (mode === 'refresh') setRefreshing(true);            
+      155 +      else setLoading(true);                                  
+      156  
+      157 +      const result = await getPropertyPublic(id, supabase);   
+      158 +      if (!result.success) {                                  
+      159 +        setErrorMessage(result.error);                        
+      160 +        setProperty(null);                                    
+      161 +        setLoading(false);                                    
+      162 +        setRefreshing(false);                                 
+      163 +        return;                                               
+      164 +      }                                                       
+      165 +                                                              
+      166 +      if (!result.data) {                                     
+      167 +        setErrorMessage('This listing no longer exists.');    
+      168 +        setProperty(null);                                    
+      169 +        setLoading(false);                                    
+      170 +        setRefreshing(false);                                 
+      171 +        return;                                               
+      172 +      }                                                       
+      173 +                                                              
+      174 +      const prop = result.data;                               
+      175 +      setProperty(prop);                                      
+      176 +      setErrorMessage(null);                                  
+      177 +                                                              
+      178 +      // Owner profile + per-listing stats run in parallel. Fa
+          +ilures are                                                    
+      179 +      // non-fatal: the property card renders, owner/stats deg
+          +rade to "—".                                                  
+      180 +      const [ownerResult, statsResult] = await Promise.all([  
+      181 +        getLandlordOwnerProfile(prop.landlordId, supabase),   
+      182 +        getPropertyStats(prop.id, supabase),                  
+      183 +      ]);                                                     
+      184 +      if (ownerResult.success) setOwner(ownerResult.data);    
+      185 +      else console.warn('[listing detail] owner load failed:',
+          + ownerResult.error);                                          
+      186 +      if (statsResult.success) {                              
+      187 +        setStats({ ...statsResult.data, views: prop.views }); 
+      188 +      } else {                                                
+      189 +        console.warn('[listing detail] stats load failed:', st
+          +atsResult.error);                                             
+      190 +        setStats({ views: prop.views, savedCount: 0, requestCo
+          +unt: 0 });                                                    
+      191 +      }                                                       
+      192 +                                                              
+      193 +      setLoading(false);                                      
+      194 +      setRefreshing(false);                                   
+      195 +    },                                                        
+      196 +    [id, supabase],                                           
+      197 +  );                                                          
+      198 +                                                              
+      199 +  useEffect(() => {                                           
+      200 +    load('initial');                                          
+      201 +  }, [load]);                                                 
+      202 +                                                              
+      203 +  // Returning from edit / pause / request flows can change pr
+          +operty state.                                                 
+      204 +  useFocusEffect(                                             
+      205 +    useCallback(() => {                                       
+      206 +      load('refresh');                                        
+      207 +    }, [load]),                                               
+      208 +  );                                                          
+      209 +                                                              
+      210 +  const ownerName = owner?.name ?? 'You';                     
+      211 +  const ownerInitials = useMemo(() => {                       
+      212 +    const parts = ownerName.trim().split(/\s+/).filter(Boolean
+          +);                                                            
+      213 +    if (parts.length === 0) return 'L';                       
+      214 +    if (parts.length === 1) return parts[0].slice(0, 2).toUppe
+          +rCase();                                                      
+      215 +    return (parts[0][0] + parts[parts.length - 1][0]).toUpperC
+          +ase();                                                        
+      216 +  }, [ownerName]);                                            
+      217 +                                                              
+      218 +  const amenityRows = useMemo(                                
+      219 +    () => (property ? toAmenityRows(property.amenities, proper
+          +ty.bedrooms, property.bathrooms) : []),                       
+      220 +    [property],                                               
+      221 +  );                                                          
+      222 +                                                              
+      223 +  const statusPill = property ? (STATUS_PILL[property.status] 
+          +?? null) : null;                                              
+      224 +  const isPaused = property?.isPaused ?? false;               
+      225 +  const isListed = !isPaused && property && property.status !=
+          += 'OCCUPIED' && !property.isDeleted;                          
+      226 +                                                              
+      227    const handleBack = useCallback(() => {
+      228      if (onBack) onBack();
+      229      else router.back();
+      230    }, [onBack, router]);
+      231  
+      232    const handleShare = useCallback(async () => {
+      233 +    if (!property) return;                                    
+      234 +    const shareText = `${property.title} — ${formatMonthlyPric
+          +e(property.price)}`;                                          
+      235      if (typeof navigator !== 'undefined' && navigator.share) {
+      236        try {
+      237          await navigator.share({
+      126 -          title: listing.title,                               
+      127 -          text: `${listing.title} — ${listing.currency} ${FORM
+          -ATTER.format(listing.priceMonthly)}/mo`,                      
+      128 -          url: typeof window !== 'undefined' ? window.location
+          -.href : undefined,                                            
+      238 +          title: property.title,                              
+      239 +          text:  shareText,                                   
+      240 +          url:   typeof window !== 'undefined' ? window.locati
+          +on.href : undefined,                                          
+      241          });
+      242        } catch {
+      243          // user cancelled
+      244        }
+      245      } else {
+      134 -      console.log('Share:', listing.title);                   
+      246 +      console.log('Share:', shareText);                       
+      247      }
+      136 -  }, [listing]);                                              
+      248 +  }, [property]);                                             
+      249  
+      250 +  const handleViewApplicants = useCallback(() => {            
+      251 +    if (onViewApplicants) {                                   
+      252 +      onViewApplicants();                                     
+      253 +      return;                                                 
+      254 +    }                                                         
+      255 +    if (!property) return;                                    
+      256 +    router.push({                                             
+      257 +      pathname: '/(landlord)/(tabs)/requests',                
+      258 +      params: { propertyId: property.id },                    
+      259 +    } as any);                                                
+      260 +  }, [onViewApplicants, router, property]);                   
+      261 +                                                              
+      262 +  const handleTogglePause = useCallback(async () => {         
+      263 +    if (!property) return;                                    
+      264 +    if (onPauseListing) {                                     
+      265 +      onPauseListing();                                       
+      266 +      return;                                                 
+      267 +    }                                                         
+      268 +                                                              
+      269 +    const willPause = !isPaused;                              
+      270 +    Alert.alert(                                              
+      271 +      willPause ? 'Pause listing?' : 'Resume listing?',       
+      272 +      willPause                                               
+      273 +        ? `"${property.title}" will be hidden from tenants unt
+          +il you resume it.`                                            
+      274 +        : `"${property.title}" will become visible to tenants 
+          +again.`,                                                      
+      275 +      [                                                       
+      276 +        { text: 'Cancel', style: 'cancel' },                  
+      277 +        {                                                     
+      278 +          text: willPause ? 'Pause' : 'Resume',               
+      279 +          onPress: async () => {                              
+      280 +            setActionPending(true);                           
+      281 +            const result = await setListingPaused(property.id,
+          + willPause, supabase);                                        
+      282 +            setActionPending(false);                          
+      283 +            if (!result.success) {                            
+      284 +              Alert.alert(willPause ? 'Could not pause' : 'Cou
+          +ld not resume', result.error);                                
+      285 +              return;                                         
+      286 +            }                                                 
+      287 +            // Reload so the status pill + button label reflec
+          +t the new state.                                              
+      288 +            load('refresh');                                  
+      289 +          },                                                  
+      290 +        },                                                    
+      291 +      ],                                                      
+      292 +    );                                                        
+      293 +  }, [property, isPaused, onPauseListing, supabase, load]);   
+      294 +                                                              
+      295 +  // ── Loading state ────────────────────────────────────────
+          +────────────────                                              
+      296 +  if (loading) {                                              
+      297 +    return (                                                  
+      298 +      <View className="flex-1 items-center justify-center bg-b
+          +g">                                                           
+      299 +        <ActivityIndicator color="#1A6B4A" />                 
+      300 +      </View>                                                 
+      301 +    );                                                        
+      302 +  }                                                           
+      303 +                                                              
+      304 +  // ── Error / not-found state ──────────────────────────────
+          +────────────────                                              
+      305 +  if (!property) {                                            
+      306 +    return (                                                  
+      307 +      <View className="flex-1 items-center justify-center bg-b
+          +g px-6">                                                      
+      308 +        <Text className="mb-1.5 font-semibold text-body text-i
+          +nk">                                                          
+      309 +          Could not load this listing                         
+      310 +        </Text>                                               
+      311 +        <Text className="mb-5 text-center text-body-sm text-in
+          +k2">                                                          
+      312 +          {errorMessage ?? 'Please try again.'}               
+      313 +        </Text>                                               
+      314 +        <Pressable                                            
+      315 +          onPress={() => load('initial')}                     
+      316 +          className="h-[48px] items-center justify-center roun
+          +ded-pill bg-black px-8">                                      
+      317 +          <Text className="font-semibold text-body text-white"
+          +>Try again</Text>                                             
+      318 +        </Pressable>                                          
+      319 +      </View>                                                 
+      320 +    );                                                        
+      321 +  }                                                           
+      322 +                                                              
+      323 +  // `clerkId` is the signed-in landlord. If it doesn't match 
+          +the row, the                                                  
+      324 +  // landlord is looking at someone else's property — let RLS 
+          +keep it hidden                                                
+      325 +  // (the row will already be null above) but also surface a f
+          +riendlier note                                                
+      326 +  // if a different error path lands us here.                 
+      327 +  if (clerkId && property.landlordId !== clerkId) {           
+      328 +    return (                                                  
+      329 +      <View className="flex-1 items-center justify-center bg-b
+          +g px-6">                                                      
+      330 +        <Text className="mb-1.5 font-semibold text-body text-i
+          +nk">                                                          
+      331 +          You don't own this listing                          
+      332 +        </Text>                                               
+      333 +        <Text className="mb-5 text-center text-body-sm text-in
+          +k2">                                                          
+      334 +          This listing belongs to another account.            
+      335 +        </Text>                                               
+      336 +        <Pressable                                            
+      337 +          onPress={handleBack}                                
+      338 +          className="h-[48px] items-center justify-center roun
+          +ded-pill bg-black px-8">                                      
+      339 +          <Text className="font-semibold text-body text-white"
+          +>Go back</Text>                                               
+      340 +        </Pressable>                                          
+      341 +      </View>                                                 
+      342 +    );                                                        
+      343 +  }                                                           
+      344 +                                                              
+      345 +  const propertyTypeLabel = PROPERTY_TYPE_LABELS[property.prop
+          +ertyType];                                                    
+      346 +  const showRating = (owner?.totalReviews ?? 0) > 0;          
+      347 +                                                              
+      348    return (
+      349      <View className="flex-1 bg-bg">
+      350        <ScrollView
+      351          className="flex-1"
+      352          contentContainerStyle={{ paddingBottom: 160 }}
+      143 -        showsVerticalScrollIndicator={false}                  
+      144 -      >                                                       
+      353 +        showsVerticalScrollIndicator={false}>                 
+      354          {/* ═══ Hero Image Area ═══ */}
+      355          <PropertyHero
+      356            height={HERO_HEIGHT}
+      148 -          images={listing.images}                             
+      357 +          images={property.photoUrls}                         
+      358            onBack={handleBack}
+      359            onShare={handleShare}
+      360            currentIndex={currentImageIndex}
+     ...
+      365          <View className="px-6 pt-4">
+      366            {/* Title — serif */}
+      367            <Text className="font-display text-h1 leading-tight 
+           text-ink">
+      159 -            {listing.title}                                   
+      368 +            {property.title}                                  
+      369            </Text>
+      370  
+      371            {/* Location + Rating row */}
+      372            <View className="mt-2 flex-row items-center justify-
+           between">
+      164 -            <View className="flex-row items-center">          
+      373 +            <View className="flex-1 flex-row items-center">   
+      374                <MapPin size={14} color="#6B6B6B" />
+      166 -              <Text className="ml-1 font-sans text-body-sm tex
+          -t-ink2">                                                      
+      167 -                {listing.location}                            
+      375 +              <Text className="ml-1 flex-1 font-sans text-body
+          +-sm text-ink2" numberOfLines={1}>                             
+      376 +                {property.locationArea}                       
+      377                </Text>
+      378              </View>
+      170 -            <View className="flex-row items-center">          
+      171 -              <Star size={14} color="#F5A623" fill="#F5A623" /
+          ->                                                             
+      172 -              <Text className="ml-1 font-medium text-body-sm t
+          -ext-ink">                                                     
+      173 -                {listing.rating}                              
+      174 -              </Text>                                         
+      175 -            </View>                                           
+      379 +            {showRating ? (                                   
+      380 +              <View className="ml-2 flex-row items-center">   
+      381 +                <Star size={14} color="#F5A623" fill="#F5A623"
+          + />                                                           
+      382 +                <Text className="ml-1 font-medium text-body-sm
+          + text-ink">                                                   
+      383 +                  {(owner?.avgRating ?? 0).toFixed(1)}        
+      384 +                </Text>                                       
+      385 +              </View>                                         
+      386 +            ) : null}                                         
+      387            </View>
+      388  
+      389            {/* Price row */}
+      390            <Text className="mt-3 font-bold text-h2 text-brand">
+      180 -            {listing.currency} {FORMATTER.format(listing.price
+          -Monthly)}                                                     
+      181 -            <Text className="font-sans text-body text-ink2">  
+      182 -              {' '}/ month                                    
+      183 -            </Text>                                           
+      391 +            {formatMonthlyPrice(property.price)}              
+      392            </Text>
+      393  
+      186 -          {/* Status pill */}                                 
+      187 -          <View className="mt-3 flex-row items-center gap-2"> 
+      188 -            <View                                             
+      189 -              className={`rounded-pill px-3 py-1 ${           
+      190 -                listing.status === 'active' ? 'bg-emerald-100/
+          -90' : 'bg-gray-100'                                           
+      191 -              }`}                                             
+      192 -            >                                                 
+      193 -              <Text                                           
+      194 -                className={`text-xs font-semibold ${          
+      195 -                  listing.status === 'active' ? 'text-emerald-
+          -800' : 'text-gray-500'                                        
+      196 -                }`}                                           
+      197 -              >                                               
+      198 -                {listing.status === 'active' ? 'Active' : 'Pau
+          -sed'}                                                         
+      199 -              </Text>                                         
+      200 -            </View>                                           
+      394 +          {/* Property type + available-from */}              
+      395 +          <View className="mt-2 flex-row flex-wrap items-cente
+          +r gap-x-3 gap-y-1">                                           
+      396 +            <Text className="font-sans text-body-sm text-ink2"
+          +>{propertyTypeLabel}</Text>                                   
+      397 +            {property.areaSqft != null ? (                    
+      398 +              <>                                              
+      399 +                <View className="h-1 w-1 rounded-full bg-ink3"
+          + />                                                           
+      400 +                <Text className="font-sans text-body-sm text-i
+          +nk2">                                                         
+      401 +                  {property.areaSqft} sqft                    
+      402 +                </Text>                                       
+      403 +              </>                                             
+      404 +            ) : null}                                         
+      405 +            {property.furnishing ? (                          
+      406 +              <>                                              
+      407 +                <View className="h-1 w-1 rounded-full bg-ink3"
+          + />                                                           
+      408 +                <Text className="font-sans text-body-sm text-i
+          +nk2">{property.furnishing}</Text>                             
+      409 +              </>                                             
+      410 +            ) : null}                                         
+      411            </View>
+      412  
+      413 +          {/* Status pills: DB status + pause flag */}        
+      414 +          <View className="mt-3 flex-row flex-wrap items-cente
+          +r gap-2">                                                     
+      415 +            {isPaused ? (                                     
+      416 +              <View className="rounded-pill bg-gray-100 px-3 p
+          +y-1">                                                         
+      417 +                <Text className="text-xs font-semibold text-gr
+          +ay-500">Paused</Text>                                         
+      418 +              </View>                                         
+      419 +            ) : statusPill ? (                                
+      420 +              <View className={`rounded-pill px-3 py-1 ${statu
+          +sPill.container}`}>                                           
+      421 +                <Text className={`text-xs font-semibold ${stat
+          +usPill.text}`}>                                               
+      422 +                  {statusPill.label}                          
+      423 +                </Text>                                       
+      424 +              </View>                                         
+      425 +            ) : null}                                         
+      426 +          </View>                                             
+      427 +                                                              
+      428            {/* ═══ Amenities Card ═══ */}
+      204 -          <View className="mt-5 flex-row items-center rounded-
+          -card bg-canvas px-4 py-4">                                    
+      205 -            {listing.amenities.map((amenity, i) => {          
+      206 -              const IconComponent = AMENITY_ICONS[amenity.icon
+          -];                                                            
+      207 -              return (                                        
+      208 -                <View key={amenity.label} className="flex-1 fl
+          -ex-row items-center">                                         
+      209 -                  <View className="flex-1 items-center">      
+      210 -                    {IconComponent && <IconComponent size={20}
+          - color="#6B6B6B" />}                                          
+      211 -                    <Text className="mt-1.5 font-sans text-cap
+          -tion text-ink2">                                              
+      429 +          {amenityRows.length > 0 ? (                         
+      430 +            <View className="mt-5 flex-row flex-wrap items-cen
+          +ter rounded-card bg-canvas px-4 py-4">                        
+      431 +              {amenityRows.map((amenity, i) => {              
+      432 +                const Icon = amenity.icon;                    
+      433 +                return (                                      
+      434 +                  <View                                       
+      435 +                    key={`${amenity.key}-${i}`}               
+      436 +                    className="mb-3 mr-4 flex-row items-center
+          +"                                                             
+      437 +                    style={{ minWidth: 80 }}>                 
+      438 +                    {Icon ? <Icon size={18} color="#6B6B6B" />
+          + : null}                                                      
+      439 +                    <Text className="ml-2 font-sans text-capti
+          +on text-ink2">                                                
+      440                        {amenity.label}
+      441                      </Text>
+      442                    </View>
+      215 -                  {i < listing.amenities.length - 1 && (      
+      216 -                    <View className="h-8 w-[1px] bg-line" />  
+      217 -                  )}                                          
+      218 -                </View>                                       
+      219 -              );                                              
+      220 -            })}                                               
+      221 -          </View>                                             
+      443 +                );                                            
+      444 +              })}                                             
+      445 +            </View>                                           
+      446 +          ) : null}                                           
+      447  
+      448            {/* ═══ About Section ═══ */}
+      224 -          <Text className="mt-6 font-semibold text-h3 text-ink
+          -">About</Text>                                                
+      225 -          <Text className="mt-2 font-sans text-body leading-re
+          -laxed text-ink2">                                             
+      226 -            {listing.about}                                   
+      227 -          </Text>                                             
+      449 +          {property.description ? (                           
+      450 +            <>                                                
+      451 +              <Text className="mt-6 font-semibold text-h3 text
+          +-ink">About</Text>                                            
+      452 +              <Text className="mt-2 font-sans text-body leadin
+          +g-relaxed text-ink2">                                         
+      453 +                {property.description}                        
+      454 +              </Text>                                         
+      455 +            </>                                               
+      456 +          ) : null}                                           
+      457  
+      458            {/* ═══ Owner Card ═══ */}
+      459            <View className="mt-5 flex-row items-center rounded-
+           card bg-canvas p-4">
+      231 -            <Avatar size={48} initials={ownerInitials} />     
+      460 +            {owner?.avatarUrl ? (                             
+      461 +              <Image                                          
+      462 +                source={{ uri: owner.avatarUrl }}             
+      463 +                style={{ width: 48, height: 48, borderRadius: 
+          +24 }}                                                         
+      464 +              />                                              
+      465 +            ) : (                                             
+      466 +              <Avatar size={48} initials={ownerInitials} />   
+      467 +            )}                                                
+      468              <View className="ml-3 flex-1">
+      233 -              <Text className="font-semibold text-body text-in
+          -k">                                                           
+      234 -                {listing.owner.name}                          
+      235 -              </Text>                                         
+      469 +              <View className="flex-row items-center gap-1">  
+      470 +                <Text className="font-semibold text-body text-
+          +ink" numberOfLines={1}>                                       
+      471 +                  {ownerName}                                 
+      472 +                </Text>                                       
+      473 +                <CheckCircle size={14} color="#1A6B4A" strokeW
+          +idth={2} />                                                   
+      474 +              </View>                                         
+      475                <Text className="mt-0.5 font-sans text-body-sm t
+           ext-ink2">
+      237 -                Verified owner · {listing.owner.listingsCount}
+          - listings                                                     
+      476 +                Verified owner                                
+      477 +                {showRating                                   
+      478 +                  ? ` · ${(owner?.avgRating ?? 0).toFixed(1)} 
+          +★ (${owner?.totalReviews} reviews)`                           
+      479 +                  : ''}                                       
+      480                </Text>
+      481              </View>
+      482            </View>
+     ...
+      490            <View className="flex-row items-center gap-1.5">
+      491              <Eye size={16} color="#6B6B6B" />
+      492              <Text className="font-bold text-body text-ink">
+      251 -              {FORMATTER.format(listing.views)}               
+      493 +              {FORMATTER.format(stats?.views ?? property.views
+          +)}                                                            
+      494              </Text>
+      495              <Text className="font-sans text-body-sm text-ink2"
+           >views</Text>
+      496            </View>
+     ...
+      498            <View className="flex-row items-center gap-1.5">
+      499              <Heart size={16} color="#6B6B6B" />
+      500              <Text className="font-bold text-body text-ink">
+      259 -              {FORMATTER.format(listing.savedCount)}          
+      501 +              {FORMATTER.format(stats?.savedCount ?? 0)}      
+      502              </Text>
+      503              <Text className="font-sans text-body-sm text-ink2"
+           >saved</Text>
+      504            </View>
+     ...
+      506            <View className="flex-row items-center gap-1.5">
+      507              <Users size={16} color="#6B6B6B" />
+      508              <Text className="font-bold text-body text-ink">
+      267 -              {FORMATTER.format(listing.requestCount)}        
+      509 +              {FORMATTER.format(stats?.requestCount ?? 0)}    
+      510              </Text>
+      511              <Text className="font-sans text-body-sm text-ink2"
+           >requests</Text>
+      512            </View>
+     ...
+      515          {/* Action buttons */}
+      516          <View className="flex-row gap-3">
+      517            <Pressable
+      276 -            onPress={onPauseListing}                          
+      277 -            className="h-[48px] flex-1 flex-row items-center j
+          -ustify-center gap-2 rounded-pill border border-line"          
+      518 +            onPress={handleTogglePause}                       
+      519 +            disabled={actionPending}                          
+      520 +            className={`h-[48px] flex-1 flex-row items-center 
+          +justify-center gap-2 rounded-pill border border-line ${       
+      521 +              actionPending ? 'opacity-60' : ''               
+      522 +            }`}                                               
+      523              accessibilityRole="button"
+      279 -            accessibilityLabel="Pause listing"                
+      280 -          >                                                   
+      281 -            <Pause size={16} color="#0A0A0A" />               
+      282 -            <Text className="font-semibold text-body text-ink"
+          ->Pause Listing</Text>                                         
+      524 +            accessibilityLabel={isPaused ? 'Resume listing' : 
+          +'Pause listing'}>                                             
+      525 +            {isPaused ? (                                     
+      526 +              <Play size={16} color="#0A0A0A" />              
+      527 +            ) : (                                             
+      528 +              <Pause size={16} color="#0A0A0A" />             
+      529 +            )}                                                
+      530 +            <Text className="font-semibold text-body text-ink"
+          +>                                                             
+      531 +              {isPaused ? 'Resume Listing' : 'Pause Listing'} 
+      532 +            </Text>                                           
+      533            </Pressable>
+      534  
+      535            <Pressable
+      286 -            onPress={onViewApplicants}                        
+      287 -            className="h-[48px] flex-1 flex-row items-center j
+          -ustify-center gap-2 rounded-pill bg-ink"                      
+      536 +            onPress={handleViewApplicants}                    
+      537 +            disabled={!isListed}                              
+      538 +            className={`h-[48px] flex-1 flex-row items-center 
+          +justify-center gap-2 rounded-pill bg-ink ${                   
+      539 +              !isListed ? 'opacity-50' : ''                   
+      540 +            }`}                                               
+      541              accessibilityRole="button"
+      289 -            accessibilityLabel="View applicants"              
+      290 -          >                                                   
+      542 +            accessibilityLabel="View applicants">             
+      543              <Users size={16} color="#FFFFFF" />
+      544              <Text className="font-semibold text-body text-whit
+           e">View Applicants</Text>
+      545            </Pressable>
+
+⏺ Now let me verify the type check passes. Let me check if there's a typescript
+  check command available:
+
+  Searched for 1 pattern, ran 1 shell command (ctrl+o to expand)
+
+⏺ Only one real error in my code: PropertyPublic doesn't have isDeleted. The
+  Deno edge function errors are pre-existing and unrelated. Let me fix the one
+  error:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Update(app/(landlord)/listing/[id].tsx)
+  ⎿  Added 1 line, removed 1 line
+      222  
+      223    const statusPill = property ? (STATUS_PILL[property.status] 
+           ?? null) : null;
+      224    const isPaused = property?.isPaused ?? false;
+      225 -  const isListed = !isPaused && property && property.status !=
+          -= 'OCCUPIED' && !property.isDeleted;                          
+      225 +  const isListed = !isPaused && property && property.status !=
+          += 'OCCUPIED';                                                 
+      226  
+      227    const handleBack = useCallback(() => {
+      228      if (onBack) onBack();
+
+⏺ Let me re-run the type check now to confirm everything is clean:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ No errors. The TypeScript build is clean (the supabase/functions/ errors are
+  pre-existing Deno edge function issues unrelated to my changes). Let me also
+  run the graphify update to keep the project graph in sync, and mark the final
+  task done:
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?

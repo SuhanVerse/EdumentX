@@ -1,5 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { ReactNode, useEffect, useState } from "react";
 import {
   Alert,
@@ -10,10 +14,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AdminNav } from "@/components/shared/AdminNav";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { AdminNav } from "@/components/shared/AdminNav";
 
 /**
  * EdumentX — User Management (Admin)
@@ -32,7 +35,14 @@ type AdminUser = {
   name: string;
   email: string;
   phone?: string;
-  avatar?: string;
+  /**
+   * Avatar URL. `null` (not `""`) when the user has no avatar — this
+   * matters because React Native's `<Image source={{ uri: "" }}>`
+   * throws "Cannot read property 'indexOf' of undefined" on Android
+   * for empty-string URIs. Coercing to `null` at the data layer
+   * keeps the truthy check at the render site unambiguous.
+   */
+  avatar?: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string; // ISO string
@@ -63,13 +73,16 @@ export function UserManagement() {
 
   // Fetch users from Firestore.
   //
-  // Important Firestore detail: `orderBy("createdAt", "desc")` requires
-  // a composite index on (createdAt) — without it the call fails with
-  // `failed-precondition: The query requires an index`. We keep the
-  // orderBy (newest-first is the right default) but on failure we
-  // fall back to an un-ordered query so the admin can still see *all*
-  // users. The index can be created from the error URL or via
-  // `firebase deploy --only firestore:indexes` (Phase 5).
+  // We deliberately do NOT call `orderBy("createdAt", "desc")` here.
+  // A `orderBy` on a non-key field requires a composite index; the
+  // project's `firebase/firestore.indexes.json` does not declare one
+  // for `users.createdAt`, so a sorted list call would fail with
+  // `failed-precondition: The query requires an index` and the screen
+  // would land on the empty-state error path. The `VerificationQueue`
+  // screen reads its `tutorVerifications` collection un-ordered and
+  // partitions client-side — we follow that same pattern: pull every
+  // doc, then sort the in-memory array by `createdAt` desc so the
+  // newest accounts land at the top.
   useEffect(() => {
     let cancelled = false;
     async function fetchUsers() {
@@ -77,29 +90,16 @@ export function UserManagement() {
         // Dynamic import to avoid circular deps
         const { getFirestore } = await import("@react-native-firebase/firestore");
         const { getApp } = await import("@react-native-firebase/app");
-        const { collection, getDocs, query, orderBy } = await import(
+        const { collection, getDocs } = await import(
           "@react-native-firebase/firestore"
         );
 
         const db = getFirestore(getApp());
-        const usersRef = collection(db, "users");
-
-        // Try the indexed query first; on `failed-precondition`, fall
-        // back to an un-ordered read so the screen still loads.
-        let snapshot;
-        try {
-          const q = query(usersRef, orderBy("createdAt", "desc"));
-          snapshot = await getDocs(q);
-        } catch (indexErr: any) {
-          if (indexErr?.code === "firestore/failed-precondition") {
-            console.warn(
-              "UserManagement: missing createdAt index, falling back to un-ordered read",
-            );
-            snapshot = await getDocs(usersRef);
-          } else {
-            throw indexErr;
-          }
-        }
+        // Plain un-ordered read — matches the working
+        // `VerificationQueue` pattern. No `orderBy` means no
+        // composite-index requirement, so the read always succeeds
+        // (subject to security rules) and the screen populates.
+        const snapshot = await getDocs(collection(db, "users"));
 
         if (cancelled) return;
 
@@ -111,7 +111,14 @@ export function UserManagement() {
             name: data.displayName || data.username || data.email?.split("@")[0] || "Unknown",
             email: data.email || "",
             phone: data.phone || "",
-            avatar: data.avatar || "",
+            // Map `undefined` / `""` to `null` so the avatar <Image>
+            // render path is unambiguous: a truthy avatar URL goes
+            // to <Image>; a null falls through to the initials
+            // fallback. <Image source={{ uri: "" }}> throws a
+            // "Cannot read property 'indexOf' of undefined" on
+            // Android when the URI is an empty string, so we must
+            // never let an empty string reach the <Image> source.
+            avatar: data.avatar || null,
             role: (data.role as UserRole) || "student",
             status: (data.status as UserStatus) || "active",
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
@@ -119,6 +126,16 @@ export function UserManagement() {
             verified: data.verified || false,
           });
         });
+
+        // Newest accounts first. Sort by `createdAt` ISO desc;
+        // entries that fell back to "now" (no parseable createdAt)
+        // sort to the bottom of the list.
+        fetched.sort((a, b) => {
+          const ta = new Date(a.createdAt).getTime();
+          const tb = new Date(b.createdAt).getTime();
+          return tb - ta;
+        });
+
         setUsers(fetched);
         setLoadError(null);
       } catch (err: any) {
@@ -241,8 +258,7 @@ export function UserManagement() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="background">
 
       {/* Header — dark navy hero with the title and search bar only.
           The status + role filter pills were moved out of the hero
@@ -253,8 +269,8 @@ export function UserManagement() {
           non-text siblings), so the layout rendered as a single
           jagged line. Splitting them out gives them room to breathe
           and lets us lay them out with a proper `<View>`. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-center justify-between mt-2 mb-4">
+      <ScreenHeader>
+        <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-body text-white/70 mb-0.5">Management</Text>
             <Text className="text-screen-title font-medium text-white">
@@ -268,12 +284,12 @@ export function UserManagement() {
 
         {/* Search */}
         <View className="bg-surface rounded-xl h-11 flex-row items-center px-3 gap-2.5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+          <Ionicons name="search-outline" size={18} color="#6B7268" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search users..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#6B7268"
             className="flex-1 text-body-lg text-text-primary"
           />
           {search.length > 0 && (
@@ -282,11 +298,11 @@ export function UserManagement() {
               onPress={() => setSearch("")}
               className="active:opacity-70"
             >
-              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              <Ionicons name="close-circle" size={18} color="#6B7268" />
             </Pressable>
           )}
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* Filter card — single horizontal scroll containing the
           status group, a thin vertical divider, and the role group.
@@ -296,7 +312,7 @@ export function UserManagement() {
           label and an optional count badge; we use `View` (not
           `Text`) for the pill itself so the `flex-row gap-1.5`
           actually lays out the badge inline with the label. */}
-      <View className="bg-background border-b border-border-subtle">
+      <View className="bg-background border-b border-border">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -317,7 +333,7 @@ export function UserManagement() {
                 label={f}
                 count={count}
                 active={isActive}
-                activeBg="bg-amber"
+                activeBg="bg-ai"
                 activeText="text-text-inverse"
                 inactiveBg="bg-sand"
                 inactiveText="text-text-secondary"
@@ -328,7 +344,7 @@ export function UserManagement() {
           })}
 
           {/* Divider between groups */}
-          <View className="w-px h-6 bg-border-subtle mx-1" />
+          <View className="w-px h-6 bg-border mx-1" />
 
           {/* Role group */}
           {(["All", "Student", "Tutor", "Admin"] as RoleFilter[]).map((r) => {
@@ -356,11 +372,7 @@ export function UserManagement() {
       </View>
 
       {/* List */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pt-5 pb-24"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll>
         {loading ? (
           <View className="items-center justify-center pt-20">
             <Text className="text-body text-text-muted">Loading users…</Text>
@@ -388,9 +400,9 @@ export function UserManagement() {
                 accessibilityRole="button"
                 accessibilityLabel="Show demo data"
                 onPress={() => setShowMock(true)}
-                className="mt-5 px-4 py-2 rounded-pill bg-amber-light active:opacity-80"
+                className="mt-5 px-4 py-2 rounded-pill bg-accent-light active:opacity-80"
               >
-                <Text className="text-button-sm font-medium text-amber">
+                <Text className="text-button-sm font-medium text-accent">
                   Show demo data
                 </Text>
               </Pressable>
@@ -420,7 +432,7 @@ export function UserManagement() {
             non-empty array. */}
         {showMock && users.length === 0 ? (
           <View className="mt-4 bg-warning-bg border border-amber rounded-card p-3 flex-row items-start gap-2">
-            <Ionicons name="alert-circle" size={16} color="#B45309" />
+            <Ionicons name="alert-circle" size={16} color="#E5A03B" />
             <View className="flex-1">
               <Text className="text-button-sm font-medium text-warning-text">
                 Demo data
@@ -432,7 +444,7 @@ export function UserManagement() {
             </View>
           </View>
         ) : null}
-      </ScrollView>
+      </ScreenScroll>
 
       <AdminNav />
 
@@ -459,7 +471,7 @@ export function UserManagement() {
         onConfirm={executeSoftDelete}
         onCancel={cancelDelete}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
@@ -546,7 +558,7 @@ function UserRow({
 
   return (
     <View
-      className="bg-surface border border-border-subtle rounded-card p-4 gap-3"
+      className="bg-surface border border-border rounded-card p-4 gap-3"
       accessibilityLabel={`${user.name}, ${roleConfig.label}, ${statusConfig.label}`}
     >
       {/* Top row — avatar + identity block (name, role chip, meta).
@@ -566,13 +578,13 @@ function UserRow({
               />
             ) : (
               <Text className="text-card-title font-medium text-amber">
-                {user.name.charAt(0).toUpperCase()}
+                {(user.name?.charAt(0) ?? "?").toUpperCase()}
               </Text>
             )}
           </View>
           {user.verified && (
             <View className="absolute -bottom-0.5 -right-0.5">
-              <Ionicons name="checkmark-circle" size={16} color="#047857" />
+              <Ionicons name="checkmark-circle" size={16} color="#3F8A5A" />
             </View>
           )}
         </View>
@@ -614,7 +626,7 @@ function UserRow({
       {/* Bottom row — status chip + actions. Wraps to a new line
           on narrow screens so the chip and action pills never
           collide. */}
-      <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border-subtle">
+      <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border">
         <View
           className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full flex-row items-center gap-1`}
         >
@@ -675,7 +687,7 @@ function EmptyState({
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name={icon} size={26} color="#B45309" />
+        <Ionicons name={icon} size={26} color="#E5A03B" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}

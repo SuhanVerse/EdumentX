@@ -11,6 +11,8 @@ import type { DockItem } from './GlassDock/types/dock';
 type FloatingDockProps = BottomTabBarProps & {
   /** Which icon set and route map to use. */
   variant: 'tenant' | 'landlord';
+  /** Pending visit request count for the requests tab badge. */
+  pendingCount?: number;
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -37,9 +39,13 @@ type FloatingDockProps = BottomTabBarProps & {
  *   `tabPress` event listeners and the `defaultPrevented` flag so deep-link
  *   interception and modal guards continue to work.
  */
-export const FloatingDock = React.memo(({ state, navigation, variant }: FloatingDockProps) => {
-  const items: readonly DockItem[] =
-    variant === 'landlord' ? LANDLORD_DOCK_ITEMS : TENANT_DOCK_ITEMS;
+export const FloatingDock = React.memo(({ state, navigation, variant, pendingCount }: FloatingDockProps) => {
+  const items: DockItem[] =
+    variant === 'landlord'
+      ? LANDLORD_DOCK_ITEMS.map((item) =>
+          item.key === 'requests' ? { ...item, badge: pendingCount } : item,
+        )
+      : ([...TENANT_DOCK_ITEMS] as DockItem[]);
 
   // The current route name — equals the `key` of whichever DockItem is active.
   const activeTab = state.routeNames[state.index] ?? '';

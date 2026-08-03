@@ -1,1 +1,17 @@
-{"nodes": [{"id": "molecules_filterchip_filterchip", "label": "FilterChip molecule", "file_type": "code", "source_file": "src/components/molecules/FilterChip.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "molecules_filterchip_filterchip",
+      "label": "FilterChip molecule",
+      "file_type": "code",
+      "source_file": "src/components/molecules/FilterChip.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [],
+  "hyperedges": []
+}

@@ -28,7 +28,7 @@ export function AvatarBubble({
   return (
     <View className="items-center">
       <View
-        className="rounded-pill border-4 border-surface overflow-hidden items-center justify-center bg-amber-light"
+        className="rounded-pill border-4 border-border overflow-hidden items-center justify-center bg-surface-muted"
         style={{ width: size, height: size }}
       >
         {hasImage ? (
@@ -39,7 +39,7 @@ export function AvatarBubble({
           />
         ) : (
           <Text
-            className="text-screen-title font-medium text-amber"
+            className="text-screen-title font-medium text-primary"
             style={{ fontSize: size * 0.36 }}
           >
             {initials(name) || "?"}

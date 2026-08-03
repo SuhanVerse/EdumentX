@@ -1,1 +1,38 @@
-{"nodes": [{"id": "organisms_floatingdock_floatingdock", "label": "FloatingDock organism (blur tab bar)", "file_type": "code", "source_file": "src/components/organisms/FloatingDock.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "organisms_floatingdock_floatingdock", "target": "store_authstore_role_type", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.75, "source_file": "src/components/organisms/FloatingDock.tsx", "source_location": null, "weight": 1.0}, {"source": "concept_atomic_design_layers", "target": "organisms_floatingdock_floatingdock", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "src/components/organisms/FloatingDock.tsx", "source_location": null, "weight": 1.0}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "organisms_floatingdock_floatingdock",
+      "label": "FloatingDock organism (blur tab bar)",
+      "file_type": "code",
+      "source_file": "src/components/organisms/FloatingDock.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "organisms_floatingdock_floatingdock",
+      "target": "store_authstore_role_type",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "src/components/organisms/FloatingDock.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "concept_atomic_design_layers",
+      "target": "organisms_floatingdock_floatingdock",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "src/components/organisms/FloatingDock.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

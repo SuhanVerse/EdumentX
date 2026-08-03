@@ -1,1 +1,17 @@
-{"nodes": [{"id": "tenant_landlord_publiclandlordprofilescreen", "label": "PublicLandlordProfileScreen", "file_type": "code", "source_file": "app/(tenant)/landlord/[id].tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tenant_landlord_publiclandlordprofilescreen",
+      "label": "PublicLandlordProfileScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/landlord/[id].tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [],
+  "hyperedges": []
+}

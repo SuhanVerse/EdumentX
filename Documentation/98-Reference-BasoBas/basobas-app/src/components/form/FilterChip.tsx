@@ -13,25 +13,18 @@ type Props = {
 };
 
 const BG_MAP = {
-  'default': 'bg-canvas',
-  'brand': 'bg-brand',
-  'active': 'bg-ink',
+  default: 'bg-canvas',
+  brand: 'bg-brand',
+  active: 'bg-ink',
 };
 
 const TEXT_MAP = {
-  'default': 'text-ink',
-  'brand': 'text-white',
-  'active': 'text-white',
+  default: 'text-ink',
+  brand: 'text-white',
+  active: 'text-white',
 };
 
-export const FilterChip = ({
-  label,
-  selected,
-  onPress,
-  variant = 'pill',
-  color,
-  icon,
-}: Props) => {
+export const FilterChip = ({ label, selected, onPress, variant = 'pill', color, icon }: Props) => {
   const resolvedColor = color || (selected ? 'active' : 'default');
 
   return (
@@ -39,12 +32,9 @@ export const FilterChip = ({
       onPress={onPress}
       className={`flex-row items-center ${
         variant === 'pill' ? 'rounded-pill' : 'rounded-lg'
-      } ${BG_MAP[resolvedColor]} px-4 py-2 mr-2 mb-2`}
-    >
+      } ${BG_MAP[resolvedColor]} mb-2 mr-2 px-4 py-2`}>
       {icon && <View className="mr-1.5">{icon}</View>}
-      <Text className={`font-medium text-body-sm ${TEXT_MAP[resolvedColor]}`}>
-        {label}
-      </Text>
+      <Text className={`font-medium text-body-sm ${TEXT_MAP[resolvedColor]}`}>{label}</Text>
     </Pressable>
   );
 };

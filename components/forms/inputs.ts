@@ -14,7 +14,7 @@
  * `NameEmailFields`.
  */
 export const INPUT_BASE =
-  "min-h-btn px-4 border-emphasis rounded-card bg-surface text-body-lg text-text-primary";
+  "min-h-btn px-4 rounded-card bg-surface text-body-lg text-text-primary";
 
 export const INPUT_BORDER_OK = "border-border";
 export const INPUT_BORDER_ERROR = "border-danger";
