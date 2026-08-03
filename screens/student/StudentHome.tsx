@@ -1,16 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -18,9 +20,18 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { TutorCard } from "@/components/domain/TutorCard";
 import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { useAuthStore } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
+import { colors } from "@/constants/colors";
+import {
+  getTutorRepository,
+  type TutorListing,
+} from "@/services/tutors/dataSource";
+import { createDefaultTutorProfile } from "@/lib/tutor/types";
 
 /**
  * EdumentX — Student Home
@@ -47,6 +58,10 @@ async function handleSignOut(router: ReturnType<typeof useRouter>) {
   try {
     await logout();
     useAuthStore.getState().reset();
+    // Wipe the AI chat session (history + constraint pills) so a
+    // different user logging in on this device never inherits the
+    // previous account's conversation context.
+    useAiChatStore.getState().resetSession();
   } catch (err) {
     console.error("StudentHome: sign-out failed", err);
     Alert.alert("Could not sign out", "Please try again.");
@@ -107,15 +122,30 @@ function resolveLocationLabel(
 export function StudentHome() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Live reads from Firestore. We hold them in local state and
   // subscribe via `onSnapshot` so the dashboard re-renders if the
   // user edits their profile from the "Edit profile" affordance.
   const user = useAuthStore((state) => state.user);
+  const [tutors, setTutors] = useState<TutorListing[]>([]);
+  const [tutorsLoading, setTutorsLoading] = useState(true);
   const [profile, setProfile] = useState<Profile>({
     fullName: "",
     locationLabel: "Add your location",
   });
+
+  // Subscribe to the live tutor directory
+  useEffect(() => {
+    const unsub = getTutorRepository().subscribeTutors(
+      (list) => {
+        setTutors(list);
+        setTutorsLoading(false);
+      },
+      () => setTutorsLoading(false),
+    );
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -169,17 +199,18 @@ export function StudentHome() {
   }, [user]);
 
   return (
-    <SafeAreaView className="flex-1 bg-night" edges={["top"]}>
-      <StatusBar style="light" />
+    <ScreenLayout variant="night">
 
-      {/* Hero header */}
-      <View className="bg-night px-5 pb-6 shrink-0">
-        <View className="flex-row items-start justify-between mb-4 mt-2">
+      {/* Hero header — standard ScreenHeader slot */}
+      <ScreenHeader>
+        <View className="flex-row items-start justify-between mb-4">
           <View>
-            <Text className="text-body text-white/70 mb-0.5">Good morning,</Text>
-            <Text className="text-screen-title font-medium text-white">
-              {profile.fullName}
-            </Text>
+            <Text className="text-body text-white/70 mb-0.5">Good day,</Text>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+              <Text className="text-screen-title font-medium text-white">
+                {profile.fullName}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -190,59 +221,96 @@ export function StudentHome() {
         </View>
 
         {/* Search bar */}
-        <View className="bg-surface rounded-xl h-12 flex-row items-center px-3 gap-2.5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+        <View className="bg-surface rounded-card h-input flex-row items-center px-3 gap-2.5 border border-border">
+          <Ionicons name="search-outline" size={18} color="#6B7268" />
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search subjects, tutors..."
-            placeholderTextColor="#9CA3AF"
+            placeholder="Search subjects, tutors, locations…"
+            placeholderTextColor="#6B7268"
             className="flex-1 text-body-lg text-text-primary"
           />
         </View>
-      </View>
+      </ScreenHeader>
 
-      {/* Content */}
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="pb-9"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Empty state — tutor discovery lands in Phase 5 */}
-        <View className="px-5 pt-10">
-          <View className="bg-surface border border-border-subtle rounded-card p-6 items-center">
-            <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-              <Ionicons name="search-outline" size={26} color="#B45309" />
-            </View>
-            <Text className="text-card-title font-medium text-text-primary text-center">
-              Tutor discovery is coming soon
+      {/* Content — standard ScreenScroll body */}
+      <ScreenScroll className="flex-1 bg-background">
+        {/* Tutor list section header */}
+        <View className="pb-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-section-title font-semibold text-text-primary">
+              Recommended tutors
             </Text>
-            <Text
-              className="text-body text-text-secondary text-center mt-1.5"
-              style={{ maxWidth: 320 }}
-            >
-              We&apos;re onboarding verified tutors in your area. You&apos;ll
-              be notified as soon as matches are available for your
-              selected subjects.
-            </Text>
-            <View className="flex-row items-center gap-2 mt-4">
-              <Ionicons name="mail-outline" size={14} color="#64748B" />
+            {!tutorsLoading && (
               <Text className="text-caption text-text-muted">
-                We&apos;ll email {user?.email ?? "you"} when launches begin.
+                {tutors.length} available
+              </Text>
+            )}
+          </View>
+          <Text className="text-body-sm text-text-muted mt-1">
+            Verified tutors ready to help you learn
+          </Text>
+        </View>
+
+        {/* Tutor cards — live from Firestore */}
+        <View className="gap-4">
+          {tutorsLoading ? (
+            <View className="items-center py-12">
+              <ActivityIndicator size="small" color={colors.text.muted} />
+              <Text className="text-caption text-text-muted mt-3">
+                Loading tutors…
               </Text>
             </View>
-          </View>
+          ) : tutors.length === 0 ? (
+            <View className="items-center py-12 px-6">
+              <View className="w-14 h-14 rounded-pill bg-surface items-center justify-center mb-3">
+                <Ionicons
+                  name="search-outline"
+                  size={26}
+                  color={colors.text.muted}
+                />
+              </View>
+              <Text className="text-card-title font-medium text-text-primary text-center">
+                No tutors available yet
+              </Text>
+              <Text className="text-body-sm text-text-secondary text-center mt-1.5">
+                Approved tutors will appear here once they&apos;ve been
+                verified by our team.
+              </Text>
+            </View>
+          ) : (
+            tutors.map((tutor) => (
+              <TutorCard
+                key={tutor.uid}
+                tutor={createDefaultTutorProfile({
+                  id: tutor.uid,
+                  fullName: tutor.fullName,
+                  username: tutor.username,
+                  headline: tutor.headline,
+                  subjects: tutor.subjects,
+                  yearsExperience: tutor.yearsExperience,
+                  monthlyRateNpr: tutor.monthlyRateNpr,
+                  location: tutor.location,
+                  rating: tutor.rating,
+                  reviewCount: tutor.reviewCount,
+                  isVerifiedProfessional: tutor.isVerifiedProfessional,
+                  photoUrl: tutor.photoUrl,
+                })}
+                variant="wide"
+              />
+            ))
+          )}
         </View>
 
         {/* Sign out — required because there's no other way to clear the
             native Firebase Auth session from inside a flat-route app
             with no tab navigator. Confirms before destroying the
             session so an accidental tap doesn't log the user out. */}
-        <View className="px-5 pt-6 pb-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
+        <View className="pb-2">
+          <StudentHomeLogOut
+            isSigningOut={isSigningOut}
             onPress={() => {
+              if (isSigningOut) return;
               Alert.alert(
                 "Log out?",
                 "You'll need to sign in again next time.",
@@ -251,20 +319,53 @@ export function StudentHome() {
                   {
                     text: "Log out",
                     style: "destructive",
-                    onPress: () => handleSignOut(router),
+                    onPress: () => {
+                      setIsSigningOut(true);
+                      handleSignOut(router).finally(() =>
+                        setIsSigningOut(false),
+                      );
+                    },
                   },
                 ],
               );
             }}
-            className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-danger/10 active:opacity-80"
-          >
-            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
-            <Text className="text-button font-semibold text-danger">Log out</Text>
-          </Pressable>
+          />
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <BottomNav role="student" current="/student-home" />
-    </SafeAreaView>
+    </ScreenLayout>
+  );
+}
+
+function StudentHomeLogOut({
+  isSigningOut,
+  onPress,
+}: {
+  isSigningOut: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Log out"
+      accessibilityState={{ busy: isSigningOut }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      disabled={isSigningOut}
+      className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-surface border border-border"
+    >
+      {isSigningOut ? (
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+      ) : (
+        <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+      )}
+      <Text className="text-button font-semibold text-danger">
+        {isSigningOut ? "Logging out..." : "Log out"}
+      </Text>
+    </AnimatedPressable>
   );
 }

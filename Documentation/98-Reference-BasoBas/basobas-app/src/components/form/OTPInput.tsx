@@ -39,12 +39,9 @@ const OTPCell = React.memo(({ char: _char, isActive, isFilled }: OTPCellProps) =
 
     if (isActive) {
       cursorOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0, { duration: 500 }),
-          withTiming(1, { duration: 500 }),
-        ),
+        withSequence(withTiming(0, { duration: 500 }), withTiming(1, { duration: 500 })),
         -1,
-        false,
+        false
       );
     } else {
       cursorOpacity.value = withTiming(0, { duration: 80 });
@@ -133,7 +130,7 @@ export const OTPInput = React.memo(
         />
       </Pressable>
     );
-  },
+  }
 );
 
 OTPInput.displayName = 'OTPInput';

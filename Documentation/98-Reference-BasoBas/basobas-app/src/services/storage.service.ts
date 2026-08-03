@@ -1,5 +1,6 @@
-import { supabase } from '@/src/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { ok, err, getErrorMessage, type Result } from '@/src/lib/result'
+import type { Database } from '@/src/types/database.types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,15 +42,16 @@ async function localUriToArrayBuffer(
 
 /**
  * Upload profile avatar.
- * Path: avatars/{userId}/avatar.jpg
+ * Path: avatars/{clerkId}/avatar.jpg
  * upsert: true — replaces the existing file.
  */
 export async function uploadAvatar(
-  userId:   string,
-  localUri: string
+  clerkId:  string,
+  localUri: string,
+  supabase: SupabaseClient<Database>
 ): Promise<Result<UploadedAvatar>> {
   try {
-    const path = `${userId}/avatar.jpg`
+    const path = `${clerkId}/avatar.jpg`
 
     const { buffer, mimeType } = await localUriToArrayBuffer(localUri)
 
@@ -82,17 +84,18 @@ export async function uploadAvatar(
 
 /**
  * Upload one side of a KYC document to the private bucket.
- * Path: kyc-documents/{userId}/{submissionId}/{side}.jpg
+ * Path: kyc-documents/{clerkId}/{submissionId}/{side}.jpg
  * Returns the storage path only — never a public URL.
  */
 export async function uploadKYCDocument(
-  userId:       string,
+  clerkId:      string,
   submissionId: string,
   side:         'front' | 'back',
-  localUri:     string
+  localUri:     string,
+  supabase:     SupabaseClient<Database>
 ): Promise<Result<UploadedKYCDoc>> {
   try {
-    const path = `${userId}/${submissionId}/${side}.jpg`
+    const path = `${clerkId}/${submissionId}/${side}.jpg`
 
     const { buffer, mimeType } = await localUriToArrayBuffer(localUri)
 
@@ -112,6 +115,45 @@ export async function uploadKYCDocument(
     return ok({ path })
   } catch (e) {
     console.error(`[uploadKYCDocument] ${side} exception:`, e)
+    return err(getErrorMessage(e))
+  }
+}
+
+
+// ─── KYC Electricity Bill Upload ─────────────────────────────────────────────
+
+/**
+ * Upload the landlord's electricity bill to the private kyc-documents bucket.
+ * Path: kyc-documents/{clerkId}/{submissionId}/electricity.jpg
+ * Returns the storage path only — never a public URL.
+ */
+export async function uploadKYCElectricityBill(
+  clerkId:      string,
+  submissionId: string,
+  localUri:     string,
+  supabase:     SupabaseClient<Database>
+): Promise<Result<UploadedKYCDoc>> {
+  try {
+    const path = `${clerkId}/${submissionId}/electricity.jpg`
+
+    const { buffer, mimeType } = await localUriToArrayBuffer(localUri)
+
+    const { error } = await supabase.storage
+      .from('kyc-documents')
+      .upload(path, buffer, {
+        contentType:  mimeType,
+        upsert:       false,
+        cacheControl: '0',
+      })
+
+    if (error) {
+      console.error('[uploadKYCElectricityBill] upload error:', error)
+      return err(`Electricity bill upload failed: ${error.message}`)
+    }
+
+    return ok({ path })
+  } catch (e) {
+    console.error('[uploadKYCElectricityBill] exception:', e)
     return err(getErrorMessage(e))
   }
 }

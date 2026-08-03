@@ -1,0 +1,88 @@
+\begin{thebibliography}{11}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Bray(2007)]{bray2007}
+M.~Bray.
+\newblock \emph{The Shadow Education System: Private Tutoring and Its
+  Implications for Planners}.
+\newblock Fundamentals of educational planning. UNESCO, International Institute
+  for Educational Planning, Paris, 2007.
+\newblock ISBN 9789280313055.
+\newblock URL \url{https://books.google.com.np/books?id=g4UOAQAAMAAJ}.
+
+\bibitem[Bray and Lykins(2012)]{bray2012}
+M.~Bray and C.~Lykins.
+\newblock \emph{Shadow Education: Private Supplementary Tutoring and Its
+  Implications for Policy Makers in Asia}.
+\newblock CERC monograph series in comparative and international education and
+  development. Asian Development Bank, Manila, 2012.
+\newblock ISBN 9789290926597.
+\newblock URL \url{https://books.google.com.np/books?id=mDAJBgAAQBAJ}.
+
+\bibitem[Kim and Jung(2019)]{kim2019}
+Y.~C. Kim and J.~H. Jung.
+\newblock Shadow education as worldwide curriculum studies.
+\newblock \emph{Curriculum Studies Worldwide}, 1\penalty0 (1):\penalty0 1--15,
+  April 2019.
+
+\bibitem[{Central Bureau of Statistics}(2023)]{cbs2023}
+{Central Bureau of Statistics}.
+\newblock National population and housing census 2021: National report, 2023.
+
+\bibitem[Thapa(2013)]{thapa2013}
+Amrit Thapa.
+\newblock Does private school competition improve public school performance?
+  the case of nepal.
+\newblock \emph{International Journal of Educational Development}, 33\penalty0
+  (4):\penalty0 358--366, 2013.
+\newblock ISSN 0738-0593.
+\newblock \doi{10.1016/j.ijedudev.2012.07.004}.
+\newblock URL
+  \url{https://www.sciencedirect.com/science/article/pii/S073805931200096X}.
+
+\bibitem[Chung and Tan(2022)]{chung2022}
+Sheng-Hung Chung and Seng~Chee Tan.
+\newblock Mentor -- intelligent mobile online peer tutoring application for
+  face-to-face and remote peer tutoring.
+\newblock \emph{ASCILITE Publications}, pages 386--391, September 2022.
+\newblock \doi{10.14742/apubs.2019.293}.
+
+\bibitem[Sharma et~al.(2026)Sharma, Patel, and Singh]{sharma2026}
+R.~K. Sharma, A.~Patel, and M.~Singh.
+\newblock Local tutor finder application using flutter.
+\newblock \emph{Journal of Emerging Technologies and Innovative Research
+  (JETIR)}, 13\penalty0 (2):\penalty0 267--275, February 2026.
+
+\bibitem[Shari et~al.(2025)Shari, Ahmad, and Hassan]{shari2025}
+N.~Shari, F.~Ahmad, and R.~Hassan.
+\newblock iteachu: Ai-driven tutor matching with geolocation integration.
+\newblock \emph{International Journal of Research in Science and Innovation
+  (IJRSI)}, 12\penalty0 (3):\penalty0 145--158, March 2025.
+
+\bibitem[Shevchenko and Reips(2023)]{shevchenko2023}
+Yury Shevchenko and Ulf-Dietrich Reips.
+\newblock Geofencing in location-based behavioral research: Methodology,
+  challenges, and implementation.
+\newblock \emph{Behavior Research Methods}, 56, August 2023.
+\newblock \doi{10.3758/s13428-023-02213-2}.
+
+\bibitem[Lewis et~al.(2021)Lewis, Perez, Piktus, Petroni, Karpukhin, Goyal,
+  K\"{u}ttler, Lewis, Yih, Rockt\"{a}schel, Riedel, and Kiela]{lewis2021}
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
+  Karpukhin, Naman Goyal, Heinrich K\"{u}ttler, Mike Lewis, Wen-tau Yih, Tim
+  Rockt\"{a}schel, Sebastian Riedel, and Douwe Kiela.
+\newblock Retrieval-augmented generation for knowledge-intensive nlp tasks,
+  2021.
+\newblock URL \url{https://arxiv.org/abs/2005.11401}.
+
+\bibitem[Swacha and Gracel(2025)]{swacha2025}
+Jakub Swacha and Micha{\l} Gracel.
+\newblock Retrieval-augmented generation (rag) chatbots for education: A survey
+  of applications.
+\newblock \emph{Applied Sciences}, 15\penalty0 (8):\penalty0 4234, 2025.
+
+\end{thebibliography}

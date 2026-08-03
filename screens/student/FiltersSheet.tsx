@@ -1,3 +1,7 @@
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { SecondaryButton } from "@/components/ui/SecondaryButton";
+import { AnimatedPressable, SwitchThumb, usePressScale } from "@/components/motion";
+import { motion } from "@/lib/motion";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -10,6 +14,13 @@ import {
   Text,
   View,
 } from "react-native";
+import RAnimated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { colors } from "@/constants/colors";
 
 /**
  * EdumentX — FiltersSheet (bottom-sheet overlay)
@@ -138,7 +149,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View className="py-4 border-b border-border-subtle">
+    <View className="py-4 border-b border-border">
       <Text className="text-overline text-text-muted uppercase mb-3">
         {title}
       </Text>
@@ -162,26 +173,40 @@ function Pill({
   // (the legacy behavior, kept for recognition), level/mode get a
   // simpler outlined-pill treatment.
   const classes =
-    active
-      ? "bg-amber border-amber"
-      : variant === "subject"
-        ? "bg-verification-light border-verification-light"
-        : "bg-surface border-border";
-  const textClasses = active
-    ? "text-text-inverse"
-    : variant === "subject"
-      ? "text-verification-dark"
-      : "text-text-secondary";
+    active && variant === "subject"
+      ? "bg-accent border-accent"
+      : active
+        ? "bg-primary border-primary"
+        : variant === "subject"
+          ? "bg-verification-light border-verification-light"
+          : "bg-surface border-border";
+  const textClasses =
+    active && variant === "subject"
+      ? "text-text-inverse"
+      : active
+        ? "text-white"
+        : variant === "subject"
+          ? "text-verification-dark"
+          : "text-text-secondary";
+  // The Pill re-renders on every selection flip, so the hook runs
+  // stably per Pill instance (each <Pill> in the row gets its own
+  // press-shared value). Spring scale 0.94 = chip feel.
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.chipPressed,
+  });
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className={`rounded-pill px-4 py-2 border active:opacity-80 ${classes}`}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`rounded-pill px-4 py-2 border ${classes}`}
     >
       <Text className={`text-button-sm ${textClasses}`}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -259,6 +284,10 @@ export function FiltersSheet({
   };
 
   const resultCount = estimateResults(distance, budget, verifiedOnly);
+  // Close-button spring scale. iconPressed = 0.85 for icon-only
+  // tap targets (back chevrons, dismiss Xs, eye toggles).
+  const { onPressIn: onCloseIn, onPressOut: onCloseOut, animatedStyle: closeStyle } =
+    usePressScale({ targetScale: motion.scale.iconPressed });
 
   return (
     <Modal
@@ -297,11 +326,11 @@ export function FiltersSheet({
             bottom: 0,
             maxHeight: "90%",
             backgroundColor: "#FFFFFF",
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             transform: [{ translateY: Animated.add(translateY, dragY) }],
-            shadowColor: "#000",
-            shadowOpacity: 0.18,
+            shadowColor: "#26302B",
+            shadowOpacity: 0.10,
             shadowRadius: 18,
             shadowOffset: { width: 0, height: -4 },
             elevation: 24,
@@ -309,7 +338,7 @@ export function FiltersSheet({
         >
           {/* Handle */}
           <View className="items-center pt-2.5 pb-1">
-            <View className="w-10 h-1 rounded-pill bg-border" />
+            <View className="w-10 h-1 rounded-pill bg-surface-muted" />
           </View>
 
           {/* Header */}
@@ -317,14 +346,17 @@ export function FiltersSheet({
             <Text className="flex-1 text-section-title font-medium text-text-primary">
               Filters
             </Text>
-            <Pressable
+            <AnimatedPressable
               accessibilityRole="button"
               accessibilityLabel="Close"
               onPress={onClose}
-              className="w-9 h-9 items-center justify-center rounded-pill active:opacity-70"
+              onPressIn={onCloseIn}
+              onPressOut={onCloseOut}
+              style={closeStyle}
+              className="w-9 h-9 items-center justify-center rounded-pill"
             >
-              <Ionicons name="close" size={20} color="#64748B" />
-            </Pressable>
+              <Ionicons name="close" size={20} color="#6B7268" />
+            </AnimatedPressable>
           </View>
 
           <ScrollView
@@ -409,48 +441,89 @@ export function FiltersSheet({
                     Show only Blue Tick Pro &amp; Student Tutors
                   </Text>
                 </View>
-                <View
-                  className={
-                    verifiedOnly
-                      ? "w-11 h-6 rounded-pill bg-verification justify-center"
-                      : "w-11 h-6 rounded-pill bg-border justify-center"
-                  }
-                >
-                  <View
-                    className="w-5 h-5 rounded-pill bg-surface"
-                    style={{
-                      marginLeft: verifiedOnly ? 22 : 2,
-                      shadowColor: "#000",
-                      shadowOpacity: 0.15,
-                      shadowRadius: 2,
-                      shadowOffset: { width: 0, height: 1 },
-                      elevation: 2,
-                    }}
-                  />
-                </View>
+                <FiltersVerifiedSwitch checked={verifiedOnly} />
               </Pressable>
             </Section>
           </ScrollView>
 
           {/* Footer */}
-          <View className="flex-row gap-3 px-5 pt-3 pb-6 border-t border-border-subtle">
-            <Pressable
-              onPress={reset}
-              className="flex-1 h-12 rounded-card bg-surface border border-border items-center justify-center active:opacity-80"
-            >
-              <Text className="text-button text-text-primary">Reset</Text>
-            </Pressable>
-            <Pressable
-              onPress={onClose}
-              className="flex-[2] h-12 rounded-card bg-amber items-center justify-center active:opacity-80"
-            >
-              <Text className="text-button text-text-inverse font-semibold">
-                Show {resultCount} result{resultCount === 1 ? "" : "s"}
-              </Text>
-            </Pressable>
+          <View className="flex-row gap-3 px-5 pt-3 pb-6 border-t border-border">
+            <View className="flex-1">
+              <SecondaryButton
+                label="Reset"
+                onPress={reset}
+                size="sm"
+              />
+            </View>
+            <View className="flex-[2]">
+              <PrimaryButton
+                label={`Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
+                onPress={onClose}
+                variant="accent"
+                size="md"
+                className="w-full"
+              />
+            </View>
           </View>
         </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+/**
+ * "Verified tutors only" switch in the filters sheet. Replaces the
+ * previous class-swap (`bg-verification` vs `bg-border` + `marginLeft`
+ * 22 vs 2) with a spring-sliding thumb and a smoothly interpolated
+ * track color (border grey → verification green).
+ *
+ * Track 44×24, thumb 20×20, travel 24px — the inner 2px padding on
+ * each side of the track stays implicit (the thumb starts at left-0
+ * with a 2px track margin from the original `marginLeft: 2`).
+ */
+function FiltersVerifiedSwitch({ checked }: { checked: boolean }) {
+  const TRACK_OFF = colors.border.strong ?? "#C8C0AE";
+  const TRACK_ON = colors.brand.verification;
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(checked ? 1 : 0, {
+      duration: motion.duration.medium,
+    });
+  }, [checked, progress]);
+
+  const trackStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [TRACK_OFF, TRACK_ON],
+      ),
+    };
+  });
+
+  return (
+    <View className="w-11 h-6 rounded-pill relative justify-center">
+      <RAnimated.View
+        style={[trackStyle, { position: "absolute", inset: 0, borderRadius: 999 }]}
+      />
+      <SwitchThumb
+        checked={checked}
+        trackWidth={44}
+        thumbSize={20}
+        thumbClassName="w-5 h-5 rounded-pill bg-surface"
+        style={{
+          marginLeft: 2,
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 2,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }}
+      />
+    </View>
   );
 }

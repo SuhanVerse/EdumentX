@@ -7,11 +7,14 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react-native";
-import { StatusBar } from "expo-status-bar";
+import {
+  ScreenLayout,
+  ScreenHeader,
+  ScreenScroll,
+} from "@/components/shared/ScreenLayout";
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 import { TutorBottomBar } from "@/components/TutorBottomBar";
 
 // TODO(firebase): replace with a Firestore `enrollmentRequests` query
@@ -102,24 +105,21 @@ export function EnrollmentInbox() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-surface" edges={["top"]}>
-      <StatusBar style="dark" />
+    <ScreenLayout variant="surface">
 
-      {/* Top app bar */}
-      <View className="px-4 pt-2 pb-4 border-b-[0.5px] border-border">
-        <Text className="text-screen-title font-medium text-text-primary">
-          Enrollment inbox
-        </Text>
+      {/* Top app bar — standard light ScreenHeader slot */}
+      <ScreenHeader variant="light">
+        <View className="self-start border-b-2 border-accent pb-0.5">
+          <Text className="text-display text-text-primary">
+            Enrollment inbox
+          </Text>
+        </View>
         <Text className="text-body text-verification mt-0.5">
           {PENDING_REQUESTS.length} pending requests
         </Text>
-      </View>
+      </ScreenHeader>
 
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerClassName="p-4 pb-9"
-        showsVerticalScrollIndicator={false}
-      >
+      <ScreenScroll className="flex-1 bg-background">
         <View className="flex-col gap-3.5">
           {PENDING_REQUESTS.map((req) => {
             const isCollapsed = collapsed[req.id];
@@ -138,10 +138,10 @@ export function EnrollmentInbox() {
             );
           })}
         </View>
-      </ScrollView>
+      </ScreenScroll>
 
       <TutorBottomBar inboxBadgeCount={PENDING_REQUESTS.length} />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
@@ -164,12 +164,12 @@ function RequestCard({
 }: RequestCardProps) {
   return (
     <View
-      className={`bg-surface rounded-card border p-4 ${
+      className={`bg-surface rounded-card border border-l-4 p-4 ${
         action === "accepted"
-          ? "border-verification"
+          ? "border-verification border-l-verification"
           : action === "declined"
-            ? "border-danger-bg"
-            : "border-border"
+            ? "border-danger-bg border-l-danger"
+            : "border-border border-l-accent"
       }`}
       style={{ opacity: action ? 0.85 : 1 }}
     >
@@ -180,7 +180,7 @@ function RequestCard({
         accessibilityRole="button"
         accessibilityLabel={`${collapsed ? "Expand" : "Collapse"} request from ${request.student.name}`}
       >
-        <AvatarCircle uri={request.student.avatar} />
+        <AvatarCircle uri={request.student.avatar} name={request.student.name} />
         <View className="flex-1">
           <View className="flex-row justify-between items-center">
             <Text className="text-card-title font-medium text-text-primary">
@@ -189,9 +189,9 @@ function RequestCard({
             <View className="flex-row items-center gap-1.5">
               {!action ? <PendingBadge /> : <StatusBadge action={action} />}
               {collapsed ? (
-                <ChevronDown size={16} color="#475569" />
+                <ChevronDown size={16} color="#6B7268" />
               ) : (
-                <ChevronUp size={16} color="#475569" />
+                <ChevronUp size={16} color="#6B7268" />
               )}
             </View>
           </View>
@@ -232,11 +232,30 @@ function RequestCard({
               `location` + `serviceRadiusM` once wired. */}
           <View className="mt-3 rounded-lg overflow-hidden border border-border">
             <View className="relative">
-              <Image
-                source={{ uri: request.mapPreviewUri }}
-                className="w-full h-36"
-                resizeMode="cover"
-              />
+              {/*
+                Same guard as AvatarCircle above. A missing/empty
+                mapPreviewUri is plausible for brand-new enrollment
+                requests where the geocoding step hasn't completed;
+                <Image source={{ uri: undefined }}> crashes the
+                inbox on Android. Render a tinted placeholder tile
+                with the location pin so the request still reads
+                correctly.
+              */}
+              {typeof request.mapPreviewUri === "string" &&
+              request.mapPreviewUri.length > 0 ? (
+                <Image
+                  source={{ uri: request.mapPreviewUri }}
+                  className="w-full h-36"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="w-full h-36 bg-sand items-center justify-center gap-1.5">
+                  <MapPin size={22} color="#E5A03B" />
+                  <Text className="text-caption text-text-secondary">
+                    Map preview unavailable
+                  </Text>
+                </View>
+              )}
               <View className="absolute top-2 left-2 bg-night/80 rounded-sm px-2 py-1">
                 <Text className="text-micro text-white font-medium">
                   {request.serviceAreaLabel}
@@ -258,7 +277,7 @@ function RequestCard({
           {/* Within-radius confirmation */}
           {request.withinServiceRadius && (
             <View className="flex-row items-center gap-2 mt-3 bg-verification-light rounded-md px-3 py-2.5">
-              <ShieldCheck size={15} color="#059669" />
+              <ShieldCheck size={15} color="#3F8A5A" />
               <Text className="flex-1 text-caption text-text-secondary">
                 Within your service radius — exact address shared after
                 acceptance.
@@ -286,7 +305,7 @@ function RequestCard({
                 accessibilityRole="button"
                 accessibilityLabel="Decline request"
               >
-                <X size={14} color="#DC2626" />
+                <X size={14} color="#C1503D" />
                 <Text className="text-button font-medium text-danger">
                   Decline
                 </Text>
@@ -297,7 +316,7 @@ function RequestCard({
                 accessibilityRole="button"
                 accessibilityLabel="Counter-offer"
               >
-                <RefreshCw size={13} color="#4F46E5" />
+                <RefreshCw size={13} color="#4A7FA5" />
                 <Text className="text-button font-medium text-ai">Counter</Text>
               </Pressable>
             </View>
@@ -343,7 +362,7 @@ function SubjectChip({ label }: SubjectChipProps) {
 
 function PendingBadge() {
   return (
-    <View className="px-2 py-0.5 rounded-pill bg-warning-bg">
+    <View className="px-2 py-0.5 rounded-sm bg-warning-bg">
       <Text className="text-micro font-semibold text-warning">Pending</Text>
     </View>
   );
@@ -362,7 +381,7 @@ function StatusBadge({ action }: StatusBadgeProps) {
       : { bg: "bg-danger-bg", text: "text-danger", label: "Declined" };
 
   return (
-    <View className={`px-2 py-0.5 rounded-pill ${palette.bg}`}>
+    <View className={`px-2 py-0.5 rounded-sm ${palette.bg}`}>
       <Text className={`text-micro font-semibold ${palette.text}`}>
         {palette.label}
       </Text>
@@ -370,16 +389,37 @@ function StatusBadge({ action }: StatusBadgeProps) {
   );
 }
 
-type AvatarCircleProps = { uri: string };
+type AvatarCircleProps = { uri?: string | null; name?: string };
 
 /**
- * Same fallback pattern as `TutorDashboard.tsx`'s AvatarCircle — but
- * this one renders the actual network image (the dashboard's version
- * intentionally stubs it out). Swap back to an icon tile if you want
- * parity while offline-testing.
+ * Renders a network avatar image when `uri` is a truthy non-empty
+ * string; otherwise falls back to the first letter of `name` on a
+ * tinted tile.
+ *
+ * The truthy guard is required, not stylistic: React Native's
+ * `<Image source={{ uri: "" }}>` and `<Image source={{ uri: undefined }}>`
+ * throw "Cannot read property 'indexOf' of undefined" on Android
+ * because the native image factory tries to introspect the URI
+ * string with `.indexOf(...)` and bails when the value is not a
+ * non-empty string. The mock data in this file always sets `avatar`
+ * to a real URL, but real Firestore data (or a partially-saved
+ * profile) can leave it missing — and a single missing avatar would
+ * crash the whole inbox screen.
  */
-function AvatarCircle({ uri }: AvatarCircleProps) {
+function AvatarCircle({ uri, name }: AvatarCircleProps) {
+  const hasImage = typeof uri === "string" && uri.length > 0;
+  const initial = (name?.charAt(0) ?? "?").toUpperCase();
+  if (!hasImage) {
+    return (
+      <View className="w-10 h-10 rounded-full bg-surface-muted items-center justify-center">
+        <Text className="text-card-title font-medium text-text-muted">{initial}</Text>
+      </View>
+    );
+  }
   return (
-    <Image source={{ uri }} className="w-10 h-10 rounded-full bg-amber-light" />
+    <Image
+      source={{ uri: uri as string }}
+      className="w-10 h-10 rounded-full bg-surface-muted"
+    />
   );
 }

@@ -22,11 +22,13 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated'
 
-import { PrimaryButton } from '@/src/components/form/PrimaryButton'
+import { PrimaryButton } from '@/src/components/shared/PrimaryButton'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
-import { useAuth } from '@/src/store/authStore'
+// NOTE: supabase is obtained via useClerkSupabase() hook below
+import { useAuthStore } from '@/src/store/authStore'
+import { useUser } from '@clerk/expo'
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
 import { completeOnboarding } from '@/src/services/onboarding.service'
-import { supabase } from '@/src/lib/supabase'
 import { tokens } from '@/src/theme/tokens'
 import type { UserRole } from '@/src/types/onboarding.types'
 
@@ -138,8 +140,10 @@ const TagPill: React.FC<{ label: string }> = ({ label }) => (
 
 export default function ConfirmationScreen() {
   const router = useRouter()
-  const { roles, profile, kyc, reset, setSubmitting, setSubmitError } = useOnboardingStore()
-  const { user, setProfile } = useAuth()
+  const { roles, profile, kyc, reset, setSubmitting, setSubmitError, onboardingComplete } = useOnboardingStore()
+  const { user } = useUser()
+  const supabase = useClerkSupabase()
+  const { setProfile } = useAuthStore()
 
   const role: UserRole = roles[0] || 'tenant'
   const isLandlord = role === 'landlord'
@@ -163,20 +167,38 @@ export default function ConfirmationScreen() {
       return
     }
 
+    const target = isLandlord ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
+
+    // ── If KYC was already submitted on the KYC screen, just navigate ──
+    if (onboardingComplete) {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('clerk_id', user.id)
+        .single()
+
+      if (existingProfile) {
+        setProfile(existingProfile as any)
+      }
+
+      reset()
+      router.replace(target as any)
+      return
+    }
+
+    // ── Tenant skipped KYC — complete onboarding now (profile only) ──
     setSubmitting(true)
 
     const result = await completeOnboarding({
-      userId: user.id,
+      clerkId: user.id,
+      phone: user.phoneNumbers?.[0]?.phoneNumber ?? '',
       roles,
       fullName: profile.fullName,
       city: profile.city,
       avatarLocalUri: profile.avatarUri,
       preferences: profile.preferences as any,
-      kyc: kyc.frontImageUri && kyc.backImageUri ? {
-        documentType: kyc.documentType ?? 'CITIZENSHIP',
-        frontLocalUri: kyc.frontImageUri,
-        backLocalUri: kyc.backImageUri,
-      } : null,
+      supabase,
+      kyc: null,
     })
 
     setSubmitting(false)
@@ -184,7 +206,7 @@ export default function ConfirmationScreen() {
     // Debug: check DB state after onboarding (dev only)
     if (__DEV__) {
       const { debugOnboardingState } = await import('@/src/utils/debug')
-      await debugOnboardingState(user.id)
+      await debugOnboardingState(user.id, supabase)
     }
 
     if (!result.success) {
@@ -192,21 +214,20 @@ export default function ConfirmationScreen() {
       Alert.alert('Setup Failed', result.error, [
         { text: 'Try Again', onPress: handleGoToApp },
         { text: 'Continue Anyway', onPress: async () => {
-          // Fallback: call RPC directly even if avatar/KYC uploads failed
+          // Fallback: call RPC directly even if avatar upload failed
           if (user) {
-            const hasLandlordRole = roles.includes('landlord')
             await supabase.rpc('complete_onboarding', {
-              p_user_id: user.id,
+              p_clerk_id: user.id,
               p_full_name: profile.fullName,
               p_city: profile.city,
               p_roles: roles,
               p_property_types: profile.preferences,
-              p_has_landlord_role: hasLandlordRole,
+              p_has_landlord_role: roles.includes('landlord'),
+              p_phone: user.phoneNumbers?.[0]?.phoneNumber ?? '',
               p_kyc_submission_id: undefined,
             })
           }
           reset()
-          const target = isLandlord ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
           router.replace(target as any)
         }},
       ])
@@ -217,17 +238,16 @@ export default function ConfirmationScreen() {
     const { data: updatedProfile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('clerk_id', user.id)
       .single()
 
     if (updatedProfile) {
-      setProfile(updatedProfile)
+      setProfile(updatedProfile as any)
     }
 
     reset()
-    const target = isLandlord ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
     router.replace(target as any)
-  }, [user, roles, profile, kyc, isLandlord, router, reset, setSubmitting, setSubmitError, setProfile])
+  }, [user, roles, profile, kyc, isLandlord, onboardingComplete, router, reset, setSubmitting, setSubmitError, setProfile])
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>

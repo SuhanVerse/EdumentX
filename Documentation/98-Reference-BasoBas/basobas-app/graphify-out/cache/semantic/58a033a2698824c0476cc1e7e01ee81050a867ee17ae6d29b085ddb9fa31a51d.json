@@ -1,1 +1,17 @@
-{"nodes": [{"id": "tenant_notifications_notificationsscreen", "label": "NotificationsScreen", "file_type": "code", "source_file": "app/(tenant)/notifications.tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tenant_notifications_notificationsscreen",
+      "label": "NotificationsScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/notifications.tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [],
+  "hyperedges": []
+}

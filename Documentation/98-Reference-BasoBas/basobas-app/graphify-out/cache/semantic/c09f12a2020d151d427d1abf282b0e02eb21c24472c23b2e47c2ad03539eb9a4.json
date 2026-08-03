@@ -1,1 +1,57 @@
-{"nodes": [{"id": "atoms_avatar_avatar", "label": "Avatar atom component", "file_type": "code", "source_file": "src/components/atoms/Avatar.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "concept_atomic_design_layers", "label": "Atomic design: atoms, molecules, organisms", "file_type": "rationale", "source_file": "src/components/atoms/Avatar.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "concept_atomic_design_layers", "target": "atoms_avatar_avatar", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "src/components/atoms/Avatar.tsx", "source_location": null, "weight": 1.0}], "hyperedges": [{"id": "design_system_atomic_design", "label": "Atomic design system layers", "nodes": ["concept_atomic_design_layers", "atoms_avatar_avatar", "atoms_sectionlabel_sectionlabel", "atoms_statuspill_statuspill", "atoms_toggle_toggle", "molecules_menucard_menucard", "organisms_floatingdock_floatingdock"], "relation": "form", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/components/atoms/Avatar.tsx"}]}
+{
+  "nodes": [
+    {
+      "id": "atoms_avatar_avatar",
+      "label": "Avatar atom component",
+      "file_type": "code",
+      "source_file": "src/components/atoms/Avatar.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "concept_atomic_design_layers",
+      "label": "Atomic design: atoms, molecules, organisms",
+      "file_type": "rationale",
+      "source_file": "src/components/atoms/Avatar.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "concept_atomic_design_layers",
+      "target": "atoms_avatar_avatar",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "src/components/atoms/Avatar.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "design_system_atomic_design",
+      "label": "Atomic design system layers",
+      "nodes": [
+        "concept_atomic_design_layers",
+        "atoms_avatar_avatar",
+        "atoms_sectionlabel_sectionlabel",
+        "atoms_statuspill_statuspill",
+        "atoms_toggle_toggle",
+        "molecules_menucard_menucard",
+        "organisms_floatingdock_floatingdock"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/components/atoms/Avatar.tsx"
+    }
+  ]
+}

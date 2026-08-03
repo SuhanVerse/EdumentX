@@ -1,3 +1,5 @@
+import { EmailSignUp } from "@/screens/auth/EmailSignUp";
+
 /**
  * /email-signup — Email + password (free) authentication.
  *
@@ -11,6 +13,6 @@
  *
  * Google Sign-In users are auto-verified by Google, so they bypass this route entirely.
  */
-import { EmailSignUp } from "@/screens/auth/EmailSignUp";
-
-export default EmailSignUp;
+export default function EmailSignUpRoute() {
+  return <EmailSignUp />;
+}

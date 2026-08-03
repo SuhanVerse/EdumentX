@@ -7,7 +7,7 @@ export default function SavedScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <ScreenHeader title="Saved Properties" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 120 }}>
-        <Text className="font-sans text-body text-ink2 text-center mt-20">
+        <Text className="mt-20 text-center font-sans text-body text-ink2">
           No saved properties yet. Tap the heart icon on any property to save it.
         </Text>
       </ScrollView>

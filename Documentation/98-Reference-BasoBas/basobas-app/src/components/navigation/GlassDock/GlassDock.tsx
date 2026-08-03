@@ -47,25 +47,19 @@ export const GlassDock = ({ items, activeTab, onTabPress }: GlassDockProps) => {
       */}
       <View className="h-dock-h w-dock-w rounded-pill" style={styles.shadow}>
         {/* Pill clip — overflow:hidden shapes every absolutely-filled child */}
-        <View className="absolute inset-0 overflow-hidden rounded-pill">
-          {/* Blur — purely visual, no children (see note above) */}
-          <BlurView intensity={55} tint="light" style={StyleSheet.absoluteFillObject} />
+        <View className="absolute inset-0 overflow-hidden rounded-pill border border-white/[0.15]">
+          {/* Blur — frosted-glass effect */}
+          <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFillObject} />
 
-          {/* Silver tint: nudges the white blur toward the gray seen in screenshots */}
-          <View className="absolute inset-0 bg-black/[0.07]" pointerEvents="none" />
-
-          {/* Rim: hairline white border recreates the iOS glass-edge highlight */}
+          {/* Background color from Figma: rgba(100, 100, 100, 0.35) */}
           <View
-            className="absolute inset-0 rounded-pill border border-white/60"
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(100, 100, 100, 0.35)' }}
             pointerEvents="none"
           />
 
-          {/*
-            Tab row — absolute inset-0 gives it an explicit 312 × 64 bounding box
-            so flex-1 children always divide the full width correctly.
-            px-3 = 12 px padding each side → (312 - 24) / 4 = 72 px per cell.
-          */}
-          <View className="absolute inset-0 flex-row items-center px-3">
+          {/* Tab row */}
+          <View className="absolute inset-0 flex-row items-center px-1">
             {items.map((item) => (
               <DockTab
                 key={item.key}
@@ -87,8 +81,8 @@ GlassDock.displayName = 'GlassDock';
 const styles = StyleSheet.create({
   shadow: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 14,
   },

@@ -29,11 +29,7 @@ export const ListingComposer = ({
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      <ScreenHeader
-        title="New Listing"
-        showBack
-        centerTitle
-      />
+      <ScreenHeader title="New Listing" showBack centerTitle />
 
       {/* Progress Bar */}
       <View className="h-1 w-full bg-line">
@@ -41,24 +37,21 @@ export const ListingComposer = ({
       </View>
 
       {/* Step label */}
-      <View className="px-6 pt-5 pb-1">
-        <Text className="font-semibold text-h2 text-ink mb-1">{title}</Text>
+      <View className="px-6 pb-1 pt-5">
+        <Text className="mb-1 font-semibold text-h2 text-ink">{title}</Text>
         <Text className="font-sans text-body text-ink2">{subtitle}</Text>
       </View>
 
-      <View className="flex-1 px-6">
-        {children}
-      </View>
+      <View className="flex-1 px-6">{children}</View>
 
       {/* Sticky bottom CTA */}
-      <View className="px-6 pb-6 pt-3 border-t border-line bg-bg">
+      <View className="border-t border-line bg-bg px-6 pb-6 pt-3">
         <Pressable
           onPress={onContinue}
           disabled={disableContinue}
           className={`h-[56px] items-center justify-center rounded-pill ${
             disableContinue ? 'bg-line' : 'bg-brand'
-          }`}
-        >
+          }`}>
           <Text className="font-semibold text-body text-white">{continueLabel}</Text>
         </Pressable>
       </View>

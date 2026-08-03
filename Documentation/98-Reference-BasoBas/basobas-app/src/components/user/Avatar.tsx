@@ -20,21 +20,16 @@ export const Avatar = ({
 }: Props) => (
   <View className={`items-center ${className}`}>
     <View
-      className="rounded-pill bg-canvas items-center justify-center relative"
-      style={{ width: size, height: size }}
-    >
-      <Text
-        className="font-sans text-ink3"
-        style={{ fontSize: size * 0.35 }}
-      >
+      className="relative items-center justify-center rounded-pill bg-canvas"
+      style={{ width: size, height: size }}>
+      <Text className="font-sans text-ink3" style={{ fontSize: size * 0.35 }}>
         {initials}
       </Text>
 
       {showEditBadge && (
         <Pressable
           onPress={onEditPress}
-          className="absolute -bottom-0.5 -right-0.5 h-7 w-7 rounded-pill bg-brand items-center justify-center border-2 border-bg"
-        >
+          className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-pill border-2 border-bg bg-brand">
           <Pencil size={12} color="#FFFFFF" />
         </Pressable>
       )}

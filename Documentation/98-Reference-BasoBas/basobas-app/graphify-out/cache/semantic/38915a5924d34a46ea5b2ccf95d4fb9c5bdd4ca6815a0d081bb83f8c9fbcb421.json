@@ -1,1 +1,96 @@
-{"nodes": [{"id": "molecules_propertycard_propertycard", "label": "PropertyCard molecule (compact-h/grid/wide variants)", "file_type": "code", "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "molecules_propertycard_status_overlay", "label": "Property status overlay (active/paused/draft)", "file_type": "concept", "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}, {"id": "concept_property_listing", "label": "Property listing concept group (Card/Hero/MapPin/Composer)", "file_type": "concept", "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "molecules_propertycard_propertycard", "target": "molecules_propertycard_status_overlay", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "weight": 1.0}, {"source": "molecules_propertycard_propertycard", "target": "organisms_propertyhero_propertyhero", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "weight": 1.0}, {"source": "concept_property_listing", "target": "molecules_propertycard_propertycard", "relation": "rationale_for", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "weight": 1.0}, {"source": "molecules_propertycard_propertycard", "target": "atoms_statuspill_statuspill", "relation": "semantically_similar_to", "confidence": "INFERRED", "confidence_score": 0.75, "source_file": "src/components/molecules/PropertyCard.tsx", "source_location": null, "weight": 1.0}], "hyperedges": [{"id": "property_listing_concept_group", "label": "Property listing concept group", "nodes": ["concept_property_listing", "molecules_propertycard_propertycard", "organisms_propertyhero_propertyhero", "organisms_propertymappin_propertymappin", "organisms_listingcomposer_listingcomposer"], "relation": "participate_in", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "src/components/molecules/PropertyCard.tsx"}]}
+{
+  "nodes": [
+    {
+      "id": "molecules_propertycard_propertycard",
+      "label": "PropertyCard molecule (compact-h/grid/wide variants)",
+      "file_type": "code",
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "molecules_propertycard_status_overlay",
+      "label": "Property status overlay (active/paused/draft)",
+      "file_type": "concept",
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "concept_property_listing",
+      "label": "Property listing concept group (Card/Hero/MapPin/Composer)",
+      "file_type": "concept",
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "molecules_propertycard_propertycard",
+      "target": "molecules_propertycard_status_overlay",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "molecules_propertycard_propertycard",
+      "target": "organisms_propertyhero_propertyhero",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "concept_property_listing",
+      "target": "molecules_propertycard_propertycard",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "molecules_propertycard_propertycard",
+      "target": "atoms_statuspill_statuspill",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "src/components/molecules/PropertyCard.tsx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "property_listing_concept_group",
+      "label": "Property listing concept group",
+      "nodes": [
+        "concept_property_listing",
+        "molecules_propertycard_propertycard",
+        "organisms_propertyhero_propertyhero",
+        "organisms_propertymappin_propertymappin",
+        "organisms_listingcomposer_listingcomposer"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "src/components/molecules/PropertyCard.tsx"
+    }
+  ]
+}

@@ -1,1 +1,28 @@
-{"nodes": [{"id": "tenant_listproperty_listpropertyscreen", "label": "ListPropertyScreen", "file_type": "code", "source_file": "app/(tenant)/list-property.tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_listproperty_listpropertyscreen", "target": "tenant_kycupload_kycuploadscreen", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.75, "source_file": "app/(tenant)/list-property.tsx", "source_location": "landlord onboarding flow", "weight": 0.6}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tenant_listproperty_listpropertyscreen",
+      "label": "ListPropertyScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/list-property.tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_listproperty_listpropertyscreen",
+      "target": "tenant_kycupload_kycuploadscreen",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "app/(tenant)/list-property.tsx",
+      "source_location": "landlord onboarding flow",
+      "weight": 0.6
+    }
+  ],
+  "hyperedges": []
+}

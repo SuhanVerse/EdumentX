@@ -133,8 +133,18 @@ export async function uploadAvatar(
   });
 
   if (error) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[uploadAvatar] full error", error);
+    }
+    const hint =
+      error.message === "Bucket not found"
+        ? " — create the bucket in Supabase Storage (name: " +
+          BUCKET.AVATARS +
+          ") before retrying"
+        : "";
     throw new Error(
-      `[uploadAvatar] ${error.message} (bucket=${BUCKET.AVATARS}, path=${path})`,
+      `[uploadAvatar] ${error.message}${hint} (bucket=${BUCKET.AVATARS}, path=${path})`,
     );
   }
 
@@ -183,10 +193,75 @@ export async function uploadVerificationDoc(
     });
 
   if (error) {
+    // The Storage SDK surfaces two failure shapes:
+    //   - `StorageApiError`     — HTTP responded but with 4xx/5xx
+    //                              (e.g. "Bucket not found", RLS denied).
+    //                              Carries `status` and `statusCode`.
+    //   - `StorageUnknownError` — transport-level failure
+    //                              (DNS, TLS, paused Supabase project,
+    //                              captive portal). Message is usually
+    //                              "Network request failed", no status.
+    //
+    // Both come back through the same `{ error }` field. We log the
+    // full error in `__DEV__` so the device console has the
+    // `originalError` / status, and we include the bucket + path in
+    // the thrown message so the user can copy-paste into an issue
+    // tracker. For the most common failure (bucket missing) we
+    // also surface a one-liner in the thrown message that points
+    // the user at the Supabase dashboard — saves the next 20
+    // minutes of debugging.
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[uploadVerificationDoc] full error", error);
+    }
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? (error as { status?: number }).status
+        : undefined;
+    const hint =
+      error.message === "Bucket not found"
+        ? " — create the bucket in Supabase Storage (name: " +
+          BUCKET.VERIFICATION_DOCS +
+          ") before retrying"
+        : status === 401 || status === 403
+          ? " — the Supabase anon key does not have permission; check RLS policies in SQL Editor"
+          : "";
     throw new Error(
-      `[uploadVerificationDoc] ${error.message} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,
+      `[uploadVerificationDoc] ${error.message}${hint} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,
     );
   }
 
   return { path };
+}
+
+/**
+ * Public read URL for a verification doc inside the
+ * `private-verification-docs` bucket.
+ *
+ * Why we expose a *public* URL on a *private*-named bucket: the
+ * EdumentX project is on the Supabase free tier (no card, no
+ * Cloud Functions). The only way for the admin client to render
+ * a tutor's citizenship scan / certificate is to make the file
+ * readable without a signed URL. Writes remain owner-only — a
+ * tutor can only upload to their own `{uid}/...` path because
+ * `uploadVerificationDoc` is called with the signed-in user's
+ * uid as the first segment. Reads are public so the admin queue
+ * can render an `<Image>` preview and the admin can tap to
+ * open the file in the system browser.
+ *
+ * If we ever add a Cloud Function on a paid plan, this helper
+ * becomes `getSignedUrl` (server-minted, time-limited) and the
+ * bucket is flipped back to private-read. Until then this is
+ * the cheapest path that keeps the admin flow working on the
+ * free tier.
+ *
+ * @param path Storage object path, e.g. `{uid}/id.jpg`.
+ */
+export function getVerificationDocPublicUrl(path: string): string {
+  if (!path) throw new Error("[getVerificationDocPublicUrl] path is required");
+  const supabase = getSupabase();
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET.VERIFICATION_DOCS).getPublicUrl(path);
+  return publicUrl;
 }

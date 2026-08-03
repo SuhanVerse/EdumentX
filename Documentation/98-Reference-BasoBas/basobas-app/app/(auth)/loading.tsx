@@ -3,12 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useAuth, useUser } from '@clerk/expo';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
+import { useAuthStore } from '@/src/store/authStore'
+import { getProfile } from '@/src/services/profile.service'
 
 const PROGRESS_WIDTH = 160;
 const LOAD_DURATION = 2200;
@@ -16,6 +20,10 @@ const NAV_DELAY = 2450;
 
 export default function LoadingScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth()
+  const { user } = useUser()
+  const supabase = useClerkSupabase()
+  const { setProfile } = useAuthStore()
 
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.88);
@@ -30,10 +38,29 @@ export default function LoadingScreen() {
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
 
-    const t = setTimeout(() => router.replace('/(auth)/onboarding'), NAV_DELAY);
+    const t = setTimeout(async () => {
+      // ── Check if the user is already signed in with a valid Clerk session ──
+      if (isLoaded && isSignedIn && user) {
+        console.log('[Loading] User already signed in — checking onboarding status')
+        const profileResult = await getProfile(user.id, supabase)
+        if (profileResult.success && profileResult.data.onboarding_complete) {
+          setProfile(profileResult.data as any)
+          const role = profileResult.data.active_role ?? 'tenant'
+          const target = role === 'landlord' ? '/(landlord)/(tabs)' : '/(tenant)/(tabs)'
+          console.log('[Loading] Onboarding complete — routing to home:', target)
+          router.replace(target as any)
+          return
+        }
+        console.log('[Loading] Signed in but onboarding not complete — routing to onboarding')
+        router.replace('/(auth)/phone')
+        return
+      }
+      // ── Not signed in — show onboarding slides ──
+      router.replace('/(auth)/onboarding')
+    }, NAV_DELAY);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLoaded, isSignedIn]);
 
   const enterStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

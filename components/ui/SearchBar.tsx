@@ -9,7 +9,7 @@
  *
  * Tokens (no hardcoded hex):
  *   - height via `h-input` (48)
- *   - radius via `rounded-md` (10)
+ *   - radius via `rounded-card` (14)
  *   - fill via `bg-surface`
  *   - border via `border-border`
  */
@@ -46,7 +46,7 @@ export function SearchBar({
 }: SearchBarProps) {
   return (
     <View
-      className={`h-input flex-row items-center rounded-md bg-surface border border-border px-3 ${className}`}
+      className={`h-input flex-row items-center rounded-card bg-surface border border-border px-3 ${className}`}
     >
       <Ionicons color={colors.text.muted} name="search-outline" size={18} />
       <TextInput

@@ -10,11 +10,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
+    }
+
     // The root user doc — created by `RoleSelection` and read by
     // `app/_layout.tsx` to decide which dashboard to show.
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) && request.resource.data.uid == userId;
       allow delete: if false;
 
@@ -24,9 +31,144 @@ service cloud.firestore {
       // any field — the form-level validation is the source of truth
       // for shape, and the security rules just enforce "you can only
       // touch your own profile."
-      match /{subcollection}/{document=**} {
-        allow read, write: if isOwner(userId);
+      //
+      // Admins get read+write access too so the admin queue can
+      // mirror verification status flags (verificationStatus,
+      // isVerifiedProfessional, hasPendingUpdate, rejectionReason)
+      // onto the profile doc atomically with the source-of-truth
+      // tutorVerifications/{uid}.status change. The admin can NOT
+      // edit the personal fields (fullName, headline, bio, etc.)
+      // because they don't carry those keys in the batch update.
+      //
+      // Student-facing `tutorProfile/default` is readable by ALL
+      // signed-in users so the TutorDetailsScreen can render the
+      // full profile (including documents for the demo video).
+      // The more-specific rule below overrides the wildcard for
+      // this specific subcollection path.
+      match /tutorProfile/default {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId) || isAdmin();
       }
+
+      match /{subcollection}/{document=**} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Denormalized tutor directory — the student-facing discovery
+    // surface (StudentHome, MapSearch) reads this collection via
+    // `lib/verification/discovery.ts`. Each doc mirrors the
+    // corresponding `users/{uid}/tutorProfile/default` subcollection
+    // doc and is written atomically when the admin approves a tutor
+    // (see `applyVerificationDecision`).
+    //
+    // Read is public (no auth required) so the home screen and detail
+    // page always work even if the Firebase Auth token hasn't fully
+    // propagated to the Firestore SDK. This is safe because:
+    //   1. The data in this collection is intentionally public-facing
+    //      (name, subjects, rate, location — no PII)
+    //   2. Only the admin queue writes to this collection
+    //   3. The richer user profile subcollection (`users/{uid}/tutorProfile/default`)
+    //      remains protected by `isSignedIn()`
+    match /tutors/{uid} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Admins collection — bootstrap is locked to the Firebase Admin SDK
+    // (see scripts/seedAdmin.ts) or the Firebase Console. Clients can
+    // *read their own* admin doc so the auth guard can detect admin
+    // status on sign-in. Writes are server-only — there's no client
+    // path that creates an admin document, which prevents
+    // self-promotion.
+    match /admins/{adminId} {
+      allow read: if isOwner(adminId);
+      allow write: if false;
+    }
+
+    // Tutor verification queue. Tutors write a pending doc when they
+    // submit their profile for review; admins update the status when
+    // they decide. Status transitions are gated to admins so a tutor
+    // can't approve their own application.
+    //
+    // The `update` rule is intentionally permissive on `adminNotes` /
+    // `reviewedBy` / `reviewedAt` because the admin often appends a
+    // follow-up reason or corrects a prior decision. Status itself
+    // is still gated to admins (no client-side toggle), and the
+    // status change must be one of the four legal values.
+    match /tutorVerifications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.status == "pending";
+      // Owner can update their own doc ONLY when transitioning from
+      // "rejected" or "more_info" back to "pending" (resubmission).
+      // This is secure because:
+      //   - The owner cannot self-approve (can only set status to "pending")
+      //   - The owner cannot update a doc that's "pending" or "approved"
+      //   - The owner cannot change the status to anything other than "pending"
+      // Admins can always update to any valid status.
+      allow update: if (isOwner(uid)
+                      && resource.data.status in ["rejected", "more_info"]
+                      && request.resource.data.status == "pending")
+                    || (isAdmin() && request.resource.data.status in
+                      ["pending", "approved", "rejected", "more_info"]);
+      allow delete: if false;
+    }
+
+    // Pending edit queue — when a verified tutor edits their profile
+    // (full name, rate, location, etc.) the changes go here for admin
+    // review instead of writing straight to `tutorProfile`. While a
+    // doc is `pending`, the tutor's `hasPendingUpdate` flag is set
+    // and student search/map queries filter the tutor out entirely.
+    //
+    // Why `allow update` also permits the owner when status is
+    // "pending": a tutor who has previously submitted an edit and had
+    // it reviewed (approved or rejected) may open the edit screen
+    // again for a new submission. Their old `tutorProfileUpdates/{uid}`
+    // doc still exists (with status "approved" or "rejected"), and
+    // `batch.set(..., { merge: true })` on an existing doc is treated
+    // as an `update` in the security rules. Without owner-update
+    // permission for the "pending" status, the tutor gets
+    // `permission-denied` on every re-submission.
+    //
+    // Security is preserved:
+    //   - A tutor can only write their own doc with status "pending"
+    //   - A tutor cannot change the status of an existing doc
+    //     (create requires "pending", update with different status
+    //     requires admin)
+    //   - Admins can change status to approve/reject
+    match /tutorProfileUpdates/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.status == "pending";
+      allow update: if (isOwner(uid) && request.resource.data.status == "pending")
+                    || isAdmin();
+      allow delete: if false;
+    }
+
+    // Notifications — one document per notification, addressed to a
+    // user. The notification center reads them via `onSnapshot`.
+    //
+    // Two writers:
+    //   - Admins can `create` (e.g. when a verification decision is
+    //     made, the admin's batch handler writes a doc here so the
+    //     tutor sees it in their inbox).
+    //   - The owning user can `update` only the `read` flag (a
+    //     client-side tap on a notification). Everything else is
+    //     server-only — no client can mutate the title / body /
+    //     timestamp of a notification it didn't author.
+    match /notifications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.recipientUid == uid;
+      allow update: if isOwner(uid) &&
+        // The only mutable field on a notification is `read`.
+        // The diff check below is the closest Firestore gets to
+        // "this update only touched the read flag" — every other
+        // field must round-trip to its current value.
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["read", "readAt"]);
+      allow delete: if false;
     }
 
     // Everything else stays locked down. The app's MVP only touches

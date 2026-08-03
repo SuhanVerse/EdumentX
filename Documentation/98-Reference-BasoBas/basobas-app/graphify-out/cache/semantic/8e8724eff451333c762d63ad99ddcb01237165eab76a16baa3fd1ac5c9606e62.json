@@ -1,1 +1,28 @@
-{"nodes": [{"id": "tenant_saved_savedscreen", "label": "SavedScreen", "file_type": "code", "source_file": "app/(tenant)/saved.tsx", "source_location": "default export", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [{"source": "tenant_saved_savedscreen", "target": "tenant_property_propertydetailscreen", "relation": "conceptually_related_to", "confidence": "INFERRED", "confidence_score": 0.85, "source_file": "app/(tenant)/saved.tsx", "source_location": "heart-icon save pattern referenced", "weight": 0.7}], "hyperedges": []}
+{
+  "nodes": [
+    {
+      "id": "tenant_saved_savedscreen",
+      "label": "SavedScreen",
+      "file_type": "code",
+      "source_file": "app/(tenant)/saved.tsx",
+      "source_location": "default export",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "tenant_saved_savedscreen",
+      "target": "tenant_property_propertydetailscreen",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "app/(tenant)/saved.tsx",
+      "source_location": "heart-icon save pattern referenced",
+      "weight": 0.7
+    }
+  ],
+  "hyperedges": []
+}

@@ -70,3 +70,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+#private_key_json
+private_key_firebase.json

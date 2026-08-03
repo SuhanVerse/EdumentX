@@ -10,8 +10,8 @@ export default function PublicLandlordProfileScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <ScreenHeader title="Landlord Profile" showBack centerTitle />
       <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
-        <View className="items-center mb-5">
-          <View className="h-[80px] w-[80px] rounded-pill bg-canvas items-center justify-center mb-3">
+        <View className="mb-5 items-center">
+          <View className="mb-3 h-[80px] w-[80px] items-center justify-center rounded-pill bg-canvas">
             <Text className="font-sans text-h1 text-ink3">L</Text>
           </View>
           <Text className="font-semibold text-h3 text-ink">Ram Sharma</Text>
@@ -21,8 +21,12 @@ export default function PublicLandlordProfileScreen() {
           </View>
         </View>
 
-        <View className="flex-row justify-around rounded-card bg-canvas p-4 mb-5">
-          {[['5', 'Properties'], ['4.8', 'Rating'], ['32', 'Reviews']].map(([val, label]) => (
+        <View className="mb-5 flex-row justify-around rounded-card bg-canvas p-4">
+          {[
+            ['5', 'Properties'],
+            ['4.8', 'Rating'],
+            ['32', 'Reviews'],
+          ].map(([val, label]) => (
             <View key={label} className="items-center">
               <Text className="font-bold text-body text-ink">{val}</Text>
               <Text className="font-sans text-caption text-ink2">{label}</Text>
@@ -30,8 +34,8 @@ export default function PublicLandlordProfileScreen() {
           ))}
         </View>
 
-        <Text className="font-semibold text-h3 text-ink mb-3">Active Listings</Text>
-        <View className="h-[120px] rounded-card bg-canvas items-center justify-center mb-5">
+        <Text className="mb-3 font-semibold text-h3 text-ink">Active Listings</Text>
+        <View className="mb-5 h-[120px] items-center justify-center rounded-card bg-canvas">
           <Text className="font-sans text-body-sm text-ink3">Listings carousel placeholder</Text>
         </View>
       </ScrollView>

@@ -1,0 +1,595 @@
+\documentclass[12pt]{report}
+\usepackage{xcolor}
+\usepackage{iftex}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[a4paper,left=1.5in,right=1.0in,top=1in,bottom=1in]{geometry}
+\usepackage{float}
+\linespread{1.5}
+\usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage[nottoc,notbib]{tocbibind}
+\usepackage{pgfgantt}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,shapes,positioning,fit,backgrounds,calc}
+\definecolor{emerald}{HTML}{10B981}
+\definecolor{amber}{HTML}{F59E0B}
+\definecolor{rose}{HTML}{F43F5E}
+\definecolor{slate}{HTML}{64748B}
+
+\ifPDFTeX
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\else
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\fi
+
+\titlespacing*{\chapter}{-15pt}{0pt}{15pt}
+\titlespacing*{\section}{0pt}{0pt}{5pt}
+\titlespacing*{\subsection}{0pt}{5pt}{5pt}
+\titleformat{\chapter}[hang]
+{\normalfont\Large\bfseries\MakeUppercase}
+{\chaptertitlename\ \thechapter.}{1em}{}
+\renewcommand{\chaptername}{}
+\graphicspath{{Images/}}
+\Urlmuskip=0mu plus 1mu\relax
+\emergencystretch=3em
+
+\makeatletter
+\newcommand{\addtocentrywithoutpage}[3]{%
+  \addtocontents{#1}{\protect\contentsline{#2}{#3}{}{\@currentHref}}%
+}
+\makeatother
+
+\newcommand{\safeincludegraphics}[2][]{%
+  \IfFileExists{#2}{%
+    \includegraphics[#1]{#2}%
+  }{%
+    \fbox{%
+      \parbox[c][2in][c]{0.9\linewidth}{%
+        \centering Missing image:\\\texttt{#2}%
+      }%
+    }%
+  }%
+}
+
+\begin{document}
+\pagenumbering{roman}
+\hypersetup{pageanchor=false}
+\input{titlepage}
+\tableofcontents
+\listoffigures
+\listoftables
+\noindent\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+
+\begin{tabular}{l l}
+AI & Artificial Intelligence \\
+API & Application Programming Interface \\
+CSRF & Cross-Site Request Forgery \\
+GPS & Global Positioning System \\
+HTTP & Hypertext Transfer Protocol \\
+HTTPS & Hypertext Transfer Protocol Secure \\
+JSON & JavaScript Object Notation \\
+KNN & K-Nearest Neighbors \\
+LBS & Location-Based Services \\
+ML & Machine Learning \\
+NLP & Natural Language Processing \\
+RAG & Retrieval-Augmented Generation \\
+REST & Representational State Transfer \\
+SDLC & Software Development Life Cycle \\
+UI & User Interface \\
+UX & User Experience \\
+XSS & Cross-Site Scripting \\
+\end{tabular}
+
+\chapter{Introduction}
+\pagenumbering{arabic}
+
+\section{Background}
+
+Education is one of the most important foundations for personal growth and social progress. Around the world, families invest heavily in their children's education, recognizing that formal schooling alone may not always be enough. When students struggle with certain subjects or need extra preparation for exams, many families turn to private tutoring as a way to fill the gaps. This practice of hiring tutors outside of regular school hours has become extremely common, as parents look for additional academic support to help their children perform better.
+
+\noindent Private tutoring, commonly referred to as shadow education, has become a widespread practice as formal schooling systems often fail to meet the diverse learning needs of students \citep{bray2007}. This form of supplementary education has grown particularly fast in developing countries, where public school resources are limited and teacher-student ratios remain inadequate \citep{bray2012}. Research on shadow education as a global phenomenon confirms that it has expanded across all continents and income levels, becoming a parallel curriculum that operates alongside formal schooling \citep{kim2019}.
+
+\noindent Nepal's education system has made notable progress over the past decade. According to the National Population and Housing Census 2021, the overall literacy rate reached 76.3 percent among the population aged five years and above, up from 65.9 percent in 2011. The country has also experienced rapid urbanization during this period, with the urban population share jumping from 17.07 percent in 2011 to 66.17 percent in 2021 \citep{cbs2023}. Despite these improvements, challenges within the mainstream education system persist. Overcrowded classrooms, inconsistent teaching quality, and limited resources in public schools continue to push families toward private tutoring. In cities like Kathmandu, dual-income households have become increasingly common, leaving working parents with limited time for direct academic supervision of their children. As a result, many urban families look for home tutors as a practical solution.
+
+\noindent The phenomenon of shadow education is deeply rooted in Nepal's educational landscape. Thapa's study on private and public school competition in Nepal highlights how supplementary tutoring has become an established practice, with families across income levels relying on it to fill gaps left by formal schooling \citep{thapa2013}. Studies further indicate that approximately 68 percent of Grade 10 students in Nepal receive some form of private tutoring, confirming how widespread this practice has become at the secondary level.
+
+\noindent Despite this growing demand, Nepal's tutoring market remains fragmented and informal. Parents and students typically rely on word-of-mouth recommendations or unstructured social media groups to find tutors. These methods offer no verification of tutor credentials, no proximity-based filtering, and no intelligent matching. With smartphone penetration in Nepal reaching 65 to 71 percent, the digital infrastructure exists to address these problems through a dedicated mobile platform.
+
+\noindent This proposal presents EdumentX, a location-based mobile application designed to modernize home tutor discovery in Kathmandu Valley. The platform enables students and parents to find nearby verified tutors through an interactive map, enroll in long-term monthly plans, and receive personalized recommendations through an AI-powered RAG chatbot.
+
+\section{Problem Statement}
+
+The process of finding a home tutor in Nepal is currently slow, unreliable, and frustrating for everyone involved. Both students seeking academic help and tutors looking for teaching opportunities face significant difficulties due to the lack of any organized system.
+
+\noindent The core problems are:
+
+{\renewcommand{\labelenumi}{(\roman{enumi})}
+\begin{enumerate}
+\item There is no way for parents to check whether a tutor is actually qualified or trustworthy before hiring them. Most families rely on recommendations from people they know, which limits their options and gives no real measure of teaching quality or safety.
+
+\item Independent tutors, including university students looking for part-time work, retired teachers, and subject specialists, have no proper platform to advertise their services. Many end up going through agencies that take large commissions, while others simply cannot find students outside their own neighborhood.
+
+\item The tools people currently use to find tutors, mainly WhatsApp groups and Facebook pages, are not designed for this purpose. Posts are unorganized, location details are vague (just area names with no actual distance), there is no way to filter or search, and there is no system to verify anyone's identity or qualifications.
+\end{enumerate}
+}
+
+\noindent At present, no mobile application exists in Nepal that lets users find tutors on a map, filter by distance, or get AI-based suggestions. EdumentX is designed to solve these problems by offering proximity-based search on an interactive map, a verification system where admins review tutor documents and award Blue Tick badges, a structured monthly enrollment process, and a RAG-powered chatbot that pulls live tutor data to give personalized recommendations.
+
+\section{Objectives}
+\begin{itemize}
+\item To develop a location-based mobile application that enables students and parents to discover and connect with nearby home tutors in Kathmandu Valley using map-based proximity search.
+
+\item To integrate an AI-powered RAG chatbot that allows users to find suitable tutors through natural language queries grounded in live platform data.
+
+\item To implement a tutor verification system that helps parents make safe and informed hiring decisions.
+\end{itemize}
+
+\section{Scope}
+
+EdumentX is a role-based mobile platform for connecting students and parents with home tutors based on location, subject, and monthly enrollment preferences. The scope of this project includes the following:
+
+\begin{itemize}
+\item Target Users: Students, parents, independent home tutors, and platform administrators.
+\item Geographic Focus: Kathmandu Valley, where smartphone penetration and internet connectivity are sufficient to support the platform.
+\item Service Type: Physical (in-person) home tuition services only; no online or video-based classes.
+\item Academic Levels: School and college students at SEE, +2, and undergraduate levels.
+\item Platform: Cross-platform mobile application for Android and iOS built with React Native (Expo).
+\item Discovery Methods: Map-based search with proximity ranking and an AI chatbot for natural language queries.
+\item Enrollment Model: Long-term monthly enrollment plans (1, 3, 6, or 12 months) managed through structured request and response flows.
+\item Verification: Blue Tick badge system for tutor credential verification by admin.
+\item Group Learning: Support for group tuition batches created by tutors for shared, cost-effective learning.
+\end{itemize}
+
+\chapter{Literature Review}
+
+\section{Related Work}
+
+This section reviews recent academic research on location-based tutor matching systems, AI-powered educational platforms, and identifies the gaps that EdumentX aims to address.
+
+\noindent A 2022 study presented at ASCILITE introduced MENTOR, an intelligent mobile peer tutoring application designed for both face-to-face and remote tutoring \citep{chung2022}. The system focused on matching peer tutors with students based on subject expertise and availability. While it demonstrated the value of mobile platforms for tutoring, it did not include any location-based features such as map visualization or proximity ranking. The matching was based solely on academic parameters without considering geographic distance between users.
+
+\noindent A 2026 study published in the Journal of Emerging Technologies and Innovative Research described a Flutter-based mobile application for finding local tutors in India \citep{sharma2026}. The system used Google Maps API for proximity-based tutor search and Firebase as the backend database. Students could filter tutors by subject, availability, and location. The application calculated distances between users using the Haversine formula and included features for booking and rating tutors. However, the researchers noted that AI-based recommendations were left as future scope. The entire matching process relied on manual filtering by the user, with no intelligent ranking or conversational search capability.
+
+\noindent In 2025, researchers from Malaysia developed iTeachU, a system that combined AI with geolocation for tutor matching \citep{shari2025}. The platform used content-based filtering along with the K-Nearest Neighbors algorithm, incorporating Haversine distance calculations to rank tutors by both preference match and physical proximity. It was built using Flutter for the frontend and Flask for the backend. While the system demonstrated effective ranking within the Melaka region, its AI component was entirely rule-based. Users could not interact with the system using natural language. Instead, they had to select from predefined filters and dropdown menus, making the experience less flexible than a conversational interface.
+
+\noindent All of these studies represent important steps toward technology-driven tutor discovery, but several gaps remain when considering the Nepali context. No existing research or platform provides geospatial visualization of tutors on interactive maps with service area coverage for Nepal. City-level dropdown menus, which are used by most platforms, are not useful in dense urban areas like Kathmandu where a tutor two kilometers away is very different from one ten kilometers away. Independent part-time tutors such as university students and retired teachers lack a proper digital channel to reach nearby students, as existing systems tend to favor agency-managed tuition centers. None of the reviewed systems offer a natural language interface where users can simply type what they need instead of navigating through multiple filter options. While some platforms claim AI-based matching, none combine proximity, qualifications, availability, and budget into a single intelligent ranking powered by a large language model. The current methods available in Nepal, primarily social media groups, require significant manual effort to browse posts, contact agencies, and compare options without any automated assistance.
+
+\noindent EdumentX addresses these gaps by combining Google Maps integration for area-based visualization, an AI-powered conversational interface using RAG architecture for natural language queries, a structured verification system with Blue Tick badges, and a focus on empowering independent tutors to connect with nearby students efficiently.
+
+\section{Related Theory}
+
+\subsection{Location-Based Services}
+
+Location-Based Services deliver context-aware services using a device's real-time geographic position obtained through GPS, cellular triangulation, or Wi-Fi. In EdumentX, location-based services power the proximity-based tutor discovery and map visualization features. Tutor coordinates are stored as Firestore GeoPoint fields, which allow geospatial queries to be executed directly from the client application.
+
+\subsection{Haversine Distance Formula}
+
+The Haversine formula computes the great-circle distance between two points on Earth's surface, accounting for the planet's curvature. EdumentX uses this formula to rank tutors by their true distance from the student. The computation proceeds as follows:
+
+\begin{equation}
+a = \sin^2\!\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cdot\cos(\phi_2)\cdot\sin^2\!\left(\frac{\Delta\lambda}{2}\right)
+\end{equation}
+\begin{equation}
+c = 2\,\arctan2\!\left(\sqrt{a}\,,\,\sqrt{1-a}\right), \qquad d = R \cdot c
+\end{equation}
+
+\noindent where $\phi_1, \phi_2$ are latitudes in radians, $\lambda_1, \lambda_2$ are longitudes in radians and $\Delta\phi$ and $\Delta\lambda$ are the coordinate differences, $R \approx 6{,}371\;\text{km}$, and $d$ is the output distance. Degree values from GeoPoints are converted using $\phi_{\text{rad}} = \phi_{\text{deg}} \times \frac{\pi}{180}$. For the 1 to 20 km range typical in Kathmandu Valley, this formula provides meter-level accuracy.
+
+\subsection{Geofencing and Radius-Based Filtering}
+
+Before applying the Haversine formula, EdumentX uses a rectangular bounding box pre-filter to narrow down the candidate set and reduce computation \citep{shevchenko2023}. For a given search radius $r$ and student position $(\phi_s, \lambda_s)$:
+
+\begin{equation}
+\Delta\phi_{\max} = \frac{r}{R} \cdot \frac{180}{\pi}, \qquad
+\Delta\lambda_{\max} = \frac{r}{R \cdot \cos(\phi_s)} \cdot \frac{180}{\pi}
+\end{equation}
+
+\noindent Only tutors whose coordinates fall inside this bounding box proceed to the exact Haversine distance check, which keeps query response times low.
+
+\subsection{K-Nearest Neighbors Algorithm}
+
+KNN is a non-parametric algorithm used in EdumentX to rank tutors by overall suitability. Each tutor is represented as a feature vector $\mathbf{t} \in \mathbb{R}^5$:
+
+\begin{equation}
+\mathbf{t} = [\,d\;, r\;, q\;, e\;, \overline{v}\,]
+\end{equation}
+
+\noindent where $d$ is the Haversine distance, $r$ is the monthly rate, $q$ is the qualification score, $e$ is years of experience, and $\overline{v}$ is the average rating. All features are scaled to the range $[0, 1]$ using min-max normalization: $x_{\text{norm}} = \frac{x - x_{\min}}{x_{\max} - x_{\min}}$. The similarity between a student query vector $\mathbf{s}$ and a tutor vector $\mathbf{t}$ is measured by weighted Euclidean distance:
+
+\begin{equation}
+D(\mathbf{s}, \mathbf{t}) = \sqrt{\sum_{j=1}^{n} w_j \cdot \left(s_j - t_j\right)^2}, \qquad
+\text{Top-}k = \arg\min_{\mathbf{t} \in \mathcal{T}}\; D(\mathbf{s}, \mathbf{t})
+\end{equation}
+
+\noindent The default value is $k = 5$. Feature weights are assigned based on their importance for home tuition selection:
+
+\begin{table}[H]
+\centering
+\caption{KNN Feature Weights for Tutor Recommendation}
+\vspace{5pt}
+\begin{tabular}{|l|l|l|}
+\hline
+Feature & Symbol & Weight $w_j$ \\
+\hline
+Geographic Distance & $d$ & 0.35 \\
+Monthly Rate & $r$ & 0.25 \\
+Qualification Score & $q$ & 0.20 \\
+Average Rating & $\overline{v}$ & 0.15 \\
+Experience (years) & $e$ & 0.05 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Retrieval-Augmented Generation}
+
+Retrieval-Augmented Generation is an approach that combines information retrieval with text generation to produce responses grounded in actual data rather than relying solely on a language model's training data. The original RAG framework was introduced by Lewis et al., who showed that combining a pre-trained retriever with a sequence-to-sequence generator significantly improves accuracy on knowledge intensive tasks \citep{lewis2021}. In EdumentX, RAG is used to retrieve matching tutor profiles from Firestore based on the user's query and inject them as context into the language model's prompt, ensuring that recommendations are based on real, live platform data. A recent survey on RAG chatbots in education confirms that this approach reduces hallucination and improves the relevance of generated responses in educational contexts \citep{swacha2025}.
+
+\subsection{React Native and Expo}
+
+React Native enables building native iOS and Android applications from a single JavaScript and React codebase. Expo adds a managed toolchain for accessing device features such as location, camera, and push notifications. It also supports over-the-air updates, which reduces development and release cycle time.
+
+\subsection{Firebase Platform}
+
+Firebase is Google's Backend-as-a-Service suite used as the complete backend for EdumentX. Four services are used: Authentication for phone OTP login, Firestore for real-time NoSQL storage with native GeoPoint fields and Security Rules, Cloud Functions for OpenAI API proxying and notification triggers, and Storage for verification documents and demo videos.
+
+\subsection{Google Maps SDK}
+
+The Google Maps SDK for React Native renders interactive maps with tutor markers and service-radius overlays. EdumentX also uses the Geocoding API for address-to-coordinate conversion and the Places API for location autocomplete in the enrollment form.
+
+\chapter{Proposed Methodology}
+
+\section{Software Development Model}
+
+The EdumentX project follows the Agile Iterative-Incremental development model. The system is built through short development cycles called sprints, where each sprint delivers a working piece of the application. After each sprint, the output is reviewed, tested, and improved before moving to the next cycle. This model suits EdumentX because the project has distinct modules like map search, AI chatbot, and enrollment that can be developed independently. The RAG chatbot requires experimentation with the OpenAI API, and an iterative approach allows the team to refine its accuracy over multiple cycles. The 14-week academic timeline is divided into seven 2-week sprints with clear deliverables at each stage. Figure~\ref{fig:agmodel} shows the phases of the iterative-incremental model.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=0.85\textwidth]{Images/AGmodel.png}
+\caption{Phases of Iterative-Incremental Model}
+\label{fig:agmodel}
+{\footnotesize\textit{Source: GeeksforGeeks}}
+\end{figure}
+
+\section{Feasibility Study}
+
+The feasibility study evaluates whether the proposed system can be realistically developed and deployed under existing constraints. The project follows standard SDLC phases from planning and analysis through implementation, testing, and deployment.
+
+\subsection{Technical Feasibility}
+
+The proposed system is technically feasible given the team's proficiency and access to essential tools and technologies.
+
+\noindent Technology Stack:
+\begin{itemize}
+\item Frontend: React Native (Expo) for cross-platform mobile development
+\item Backend/Database: Firebase (Authentication, Firestore, Cloud Functions, Storage)
+\item Map Integration: Google Maps SDK for React Native
+\item AI Integration: OpenAI API (accessed via Firebase Cloud Functions)
+\item State Management: Redux or Context API
+\end{itemize}
+
+\noindent The development team has foundational skills in frontend and backend development, mobile application programming, database management, and basic AI integration. Development tools include VS Code, Git/GitHub, Postman, and Firebase Console.
+
+\subsection{Economic Feasibility}
+
+The proposed system is economically feasible as it uses free open-source tools and cloud services with generous free tiers. The Firebase stack eliminates the need for custom server infrastructure. Cost assumptions are aligned with official Firebase pricing documentation.
+
+\begin{table}[H]
+\centering
+\caption{Economic Feasibility Estimation}
+\vspace{5pt}
+\begin{tabular}{|l|l|}
+\hline
+Item & Estimated Cost \\
+\hline
+Domain (.com.np) & Rs. 0 (free via register.com.np) \\
+Hosting (Firebase Spark Plan) & Free tier initially \\
+Firebase Cloud Functions & Free tier (2M invocations/month) \\
+Google Maps SDK & Free tier (up to usage limits) \\
+OpenAI API & Pay-per-use (minimal for testing) \\
+Development Tools & Free (open source) \\
+Miscellaneous & Rs. 1,000--2,000 \\
+\hline
+Total Initial Cost & Rs. 1,000--2,000 \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent For academic demonstration purposes, free tiers and student credits will suffice.
+
+\subsection{Operational Feasibility}
+
+The system is operationally feasible as it is accessible on both Android and iOS platforms. The interface is designed to be intuitive for parents, students, and tutors. Core requirements such as internet access and basic device compatibility are easily met by the target audience in urban Nepal. The platform requires minimal training for users.
+
+\subsection{Legal and Ethical Feasibility}
+
+\begin{itemize}
+\item All user data is collected with consent and used only for platform functionality and demonstration.
+\item No real personal data will be published externally; dummy data will be used for academic presentations.
+\item Location information is used solely for proximity searches and is not shared with third parties.
+\item As an academic project, it is not intended for immediate commercial use.
+\item Exact locations of tutors or students are not displayed publicly; only approximate area coverage is shown.
+\end{itemize}
+
+\subsection{Scalability}
+
+\begin{itemize}
+\item Firebase's cloud infrastructure scales automatically as user base grows.
+\item Additional cities can be added without major architectural changes.
+\item Future enhancements can include in-app payments, video calling, and analytics dashboards.
+\end{itemize}
+
+\section{Requirement Analysis}
+
+\subsection{Functional Requirements}
+
+\noindent R.1: User Registration and Authentication
+\begin{itemize}
+\item Users can register using phone number or email with OTP verification.
+\item Profile creation includes name, phone, email, location, and role selection (student/parent or tutor).
+\item Users can update their profile information at any time.
+\end{itemize}
+
+\noindent R.2: Tutor Profile Management and Verification
+\begin{itemize}
+\item Tutors can create profiles with qualifications, subjects, experience, monthly rate, availability, service radius, and maximum student capacity.
+\item Tutors can upload citizenship ID, academic certificates, and a one-minute teaching demo video for verification.
+\item Admin reviews documents and grants Blue Tick badges.
+\item Verified tutors get higher ranking in search results and chatbot recommendations.
+\item Verified tutors can create group batch offerings that students can browse and join.
+\end{itemize}
+
+\noindent R.3: Tutor Search, Filtering, and Location-Based Discovery
+\begin{itemize}
+\item Students can search tutors by subject, proximity, price range, qualification, and verification status.
+\item Nearby tutors are displayed on an interactive map with service area markers.
+\item Distance is calculated using the Haversine formula with radius-based filtering.
+\item Results can be sorted by distance, rating, price, or experience and filtered by availability.
+\end{itemize}
+
+\noindent R.4: AI Chatbot Assistant
+\begin{itemize}
+\item Users can type natural language queries to find tutors.
+\item The chatbot extracts parameters like subject, location, budget, and plan duration from the query.
+\item It returns personalized recommendations from live Firestore data using RAG architecture.
+\item Multi-turn conversations are supported for follow-up queries.
+\end{itemize}
+
+\noindent R.5: Enrollment and Monthly Plan System
+\begin{itemize}
+\item Students send enrollment requests specifying plan duration, start date, days per week, and teaching location.
+\item Tutors can accept, reject, or counter-offer through their dashboard.
+\item Active enrollments include an optional trial week and automatic monthly renewal reminders.
+\item The system prevents enrollment when a tutor is at full capacity.
+\end{itemize}
+
+\noindent R.6: Rating and Review System
+\begin{itemize}
+\item Students can rate tutors on a 1 to 5 star scale and write reviews after an enrollment period.
+\item Only students with active or completed enrollments can leave reviews.
+\item Average ratings are displayed on tutor profiles.
+\end{itemize}
+
+\noindent R.7: Admin Panel
+\begin{itemize}
+\item Admin dashboard for reviewing tutor verification documents and granting badges.
+\item Ability to approve, suspend, or remove user accounts.
+\item View platform statistics, enrollment counts, and user feedback.
+\end{itemize}
+
+\subsection{Non-Functional Requirements}
+
+\noindent R.1: Performance
+\begin{itemize}
+\item The application should load within 5 seconds on a normal connection.
+\item Search results and map rendering should complete within 3 seconds.
+\item The system should handle concurrent users without noticeable slowdown.
+\end{itemize}
+
+\noindent R.2: Security
+\begin{itemize}
+\item Passwords are hashed before storage; no personal data is stored in plain text.
+\item All communications use HTTPS encryption.
+\item Protection against SQL injection, XSS, and CSRF attacks.
+\item The OpenAI API key is stored only in Cloud Function environment variables.
+\end{itemize}
+
+\noindent R.3: Usability
+\begin{itemize}
+\item The interface should be clean and intuitive for both technical and non-technical users.
+\item Navigation should require minimal clicks with clear error messages.
+\end{itemize}
+
+\noindent R.4: Availability and Compatibility
+\begin{itemize}
+\item The application should be available 24/7 with at least 90 percent uptime.
+\item It should work on Android 8.0+ and iOS 12.0+ with responsive design for different screen sizes.
+\item Network switching between Wi-Fi and mobile data should not cause crashes.
+\end{itemize}
+
+\noindent R.5: Scalability
+\begin{itemize}
+\item The database and cloud services should support scaling as the user base grows.
+\item The code structure should allow adding new features without major changes.
+\end{itemize}
+
+\section{Proposed System Design}
+
+\subsection{System Architecture}
+
+Figure~\ref{fig:sysarc} shows the overall system architecture of EdumentX. The architecture has three layers: Client Side, Serverless Backend, and External Services.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=\textwidth]{Images/sysarc.png}
+\caption{System Architecture of EdumentX}
+\label{fig:sysarc}
+\end{figure}
+
+\noindent The Client Side is the React Native mobile application built with Expo. It serves as the single entry point for all users and communicates with the backend using the Firebase SDK.
+
+\noindent The Serverless Backend runs entirely on Firebase with four services. Firebase Authentication handles user registration and phone OTP login. Cloud Firestore stores all structured data including user profiles, tutor profiles, enrollment requests, and reviews, with tutor locations stored as GeoPoint fields. Cloud Storage holds tutor verification documents and demo videos. Cloud Functions are serverless Node.js functions that proxy OpenAI API calls, trigger push notifications, and validate tutor capacity.
+
+\noindent The External Services layer includes Google Maps Platform API for map rendering and geocoding, and OpenAI API for the RAG chatbot. Cloud Functions query Firestore for matching tutor data, send it along with the user query as context to OpenAI, and return the generated recommendation to the app.
+
+\subsection{Use Case Diagram}
+
+Figure~\ref{fig:usecase} shows the use case diagram with three actors: Students/Parents, Tutors, and Admin.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=\textwidth]{Images/usecase.png}
+\caption{Use Case Diagram}
+\label{fig:usecase}
+\end{figure}
+
+\noindent Students and parents can register, turn on location, search for tutors using filters or the AI chatbot, view tutor profiles, send enrollment requests, and rate tutors after completing an enrollment.
+
+\noindent Tutors can register, set their service area, upload documents for verification, manage their profile and availability, respond to enrollment requests, create group batches, and manage student capacity.
+
+\noindent Admin can log in to the admin panel, verify tutor credentials, manage user accounts, and grant Blue Tick badges.
+
+\subsection{Data Flow Diagram}
+
+Figure~\ref{fig:dfd0} shows the Level 0 Data Flow Diagram. Users interact with the EdumentX system by sending requests and receiving responses. The system processes these requests and stores or retrieves data from Firebase Firestore.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=5in]{Images/Level_0_DFD.png}
+\caption{Level 0 Data Flow Diagram}
+\label{fig:dfd0}
+\end{figure}
+
+\noindent Figure~\ref{fig:dfd1} shows the Level 1 Data Flow Diagram with detailed system processes including authentication, tutor search, AI chatbot recommendation, enrollment management, tutor verification, and rating handling.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=\textwidth]{Images/Level_1_DFD.png}
+\caption{Level 1 Data Flow Diagram}
+\label{fig:dfd1}
+\end{figure}
+
+\subsection{RAG Chatbot Workflow}
+
+Figure~\ref{fig:ragworkflow} illustrates the RAG workflow used by the EdumentX AI chatbot.
+
+\begin{figure}[H]
+\centering
+\safeincludegraphics[width=\textwidth]{Images/RAG.png}
+\caption{RAG-Based AI Chatbot Workflow}
+\label{fig:ragworkflow}
+{\footnotesize\textit{Source: freeCodeCamp}}
+\end{figure}
+
+\noindent The chatbot works through a six-step pipeline. First, the student types a natural language query like ``I need a science tutor near Lalitpur for 3 days a week under Rs 5,000.'' The full conversation history is included so the chatbot can handle follow-up questions. Second, this query is sent to an OpenAI GPT model through a Firebase Cloud Function. The model extracts structured parameters from the text, such as subject, location, budget, days per week, and plan duration.
+
+\noindent Third, the Cloud Function uses these extracted parameters to query the Firestore tutorProfiles collection. It applies the Haversine formula to filter tutors within the requested radius and adds filters for budget, subject match, and available capacity. Fourth, the matching tutor profiles (up to 10) are formatted and injected into the language model's prompt as context data. This is the retrieval-augmented generation step, which grounds the AI response in real platform data rather than general knowledge.
+
+\noindent Fifth, the language model generates a response recommending 3 to 5 tutors with details like name, rate, distance, rating, and verification status. Sixth, this response is sent back to the app and displayed as a chat message. To reduce API costs, responses for identical queries are cached for 15 minutes. The OpenAI API key is stored only in Cloud Function environment variables and is never exposed to the client.
+
+\section{Implementation Details}
+
+\subsection{Frontend Development}
+
+The frontend is built using React Native with Expo, producing a single codebase for both Android and iOS. Key screens include authentication (login, registration, OTP verification), home screen with search bar and featured tutors, search screen with map view and list view, tutor profile screen with verification badges and enrollment button, chatbot interface for natural language queries, enrollment management dashboard, tutor dashboard with availability calendar, and rating screen. React Navigation handles screen transitions, Redux or Context API manages global state, and Google Maps SDK displays tutor markers with service radius overlays.
+
+\subsection{Backend Development}
+
+The backend uses a pure Firebase stack with no custom server. Firebase Authentication handles phone OTP login and session management. Firestore stores all application data with tutor locations as GeoPoint fields, and Security Rules control read/write access per role. Cloud Functions proxy OpenAI API calls, trigger push notifications on enrollment status changes, and validate tutor capacity. Firebase Storage holds verification documents and demo videos with access restricted by Storage Security Rules. Composite indexes on subject, location, and rate fields enable efficient multi-criteria searches.
+
+\subsection{Testing Strategy}
+
+Unit Testing:
+\begin{itemize}
+\item Test individual components and functions using Jest for React Native.
+\item Test backend functions and API endpoints.
+\item Aim for at least 70 percent code coverage.
+\end{itemize}
+
+\noindent Integration Testing:
+\begin{itemize}
+\item Test integration between frontend and backend APIs.
+\item Test database operations and data flow.
+\item Test third-party service integrations (Firebase, Google Maps, OpenAI).
+\end{itemize}
+
+\noindent User Acceptance Testing:
+\begin{itemize}
+\item Conduct testing with sample users representing students, parents, and tutors.
+\item Gather feedback on usability, performance, and feature completeness.
+\item Iterate based on user feedback.
+\end{itemize}
+
+\noindent Performance Testing:
+\begin{itemize}
+\item Test app performance under various network conditions.
+\item Measure response times for search queries and map rendering.
+\item Test with varying numbers of concurrent users.
+\end{itemize}
+
+\chapter{Time Schedule}
+
+The EdumentX project is planned for completion in 14 weeks. The work is organized into overlapping phases where early phases like requirement analysis and system design feed into later phases like development and testing. Documentation runs throughout the entire project. Figure~\ref{fig:gantt_timeline} shows the project timeline.
+
+\begin{figure}[htbp]
+\centering
+\makebox[\textwidth][c]{%
+\resizebox{1.12\textwidth}{!}{%
+\begin{ganttchart}[
+hgrid,
+vgrid={*{13}{draw=gray!20}},
+x unit=1.08cm,
+y unit title=1.05cm,
+y unit chart=1.18cm,
+title height=1.2,
+bar height=0.85,
+bar top shift=0.25,
+title label font=\large\bfseries,
+bar label font=\normalsize\bfseries,
+title/.append style={fill=gray!15, draw=gray!50},
+bar/.append style={fill=gray!20, draw=gray!60, rounded corners=2pt}
+]{1}{14}
+\gantttitle{\textbf{EdumentX Project Timeline (14 Weeks)}}{14} \\
+\gantttitlelist{1,...,14}{1} \\
+
+    \ganttbar[bar/.append style={fill=teal!45, draw=teal!70}]{Requirement Analysis}{1}{3} \\
+    \ganttbar[bar/.append style={fill=cyan!45, draw=cyan!70}]{System Design}{3}{5} \\
+    \ganttbar[bar/.append style={fill=blue!45, draw=blue!70}]{UI/UX Design}{4}{6} \\
+    \ganttbar[bar/.append style={fill=orange!45, draw=orange!70}]{Database Setup}{5}{7} \\
+    \ganttbar[bar/.append style={fill=violet!45, draw=violet!70}]{Backend Development}{6}{9} \\
+    \ganttbar[bar/.append style={fill=emerald!45, draw=emerald!70}]{Frontend Development}{7}{11} \\
+    \ganttbar[bar/.append style={fill=amber!45, draw=amber!70}]{AI Chatbot Integration}{9}{12} \\
+    \ganttbar[bar/.append style={fill=rose!45, draw=rose!70}]{Testing \& Integration}{11}{13} \\
+    \ganttbar[bar/.append style={fill=slate!60, draw=slate!80}]{Final Report}{12}{14} \\
+    \ganttbar[bar/.append style={fill=gray!30, draw=gray!55}, bar height=0.7]{Documentation}{1}{14}
+
+\end{ganttchart}%
+}}
+\caption{Gantt chart of project timeline}
+\label{fig:gantt_timeline}
+\end{figure}
+
+\chapter{Expected Output}
+
+The EdumentX project will deliver a cross-platform mobile application for Android and iOS that connects students and parents with home tutors in Kathmandu Valley. The application will feature an interactive map where users can see nearby tutors within a chosen radius, with distance calculated using the Haversine formula. A RAG-powered AI chatbot will allow users to search for tutors by typing natural language queries, receiving personalized recommendations based on live data from the Firestore database. The platform will use a monthly enrollment system where students send structured requests specifying plan duration, schedule, and location, and tutors respond through a dedicated dashboard. A Blue Tick verification system will let admins review tutor-uploaded documents and demo videos to provide trust signals for parents. Tutors will be able to create group tuition batches, manage their student capacity, and update their availability in real time. Students can rate and review tutors after completing an enrollment. The complete backend will run on Firebase with Authentication, Firestore, Cloud Functions, and Storage. An admin panel will be included for verification review, user management, and platform monitoring, along with full project documentation.
+
+\renewcommand{\bibname}{References}
+\phantomsection
+\addtocentrywithoutpage{toc}{chapter}{References}
+\begingroup
+\sloppy
+\hbadness=10000
+\bibliographystyle{unsrtnat}
+\bibliography{ref}
+\endgroup
+\end{document}

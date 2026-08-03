@@ -1,0 +1,185 @@
+# EdumentX — Project Requirements
+#
+# This file lists every package the application needs at runtime
+# and at build time. It is a documentation aid for teammates who
+# want a single overview of the dependency surface — it is NOT a
+# substitute for `package.json`, which is the authoritative
+# source of truth for versions and is what `npm install` actually
+# reads.
+#
+# Run `npm install` to install all of these. The lockfile
+# (`package-lock.json`) pins transitive versions.
+#
+# Node.js >= 20.19.4 is required (see `package.json#engines`).
+#
+# Categorised by what the package does in the app. Versions match
+# `package.json` as of the date of the last review (2026-07-16).
+# If something is missing or out of date, update BOTH this file
+# and `package.json`.
+
+# ── Install everything ─────────────────────────────────────────
+# npm install
+# (see package.json#scripts for build, dev, seed scripts)
+
+# ── Core framework ─────────────────────────────────────────────
+react@19.1.0
+react-dom@19.1.0
+react-native@0.81.5
+expo@~54
+expo-router@~6
+expo-status-bar@~3
+expo-splash-screen@~31
+expo-constants@~18
+expo-linking@~8
+expo-font@~14
+expo-application@~7
+expo-build-properties@~2
+expo-dev-client@~6
+expo-file-system@~19
+expo-image-picker@~17
+
+# ── Native navigation / layout ─────────────────────────────────
+react-native-screens@~4
+react-native-safe-area-context@~5
+react-native-gesture-handler@~2
+react-native-reanimated@~4
+react-native-worklets@~0.6
+
+# ── Motion & interactivity layer (July 2026) ──────────────────
+# The micro-interactions pass added a shared motion toolkit
+# (lib/motion.ts + components/motion/*) on top of the
+# already-installed Reanimated / worklets / gesture-handler
+# stack. NO new dependencies were added — every hook and
+# primitive in components/motion/* re-exports functionality
+# from the three packages above.
+#
+#   lib/motion.ts                     — duration / easing / spring / scale tokens
+#   components/motion/hooks.ts        — usePressScale, useSwitchThumb,
+#                                       useActiveIndicator, useShake
+#   components/motion/AnimatedPressable.tsx
+#                                     — Animated.createAnimatedComponent(Pressable)
+#   components/motion/ActivePill.tsx  — sliding segmented-control indicator
+#   components/motion/SwitchThumb.tsx — animated switch thumb
+#   components/motion/FieldShell.tsx  — form-field wrapper (focus / error / valid)
+#   components/motion/Skeleton.tsx    — Skeleton / SkeletonRow / SkeletonText
+#   components/motion/FloatingEmptyIcon.tsx
+#                                     — gently floating empty-state icon
+#   components/motion/index.ts        — barrel export
+#
+# Full design spec, hooks reference, and pattern catalogue:
+#   Documentation/02-Design-System/motion.md
+#
+# Haptics (`expo-haptics`) are intentionally NOT installed yet —
+# the follow-up that adds them requires a native rebuild.
+# See motion.md §11 (Out of scope).
+
+# ── Native Firebase (auth + firestore) ─────────────────────────
+@react-native-firebase/app@~24.1
+@react-native-firebase/auth@~24.1
+@react-native-firebase/firestore@~24.1
+
+# ── Google Sign-In (native) ────────────────────────────────────
+@react-native-google-signin/google-signin@~16
+
+# ── Firebase Admin SDK (server-side, for seed script only) ─────
+firebase-admin@~14
+
+# ── Local storage / KV helpers ─────────────────────────────────
+@react-native-async-storage/async-storage@~2
+
+# ── Supabase client (object storage, free tier) ────────────────
+@supabase/supabase-js@~2
+
+# ── 3D illustrations (onboarding / premium hero / discover) ───
+three@~0.171
+@react-three/fiber@~9
+@react-three/drei@~10
+expo-gl@~16
+
+# ── Vector graphics ────────────────────────────────────────────
+react-native-svg@~16
+@expo/vector-icons@~15
+
+# ── Image / binary helpers ─────────────────────────────────────
+base64-arraybuffer@~1
+
+# ── State management ───────────────────────────────────────────
+zustand@~5
+
+# ── Styling (NativeWind v4) ────────────────────────────────────
+nativewind@~4.2.5
+tailwindcss@~3.4
+react-native-css-interop@0.2.5        # pinned via package.json#overrides
+
+# ── Other UI (used in a few legacy spots) ──────────────────────
+lucide-react-native@~0.460            # kept for compatibility; prefer @expo/vector-icons
+
+# ── Web target (expo-router web build) ─────────────────────────
+react-native-web@~0.21
+
+# ── Dev / build toolchain ──────────────────────────────────────
+typescript@~5.9
+@types/react@~19
+babel-preset-expo@~14
+eslint@~9
+eslint-config-expo@~9
+prettier@~3
+
+# ── Global tools (install once on the host) ────────────────────
+# Firebase CLI:
+#   npm i -g firebase-tools
+#   firebase login
+#
+# Expo CLI (the npx form in scripts does not need a global install):
+#   npx expo --version
+#
+# Node.js (>=20.19.4):
+#   https://nodejs.org/  (or use nvm: `nvm install 20.19.4`)
+
+# ── Native / build prerequisites (per platform) ───────────────
+# Android:
+#   - JDK 17
+#   - Android Studio (SDK Platform 34+)
+#   - The dev build is created by `npx expo run:android`, which
+#     generates `android/` on first run and uses
+#     `google-services.json` (already in the repo, do not commit
+#     a different one).
+# iOS:
+#   - Xcode 15+ and CocoaPods (`sudo gem install cocoapods`)
+#   - `npx expo run:ios` generates `ios/` and runs `pod install`.
+# Web:
+#   - Just `npx expo start --web`. No native modules run on web.
+
+# ── Environment variables (.env, sibling to package.json) ──────
+# The app reads these at build time via Expo's EXPO_PUBLIC_* prefix:
+#   EXPO_PUBLIC_FIREBASE_API_KEY
+#   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN
+#   EXPO_PUBLIC_FIREBASE_PROJECT_ID
+#   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET
+#   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+#   EXPO_PUBLIC_FIREBASE_APP_ID
+#   EXPO_PUBLIC_SUPABASE_URL
+#   EXPO_PUBLIC_SUPABASE_ANON_KEY
+#   EXPO_PUBLIC_GOOGLE_MAPS_API_KEY        # unused; zero-budget
+#   EXPO_PUBLIC_APP_ENV                    # 'develop' | 'production'
+
+# ── Admin seed script (separate setup, see adminsetup.md) ─────
+# In addition to the npm packages above, granting a new admin
+# account requires:
+#   1. A Firebase service-account key (JSON), downloaded from
+#      Firebase Console → Project Settings → Service accounts.
+#   2. The env var `GOOGLE_APPLICATION_CREDENTIALS` pointing at
+#      that JSON file. See `Documentation/04-Firebase/adminsetup.md`
+#      for the full step-by-step.
+#   3. The `firebase-admin` package (already in dependencies).
+
+# ── Security notes ─────────────────────────────────────────────
+# - Never commit the service-account JSON file. The .gitignore in
+#   the repo root SHOULD exclude `*-firebase-adminsdk-*.json` and
+#   `service-account-*.json`; if you find it missing those entries,
+#   add them.
+# - Never commit your `.env` file. It contains anon keys which are
+#   still client-visible and shouldn't be in the public repo.
+# - The Clerk / Twilio / Stripe / paid-Map-providers packages
+#   are NOT and will never be in this file. EdumentX is a
+#   zero-budget demo.

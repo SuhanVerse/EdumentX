@@ -1,30 +1,29 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import { View, Text, useWindowDimensions, StyleSheet } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   runOnJS,
   Easing,
-} from 'react-native-reanimated';
+} from 'react-native-reanimated'
 
-import { MapIllustration } from '@/src/components/onboarding/MapIllustration';
-import { VerifiedIllustration } from '@/src/components/onboarding/VerifiedIllustration';
-import { VisitIllustration } from '@/src/components/onboarding/VisitIllustration';
-import { PaginationDots } from '@/src/components/onboarding/PaginationDots';
-import { NextButton } from '@/src/components/onboarding/NextButton';
-import { SkipButton } from '@/src/components/onboarding/SkipButton';
-
-// ─── Data ──────────────────────────────────────────────────────────────────────
+import { MapIllustration } from '@/src/components/onboarding/MapIllustration'
+import { VerifiedIllustration } from '@/src/components/onboarding/VerifiedIllustration'
+import { VisitIllustration } from '@/src/components/onboarding/VisitIllustration'
+import { PaginationDots } from '@/src/components/onboarding/PaginationDots'
+import { NextButton } from '@/src/components/onboarding/NextButton'
+import { SkipButton } from '@/src/components/onboarding/SkipButton'
+import { tokens } from '@/src/theme/tokens'
 
 interface FeatureSlide {
-  overline: string;
-  headline: string;
-  body: string;
-  Illustration: React.FC;
+  overline: string
+  headline: string
+  body: string
+  Illustration: React.FC
 }
 
 const SLIDES: FeatureSlide[] = [
@@ -46,61 +45,50 @@ const SLIDES: FeatureSlide[] = [
     body: 'See every verified rental on a live map. Filter by price, beds, and what matters most to you.',
     Illustration: MapIllustration,
   },
-];
+]
 
-// ─── Screen ────────────────────────────────────────────────────────────────────
+export default function AuthOnboardingScreen() {
+  const router = useRouter()
+  const { height, width: screenWidth } = useWindowDimensions()
+  const illustrationHeight = Math.round(height * 0.38)
 
-export default function OnboardingScreen() {
-  const router = useRouter();
-  const { height, width: screenWidth } = useWindowDimensions();
-  const illustrationHeight = Math.round(height * 0.38);
-
-  const [activeIndex, setActiveIndex] = useState(0);
-  const isLast = activeIndex === SLIDES.length - 1;
+  const [activeIndex, setActiveIndex] = useState(0)
+  const isLast = activeIndex === SLIDES.length - 1
 
   // ── Shared values ────────────────────────────────────────────────────────────
 
-  // Whole-screen enter
-  const enterOpacity = useSharedValue(0);
-  const enterY = useSharedValue(20);
+  const enterOpacity = useSharedValue(0)
+  const enterY = useSharedValue(20)
+  const contentTranslateX = useSharedValue(0)
+  const activeIndexSv = useSharedValue(0)
 
-  // Scroll offset of the carousel strip.
-  // Page N is visible when contentTranslateX = -(N * screenWidth).
-  const contentTranslateX = useSharedValue(0);
-
-  // Mirror activeIndex on the worklet side so gesture callbacks can read it.
-  // Updated both from JS (useEffect) and immediately from worklets (gesture/handleNext).
-  const activeIndexSv = useSharedValue(0);
   useEffect(() => {
-    activeIndexSv.value = activeIndex;
-  }, [activeIndex]);
+    activeIndexSv.value = activeIndex
+  }, [activeIndex])
 
   // ── Mount effect ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    enterOpacity.value = withTiming(1, { duration: 500 });
-    enterY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
+    enterOpacity.value = withTiming(1, { duration: 500 })
+    enterY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [])
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  /** Snap the carousel to a target page with a spring.
-   *  Updates the pagination dots immediately, no waiting for spring to settle. */
   const snapTo = useCallback(
     (targetIdx: number) => {
-      'worklet';
-      activeIndexSv.value = targetIdx;
-      // Update React state immediately so PaginationDots reflect the new index without delay
-      runOnJS(setActiveIndex)(targetIdx);
-      const targetOffset = -(targetIdx * screenWidth);
+      'worklet'
+      activeIndexSv.value = targetIdx
+      runOnJS(setActiveIndex)(targetIdx)
+      const targetOffset = -(targetIdx * screenWidth)
       contentTranslateX.value = withTiming(targetOffset, {
         duration: 250,
         easing: Easing.out(Easing.cubic),
-      });
+      })
     },
     [screenWidth],
-  );
+  )
 
   // ── Gesture swipe ────────────────────────────────────────────────────────────
 
@@ -110,118 +98,124 @@ export default function OnboardingScreen() {
         .activeOffsetX([-10, 10])
         .failOffsetY([-12, 12])
         .onUpdate((e) => {
-          'worklet';
-          const baseOffset = -(activeIndexSv.value * screenWidth);
-          contentTranslateX.value = baseOffset + e.translationX * 0.62;
+          'worklet'
+          const baseOffset = -(activeIndexSv.value * screenWidth)
+          contentTranslateX.value = baseOffset + e.translationX * 0.62
         })
         .onEnd((e) => {
-          'worklet';
-          const cur = activeIndexSv.value;
-          const threshold = screenWidth * 0.2;
-          const velThreshold = 350;
+          'worklet'
+          const cur = activeIndexSv.value
+          const threshold = screenWidth * 0.2
+          const velThreshold = 350
 
-          const leftSwipe = e.translationX < -threshold || e.velocityX < -velThreshold;
-          const rightSwipe = e.translationX > threshold || e.velocityX > velThreshold;
+          const leftSwipe = e.translationX < -threshold || e.velocityX < -velThreshold
+          const rightSwipe = e.translationX > threshold || e.velocityX > velThreshold
 
           if (leftSwipe && cur < SLIDES.length - 1) {
-            snapTo(cur + 1);
+            snapTo(cur + 1)
           } else if (rightSwipe && cur > 0) {
-            snapTo(cur - 1);
+            snapTo(cur - 1)
           } else {
-            // Snap back to current page
-            snapTo(cur);
+            snapTo(cur)
           }
         }),
     [screenWidth, snapTo],
-  );
+  )
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleNext = useCallback(() => {
     if (isLast) {
-      router.replace('/(auth)/phone');
+      router.replace('/(auth)/phone')
     } else {
-      snapTo(activeIndex + 1);
+      snapTo(activeIndex + 1)
     }
-  }, [isLast, activeIndex, router, snapTo]);
+  }, [isLast, activeIndex, router, snapTo])
 
   const handleSkip = useCallback(() => {
-    router.replace('/(auth)/phone');
-  }, [router]);
+    router.replace('/(auth)/phone')
+  }, [router])
 
   // ── Animated styles ──────────────────────────────────────────────────────────
 
   const enterStyle = useAnimatedStyle(() => ({
     opacity: enterOpacity.value,
     transform: [{ translateY: enterY.value }],
-  }));
+  }))
 
   const carouselStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: contentTranslateX.value }],
-  }));
+  }))
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-bg">
-      <Animated.View className="flex-1" style={enterStyle}>
-        {/* ── STATIC: Header ─────────────────────────────────────────────── */}
-        <View className="h-14 flex-row items-center justify-between px-6">
-          <View className="flex-row items-center gap-2">
-            <Text className="font-display text-[22px] text-ink">BasoBas</Text>
-            <View className="rounded bg-brand px-1.5 py-0.5">
-              <Text className="font-bold text-[9px] tracking-widest text-white">BETA</Text>
+    <SafeAreaView edges={['top', 'bottom']} style={s.safe}>
+      <Animated.View style={[{ flex: 1 }, enterStyle]}>
+        {/* ── Header ─────────────────────────────────────────────────----- */}
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            <Text style={s.logo}>BasoBas</Text>
+            <View style={s.betaBadge}>
+              <Text style={s.betaText}>BETA</Text>
             </View>
           </View>
           <SkipButton onPress={handleSkip} />
         </View>
 
-        {/* ── CAROUSEL: All 3 slides pre-rendered ────────────────────────── */}
+        {/* ── CAROUSEL ──────────────────────────────────────────────────── */}
         <GestureDetector gesture={panGesture}>
-          <View className="flex-1 overflow-hidden">
+          <View style={s.carouselContainer}>
             <Animated.View
-              className="flex-row"
-              style={[carouselStyle, { width: screenWidth * SLIDES.length, flex: 1 }]}>
+              style={[
+                carouselStyle,
+                { width: screenWidth * SLIDES.length, flex: 1, flexDirection: 'row' },
+              ]}
+            >
               {SLIDES.map((slide, idx) => {
-                const Illustration = slide.Illustration;
+                const Illustration = slide.Illustration
                 return (
-                  <View key={idx} className="flex-1">
-                    {/* Illustration */}
-                    <View
-                      className="mx-5 overflow-hidden rounded-hero"
-                      style={{ height: illustrationHeight }}>
+                  <View key={idx} style={{ flex: 1 }}>
+                    <View style={[s.illustration, { height: illustrationHeight }]}>
                       <Illustration />
                     </View>
-
-                    {/* Text */}
-                    <View className="flex-1 justify-center px-6 pb-2 pt-5">
-                      <Text className="font-semibold text-label uppercase tracking-[0.13em] text-brand">
-                        {slide.overline}
-                      </Text>
-                      <Text
-                        className="mt-1.5 font-display text-[30px] text-ink"
-                        style={{ lineHeight: 37 }}>
-                        {slide.headline}
-                      </Text>
-                      <Text className="mt-3 font-sans text-body text-ink2" style={{ lineHeight: 22 }}>
-                        {slide.body}
-                      </Text>
+                    <View style={s.textBlock}>
+                      <Text style={s.overline}>{slide.overline}</Text>
+                      <Text style={s.headline}>{slide.headline}</Text>
+                      <Text style={s.body}>{slide.body}</Text>
                     </View>
                   </View>
-                );
+                )
               })}
             </Animated.View>
           </View>
         </GestureDetector>
 
-        {/* ── STATIC: Bottom ─────────────────────────────────────────────── */}
-        <View className="px-6 pb-4 pt-1">
-          <View className="mb-5 items-center">
+        {/* ── Bottom ────────────────────────────────────────────────────── */}
+        <View style={s.bottom}>
+          <View style={s.dots}>
             <PaginationDots total={3} current={activeIndex} />
           </View>
           <NextButton onPress={handleNext} label={isLast ? 'Get started' : 'Next'} />
         </View>
       </Animated.View>
     </SafeAreaView>
-  );
+  )
 }
+
+const s = StyleSheet.create({
+  safe:              { flex: 1, backgroundColor: tokens.color.bg },
+  header:            { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 },
+  headerLeft:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logo:              { fontFamily: tokens.font.display, fontSize: 22, color: tokens.color.ink },
+  betaBadge:         { borderRadius: 4, backgroundColor: tokens.color.brand, paddingHorizontal: 6, paddingVertical: 2 },
+  betaText:          { fontFamily: tokens.font.bold, fontSize: 9, letterSpacing: 1, color: tokens.color.bg },
+  carouselContainer: { flex: 1, overflow: 'hidden' },
+  illustration:      { marginHorizontal: 20, overflow: 'hidden', borderRadius: tokens.radius.hero },
+  textBlock:         { flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 8, paddingTop: 20 },
+  overline:          { fontFamily: tokens.font.semibold, fontSize: tokens.size.label, color: tokens.color.brand, letterSpacing: 1.43, textTransform: 'uppercase' },
+  headline:          { fontFamily: tokens.font.display, fontSize: 30, color: tokens.color.ink, lineHeight: 37, marginTop: 6 },
+  body:              { fontFamily: tokens.font.sans, fontSize: tokens.size.body, color: tokens.color.ink2, lineHeight: 22, marginTop: 12 },
+  bottom:            { paddingHorizontal: 24, paddingBottom: 16, paddingTop: 4 },
+  dots:              { marginBottom: 20, alignItems: 'center' },
+})

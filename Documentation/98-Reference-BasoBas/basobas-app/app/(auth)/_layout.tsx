@@ -6,8 +6,8 @@ export default function AuthLayout() {
       {/* Splash — fades in on its own via reanimated, no Stack transition */}
       <Stack.Screen name="loading" options={{ animation: 'none' }} />
 
-      {/* Onboarding — single screen with internal step state */}
-      <Stack.Screen name="onboarding" options={{ animation: 'fade', animationDuration: 350 }} />
+      {/* Onboarding — screen handles its own Reanimated enter animation */}
+      <Stack.Screen name="onboarding" options={{ animation: 'none' }} />
 
       {/* Auth flow — slide for sub-screens */}
       <Stack.Screen name="phone" options={{ animation: 'slide_from_right' }} />

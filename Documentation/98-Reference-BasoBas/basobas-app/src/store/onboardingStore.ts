@@ -17,6 +17,8 @@ interface OnboardingState {
   // Submission
   isSubmitting: boolean
   submitError: string | null
+  /** Set to true once the KYC screen successfully completes onboarding */
+  onboardingComplete: boolean
 
   // Actions — Step 1
   setRole: (role: UserRole) => void
@@ -40,6 +42,7 @@ interface OnboardingState {
   // Submission
   setSubmitting: (val: boolean) => void
   setSubmitError: (err: string | null) => void
+  setOnboardingComplete: (val: boolean) => void
 
   // Reset (if user logs out mid-onboarding)
   reset: () => void
@@ -65,6 +68,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   kyc: initialKYC,
   isSubmitting: false,
   submitError: null,
+  onboardingComplete: false,
 
   setRole: (role) => set({ roles: [role] }),
 
@@ -110,7 +114,13 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
 
   setSubmitting: (val) => set({ isSubmitting: val }),
   setSubmitError: (err) => set({ submitError: err }),
+  setOnboardingComplete: (val) => set({ onboardingComplete: val }),
 
   reset: () =>
-    set({ roles: [], profile: initialProfile, kyc: initialKYC }),
+    set({
+      roles: [],
+      profile: initialProfile,
+      kyc: initialKYC,
+      onboardingComplete: false,
+    }),
 }))
