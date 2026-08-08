@@ -38,7 +38,21 @@
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-google-signin/google-signin",
-      "expo-video"
+      "./plugins/withGoogleMapsApiKey",
+      "expo-video",
+      [
+        "expo-maps",
+        {
+          "requestLocationPermission": true,
+          "locationPermission": "Allow EdumentX to access your location to find nearby tutors"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow EdumentX to use your location to find tutors near you."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
