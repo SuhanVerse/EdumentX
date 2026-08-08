@@ -1,0 +1,41 @@
+/**
+ * @file useCameraBounds.ts
+ * @description Hook to calculate map bounds based on camera position and screen dimensions.
+ */
+import { useMemo } from 'react';
+import { Dimensions } from 'react-native';
+
+export interface MapBounds {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+}
+
+export function useCameraBounds(
+  camera: { latitude: number; longitude: number; zoom: number } | null
+): MapBounds | null {
+  const { width, height } = Dimensions.get('window');
+
+  return useMemo(() => {
+    if (!camera) return null;
+
+    // Approximate calculation of bounds based on zoom level and screen size at equator.
+    // Earth circumference in meters roughly 40,075,016
+    const metersPerPixel = (40075016 * Math.cos((camera.latitude * Math.PI) / 180)) / Math.pow(2, camera.zoom + 8);
+    
+    // Degrees per meter is approximately 1 / 111320 for latitude
+    const latDegreesPerMeter = 1 / 111320;
+    const lngDegreesPerMeter = 1 / (111320 * Math.cos((camera.latitude * Math.PI) / 180));
+
+    const latDelta = (height / 2) * metersPerPixel * latDegreesPerMeter;
+    const lngDelta = (width / 2) * metersPerPixel * lngDegreesPerMeter;
+
+    return {
+      swLat: camera.latitude - latDelta,
+      swLng: camera.longitude - lngDelta,
+      neLat: camera.latitude + latDelta,
+      neLng: camera.longitude + lngDelta,
+    };
+  }, [camera?.latitude, camera?.longitude, camera?.zoom, width, height]);
+}

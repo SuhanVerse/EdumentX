@@ -7,9 +7,35 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/**',
+      // Deno edge functions — `jsr:`/`npm:` specifiers are not
+      // resolvable by the Node-based linter.
+      'supabase/**',
       'Documentation/98-Reference-BasoBas/**',
       'Documentation/99-Archive/**',
     ],
+  },
+  {
+    // eslint-plugin-react-native dropped `no-inline-styles` in v4, but
+    // eslint-config-expo still references the rule (severity 0) without
+    // registering the plugin. ESLint rejects any rule id that names an
+    // unregistered plugin, so provide a stub plugin so lint doesn't
+    // hard-fail. The rule stays off — the codebase intentionally uses
+    // inline styles for NativeWind-incompatible dynamic values.
+    plugins: {
+      'react-native': {
+        rules: {
+          'no-inline-styles': {
+            meta: { schema: [] },
+            create() {
+              return {};
+            },
+          },
+        },
+      },
+    },
+    rules: {
+      'react-native/no-inline-styles': 'off',
+    },
   },
   {
     // R3F intrinsics (`<mesh>`, `<ambientLight>`, `<directionalLight>`,
@@ -19,9 +45,9 @@ module.exports = defineConfig([
     // elements and doesn't recognise R3F intrinsics, so we disable it
     // for the four 3D files.
     files: [
-      'components/premium/PremiumHero3D.tsx',
-      'components/illustrations/DiscoverScene3D.tsx',
-      'components/illustrations/AiOrb3D.tsx',
+      'src/components/premium/PremiumHero3D.tsx',
+      'src/components/illustrations/DiscoverScene3D.tsx',
+      'src/components/illustrations/AiOrb3D.tsx',
     ],
     rules: {
       'react/no-unknown-property': 'off',
