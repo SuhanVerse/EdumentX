@@ -6,9 +6,9 @@ You are an expert React Native + NativeWind engineer building EdumentX.
 
 1. **Use standard React Native primitives** (`View`, `Text`, `Pressable`, `TextInput`, `ScrollView`) for layout — apply styling through NativeWind `className` props, not inline `style={{}}` objects.
 2. **Never use Tamagui.** All `@tamagui/*` packages and `tamagui.config.ts` have been removed. Do not reintroduce them.
-3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `constants/colors.ts`.
-4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure React Native + NativeWind code before writing anything to our `app/` or `components/` directories.
-5. **Auth is native Firebase Auth.** Use `@react-native-firebase/auth` (`getAuth(getApp())`, `createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `signInWithCredential`, etc.) and `@react-native-google-signin/google-signin` for Google Sign-In. The unified entry point is `screens/auth/EmailSignUp.tsx` — it hosts both the Email + Password form and the "Continue with Google" button. Do NOT reintroduce Clerk; a one-day pivot to Clerk (June 20) was reverted the next day (Clerk's `integration_firebase` template is discontinued for new accounts). The Clerk-pivot history is archived under `Documentation/99-Archive/2026-06-21-clerk-revert/`.
+3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`src/components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `src/constants/colors.ts`.
+4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure React Native + NativeWind code before writing anything to our `src/app/` or `src/components/` directories.
+5. **Auth is native Firebase Auth.** Use `@react-native-firebase/auth` (`getAuth(getApp())`, `createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `signInWithCredential`, etc.) and `@react-native-google-signin/google-signin` for Google Sign-In. The unified entry point is `src/screens/auth/EmailSignUp.tsx` — it hosts both the Email + Password form and the "Continue with Google" button. Do NOT reintroduce Clerk; a one-day pivot to Clerk (June 20) was reverted the next day (Clerk's `integration_firebase` template is discontinued for new accounts). The Clerk-pivot history is archived under `Documentation/99-Archive/2026-06-21-clerk-revert/`.
 6. **Zero-budget / free-tier only.** This project is a college demo built without an international credit card. **Never suggest Firebase Cloud Storage, Firebase Cloud Functions, Google Maps SDK, Google Places API, OpenAI, Anthropic, Cohere, Mapbox, or Algolia** — all require a paid plan or card. Object storage lives in **Supabase Storage** (1 GB free, no card). Map tiles come from **OpenStreetMap** via `react-native-maps` `<UrlTile>` (no key). Geocoding uses **Nominatim** (keyless). Distance / KNN / matching math runs **client-side** (no Cloud Functions). The RAG chatbot uses **Groq** or **HuggingFace Serverless Inference** (free dev tier). Before adding any new dependency, update `Documentation/01-Architecture/ARCHITECTURE.md` §0 with a row justifying it as zero-budget. If it can't be justified, replace the feature or remove it.
 
 ## Translation Protocol
@@ -37,7 +37,7 @@ The Clerk-pivot history is archived under
 `Documentation/99-Archive/2026-06-21-clerk-revert/`.
 
 **Auth flow (Email + Password / Google):**
-- `screens/auth/EmailSignUp.tsx` — single auth entry screen with a
+- `src/screens/auth/EmailSignUp.tsx` — single auth entry screen with a
   "Sign up" / "Log in" toggle. On signup, calls
   `signUpWithEmail(...)` and flips to a "check your inbox" pending
   panel that hosts the **"I've verified — continue"** button. That
@@ -45,12 +45,12 @@ The Clerk-pivot history is archived under
   `auth.currentUser.reload()` — without it, the cached `User`
   object's `emailVerified` flag stays stale and the layout guard
   refuses to advance. This was Bug #4 in the June 21 audit.
-- `screens/auth/EmailSignUp.tsx` — also hosts the "Continue with
+- `src/screens/auth/EmailSignUp.tsx` — also hosts the "Continue with
   Google" button, which calls `signInWithGoogle()`. Google users are
   auto-verified by Google and skip the inbox step entirely.
 
 **Auth-flow routing ("Source of Truth"):**
-`app/_layout.tsx` runs a 5-step redirect tree on every render where
+`src/app/_layout.tsx` runs a 5-step redirect tree on every render where
 `user` / `role` / `segments` change:
 1. Wait for the root navigator to mount (`useRootNavigationState()`).
 2. `!user` → `/email-signup`.
@@ -82,32 +82,32 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
 ```
 
 **Files at play in this flow:**
-- ✅ `app/_layout.tsx` (Source-of-Truth routing + onAuthStateChanged)
-- ✅ `screens/auth/EmailSignUp.tsx` (signup + login + Google + "I've verified — continue")
-- ✅ `screens/auth/RoleSelection.tsx` (writes role, routes to /profile-* not dashboard)
-- ✅ `screens/auth/StudentProfileScreen.tsx` (writes
+- ✅ `src/app/_layout.tsx` (Source-of-Truth routing + onAuthStateChanged)
+- ✅ `src/screens/auth/EmailSignUp.tsx` (signup + login + Google + "I've verified — continue")
+- ✅ `src/screens/auth/RoleSelection.tsx` (writes role, routes to /profile-* not dashboard)
+- ✅ `src/screens/auth/StudentProfileScreen.tsx` (writes
   `users/{uid}/studentProfile/default`)
-- ✅ `screens/auth/TutorProfileScreen.tsx` (writes
+- ✅ `src/screens/auth/TutorProfileScreen.tsx` (writes
   `users/{uid}/tutorProfile/default`, uses `monthlyRateNpr`)
-- ✅ `screens/student/student_home.tsx` (live `onSnapshot` reads,
+- ✅ `src/screens/student/student_home.tsx` (live `onSnapshot` reads,
   shows real `fullName` + `locationLabel`)
-- ✅ `screens/tutor/tutor_home.tsx` (live `onSnapshot` reads, shows
+- ✅ `src/screens/tutor/tutor_home.tsx` (live `onSnapshot` reads, shows
   real `fullName` + verified flag)
-- ✅ `services/firebase/authService.ts` (modular RNFirebase API,
+- ✅ `src/services/firebase/authService.ts` (modular RNFirebase API,
   Google Sign-In, no OTP)
-- ✅ `components/forms/LocationField.tsx` (`MIN_CITY_LENGTH = 3`, not
+- ✅ `src/components/forms/LocationField.tsx` (`MIN_CITY_LENGTH = 3`, not
   2 — the location-field bug from the June 21 audit)
-- ✅ `lib/registration.ts` (no more Clerk-pivot type-level
+- ✅ `src/lib/registration.ts` (no more Clerk-pivot type-level
   placeholders)
 
 **Files removed in this pivot:**
-- ❌ `screens/auth/PhoneEntryScreen.tsx`
-- ❌ `screens/auth/OtpVerify.tsx`
-- ❌ `screens/auth/Password.tsx`
-- ❌ `app/phone-entry.tsx`
-- ❌ `app/otpverify.tsx`
-- ❌ `app/create_password.tsx`
-- ❌ `components/ClerkFirebaseBridge.tsx`
+- ❌ `src/screens/auth/PhoneEntryScreen.tsx`
+- ❌ `src/screens/auth/OtpVerify.tsx`
+- ❌ `src/screens/auth/Password.tsx`
+- ❌ `src/app/phone-entry.tsx`
+- ❌ `src/app/otpverify.tsx`
+- ❌ `src/app/create_password.tsx`
+- ❌ `src/components/ClerkFirebaseBridge.tsx`
 - ❌ `@clerk/clerk-expo`, `expo-crypto`, `expo-secure-store`,
   `expo-web-browser`, `expo-application`
 - ❌ `Documentation/04-Firebase/Clerk_Integration.md` (moved to
@@ -120,7 +120,7 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
 - `metro.config.js` uses `getDefaultConfig(__dirname, { isCSSEnabled: true })`
   only. The `Documentation/98-Reference-BasoBas/` folder is excluded
   via `blockList`.
-- `app/_layout.tsx` mounts `<GestureHandlerRootView>` →
+- `src/app/_layout.tsx` mounts `<GestureHandlerRootView>` →
   `<SafeAreaProvider>` → `<Stack>`. The Stack always renders (no
   conditional tree returns — that breaks expo-router child
   tracking). The loading overlay sits on top via
