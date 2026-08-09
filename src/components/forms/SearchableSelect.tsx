@@ -21,7 +21,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -30,7 +30,9 @@ import {
   View,
 } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { colors } from "@/constants/colors";
+import { motion } from "@/lib/motion";
 
 interface SearchableSelectProps {
   /** Currently selected value (displayed in the input when set). */
@@ -250,46 +252,61 @@ export function SearchableSelect({
             keyboardShouldPersistTaps="always"
             className="max-h-64"
           >
-            {filtered.map((s, i) => (
-              <Pressable
+{filtered.map((s, i) => (
+              <SelectOptionRow
                 key={`opt-${i}`}
-                accessibilityRole="button"
                 onPress={() => selectOption(s.option)}
-                className="flex-row items-center gap-2 px-4 py-3 active:bg-surface-muted border-b border-border/50"
+                last={false}
               >
-                <Ionicons
-                  color={colors.text.muted}
-                  name="school-outline"
-                  size={16}
-                />
-                <Text className="flex-1 text-body text-text-primary">
-                  {s.option}
-                </Text>
-              </Pressable>
+                {s.option}
+              </SelectOptionRow>
             ))}
             {showCustom ? (
-              <Pressable
+              <SelectOptionRow
                 key="custom-option"
-                accessibilityRole="button"
                 onPress={() => selectOption(searchText.trim())}
-                className="flex-row items-center gap-2 px-4 py-3 active:bg-surface-muted"
+                last={true}
               >
-                <Ionicons
-                  color={colors.text.muted}
-                  name="add-circle-outline"
-                  size={16}
-                />
-                <Text className="flex-1 text-body text-text-primary">
-                  {searchText.trim()}
-                </Text>
-                <Text className="text-caption text-accent shrink-0">
-                  Custom
-                </Text>
-              </Pressable>
+                {searchText.trim()}
+              </SelectOptionRow>
             ) : null}
           </ScrollView>
         </View>
       ) : null}
     </View>
+  );
+}
+
+function SelectOptionRow({
+  onPress,
+  last,
+  children,
+}: {
+  onPress: () => void;
+  last: boolean;
+  children: ReactNode;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.rowPressed,
+  });
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`flex-row items-center gap-2 px-4 py-3 ${
+        last ? "" : "border-b border-border/50"
+      }`}
+    >
+      <Ionicons
+        color={colors.text.muted}
+        name={last ? "add-circle-outline" : "school-outline"}
+        size={16}
+      />
+      <Text className="flex-1 text-body text-text-primary">{children}</Text>
+    </AnimatedPressable>
   );
 }

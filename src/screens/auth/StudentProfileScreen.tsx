@@ -22,6 +22,7 @@ import {
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import { Card } from "@/components/ui/Card";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { motion } from "@/lib/motion";
 import { ChipGroup } from "@/components/forms/ChipGroup";
@@ -334,13 +335,11 @@ export function StudentProfileScreen() {
             />
           </View>
 
-          <View
-            onLayout={registerField("usernamePhone")}
-            className="gap-4 p-5 border border-border rounded-card bg-surface"
-          >
-            <Text className="text-label text-ink-muted">
-              Username & phone
-            </Text>
+          <View onLayout={registerField("usernamePhone")}>
+            <Card className="gap-4">
+              <Text className="text-label text-ink-muted">
+                Username & phone
+              </Text>
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
@@ -406,28 +405,28 @@ export function StudentProfileScreen() {
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : null}
             </View>
+            </Card>
           </View>
 
-          <View
-            onLayout={registerField("grade")}
-            className="gap-4 p-5 border border-border rounded-card bg-surface"
-          >
-            <Text className="text-label text-ink-muted">
-              Grade / class
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {GRADES.map((item) => (
-                <GradeChip
-                  key={item}
-                  item={item}
-                  active={grade === item}
-                  onPress={() => setGrade(item)}
-                />
-              ))}
-            </View>
-            {errors.grade ? (
-              <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
-            ) : null}
+          <View onLayout={registerField("grade")}>
+            <Card className="gap-4">
+              <Text className="text-label text-ink-muted">
+                Grade / class
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {GRADES.map((item) => (
+                  <GradeChip
+                    key={item}
+                    item={item}
+                    active={grade === item}
+                    onPress={() => setGrade(item)}
+                  />
+                ))}
+              </View>
+              {errors.grade ? (
+                <Text className="text-caption text-danger -mt-1">{errors.grade}</Text>
+              ) : null}
+            </Card>
           </View>
 
           <View onLayout={registerField("subjects")}>

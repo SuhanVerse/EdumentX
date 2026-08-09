@@ -430,9 +430,8 @@ export function EditTeachingDetails() {
             documents: initial.documents,
             // Include the current avatar URL so the admin queue's
             // PendingEditCard can render the tutor's real photo
-            // instead of DiceBear. The `photoUrl` is a live-editable
-            // field (see `lib/verification/editableFields.ts`) and
-            // lives on the profile doc.
+            // instead of DiceBear. `photoUrl` is a live-editable
+            // field and lives on the profile doc.
             photoUrl: initial.photoUrl,
           },
           proposed,
@@ -760,9 +759,15 @@ function locationsEqual(
 ): boolean {
   if (a === null && b === null) return true;
   if (a === null || b === null) return false;
+  const coordsEqual =
+    a.coordinates === undefined && b.coordinates === undefined
+      ? true
+      : a.coordinates?.latitude === b.coordinates?.latitude &&
+        a.coordinates?.longitude === b.coordinates?.longitude;
   return (
     a.city.trim() === b.city.trim() &&
-    (a.neighborhood ?? "").trim() === (b.neighborhood ?? "").trim()
+    (a.neighborhood ?? "").trim() === (b.neighborhood ?? "").trim() &&
+    coordsEqual
   );
 }
 

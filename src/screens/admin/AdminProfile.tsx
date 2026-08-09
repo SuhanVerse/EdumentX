@@ -551,7 +551,7 @@ export function AdminProfile() {
               onPress={startEditing}
               className="min-h-btn-lg rounded-card items-center justify-center border-2 border-border bg-surface active:opacity-80 self-center w-full max-w-sm flex-row gap-2"
             >
-              <Ionicons name="pencil-outline" size={18} color="#26302B" />
+              <Ionicons name="pencil-outline" size={18} color="#0F172A" />
               <Text className="text-button text-base font-semibold text-text-primary">
                 Edit
               </Text>

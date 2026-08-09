@@ -224,7 +224,9 @@ export async function uploadVerificationDoc(
           BUCKET.VERIFICATION_DOCS +
           ") before retrying"
         : status === 401 || status === 403
-          ? " — the Supabase anon key does not have permission; check RLS policies in SQL Editor"
+          ? " — the anon key upload is denied by RLS. In Supabase SQL editor: CREATE POLICY \"anon-upload\" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = '" +
+            BUCKET.VERIFICATION_DOCS +
+            "')"
           : "";
     throw new Error(
       `[uploadVerificationDoc] ${error.message}${hint} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,

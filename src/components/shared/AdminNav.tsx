@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
-import { ActivePill } from "@/components/motion";
+import { ActivePill, AnimatedPressable, usePressScale } from "@/components/motion";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -61,13 +61,18 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="tab"
       accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className="flex-1 items-center justify-center active:opacity-70"
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="flex-1 items-center justify-center"
     >
       <View className="w-12 h-7 items-center justify-center">
         <Ionicons
@@ -86,7 +91,7 @@ function TabButton({
       >
         {tab.label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -162,7 +167,7 @@ export function AdminNav() {
   return (
     <View
       className="bg-surface border-t border-border"
-      style={{ paddingBottom: 16, paddingTop: 6 }}
+      style={{ paddingBottom: 12, paddingTop: 8 }}
     >
       <TabRow
         tabs={ADMIN_TABS}

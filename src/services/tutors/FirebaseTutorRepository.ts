@@ -43,6 +43,7 @@ function toCanonicalListing(t: FirestoreTutorListing): TutorListing {
     subjects: t.subjects,
     monthlyRateNpr: t.monthlyRateNpr,
     location: t.location,
+    coordinates: t.coordinates,
     photoUrl: t.photoUrl,
     verificationStatus: t.verificationStatus,
     isVerifiedProfessional: t.isVerifiedProfessional,

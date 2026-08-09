@@ -27,6 +27,12 @@ import type { WithSpringConfig } from "react-native-reanimated";
 
 /** Common duration targets (ms) for `withTiming`. */
 export const motionDuration = {
+  /**
+   * Phase 2 “100ms micro-interaction” target: the settle time of the
+   * press spring below is tuned to wrap up ~100ms so a tap feels
+   * instant and tactile (paired with the expo-haptics impact).
+   */
+  press: 100,
   fast: 120,
   medium: 220,
   slow: 340,
@@ -55,11 +61,13 @@ export const motionSpring: Record<
   WithSpringConfig
 > = {
   /**
-   * Default for tap feedback. Mirrors `PrimaryButton`'s config exactly
-   * so the new `usePressScale` hook and the existing reference button
-   * feel identical.
+   * Default for tap feedback. Stiff spring tuned to settle in ~100ms
+   * (Phase 2 “tactile 100ms” target — `motion.duration.press`). It no
+   * longer mirrors `PrimaryButton`'s original config; PrimaryButton now
+   * pulls `motion.spring.press` like every other surface, so the whole
+   * app presses with one feel.
    */
-  press: { damping: 18, stiffness: 320, mass: 0.6 },
+  press: { damping: 24, stiffness: 520, mass: 0.55 },
 
   /** Slower, calmer — slider thumbs, dialog enter, gentle reveals. */
   gentle: { damping: 22, stiffness: 220, mass: 0.8 },

@@ -17,14 +17,18 @@ import {
 
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { AdminNav } from "@/components/shared/AdminNav";
+import { purgeUserAccount } from "@/lib/admin/userLifecycle";
 
 /**
  * EdumentX — User Management (Admin)
  *
  * Fetches users from Firestore `users` collection.
  * Shows: name, email, role, status (active/suspended/deleted).
- * Actions: Suspend/Reinstate, Soft Delete (with confirmation overlay).
- * Deleted users are hidden from the active list but retained in DB.
+ * Actions: Suspend/Reinstate, Soft Delete, Delete permanently
+ * (purges Firestore rows + Supabase files via `lib/admin/userLifecycle`;
+ *  the Firebase Auth identity is removed with `scripts/deleteUser.ts`).
+ * Deleted users are hidden from the active list but retained in DB
+ * (soft delete) until permanently purged.
  */
 
 type UserRole = "student" | "tutor" | "admin";
@@ -70,6 +74,7 @@ export function UserManagement() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
+  const [hardDeleteUser, setHardDeleteUser] = useState<AdminUser | null>(null);
 
   // Fetch users from Firestore.
   //
@@ -178,9 +183,13 @@ export function UserManagement() {
     return true;
   });
 
-  // Active users (for main list) vs deleted (hidden by default)
+  // Active users (for main list) vs deleted. Deleted users are hidden
+  // from every status tab EXCEPT the "Deleted" tab itself — that tab
+  // is the restore surface for soft-deleted accounts.
   const activeUsers = filtered.filter((u) => u.status !== "deleted");
-  const deletedCount = visibleUsers.filter((u) => u.status === "deleted").length;
+  const deletedUsers = filtered.filter((u) => u.status === "deleted");
+  const shownUsers = statusFilter === "Deleted" ? deletedUsers : activeUsers;
+  const deletedCount = deletedUsers.length;
 
   const toggleSuspend = async (user: AdminUser) => {
     if (showMock && users.length === 0) {
@@ -255,6 +264,78 @@ export function UserManagement() {
   const cancelDelete = () => {
     setShowDeleteConfirm(null);
     setDeleteUser(null);
+  };
+
+  // Restore a suspended / soft-deleted user back to active. The row
+  // buttons only surface this for `status !== "active"` accounts (see
+  // UserRow), and the update mirrors what the admin sees instantly via
+  // the local `setUsers` mutation — no refetch needed.
+  const handleRestoreUser = async (user: AdminUser) => {
+    if (showMock && users.length === 0) {
+      Alert.alert(
+        "Demo data",
+        "Restore writes are disabled while demo data is being shown. Wait for the next successful refresh to manage live users.",
+      );
+      return;
+    }
+    try {
+      const { getFirestore } = await import("@react-native-firebase/firestore");
+      const { getApp } = await import("@react-native-firebase/app");
+      const { doc, updateDoc } = await import("@react-native-firebase/firestore");
+
+      const db = getFirestore(getApp());
+      await updateDoc(doc(db, "users", user.id), {
+        status: "active",
+        deletedAt: null,
+        updatedAt: new Date(),
+      });
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? { ...u, status: "active" as UserStatus, deletedAt: undefined }
+            : u
+        )
+      );
+    } catch (err) {
+      console.error("Failed to restore user", err);
+      Alert.alert("Error", "Failed to restore user. Please try again.");
+    }
+  };
+
+  // "Delete permanently" — chains off the soft-delete dialog. Closes
+  // the soft overlay, keeps the same user, and opens the hard-delete
+  // confirm instead.
+  const openHardDelete = () => {
+    const user = deleteUser;
+    setShowDeleteConfirm(null);
+    setDeleteUser(null);
+    setHardDeleteUser(user);
+  };
+
+  const cancelHardDelete = () => {
+    setHardDeleteUser(null);
+  };
+
+  const executeHardDelete = async () => {
+    const user = hardDeleteUser;
+    if (!user) return;
+
+    try {
+      const result = await purgeUserAccount(user.id, user.avatar);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+
+      const storageNote =
+        result.storageFailed.length > 0
+          ? `\n\n${result.storageFailed.length} storage object(s) could not be removed from Supabase (expected until the anon-key delete policy is configured). Run "npm run delete:user" on the dev laptop to finish: it uses the service-role key and removes the auth identity in the same pass.`
+          : "\n\nSupabase files (avatar + verification docs) were also removed.";
+      Alert.alert("User deleted", `${user.name} removed from Firestore.${storageNote}`);
+    } catch (err) {
+      console.error("Failed to hard delete user", err);
+      Alert.alert("Error", "Failed to delete user permanently. Please try again.");
+    } finally {
+      setHardDeleteUser(null);
+    }
   };
 
   return (
@@ -377,7 +458,7 @@ export function UserManagement() {
           <View className="items-center justify-center pt-20">
             <Text className="text-body text-text-muted">Loading users…</Text>
           </View>
-        ) : activeUsers.length === 0 ? (
+        ) : shownUsers.length === 0 ? (
           <EmptyState
             title={deriveEmptyTitle({
               search,
@@ -416,12 +497,13 @@ export function UserManagement() {
           </EmptyState>
         ) : (
           <View className="gap-3.5">
-            {activeUsers.map((user) => (
+            {shownUsers.map((user) => (
               <UserRow
                 key={user.id}
                 user={user}
                 onSuspend={() => toggleSuspend(user)}
                 onDelete={() => confirmDelete(user)}
+                onRestore={() => handleRestoreUser(user)}
               />
             ))}
           </View>
@@ -461,7 +543,14 @@ export function UserManagement() {
               This is a <Text className="font-semibold">soft delete</Text> — the user data will be retained in the database but hidden from the active user list. The user will lose access to the app.
             </Text>
             <Text className="text-caption text-text-muted mt-3">
-              Hard deletion of the Firebase Auth account is a separate admin action (not yet implemented).
+              To also purge the Firestore rows, Supabase files and the Firebase
+              Auth identity, use{" "}
+              <Pressable onPress={openHardDelete}>
+                <Text className="text-amber underline font-medium">
+                  Delete permanently
+                </Text>
+              </Pressable>
+              .
             </Text>
           </>
         }
@@ -470,6 +559,35 @@ export function UserManagement() {
         destructive
         onConfirm={executeSoftDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* Hard Delete Confirmation Overlay — reached from the soft-
+          delete dialog's "Delete permanently" link above. */}
+      <ConfirmDialog
+        visible={!!hardDeleteUser}
+        title="Delete permanently?"
+        message={
+          <>
+            <Text className="text-body text-text-secondary">
+              {hardDeleteUser?.name} ({hardDeleteUser?.email}) will be removed
+              from Firestore — user record, profiles, verification &amp;
+              notification docs — and their uploaded files will be deleted
+              from Supabase Storage. This cannot be undone.
+            </Text>
+            <Text className="text-caption text-text-muted mt-3">
+              The Firebase Auth sign-in itself cannot be deleted from the app
+              (free-tier Spark plan, no Cloud Functions — Auth is a
+              server-side Admin SDK action). After this step, run{" "}
+              {"npm run delete:user -- --uid "}
+              {hardDeleteUser?.id} on the dev laptop to remove the login.
+            </Text>
+          </>
+        }
+        confirmLabel="Delete forever"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={executeHardDelete}
+        onCancel={cancelHardDelete}
       />
     </ScreenLayout>
   );
@@ -548,10 +666,12 @@ function UserRow({
   user,
   onSuspend,
   onDelete,
+  onRestore,
 }: {
   user: AdminUser;
   onSuspend: () => void;
   onDelete: () => void;
+  onRestore: () => void;
 }) {
   const statusConfig = getStatusConfig(user.status);
   const roleConfig = getRoleConfig(user.role);
@@ -642,32 +762,45 @@ function UserRow({
 
         <View className="flex-1" />
 
-        {user.status !== "deleted" ? (
+        {/* Action buttons. Active accounts get the destructive pair
+            (Suspend / Delete). Suspended and soft-deleted accounts
+            get a single Restore action — they're already disabled,
+            so the only useful operation is bringing them back. */}
+        {user.status !== "active" ? (
           <Pressable
-            onPress={onSuspend}
-            className={`px-3 py-1.5 rounded-pill ${
-              user.status === "active" ? "bg-danger/10" : "bg-success/10"
-            } active:opacity-80`}
-            accessibilityLabel={user.status === "active" ? "Suspend user" : "Reinstate user"}
+            onPress={onRestore}
+            className="px-3 py-1.5 rounded-pill bg-success/10 active:opacity-80"
+            accessibilityRole="button"
+            accessibilityLabel="Restore user"
           >
-            <Text
-              className={`text-button-sm font-medium ${
-                user.status === "active" ? "text-danger" : "text-success"
-              }`}
-            >
-              {user.status === "active" ? "Suspend" : "Reinstate"}
+            <Text className="text-button-sm font-medium text-success">
+              Restore
             </Text>
           </Pressable>
-        ) : null}
-        <Pressable
-          onPress={onDelete}
-          className="px-3 py-1.5 rounded-pill bg-danger/10 active:opacity-80"
-          accessibilityLabel="Delete user"
-        >
-          <Text className="text-button-sm font-medium text-danger">
-            Delete
-          </Text>
-        </Pressable>
+        ) : (
+          <>
+            <Pressable
+              onPress={onSuspend}
+              className="px-3 py-1.5 rounded-pill bg-danger/10 active:opacity-80"
+              accessibilityRole="button"
+              accessibilityLabel="Suspend user"
+            >
+              <Text className="text-button-sm font-medium text-danger">
+                Suspend
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onDelete}
+              className="px-3 py-1.5 rounded-pill bg-danger/10 active:opacity-80"
+              accessibilityRole="button"
+              accessibilityLabel="Delete user"
+            >
+              <Text className="text-button-sm font-medium text-danger">
+                Delete
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

@@ -20,7 +20,9 @@
  *     `Animated.View` for the indicator pill).
  */
 
+import * as Haptics from "expo-haptics";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import {
   useAnimatedStyle,
   useSharedValue,
@@ -45,12 +47,20 @@ export type UsePressScaleOptions = {
   targetScale?: number;
   /** Optional override for the spring config (defaults to `motion.spring.press`). */
   spring?: WithSpringConfig;
+  /**
+   * Fire a light device impact on press-in (default true). Skipped on
+   * web (no native module) and wrapped in try/catch so a device with
+   * haptics disabled never crashes or rattles the JS thread.
+   */
+  haptic?: boolean;
 };
 
 /**
  * Returns `onPressIn`, `onPressOut`, and `animatedStyle` to drop onto
  * an `AnimatedPressable` (or `Animated.View`) for spring-scale press
- * feedback. Mirrors the pattern in `PrimaryButton.tsx`.
+ * feedback. The spring settles in ~100ms (`motion.spring.press` —
+ * Phase 2 tactile goal) and fires a light haptic impact on press-in.
+ * Mirrors the pattern in `PrimaryButton.tsx`.
  *
  * @example
  *   const { onPressIn, onPressOut, animatedStyle } = usePressScale({ targetScale: 0.94 });
@@ -59,10 +69,18 @@ export type UsePressScaleOptions = {
 export function usePressScale({
   targetScale = motion.scale.pressed,
   spring = motion.spring.press,
+  haptic = true,
 }: UsePressScaleOptions = {}) {
   const pressed = useSharedValue(0);
 
   const onPressIn = () => {
+    if (haptic && Platform.OS !== "web") {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics disabled / unavailable — never let a tap crash.
+      }
+    }
     pressed.value = withSpring(1, spring);
   };
   const onPressOut = () => {

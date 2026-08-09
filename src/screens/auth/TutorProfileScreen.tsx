@@ -27,6 +27,7 @@ import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import { Card } from "@/components/ui/Card";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
 import { useFieldScroll } from "@/hooks/useFieldScroll";
@@ -528,13 +529,11 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Username + phone (editable — for parent-initiated contact) */}
-          <View
-            onLayout={registerField("usernamePhone")}
-            className="gap-4 p-5 border border-border rounded-card bg-surface"
-          >
-            <Text className="text-label text-ink-muted">
-              Username & phone
-            </Text>
+          <View onLayout={registerField("usernamePhone")}>
+            <Card className="gap-4">
+              <Text className="text-label text-ink-muted">
+                Username & phone
+              </Text>
             <View className="gap-1">
               <Text className="text-caption text-text-secondary">
                 Username (3–30 chars: letters, digits, _ or .)
@@ -600,10 +599,11 @@ export function TutorProfileScreen() {
                 <Text className="text-caption text-danger">{errors.phone}</Text>
               ) : null}
             </View>
+            </Card>
           </View>
 
           {/* Gender radio group */}
-          <View className="gap-3 p-5 border border-border rounded-card bg-surface">
+          <Card className="gap-3">
             <Text className="text-label text-ink-muted">Gender</Text>
             <Text className="text-caption text-text-secondary -mt-2">
               Students can filter tutors by gender preference.
@@ -640,19 +640,17 @@ export function TutorProfileScreen() {
                 </Pressable>
               ))}
             </View>
-          </View>
+          </Card>
 
           {/* Headline */}
-          <View
-            onLayout={registerField("headline")}
-            className="gap-1 p-5 border border-border rounded-card bg-surface"
-          >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-label text-ink-muted">Headline</Text>
-              <Text className="text-caption text-text-muted">
-                {headline.length}/{HEADLINE_MAX}
-              </Text>
-            </View>
+          <View onLayout={registerField("headline")}>
+            <Card className="gap-1">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-label text-ink-muted">Headline</Text>
+                <Text className="text-caption text-text-muted">
+                  {headline.length}/{HEADLINE_MAX}
+                </Text>
+              </View>
             <FieldShell
               value={headline}
               error={!!errors.headline}
@@ -674,10 +672,11 @@ export function TutorProfileScreen() {
             {errors.headline ? (
               <Text className="text-caption text-danger">{errors.headline}</Text>
             ) : null}
+            </Card>
           </View>
 
           {/* Bio */}
-          <View className="gap-1 p-5 border border-border rounded-card bg-surface">
+          <Card className="gap-1">
             <View className="flex-row items-center justify-between">
               <Text className="text-label text-ink-muted">
                 About you (optional)
@@ -707,16 +706,14 @@ export function TutorProfileScreen() {
                 />
               )}
             </FieldShell>
-          </View>
+          </Card>
 
           {/* Credentials — degree + institution */}
-          <View
-            onLayout={registerField("credentials")}
-            className="gap-4 p-5 border border-border rounded-card bg-surface"
-          >
-            <Text className="text-label text-ink-muted">
-              Your credentials
-            </Text>
+          <View onLayout={registerField("credentials")}>
+            <Card className="gap-4">
+              <Text className="text-label text-ink-muted">
+                Your credentials
+              </Text>
             <Text className="text-caption text-text-secondary -mt-3">
               This is shown on your profile so parents know your background.
             </Text>
@@ -748,6 +745,7 @@ export function TutorProfileScreen() {
               error={errors.institution}
               valid={institution.length > 0 && validateInstitution(institution) === null}
             />
+            </Card>
           </View>
 
           <View onLayout={registerField("subjects")}>
@@ -771,10 +769,8 @@ export function TutorProfileScreen() {
           </View>
 
           {/* Stepper + rate */}
-          <View
-            onLayout={registerField("rate")}
-            className="gap-4 p-5 border border-border rounded-card bg-surface"
-          >
+          <View onLayout={registerField("rate")}>
+            <Card className="gap-4">
             <View className="gap-1">
               <Text className="text-label text-ink-muted">
                 Years of experience
@@ -834,6 +830,7 @@ export function TutorProfileScreen() {
                 <Text className="text-caption text-danger">{errors.monthlyRate}</Text>
               ) : null}
             </View>
+            </Card>
           </View>
 
           <View onLayout={registerField("location")}>

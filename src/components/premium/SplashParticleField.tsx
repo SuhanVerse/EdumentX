@@ -8,10 +8,12 @@
  * pre-baked `vx`, `vy`, and `phase` so no two particles share a
  * trajectory.
  *
- * We deliberately do NOT use `expo-gl` here — the splash screen is
- * also the placeholder for the future custom EdumentX logo, and we
- * want a clean, non-GL surface so the future logo can be a flat
- * `<Image>` (or `<Svg>`) without z-fighting the 3D canvas.
+*  We deliberately do NOT use `expo-gl` here — the splash screen is
+ *  also the placeholder for the future custom EdumentX logo (the
+ *  previous R3F/three.js onboard scenes were removed after a device
+ *  crash in `WebGLCapabilities.getMaxPrecision`), and we want a
+ *  clean, flat surface so the future logo can be a simple `<Image>`
+ *  (or `<Svg>`) without a GL context at all.
  *
  * Pure RN primitives (`View`) — Tailwind `className` for styling.
  * Color: rgba(251, 248, 242, opacity) at 30–70% so the particles

@@ -19,11 +19,22 @@ service cloud.firestore {
 
     // The root user doc — created by `RoleSelection` and read by
     // `app/_layout.tsx` to decide which dashboard to show.
+    //
+    // Admin write grants (Phase "user lifecycle", Aug 2026):
+    //   - `update` — lets an admin soft-delete a user (marking
+    //     `status: "deleted" + deletedAt`) without an Admin SDK.
+    //   - `delete` — lets an admin permanently remove the doc once
+    //     the account's data has been purged by `lib/admin/
+    //     userLifecycle.ts`. The matching Firebase Auth identity
+    //     cannot be deleted from the client (Auth.delete() is
+    //     current-user only) — that step runs on a dev laptop via
+    //     `scripts/deleteUser.ts` (see ARCHITECTURE.md §11).
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
       allow read: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) && request.resource.data.uid == userId;
-      allow delete: if false;
+      allow update: if (isOwner(userId) && request.resource.data.uid == userId)
+                    || isAdmin();
+      allow delete: if isAdmin();
 
       // Profile subcollection docs (one per role). The screens write
       // these from `StudentProfileScreen` / `TutorProfileScreen` and
@@ -74,7 +85,8 @@ service cloud.firestore {
     match /tutors/{uid} {
       allow read: if true;
       allow create, update: if isAdmin();
-      allow delete: if false;
+      // Admin can purge the discovery copy when the user is deleted.
+      allow delete: if isAdmin();
     }
 
     // Admins collection — bootstrap is locked to the Firebase Admin SDK
@@ -113,7 +125,7 @@ service cloud.firestore {
                       && request.resource.data.status == "pending")
                     || (isAdmin() && request.resource.data.status in
                       ["pending", "approved", "rejected", "more_info"]);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Pending edit queue — when a verified tutor edits their profile
@@ -143,7 +155,7 @@ service cloud.firestore {
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
       allow update: if (isOwner(uid) && request.resource.data.status == "pending")
                     || isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Notifications — one document per notification, addressed to a
@@ -168,7 +180,8 @@ service cloud.firestore {
         // field must round-trip to its current value.
         request.resource.data.diff(resource.data).changedKeys()
           .hasOnly(["read", "readAt"]);
-      allow delete: if false;
+      // Admin purges recipient notifications on account deletion.
+      allow delete: if isAdmin();
     }
 
     // Everything else stays locked down. The app's MVP only touches

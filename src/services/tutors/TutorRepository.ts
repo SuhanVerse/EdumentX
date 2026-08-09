@@ -46,6 +46,11 @@ export interface TutorListing {
   subjects: string[];
   monthlyRateNpr: number;
   location: { neighborhood: string; city: string };
+  /** GPS coordinates for map plotting — present when the profile was
+   *  saved through the GPS / map-picker flow (Phase 5.2+). `undefined`
+   *  for tutors registered before it existed. Mirrors
+   *  `TutorProfile.location.coordinates`. */
+  coordinates?: { latitude: number; longitude: number };
   photoUrl: string | null;
   verificationStatus: string;
   isVerifiedProfessional: boolean;

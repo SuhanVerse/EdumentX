@@ -14,6 +14,9 @@ export type GeocodeResult = {
 
 const USER_AGENT = 'EdumentX-App/1.0';
 const BASE_URL = 'https://nominatim.openstreetmap.org';
+// Force English place names (Nepali towns otherwise come back in
+// Devanagari — see `geocoder.ts` for the same fix on reverse lookups).
+const ACCEPT_LANGUAGE = 'en';
 
 /**
  * Forward geocode a place name to coordinates.
@@ -24,7 +27,7 @@ const BASE_URL = 'https://nominatim.openstreetmap.org';
  */
 export async function geocodePlace(query: string): Promise<GeocodeResult[]> {
   const searchQuery = `${query}, Kathmandu, Nepal`;
-  const url = `${BASE_URL}/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=5`;
+  const url = `${BASE_URL}/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&accept-language=${ACCEPT_LANGUAGE}&limit=5`;
   
   try {
     const response = await fetch(url, {
@@ -59,12 +62,13 @@ export async function geocodePlace(query: string): Promise<GeocodeResult[]> {
  * @returns Area name string (suburb or neighborhood)
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  const url = `${BASE_URL}/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
+  const url = `${BASE_URL}/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=${ACCEPT_LANGUAGE}`;
   
   try {
     const response = await fetch(url, {
       headers: {
         'User-Agent': USER_AGENT,
+        'Accept-Language': ACCEPT_LANGUAGE,
       },
     });
     

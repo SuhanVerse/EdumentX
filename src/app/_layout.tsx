@@ -13,7 +13,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, View, StatusBar as NativeStatusBar } from "react-native";
+import { ActivityIndicator, Alert, View, StatusBar as NativeStatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -431,8 +431,54 @@ export default function RootLayout() {
           const userDocRef = doc(firebaseDb, "users", nextUser.uid);
           const snap = await getDoc(userDocRef);
           const data = snap.data() as
-            | { role?: string | null; uid?: string | null; email?: string | null }
+            | {
+                role?: string | null;
+                uid?: string | null;
+                email?: string | null;
+                status?: string | null;
+              }
             | undefined;
+
+          // ── Access barrier: suspended / deleted accounts ──────────────
+          //
+          // An admin can mark a user `status: "suspended"` (pause) or
+          // `status: "deleted"` (soft delete) from the UserManagement
+          // screen. Those users still hold a valid Firebase Auth token,
+          // so without this barrier they would sign in normally (the
+          // Auth record is only destroyed by the server-side
+          // `scripts/deleteUser.ts`). The barrier:
+          //   1. reads the doc we just fetched,
+          //   2. refuses to populate ANY store state (role/profile
+          //      flags stay null → the redirect tree stays on the
+          //      signed-out branch), and
+          //   3. signs the account out and notifies the user.
+          //
+          // The layout guard's signed-out branch only allows
+          // onboarding + `/email-signup`, so no app screen can be
+          // reached while the uid is in this state.
+          const accountStatus = typeof data?.status === "string" ? data.status : null;
+          if (
+            snap.exists() &&
+            (accountStatus === "suspended" || accountStatus === "deleted")
+          ) {
+            lastUidRef.current = null;
+            setUser(null);
+            setRole(null);
+            setHasAdminProfile(false);
+            setTutorVerificationStatus(null);
+            try {
+              await firebaseAuth.signOut();
+            } catch (signOutErr) {
+              console.warn("RootLayout: signOut for blocked account failed", signOutErr);
+            }
+            setLoading(false);
+            Alert.alert(
+              "Access Denied",
+              "This account has been suspended or deleted. Please contact support.",
+            );
+            return;
+          }
+
           const roleValue = normalizeRole(data?.role);
           setRole(roleValue);
 

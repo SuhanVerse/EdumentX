@@ -108,13 +108,13 @@ export function SplashScreen() {
           // surface chip.
           // Future: swap the two-letter mark for the real vector logo.
         >
-          {/* Outer tile — chalkboard green with a warm offset border */}
+          {/* Outer tile — slate-800 with a warm offset amber border */}
           <View
             style={{
               width: 64,
               height: 64,
               borderRadius: 16,
-              backgroundColor: '#254B41', // primary-pressed — darker so the ring shows
+              backgroundColor: '#1E293B', // slate-800 — sits on the night base
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 2,

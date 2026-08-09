@@ -234,7 +234,7 @@ export function BottomNav({
   }
 
   return (
-    <View className="bg-surface border-t border-border pt-1.5 pb-2.5">
+    <View className="bg-surface border-t border-border pt-2 pb-3">
       <TabRow
         tabs={tabs}
         activeIndex={activeIndex >= 0 ? activeIndex : 0}

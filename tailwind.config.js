@@ -11,10 +11,11 @@ module.exports = {
       colors: {
         // ── Core palette ─────────────────────────────────────────────────────
         // Backward-compat alias: screens still use bg-night / text-night
-        night: '#26302B',
+        // Phase 2 (July 2026): ink family moved to Slate #0F172A (BasoBas-style)
+        night: '#0F172A',
         // Semantic alias for the same value
-        ink: '#26302B',
-        'ink-muted': '#6B7268',
+        ink: '#0F172A',
+        'ink-muted': '#6B7280',
         'surface-muted': '#F1ECE0',
         sand: '#F1ECE0',
         surface: '#FFFFFF',
@@ -61,11 +62,11 @@ module.exports = {
 
         // Text
         text: {
-          DEFAULT: '#26302B',
-          primary: '#26302B',
-          secondary: '#6B7268',
-          tertiary: '#26302B',
-          muted: '#6B7268',
+          DEFAULT: '#0F172A',
+          primary: '#0F172A',
+          secondary: '#6B7280',
+          tertiary: '#0F172A',
+          muted: '#6B7280',
           inverse: '#FFFFFF',
           link: '#2F5D50',
         },
@@ -73,8 +74,8 @@ module.exports = {
         // Border
         border: {
           DEFAULT: '#E7E1D3',
-          strong: '#6B7268',
-          subtle: 'rgba(38, 48, 43, 0.05)',
+          strong: '#6B7280',
+          subtle: 'rgba(15, 23, 42, 0.05)',
         },
 
         // Onboarding illustration backgrounds
@@ -83,7 +84,7 @@ module.exports = {
         'onb-verify': '#DCF0E4',
 
         // Splash
-        splash: '#2F5D50',
+        splash: '#0F172A',
         'splash-text': '#FBF8F2',
         'splash-track': 'rgba(251, 248, 242, 0.20)',
       },
