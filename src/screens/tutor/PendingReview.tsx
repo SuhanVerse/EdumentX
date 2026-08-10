@@ -213,7 +213,7 @@ export function TutorPendingReview() {
   }
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
 
       {/* Hero — slate, matches the 5 other tutor surfaces so the
           "this is still the tutor side of the app" feeling is
@@ -221,16 +221,16 @@ export function TutorPendingReview() {
       <View className="px-5 pb-7 shrink-0">
         <View className="flex-row items-center gap-2 mb-2 mt-1">
           <View className="w-2 h-2 rounded-full bg-warning" />
-          <Text className="text-caption text-white/70 uppercase tracking-wider">
+          <Text className="text-caption text-text-secondary uppercase tracking-wider">
             Under review
           </Text>
         </View>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
-          <Text className="text-screen-title font-medium text-white">
+          <Text className="text-screen-title font-medium text-text-primary">
             Your account is being reviewed
           </Text>
         </View>
-        <Text className="text-body text-white/65 mt-1.5">
+        <Text className="text-body text-text-secondary mt-1.5">
           We&apos;re checking the details you submitted. You&apos;ll get
           full access to the tutor dashboard once an admin approves
           your profile — usually within 24–48 hours.
