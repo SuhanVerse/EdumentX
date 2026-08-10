@@ -17,7 +17,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -27,21 +27,36 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
-import { Avatar , getInitials } from "@/components/ui/Avatar";
+import { Avatar } from "@/components/ui/Avatar";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
-import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { AnimatedPressable, usePressScale, useShake } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
+import { getInitials } from "@/components/ui/Avatar";
 import {
   type TutorProfile,
   type TutorSession,
   type Review,
 } from "@/lib/tutor/types";
 import { fetchTutorProfile } from "@/services/tutors/dataSource";
+import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import {
+  type AvailabilitySnapshot,
+  type Batch,
+  type Enrollment,
+  type EnrollmentRequest,
+  type WeeklyAvailability,
+  DEFAULT_AVAILABILITY,
+} from "@/services/enrollments/types";
+import { computeBookedMap } from "@/services/enrollments/derived";
+import { computePendingMap, type PendingMap } from "@/services/enrollments/pending";
+import { RequestEnrollmentSheet } from "@/components/domain/RequestEnrollmentSheet";
+import { StudentAvailabilityGrid } from "@/components/domain/StudentAvailabilityGrid";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Section Spacing
@@ -97,6 +112,32 @@ export function TutorDetailsScreen() {
   const [isSaved, setIsSaved] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
   const [demoVideoVisible, setDemoVideoVisible] = useState(false);
+  const [enrollSheetVisible, setEnrollSheetVisible] = useState(false);
+
+  // Live availability + bookedMap for the new "Weekly availability"
+  // section between the Session Board and the About section.
+  // Students see the same Booked state tutors see — the
+  // `enrollments` + `batches` rules allow any signed-in user to
+  // read a tutor's roster.
+  const repo = getEnrollmentRepository();
+  const [availability, setAvailability] = useState<WeeklyAvailability>(
+    DEFAULT_AVAILABILITY,
+  );
+  const [bookedMap, setBookedMap] = useState<ReturnType<
+    typeof computeBookedMap
+  > | null>(null);
+
+  // Phase 1 grid redesign — track the student's selected slots
+  // (multi-select) and the tutor's open requests so the grid can
+  // render the amber border-2 ring on Selected cells and the
+  // hourglass overlay on Pending cells. The selection is purely
+  // visual — the student types their preferred days/times into the
+  // sheet's `schedule` text field. Nothing about the selection is
+  // sent to the tutor.
+  const [selectedSlotKeys, setSelectedSlotKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [requests, setRequests] = useState<EnrollmentRequest[]>([]);
 
   // Fetch the tutor profile from Firestore on mount
   useEffect(() => {
@@ -116,6 +157,155 @@ export function TutorDetailsScreen() {
       })
       .finally(() => setProfileLoading(false));
   }, [id]);
+
+  // Live availability subscription. The repo emits
+  // `{ availability, enrolledCount, studentCapacity }`; we only
+  // need the availability grid for the time list.
+  useEffect(() => {
+    if (!id) return;
+    const unsub = repo.subscribeAvailability(
+      id,
+      (snap: AvailabilitySnapshot) => {
+        setAvailability(snap.availability ?? DEFAULT_AVAILABILITY);
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: availability subscribe failed", err),
+    );
+    return unsub;
+  }, [id, repo]);
+
+  // Live enrollments + batches — together they build the BookedMap.
+  // Students can read a tutor's roster (rules allow it) so they
+  // know which slots are taken before requesting.
+  useEffect(() => {
+    if (!id) return;
+    let latestEnrollments: Enrollment[] = [];
+    let latestBatches: Batch[] = [];
+    const recompute = () =>
+      setBookedMap(computeBookedMap(latestEnrollments, latestBatches));
+    const unsubE = repo.subscribeEnrollments(
+      id,
+      (list) => {
+        latestEnrollments = list;
+        recompute();
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: enrollments subscribe failed", err),
+    );
+    const unsubB = repo.subscribeBatches(
+      id,
+      (list) => {
+        latestBatches = list;
+        recompute();
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: batches subscribe failed", err),
+    );
+    return () => {
+      unsubE();
+      unsubB();
+    };
+  }, [id, repo]);
+
+  // Live enrollment requests — Phase 1 grid redesign. We need the
+  // open requests to overlay an hourglass icon + count badge on
+  // any slot another student has asked about. The repo's
+  // `subscribeRequests` already returns the full list (pending +
+  // historical); `computePendingMap` filters to the ones still
+  // waiting on a decision.
+  //
+  // Defensive retry — on a fresh app launch the auth token may
+  // not be available the instant this effect runs, and Firestore
+  // can surface `[firestore/permission-denied]` if `request.auth`
+  // is null when the LIST rule fires. We detach the failed
+  // listener and re-subscribe once after 1.5 s — most of the time
+  // the second attempt succeeds because the auth listener has
+  // caught up by then. The screen still renders fine without the
+  // overlay; this just gives the pending-hourglass a chance to
+  // appear when other students have open requests.
+  useEffect(() => {
+    if (!id) return;
+    let unsub = (): void => {};
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    let cancelled = false;
+
+    const attach = () => {
+      if (cancelled) return;
+      attempt += 1;
+      unsub = repo.subscribeRequests(
+        id,
+        (list) => setRequests(list),
+        (err) => {
+          console.warn("TutorDetailsScreen: requests subscribe failed", err);
+          // Detach the broken listener and re-subscribe after 1.5 s.
+          // Only retry once — a persistent rule failure should not
+          // loop forever.
+          unsub();
+          unsub = () => {};
+          if (attempt >= 2 || cancelled) return;
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            attach();
+          }, 1500);
+        },
+      );
+    };
+
+    attach();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      unsub();
+    };
+  }, [id, repo]);
+
+  const pendingMap: PendingMap = useMemo(
+    () => computePendingMap(requests),
+    [requests],
+  );
+
+  // Toggle a slot key in the multi-select set. The selection is
+  // purely visual — see the comment on `selectedSlotKeys` above.
+  const toggleSlotKey = useCallback((key: string) => {
+    setSelectedSlotKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedSlotKeys(new Set());
+  }, []);
+
+  const openSheet = useCallback(() => {
+    setEnrollSheetVisible(true);
+  }, []);
+
+  const handleSheetClose = useCallback(() => {
+    setEnrollSheetVisible(false);
+    // Dismissal clears the grid selection — the student didn't
+    // commit, so the highlight shouldn't linger on the page.
+    setSelectedSlotKeys(new Set());
+  }, []);
+
+  const handleSheetSubmitted = useCallback(() => {
+    setEnrollSheetVisible(false);
+    // Clear the grid selection — the request is now in flight,
+    // the visual map of "candidates" is no longer the student's
+    // current decision.
+    setSelectedSlotKeys(new Set());
+    Alert.alert(
+      "Request sent",
+      `Your request to ${tutor?.fullName.split(" ")[0] ?? "the tutor"} is in. You'll see it under My Enrollments → Pending until they decide.`,
+    );
+  }, [tutor?.fullName]);
 
   // ── Loading state ──
   if (profileLoading) {
@@ -185,6 +375,18 @@ export function TutorDetailsScreen() {
           <SessionBoardSection tutor={tutor} />
         </View>
 
+        {/* ═══ SECTION 3b: Weekly Availability (live) ═══ */}
+        <View className={SECTION_GAP}>
+          <AvailabilitySection
+            availability={availability}
+            bookedMap={bookedMap}
+            pendingMap={pendingMap}
+            selectedSlotKeys={selectedSlotKeys}
+            onSlotToggle={toggleSlotKey}
+            onClearSelection={clearSelection}
+          />
+        </View>
+
         {/* ═══ SECTION 4: About ═══ */}
         <View className={SECTION_GAP}>
           <AboutSection tutor={tutor} expanded={bioExpanded} onToggle={() => setBioExpanded(!bioExpanded)} />
@@ -205,7 +407,11 @@ export function TutorDetailsScreen() {
       </ScrollView>
 
       {/* ═══ SECTION 7: Sticky Footer CTA ═══ */}
-      <StickyFooter tutor={tutor} insets={insets} />
+      <StickyFooter
+        tutor={tutor}
+        insets={insets}
+        openSheet={openSheet}
+      />
 
       {/* ═══ Demo Video Modal ═══ */}
       <VideoViewerModal
@@ -213,6 +419,14 @@ export function TutorDetailsScreen() {
         uri={tutor.demoVideoUrl ?? ""}
         label={`${tutor.fullName} — demo lesson`}
         onClose={() => setDemoVideoVisible(false)}
+      />
+
+      {/* ═══ Enroll Request Sheet ═══ */}
+      <RequestEnrollmentSheet
+        visible={enrollSheetVisible}
+        tutor={tutor}
+        onClose={handleSheetClose}
+        onSubmitted={handleSheetSubmitted}
       />
     </ScreenLayout>
   );
@@ -648,6 +862,108 @@ function SessionCard({ session }: { session: TutorSession }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Section 3b: Weekly Availability (live) — Phase 1 grid redesign
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Phase 1 — replaces the old `AvailabilityTimeList` (vertical
+ * day-grouped list) with a polished, responsive 7×6 grid that
+ * visually matches `WeeklyAvailabilityGrid`. The student can
+ * tap exactly one Available slot; the grid reflects that with
+ * the brand's amber border-2 over the green fill. Disabled taps
+ * (Booked / Off cells) shake the grid to communicate "this one
+ * isn't selectable" without changing the selection.
+ *
+ * Selection state lives at the screen level so it survives the
+ * sheet open/close cycle. The `Clear` button in the section
+ * header is the explicit UX for deselection; tap-again-to-deselect
+ * is wired inside the grid for symmetry.
+ *
+ * The slot is only "officially" booked after the tutor accepts —
+ * Booked (blue) is reserved for the post-accept state. While
+ * pending (someone else asked), the cell renders Available with a
+ * hourglass icon + count badge overlay.
+ */
+function AvailabilitySection({
+  availability,
+  bookedMap,
+  pendingMap,
+  selectedSlotKeys,
+  onSlotToggle,
+  onClearSelection,
+}: {
+  availability: WeeklyAvailability;
+  bookedMap: ReturnType<typeof computeBookedMap> | null;
+  pendingMap: PendingMap;
+  selectedSlotKeys: ReadonlySet<string>;
+  onSlotToggle: (slotKey: string) => void;
+  onClearSelection: () => void;
+}) {
+  const { shake, animatedStyle: shakeStyle } = useShake({ amplitude: 6, duration: 60 });
+
+  const handleDisabled = useCallback(() => {
+    shake();
+  }, [shake]);
+
+  const selectionCount = selectedSlotKeys.size;
+
+  return (
+    <Animated.View style={shakeStyle} className={SECTION_PADDING}>
+      {/* Header — title + Clear (when there's a selection) */}
+      <View className="flex-row items-center justify-between mb-1">
+        <Text className="text-section-title font-semibold text-text-primary">
+          Weekly availability
+        </Text>
+        {selectionCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear slot selection"
+            onPress={onClearSelection}
+            className="px-2.5 py-1 rounded-pill bg-surface border border-border active:opacity-70"
+          >
+            <Text className="text-micro text-text-secondary font-medium">
+              Clear ({selectionCount})
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <Text className="text-body-sm text-text-muted mb-4">
+        Tap one or more available slots to mark candidates. When you
+        send the request, type your preferred days and times in the
+        message.
+      </Text>
+
+      {bookedMap == null ? (
+        <View className="bg-surface border border-border rounded-card p-3 gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <View
+              key={i}
+              className="h-12 rounded-md bg-background"
+              style={{ opacity: 0.6 }}
+            />
+          ))}
+        </View>
+      ) : (
+        <StudentAvailabilityGrid
+          availability={availability}
+          bookedMap={bookedMap}
+          pendingMap={pendingMap}
+          selectedSlotKeys={selectedSlotKeys}
+          onSlotToggle={onSlotToggle}
+          onSlotDisabled={handleDisabled}
+        />
+      )}
+
+      {/* Helper copy — short, beneath the grid */}
+      <Text className="text-caption text-text-muted mt-3 leading-relaxed">
+        Tap a <Text className="font-semibold text-verification">green</Text> slot
+        to mark it. Blue slots are taken. Grey slots aren&apos;t open yet.
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Section 4: About
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1006,9 +1322,11 @@ function ReviewCard({ review }: { review: Review }) {
 function StickyFooter({
   tutor,
   insets,
+  openSheet,
 }: {
   tutor: TutorProfile;
   insets: { bottom: number };
+  openSheet: () => void;
 }) {
   return (
     <View
@@ -1025,11 +1343,15 @@ function StickyFooter({
           <Text className="text-micro text-text-muted">/month</Text>
         </View>
 
-        {/* Enroll button */}
+        {/* Enroll button — always visible. The student may have
+            *  selected candidate slots on the grid above, but the
+            *  request itself is captured in the sheet (the
+            *  schedule + message + dates). The button is the
+            *  single entry point to the sheet. */}
         <View className="flex-1">
           <PrimaryButton
             label={`Enroll with ${tutor.fullName.split(" ")[0]}`}
-            onPress={() => Alert.alert("Enroll", "Enrollment flow coming soon.")}
+            onPress={openSheet}
             variant="accent"
             size="md"
             className="w-full"

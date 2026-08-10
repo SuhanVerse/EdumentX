@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   Text,
   TextInput,
   View,
@@ -24,9 +25,9 @@ import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { TutorCard } from "@/components/domain/TutorCard";
 import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
-import { colors } from "@/constants/colors";
 import {
   getTutorRepository,
   type TutorListing,
@@ -203,15 +204,23 @@ export function StudentHome() {
 
       {/* Hero header — standard ScreenHeader slot */}
       <ScreenHeader>
-        <View className="flex-row items-start justify-between mb-4">
-          <View>
+        <View className="flex-row items-start justify-between mb-4 gap-3">
+          {/* `flex-1 min-w-0` lets the greeting shrink to fit a long
+              name (e.g. "Suhan Dongol") next to the notification
+              bell — without it the View clips to the bell's width
+              and the name reads "Su…" in the screenshots. */}
+          <View className="flex-1 min-w-0">
             <Text className="text-body text-white/70 mb-0.5">Good day,</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
-              <Text className="text-screen-title font-medium text-white">
+              <Text
+                className="text-screen-title font-medium text-white"
+                numberOfLines={1}
+              >
                 {profile.fullName}
               </Text>
             </View>
           </View>
+          <NotificationBell tone="dark" />
         </View>
 
         {/* Location */}
@@ -220,34 +229,56 @@ export function StudentHome() {
           <Text className="text-caption text-white/70">{profile.locationLabel}</Text>
         </View>
 
-        {/* Search bar */}
-        <View className="bg-surface rounded-card h-input flex-row items-center px-3 gap-2.5 border border-border">
-          <Ionicons name="search-outline" size={18} color="#6B7268" />
+        {/* Search bar — glass input on the night hero (Premium UI:
+            translucent white surface + hairline edge) */}
+        <View className="bg-glass-strong rounded-2xl h-input flex-row items-center px-4 gap-2.5 border border-glass-border">
+          <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.5)" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search subjects, tutors, locations…"
-            placeholderTextColor="#6B7268"
-            className="flex-1 text-body-lg text-text-primary"
+            placeholderTextColor="rgba(255,255,255,0.35)"
+            className="flex-1 text-body-lg text-white"
           />
         </View>
       </ScreenHeader>
 
-      {/* Content — standard ScreenScroll body */}
-      <ScreenScroll className="flex-1 bg-background">
+      {/* Content — dark body (Premium UI pass): the scroll sits on
+          `bg-night-deep` (one step darker than the night hero) so the
+          glass cards read as floating surfaces. */}
+      <ScreenScroll className="flex-1 bg-night-deep">
+        {/* Primary CTA — the ONLY amber surface on this screen. Amber
+            is reserved for high-priority actions; tapping this
+            launches the map discovery surface. */}
+        <View className="mb-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Explore tutors on the map"
+            onPress={() => router.replace("/map-search")}
+            className="min-h-btn rounded-2xl bg-amber items-center justify-center shadow-[0_10px_30px_rgba(229,160,59,0.25)] active:opacity-90"
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="map-outline" size={18} color="#0F172A" />
+              <Text className="text-button font-semibold text-night">
+                Explore tutors on the map
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
         {/* Tutor list section header */}
         <View className="pb-3">
           <View className="flex-row items-center justify-between">
-            <Text className="text-section-title font-semibold text-text-primary">
+            <Text className="text-section-title font-semibold text-white">
               Recommended tutors
             </Text>
             {!tutorsLoading && (
-              <Text className="text-caption text-text-muted">
+              <Text className="text-caption text-slate-400">
                 {tutors.length} available
               </Text>
             )}
           </View>
-          <Text className="text-body-sm text-text-muted mt-1">
+          <Text className="text-body-sm text-slate-400 mt-1">
             Verified tutors ready to help you learn
           </Text>
         </View>
@@ -256,24 +287,24 @@ export function StudentHome() {
         <View className="gap-4">
           {tutorsLoading ? (
             <View className="items-center py-12">
-              <ActivityIndicator size="small" color={colors.text.muted} />
-              <Text className="text-caption text-text-muted mt-3">
+              <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+              <Text className="text-caption text-slate-400 mt-3">
                 Loading tutors…
               </Text>
             </View>
           ) : tutors.length === 0 ? (
             <View className="items-center py-12 px-6">
-              <View className="w-14 h-14 rounded-pill bg-surface items-center justify-center mb-3">
+              <View className="w-14 h-14 rounded-2xl bg-glass-strong items-center justify-center mb-3 border border-glass-border">
                 <Ionicons
                   name="search-outline"
                   size={26}
-                  color={colors.text.muted}
+                  color="rgba(255,255,255,0.5)"
                 />
               </View>
-              <Text className="text-card-title font-medium text-text-primary text-center">
+              <Text className="text-card-title font-medium text-white text-center">
                 No tutors available yet
               </Text>
-              <Text className="text-body-sm text-text-secondary text-center mt-1.5">
+              <Text className="text-body-sm text-slate-400 text-center mt-1.5">
                 Approved tutors will appear here once they&apos;ve been
                 verified by our team.
               </Text>
@@ -297,6 +328,7 @@ export function StudentHome() {
                   photoUrl: tutor.photoUrl,
                 })}
                 variant="wide"
+                tone="dark"
               />
             ))
           )}
@@ -333,7 +365,7 @@ export function StudentHome() {
         </View>
       </ScreenScroll>
 
-      <BottomNav role="student" current="/student-home" />
+      <BottomNav role="student" current="/student-home" tone="dark" />
     </ScreenLayout>
   );
 }
@@ -356,10 +388,10 @@ function StudentHomeLogOut({
       onPressOut={onPressOut}
       style={animatedStyle}
       disabled={isSigningOut}
-      className="min-h-btn rounded-card items-center justify-center flex-row gap-2 bg-surface border border-border"
+      className="min-h-btn rounded-2xl items-center justify-center flex-row gap-2 bg-glass border border-glass-border"
     >
       {isSigningOut ? (
-        <ActivityIndicator size="small" color={colors.brand.primary} />
+        <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
       ) : (
         <Ionicons name="log-out-outline" size={18} color="#C1503D" />
       )}

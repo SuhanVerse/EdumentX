@@ -81,6 +81,45 @@ export interface TutorMapProps {
 // ─── Camera helpers ─────────────────────────────────────────────────────────
 
 /**
+ * POI-free base layer (Android / Google Maps).
+ *
+ * expo-maps does not expose a `showsPointsOfInterest`-style boolean
+ * (that's react-native-maps), but its Android native module DOES apply
+ * a raw Google Maps style JSON via `properties.mapStyleOptions`
+ * (`MapStyleOptions(json)` — no paid mapId needed). This JSON hides the
+ * stock POI icons + labels (bus stops, shop, restaurant glyphs) that
+ * clutter the tutor map, while keeping roads, parks and water intact.
+ * Transit is intentionally left visible on Android (the platform
+ * allows it).
+ *
+ * Style controls live here, next to the map, not in the screen.
+ */
+const GOOGLE_POI_FREE_STYLE = JSON.stringify([
+  {
+    featureType: "poi",
+    elementType: "labels.icon",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text",
+    stylers: [{ visibility: "off" }],
+  },
+]);
+
+/**
+ * POI policy on iOS (Apple Maps). The platform supports granular POI
+ * categories, but NOT a style JSON — so we hide every category. Apple's
+ * `including` API: "To hide all POIs, set this to an empty array."
+ * Matches the Android POI-free base layer (GOOGLE_POI_FREE_STYLE).
+ * Empty array keeps roads, parks, and water labels visible — those
+ * aren't POIs.
+ */
+const APPLE_NO_POI = {
+  including: [],
+} as unknown as AppleMaps.MapProperties["pointsOfInterest"];
+
+/**
  * ExpoModulesCore wraps native camera animations in a Promise. When a new
  * camera animation supersedes an in-flight one, the old Promise rejects with
  * `CancellationException: Animation cancelled`. The rejection is harmless
@@ -148,7 +187,7 @@ const IosMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
         title: m.title,
         tintColor: m.color,
       }))}
-      properties={{ isMyLocationEnabled }}
+      properties={{ isMyLocationEnabled, pointsOfInterest: APPLE_NO_POI }}
       onMarkerClick={(e: any) => {
         const m = markers.find((x) => x.id === e.id);
         if (m) onMarkerClick?.(m);
@@ -231,6 +270,8 @@ const AndroidMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
       }))}
       properties={{
         isMyLocationEnabled,
+        // POI-free base layer (see GOOGLE_POI_FREE_STYLE above).
+        mapStyleOptions: { json: GOOGLE_POI_FREE_STYLE },
         // Hard zoom floor/ceiling (Nepal-only app: no world zoom-out).
         minZoomPreference: NEPAL_ZOOM_RANGE.min,
         maxZoomPreference: NEPAL_ZOOM_RANGE.max,

@@ -269,6 +269,10 @@ export default function RootLayout() {
         "batches",
         "tutor-inbox",
         "tutor_edit_profile",
+        // Tutor capacity & schedule — reachable from the dashboard's
+        // capacity card and `tutor_edit_profile`'s "Capacity &
+        // schedule" row.
+        "tutor-capacity",
         // Tutor high-risk edit screen. Reachable from
         // `tutor_edit_profile`'s "Subjects, rate & location" row.
         // The screen itself routes the user to /tutor-pending
@@ -889,6 +893,7 @@ export default function RootLayout() {
           <Stack.Screen name="batches" />
           <Stack.Screen name="tutor-inbox" />
           <Stack.Screen name="tutor_edit_profile" />
+          <Stack.Screen name="tutor-capacity" />
           <Stack.Screen name="tutor_edit_teaching_details" />
           {/* Tutor under-review screen. Reached via the layout guard
               when `tutorVerificationStatus === "pending"`. */}

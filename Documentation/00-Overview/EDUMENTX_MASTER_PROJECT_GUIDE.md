@@ -931,7 +931,7 @@ const canSubmit = isPhoneValid && isPasswordValid;
 
 ```json
 {
-  "firestore": { "rules": "firebase/firestore.rules", "indexes": "firebase/indexes.json" },
+  "firestore": { "rules": "firebase/firestore.rules", "indexes": "firebase/firestore.indexes.json" },
   "storage":  { "rules": "firebase/storage.rules" },
   "emulators": {
     "auth":     { "port": 9099 },
@@ -1691,7 +1691,7 @@ global.css                               ~10 lines  (Tailwind directives)
 
 firebase/firestore.rules                 ~30 lines
 firebase/storage.rules                   ~15 lines
-firebase/indexes.json                    empty {}
+firebase/firestore.indexes.json         composite indexes (tutors/roster/requests) — firebase.json points HERE
 
 Total source lines (screens + app + components + lib): ~2200
 ```

@@ -616,8 +616,8 @@ export function EditTutorProfile() {
           <View className="bg-surface border border-border rounded-card overflow-hidden">
             <MenuRow
               icon="calendar-outline"
-              label="Availability"
-              onPress={() => showComingSoon("Availability editor")}
+              label="Capacity & schedule"
+              onPress={() => router.push("/tutor-capacity")}
             />
             <MenuRow
               icon="people-outline"

@@ -87,8 +87,12 @@ const TAIL_TIP = 74;
  * Layers: badge+tail fill → white ring (outer disc minus inner disc) →
  * center dot. Composite via alpha lerp, clamp at the end.
  * Returns [r,g,b,a] floats 0..1.
+ *
+ * `shape.selected` widens the white ring into a selection halo — the
+ * on-map "this pin is selected" state (used for the map's selected
+ * tutor alongside the translucent service-radius Circle).
  */
-function pinPixel(px, py, { body, dot }) {
+function pinPixel(px, py, shape) {
   const bodyDist = Math.min(
     sdRoundRect(px, py, 32, CY, 17, 17, 10),
     sdTriangle(px, py, 32, 15, TAIL_TOP, TAIL_TIP),
@@ -97,8 +101,8 @@ function pinPixel(px, py, { body, dot }) {
   // cover() on a signed distance → 1 deep inside, 0 far outside.
   const wBody = cover(bodyDist);
 
-  const ringOuter = 13;
-  const ringInner = ringOuter - 4;
+  const ringOuter = shape.selected ? 20 : 13;
+  const ringInner = shape.selected ? 15 : ringOuter - 4;
   // Annulus: inside outer disc, outside inner disc.
   const wWhiteRing =
     cover(sdCircle(px, py, 32, CY, ringOuter)) *
@@ -110,9 +114,9 @@ function pinPixel(px, py, { body, dot }) {
 
   // rgb work in 0..255 scale (body/dot colors are raw hex bands), alpha in 0..1.
   let [r, g, b, a] = [0, 0, 0, 0];
-  [r, g, b, a] = [lerp(wBody)(r, body[0]), lerp(wBody)(g, body[1]), lerp(wBody)(b, body[2]), lerp(wBody)(a, 1)];
+  [r, g, b, a] = [lerp(wBody)(r, shape.body[0]), lerp(wBody)(g, shape.body[1]), lerp(wBody)(b, shape.body[2]), lerp(wBody)(a, 1)];
   [r, g, b, a] = [lerp(wWhiteRing)(r, 255), lerp(wWhiteRing)(g, 255), lerp(wWhiteRing)(b, 255), lerp(wWhiteRing)(a, 1)];
-  [r, g, b, a] = [lerp(wDot)(r, dot[0]), lerp(wDot)(g, dot[1]), lerp(wDot)(b, dot[2]), lerp(wDot)(a, 1)];
+  [r, g, b, a] = [lerp(wDot)(r, shape.dot[0]), lerp(wDot)(g, shape.dot[1]), lerp(wDot)(b, shape.dot[2]), lerp(wDot)(a, 1)];
   return [r, g, b, a];
 }
 
@@ -205,6 +209,16 @@ const PINS = [
   {
     file: "pin-cluster.png",
     shape: { body: C.slate, dot: C.amber },
+  },
+  // Selection halo variants — swapped in when the student taps a pin;
+  // the white ring reads as the "selected" border.
+  {
+    file: "pin-tutor-selected.png",
+    shape: { body: C.amber, dot: C.slate, selected: true },
+  },
+  {
+    file: "pin-verified-selected.png",
+    shape: { body: C.green, dot: C.white, selected: true },
   },
 ];
 

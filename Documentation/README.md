@@ -19,6 +19,9 @@ For a focused architectural overview of the **current production stack**
 Read [`03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`](./03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md)
 — a sprint-by-sprint guide with exact commands.
 
+For the implementation status and release risks in the current working tree,
+read [`03-Implementation-Guides/CURRENT_CODEBASE_ANALYSIS_AUG_2026.md`](./03-Implementation-Guides/CURRENT_CODEBASE_ANALYSIS_AUG_2026.md).
+
 ### For "I need a Figma design"
 
 Use [`06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md`](./06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md)
@@ -54,8 +57,10 @@ Documentation/
 │
 ├── 03-Implementation-Guides/                 ← How-to guides
 │   ├── IMPLEMENTATION_ROADMAP.md             (sprint-by-sprint plan)
+│   ├── CURRENT_CODEBASE_ANALYSIS_AUG_2026.md  (current implementation audit)
 │   ├── PROJECT_SETUP.md                      (initial dev setup)
 │   ├── INITIAL_PROJECT_SETUP.md              (Expo + Firebase setup)
+│   ├── CLAUDE_CODE_TOOL_STACK.md             (skills / plugins / MCP servers)
 │   └── DEPENDENCY_AND_GIT_TROUBLESHOOTING.md
 │
 ├── 04-Firebase/                              ← Firebase-specific guides
@@ -106,6 +111,7 @@ Documentation/
 | See what NOT to do (anti-patterns) | `01-Architecture/ARCHITECTURE.md` §8 |
 | Set up my dev environment | `03-Implementation-Guides/PROJECT_SETUP.md` |
 | Start a new sprint | `03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md` |
+| See the current implementation baseline and release blockers | `03-Implementation-Guides/CURRENT_CODEBASE_ANALYSIS_AUG_2026.md` |
 | Deploy Firestore rules | `npm run deploy:rules` (see `04-Firebase/phase-3-notes.md`) |
 | Generate a Figma design | `06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md` |
 | Refactor code with Claude Code | `06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md` |
@@ -114,6 +120,7 @@ Documentation/
 | See the team-authored history | `00-Overview/LOG.md` (do NOT edit) |
 | Reference a senior's mid-term | `97-Educational_Contents/` |
 | Fix a dependency issue | `03-Implementation-Guides/DEPENDENCY_AND_GIT_TROUBLESHOOTING.md` |
+| See what Claude Code skills / plugins / MCP servers are installed | `03-Implementation-Guides/CLAUDE_CODE_TOOL_STACK.md` |
 | Understand file/folder purpose | Each folder has a `README.md` |
 
 ---

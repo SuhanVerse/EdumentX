@@ -15,7 +15,8 @@
  * on the first character of the name — deterministic per-user tint so
  * avatars are visually distinguishable at a glance without a real photo.
  */
-import { Image, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Text, View } from 'react-native';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,9 @@ export function Avatar({
         <Image
           source={{ uri: imageUri }}
           style={{ width: size, height: size }}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={120}
         />
       ) : (
         <Text

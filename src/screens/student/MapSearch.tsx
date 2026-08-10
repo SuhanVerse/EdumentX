@@ -40,11 +40,17 @@ import {
   type TutorMapHandle,
 } from "@/components/map/TutorMap";
 import { TutorPreviewSheet } from "@/components/map/TutorPreviewSheet";
-import { FiltersSheet } from "@/screens/student/FiltersSheet";
+import {
+  FiltersSheet,
+  DEFAULT_MAP_FILTERS,
+  type MapFilters,
+} from "@/screens/student/FiltersSheet";
+import { TutorCard } from "@/components/domain/TutorCard";
 import {
   subscribeTutors,
   type TutorListing,
 } from "@/lib/tutor/firestoreTutorService";
+import { createDefaultTutorProfile } from "@/lib/tutor/types";
 import { useTutorClustering, type TutorClusterFeature } from "@/hooks/useTutorClustering";
 import { useCameraBounds } from "@/hooks/useCameraBounds";
 import { useUserLocation } from "@/hooks/useUserLocation";
@@ -66,6 +72,16 @@ const DEFAULT_CAMERA: MapCameraPosition = {
   longitude: 85.3222,
   zoom: 15,
 };
+
+/** Service radius drawn under the selected pin (metres). The tutor
+ *  profile has no radius field yet — 2.5 km is the sensible default
+ *  for metro Nepal. */
+const SELECTED_RADIUS_M = 2500;
+
+/** Translucent accent fill for the selected-tutor radius circle
+ *  (AARRGGBB — alpha-first, Google Maps Android convention). */
+const RADIUS_FILL = "#3DFBEBCF";
+const RADIUS_LINE = "#E5A03B";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -98,7 +114,9 @@ export function MapSearch() {
   // ── UI state ──
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
   const [selectedTutor, setSelectedTutor] = useState<TutorListing | null>(null);
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [markerIcons, setMarkerIcons] = useState<MarkerIconSet | null>(null);
 
@@ -120,11 +138,38 @@ export function MapSearch() {
     return unsub;
   }, []);
 
+  // Swim between the Search text + the actual filter query. The three
+  // "pill" filters (subjects / verified / budget) prune the listing;
+  // distance is applied against the user's GPS with
+  // `rankTutorsByDistance` below.
+  const filteredTutors = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return tutors.filter((t) => {
+      if (filters.verifiedOnly && !t.isVerifiedProfessional) return false;
+      if (
+        filters.subjects.length > 0 &&
+        !filters.subjects.some((s) => t.subjects.includes(s))
+      ) {
+        return false;
+      }
+      if (filters.budget > 0 && t.monthlyRateNpr > filters.budget) return false;
+      if (
+        q.length > 0 &&
+        !`${t.fullName} ${t.headline} ${t.subjects.join(" ")}`
+          .toLowerCase()
+          .includes(q.toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [tutors, search, filters]);
+
   // Coordinates for clustering. Legacy tutors (pre-GPS signup) have no
   // `coordinates` on their doc — `withPinCoordinates` fills them from a
   // Nepal centroid table (explicit GPS pin → city centroid → Valley
   // centre) so every approved tutor gets a real pin.
-  const geo = useMemo(() => withPinCoordinates(tutors), [tutors]);
+  const geo = useMemo(() => withPinCoordinates(filteredTutors), [filteredTutors]);
 
   // ── Custom drop pins (teardrop + tutor photo) ──
   // Rasterized offscreen from `TutorAvatarPin`; `pins` maps
@@ -193,6 +238,7 @@ export function MapSearch() {
         icon: markerIcons?.cluster,
       };
     }
+    const isSelected = c.id === selectedTutorId;
     const key = avatarPinKey(
       c.tutor.photoUrl,
       c.tutor.isVerifiedProfessional,
@@ -200,13 +246,19 @@ export function MapSearch() {
     const imageRef = avatarPins[key];
     // Icon ladder: avatar teardrop → static teardrop PNG (branded
     // fallback while rasterizing or after a failed capture) → native
-    // tinted pin (last resort).
+    // tinted pin (last resort). The selected variant swaps in the
+    // wide-white-ring pin (selection halo); avatar drop pins keep
+    // their photo (the radius circle below signals selection).
     const icon =
       imageRef !== undefined
         ? imageRef
-        : c.tutor.isVerifiedProfessional
-          ? markerIcons?.verified
-          : markerIcons?.tutor;
+        : isSelected
+          ? c.tutor.isVerifiedProfessional
+            ? markerIcons?.verifiedSelected
+            : markerIcons?.tutorSelected
+          : c.tutor.isVerifiedProfessional
+            ? markerIcons?.verified
+            : markerIcons?.tutor;
     return {
       id: c.id as string,
       latitude: c.latitude,
@@ -219,12 +271,36 @@ export function MapSearch() {
     };
   });
 
+  // ── Selected tutor service-radius circle ──
+  // Drawn under the selected pin (both platforms — expo-maps exposes
+  // `circles` on Google AND Apple). Translucent accent fill + accent
+  // stroke. The selected tutor is always one of the pinned clusters
+  // (`selectionGeo`), so its coordinates are resolved.
+  const selectionGeo = selectedTutorId
+    ? geo.find((g) => g.uid === selectedTutorId) ?? null
+    : null;
+  // `withPinCoordinates` always fills `coordinates`, so once we have a
+  // hit it's non-null. The optional chain is belt-and-braces in case a
+  // legacy tutor still slips through with no GPS at all.
+  const selectionCircle =
+    selectionGeo && selectionGeo.coordinates
+      ? {
+          id: "selected-radius",
+          latitude: selectionGeo.coordinates.latitude,
+          longitude: selectionGeo.coordinates.longitude,
+          radius: SELECTED_RADIUS_M,
+          color: RADIUS_FILL,
+          lineColor: RADIUS_LINE,
+          lineWidth: 1.5,
+        }
+      : null;
+
   // ── Nearby tutors (bottom list preview) ──
   const nearbyTutors = rankTutorsByDistance(
     geo,
     userLocation.latitude,
     userLocation.longitude,
-    15,
+    filters.distance,
   ).slice(0, 5);
 
   // ── Handlers ──
@@ -382,13 +458,35 @@ export function MapSearch() {
               }}
             >
               <Text className="text-caption font-medium text-text-muted mb-2">
-                {nearbyTutors.length} tutor{nearbyTutors.length !== 1 ? "s" : ""} within 15 km
+                {nearbyTutors.length} tutor{nearbyTutors.length !== 1 ? "s" : ""} within {filters.distance} km
               </Text>
               {nearbyTutors.slice(0, 3).map((t) => (
-                <NearbyTutorRow
+                <TutorCard
                   key={t.uid}
-                  name={t.fullName}
-                  distanceKm={t.distanceKm}
+                  tutor={createDefaultTutorProfile({
+                    id: t.uid,
+                    fullName: t.fullName,
+                    username: t.username,
+                    headline: t.headline,
+                    gender: t.gender,
+                    subjects: t.subjects,
+                    yearsExperience: t.yearsExperience,
+                    monthlyRateNpr: t.monthlyRateNpr,
+                    location: t.location,
+                    distanceKm: t.distanceKm,
+                    photoUrl: t.photoUrl,
+                    verificationStatus:
+                      (t.verificationStatus as
+                        | "pending"
+                        | "approved"
+                        | "rejected"
+                        | "more_info") ?? "approved",
+                    isVerifiedProfessional: t.isVerifiedProfessional,
+                    rating: t.rating,
+                    reviewCount: t.reviewCount,
+                  })}
+                  variant="compact-h"
+                  tone="light"
                   onPress={() => {
                     setSelectedTutor(t);
                     setPreviewVisible(true);
@@ -416,7 +514,10 @@ export function MapSearch() {
       {/* ── Filters sheet overlay ── */}
       <FiltersSheet
         visible={filtersOpen}
+        value={filters}
+        onApply={setFilters}
         onClose={() => setFiltersOpen(false)}
+        resultCount={filteredTutors.length}
       />
     </View>
   );
@@ -471,7 +572,7 @@ function MapFiltersButton({ onPress }: { onPress: () => void }) {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className="w-12 h-12 rounded-xl bg-accent items-center justify-center"
+      className="w-12 h-12 rounded-card bg-accent items-center justify-center"
     >
       <Ionicons name="options-outline" size={20} color="#FFFFFF" />
     </AnimatedPressable>
@@ -504,36 +605,7 @@ function MapRecenterButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function NearbyTutorRow({
-  name,
-  distanceKm,
-  onPress,
-}: {
-  name: string;
-  distanceKm: number;
-  onPress: () => void;
-}) {
-  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
-    targetScale: 0.985,
-  });
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={animatedStyle}
-      className="flex-row items-center py-1.5"
-    >
-      <View className="w-2 h-2 rounded-pill bg-verification mr-2.5" />
-      <Text
-        className="flex-1 text-caption text-text-primary"
-        numberOfLines={1}
-      >
-        {name}
-      </Text>
-      <Text className="text-micro text-text-muted ml-2">
-        {distanceKm.toFixed(1)} km
-      </Text>
-    </AnimatedPressable>
-  );
-}
+// Note: the bespoke `NearbyTutorRow` used to live here. It was replaced
+// by `<TutorCard variant="compact-h" tone="light" />` (see the import
+// above) — the card already implements the press-scale, avatar, rating
+// row, and price chip in a 200-px-wide rail layout.

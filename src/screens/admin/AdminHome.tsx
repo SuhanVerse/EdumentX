@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -162,17 +163,20 @@ export function AdminHome() {
           pattern. The right-hand slot is intentionally empty; profile
           is reachable from the bottom nav. */}
       <ScreenHeader>
-        <View>
-          <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
-          <Text
-            className="text-screen-title font-medium text-white"
-            numberOfLines={1}
-          >
-            {displayName}
-          </Text>
-          <Text className="text-caption text-white/70 mt-1">
-            Manage platform, verifications & users
-          </Text>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
+            <Text
+              className="text-screen-title font-medium text-white"
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+            <Text className="text-caption text-white/70 mt-1">
+              Manage platform, verifications & users
+            </Text>
+          </View>
+          <NotificationBell tone="dark" />
         </View>
       </ScreenHeader>
 

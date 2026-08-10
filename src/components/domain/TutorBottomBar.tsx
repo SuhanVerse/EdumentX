@@ -8,7 +8,11 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import { ActivePill, AnimatedPressable, usePressScale } from "@/components/motion";
+import {
+  ActivePill,
+  AnimatedPressable,
+  usePressScale,
+} from "@/components/motion";
 import { motion } from "@/lib/motion";
 
 type TutorTabKey = "dashboard" | "inbox" | "batches" | "profile";
@@ -40,13 +44,23 @@ const INACTIVE_COLOR = "#6B7268";
 
 type TutorBottomBarProps = {
   inboxBadgeCount?: number;
+  /**
+   * Visual tone:
+   *   - `light` (default): flat bar over the light canvas.
+   *   - `dark`: floating glass dock (premium UI pass) for the dark
+   *     `bg-night` screens.
+   */
+  tone?: "light" | "dark";
 };
 
 const UNDERLINE_WIDTH = 32;
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
+export function TutorBottomBar({
+  inboxBadgeCount = 0,
+  tone = "light",
+}: TutorBottomBarProps) {
   const pathname = usePathname();
   const [width, setWidth] = React.useState(0);
   const activeIndex = Math.max(
@@ -67,6 +81,49 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
   const underlineStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: underlineX.value }],
   }));
+
+  const accentColor = tone === "dark" ? "#E5A03B" : ACTIVE_COLOR;
+
+  if (tone === "dark") {
+    return (
+      <View className="px-4 pt-2 pb-3">
+        {/* Floating glass dock (premium UI pass). Translucent white
+            over the night canvas with a crisp hairline edge — no
+            native blur so it renders identically on Android and iOS.
+            The amber underline marks the current tab (amber speaks
+            only for "where you are" states here). */}
+        <View
+          className="relative flex-row rounded-3xl bg-glass border border-glass-border px-1 py-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        >
+          {width > 0 ? (
+            <AnimatedView
+              style={[
+                underlineStyle,
+                {
+                  position: "absolute",
+                  bottom: 3,
+                  width: UNDERLINE_WIDTH,
+                  height: 2,
+                  borderRadius: 999,
+                  backgroundColor: accentColor,
+                },
+              ]}
+            />
+          ) : null}
+          {TUTOR_TABS.map((tab, i) => (
+            <TutorTab
+              key={tab.key}
+              tab={tab}
+              active={i === activeIndex}
+              inboxBadgeCount={tab.key === "inbox" ? inboxBadgeCount : 0}
+              tone="dark"
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -105,7 +162,7 @@ export function TutorBottomBar({ inboxBadgeCount = 0 }: TutorBottomBarProps) {
               width: UNDERLINE_WIDTH,
               height: 2,
               borderRadius: 999,
-              backgroundColor: ACTIVE_COLOR,
+              backgroundColor: accentColor,
             },
           ]}
         />
@@ -120,14 +177,22 @@ function TutorTab({
   tab,
   active,
   inboxBadgeCount,
+  tone = "light",
 }: {
   tab: TutorTabDef;
   active: boolean;
   inboxBadgeCount: number;
+  tone?: "light" | "dark";
 }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale();
   const Icon = tab.icon;
-  const color = active ? ACTIVE_COLOR : INACTIVE_COLOR;
+  const color = active
+    ? tone === "dark"
+      ? "#FFFFFF"
+      : ACTIVE_COLOR
+    : tone === "dark"
+      ? "rgba(255,255,255,0.45)"
+      : INACTIVE_COLOR;
 
   return (
     <AnimatedPressable
@@ -143,7 +208,13 @@ function TutorTab({
     >
       <View
         className="w-12 h-7 rounded-pill items-center justify-center"
-        style={{ backgroundColor: active ? "#F1ECE0" : "transparent" }}
+        style={{
+          backgroundColor: active
+            ? tone === "dark"
+              ? "rgba(255,255,255,0.08)"
+              : "#F1ECE0"
+            : "transparent",
+        }}
       >
         <Icon color={color} size={22}></Icon>
         {tab.key === "inbox" && inboxBadgeCount > 0 && (

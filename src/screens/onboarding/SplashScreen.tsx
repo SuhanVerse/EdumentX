@@ -32,7 +32,6 @@ import Animated, {
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 
 import { SplashParticleField } from '@/components/premium/SplashParticleField';
-import { colors } from '@/constants/colors';
 
 // ─── Splash ──────────────────────────────────────────────────────────────────
 
@@ -102,37 +101,16 @@ export function SplashScreen() {
       <View className="flex-1 items-center justify-center">
         <Animated.View
           style={logoStyle}
-          className="w-16 h-16 items-center justify-center rounded-2xl mb-4"
-          // Logo tile uses the brand primary for background and white for
-          // the mark — this reads as a stamp/seal rather than a float
-          // surface chip.
+          className="w-16 h-16 items-center justify-center rounded-2xl mb-4 border-2 border-amber/40 bg-slate-800"
+          // The tile + offset amber border use Design System tokens
+          // (slate-800 sits one step off the night base, amber/40 is
+          // the soft accent edge) — this reads as a stamp/seal
+          // rather than a float surface chip.
           // Future: swap the two-letter mark for the real vector logo.
         >
-          {/* Outer tile — slate-800 with a warm offset amber border */}
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 16,
-              backgroundColor: '#1E293B', // slate-800 — sits on the night base
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 2,
-              borderColor: 'rgba(229, 160, 59, 0.40)', // accent/40
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 28,
-                fontWeight: '700',
-                color: '#FBF8F2',
-                letterSpacing: -0.5,
-                lineHeight: 34,
-              }}
-            >
-              Ex
-            </Text>
-          </View>
+          <Text className="text-[28px] leading-[34px] font-bold text-splash-text tracking-tight">
+            Ex
+          </Text>
         </Animated.View>
 
         <Animated.Text
@@ -154,14 +132,8 @@ export function SplashScreen() {
       <View className="pb-6 items-center">
         <View className="w-splash-bar h-1 overflow-hidden rounded-pill bg-splash-track">
           <Animated.View
-            style={[
-              progressStyle,
-              {
-                height: '100%',
-                borderRadius: 999,
-                backgroundColor: colors.text.inverse,
-              },
-            ]}
+            style={progressStyle}
+            className="h-full rounded-full bg-white"
           />
         </View>
       </View>

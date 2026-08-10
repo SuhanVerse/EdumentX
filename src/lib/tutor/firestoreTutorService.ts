@@ -32,6 +32,13 @@ import {
 import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 import type { TutorDocument } from "@/lib/verification/documents";
 import { createDefaultTutorProfile, type TutorProfile } from "@/lib/tutor/types";
+import {
+  DAY_KEYS,
+  TIME_SLOT_KEYS,
+  makeEmptyAvailability,
+  type WeeklyAvailability,
+  type SlotStatus,
+} from "@/services/enrollments/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -323,6 +330,31 @@ async function tryEnhanceFromProfile(
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
 /**
+ * Parse the `availability` field on a profile subdoc into a typed
+ * `WeeklyAvailability` grid. The field is an object with day keys
+ * (`mon`, `tue`, …) mapping to slot-key maps with `"off"` or
+ * `"available"` values. A malformed doc (missing keys, wrong types,
+ * extra slots) falls back to `null` so the student-facing
+ * AvailabilitySection renders its "Tutor hasn't shared their
+ * schedule yet." empty state rather than crashing.
+ */
+function parseAvailability(raw: unknown): WeeklyAvailability | null {
+  if (!raw || typeof raw !== "object") return null;
+  const grid = makeEmptyAvailability();
+  const source = raw as Record<string, unknown>;
+  for (const day of DAY_KEYS) {
+    const dayRow = source[day];
+    if (!dayRow || typeof dayRow !== "object") return null;
+    for (const slot of TIME_SLOT_KEYS) {
+      const value = (dayRow as Record<string, unknown>)[slot];
+      if (value !== "off" && value !== "available") return null;
+      grid[day][slot] = value as SlotStatus;
+    }
+  }
+  return grid;
+}
+
+/**
  * Map a `users/{uid}/tutorProfile/default` doc to TutorProfile.
  * This path has the richest data including the `documents` array
  * with the demo video.
@@ -394,6 +426,12 @@ function profileDocToTutorProfile(
       data.tutoringMode === "both"
         ? (data.tutoringMode as TutorProfile["tutoringMode"])
         : "both",
+    // Phase 5 — availability grid + enrolledCount. Parse
+    // `availability` defensively (only valid keys, only valid slot
+    // values) — a malformed doc shouldn't crash the screen.
+    availability: parseAvailability(data.availability),
+    enrolledCount:
+      typeof data.enrolledCount === "number" ? data.enrolledCount : 0,
   });
 }
 
@@ -415,6 +453,7 @@ function tutorsDocToTutorProfile(
     fullName: (data.fullName as string) ?? "",
     username: (data.username as string) ?? "",
     headline: (data.headline as string) ?? "",
+    bio: (data.bio as string) ?? "",
     subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : [],
     monthlyRateNpr: (data.monthlyRateNpr as number) ?? 0,
     location: {
@@ -453,5 +492,13 @@ function tutorsDocToTutorProfile(
       data.tutoringMode === "both"
         ? (data.tutoringMode as TutorProfile["tutoringMode"])
         : "both",
+    // Phase 5 — the public `tutors/{uid}` directory doc mirrors a
+    // subset of the profile data and does NOT carry availability /
+    // enrolledCount today (those live only on
+    // `users/{uid}/tutorProfile/default`). Leaving them at the
+    // defaults is fine — the student-facing flow resolves to the
+    // richer profile doc when it exists.
+    availability: null,
+    enrolledCount: 0,
   });
 }

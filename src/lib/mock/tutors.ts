@@ -60,13 +60,30 @@ function avatar(uid: string): string {
   return `https://i.pravatar.cc/150?u=${encodeURIComponent(uid)}`;
 }
 
+/**
+ * Phase-5 fields (`enrolledCount`, `availability`) are optional on
+ * the raw entries but required on `TutorProfile`. The mock dataset
+ * pre-dates the enrollment model, so every entry gets default
+ * `enrolledCount: 0` and `availability: null` backfilled here. The
+ * live Firestore read returns a doc with these fields already
+ * populated, so this helper only runs in mock mode.
+ */
+function withPhase5Defaults(
+  t: Omit<TutorProfile, "enrolledCount" | "availability">,
+): TutorProfile {
+  return { ...t, enrolledCount: 0, availability: null };
+}
+
 // ─── Mock tutor entries ──────────────────────────────────────────────────────
 
 /**
  * The 30 mock tutors. Stored as `TutorProfile` so the canonical type
  * drives what fields are required — no parallel `Tutor` type.
  */
-export const MOCK_TUTORS: readonly TutorProfile[] = [
+const MOCK_TUTORS_RAW: readonly Omit<
+  TutorProfile,
+  "enrolledCount" | "availability"
+>[] = [
   // ── 1. Mathematics — verified male, Lalitpur, 8 yrs ──
   {
     id: "t-001",
@@ -1211,6 +1228,12 @@ export const MOCK_TUTORS: readonly TutorProfile[] = [
     reviews: [],
   },
 ];
+
+/** Public mock directory — each raw entry backfilled with the
+ *  Phase-5 enrollment defaults (`enrolledCount: 0`,
+ *  `availability: null`). */
+export const MOCK_TUTORS: readonly TutorProfile[] =
+  MOCK_TUTORS_RAW.map(withPhase5Defaults);
 
 // ─── Coverage stats (used by /lib/mock/README.md and verification) ───────────
 

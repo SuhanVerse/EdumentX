@@ -58,6 +58,13 @@ export type TutorCardProps = {
   saved?: boolean;
   /** Extra Tailwind classes appended to the outer wrapper. */
   className?: string;
+  /**
+   * Visual tone — dark renders the glass surface (Premium UI pass:
+   * translucent white over night canvas + hairline borders) so the
+   * card can sit on the dark Home screen while the light screens
+   * (Map / search / details) keep the classic solid surface.
+   */
+  tone?: 'light' | 'dark';
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -69,6 +76,7 @@ export function TutorCard({
   onSaveToggle,
   saved = false,
   className = '',
+  tone = 'light',
 }: TutorCardProps) {
   const router = useRouter();
 
@@ -80,7 +88,7 @@ export function TutorCard({
 
   if (variant === 'compact-h') {
     return (
-      <CompactCard tutor={tutor} onPress={handlePress} className={className} />
+      <CompactCard tutor={tutor} onPress={handlePress} className={className} tone={tone} />
     );
   }
   return (
@@ -90,6 +98,7 @@ export function TutorCard({
       onSaveToggle={onSaveToggle}
       saved={saved}
       className={className}
+      tone={tone}
     />
   );
 }
@@ -99,9 +108,11 @@ export function TutorCard({
 function HeartSaveButton({
   saved,
   onSaveToggle,
+  dark,
 }: {
   saved: boolean;
   onSaveToggle: () => void;
+  dark?: boolean;
 }) {
   // `pressed` covers press-in scale-down; `pop` runs once per tap as a
   // little "burst" the user feels even when the card itself is also
@@ -140,10 +151,18 @@ function HeartSaveButton({
         pressed.value = withSpring(0, motion.spring.press);
       }}
       style={animatedStyle}
-      className="absolute top-3 right-3 h-9 w-9 rounded-pill bg-surface items-center justify-center"
+      className={`absolute top-3 right-3 h-9 w-9 rounded-pill items-center justify-center ${
+        dark ? 'bg-glass-strong border border-glass-border' : 'bg-surface'
+      }`}
     >
       <Ionicons
-        color={saved ? colors.semantic.danger : colors.text.muted}
+        color={
+          saved
+            ? colors.semantic.danger
+            : dark
+              ? 'rgba(255,255,255,0.55)'
+              : colors.text.muted
+        }
         name={saved ? 'heart' : 'heart-outline'}
         size={18}
       />
@@ -159,16 +178,25 @@ function WideCard({
   onSaveToggle,
   saved,
   className,
+  tone,
 }: {
   tutor: TutorProfile;
   onPress?: () => void;
   onSaveToggle?: () => void;
   saved: boolean;
   className: string;
+  tone: 'light' | 'dark';
 }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.cardPressed,
   });
+  const dark = tone === 'dark';
+  const surfaceClass = dark
+    ? 'bg-glass border border-glass-border'
+    : 'bg-surface border border-border';
+  const primaryText = dark ? 'text-white' : 'text-text-primary';
+  const secondaryText = dark ? 'text-slate-300' : 'text-text-secondary';
+  const mutedText = dark ? 'text-slate-400' : 'text-text-muted';
 
   return (
     <AnimatedPressable
@@ -178,22 +206,29 @@ function WideCard({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className={`rounded-card bg-surface border border-border overflow-hidden ${className}`}
+      className={`rounded-2xl ${surfaceClass} border overflow-hidden ${className}`}
     >
+      {onSaveToggle ? (
+        <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} dark={dark} />
+      ) : null}
       {/* Info block — no hero/cover panel, content starts immediately */}
       <View className="p-4 gap-2">
         <View className="flex-row items-center gap-2">
           <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
-          <View className="flex-1">
+          <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-1">
               <Text
-                className="text-card-title text-text-primary flex-1"
+                className={`text-card-title ${primaryText} flex-1`}
                 numberOfLines={1}
               >
                 {tutor.fullName}
               </Text>
               {tutor.isVerifiedProfessional ? (
-                <View className="-ml-0.5">
+                // `shrink-0` keeps the verification badge anchored
+                // at the end of the row when the name truncates with
+                // `numberOfLines={1}` — without it the badge can be
+                // squished off-screen on narrow cards.
+                <View className="shrink-0">
                   <Ionicons
                     color={colors.brand.verification}
                     name="checkmark-circle"
@@ -203,7 +238,7 @@ function WideCard({
               ) : null}
             </View>
             <Text
-              className="text-caption text-text-secondary"
+              className={`text-caption ${secondaryText}`}
               numberOfLines={1}
             >
               {tutor.headline}
@@ -222,8 +257,12 @@ function WideCard({
             </View>
           ))}
           {tutor.subjects.length > 3 && (
-            <View className="px-2 py-0.5 rounded-pill bg-surface border border-border">
-              <Text className="text-micro text-text-muted">
+            <View
+              className={`px-2 py-0.5 rounded-pill border ${
+                dark ? 'bg-glass-strong border-glass-border' : 'bg-surface border-border'
+              }`}
+            >
+              <Text className={`text-micro ${mutedText}`}>
                 +{tutor.subjects.length - 3}
               </Text>
             </View>
@@ -233,28 +272,28 @@ function WideCard({
         <View className="flex-row items-center gap-3">
           <View className="flex-row items-center gap-1">
             <Ionicons color={colors.brand.accent} name="star" size={12} />
-            <Text className="text-caption text-text-primary">
+            <Text className={`text-caption ${primaryText}`}>
               {tutor.rating.toFixed(1)}
             </Text>
-            <Text className="text-caption text-text-muted">
+            <Text className={`text-caption ${mutedText}`}>
               ({tutor.reviewCount})
             </Text>
           </View>
           <View className="flex-row items-center gap-1">
             <Ionicons
-              color={colors.text.muted}
+              color={dark ? 'rgba(255,255,255,0.45)' : colors.text.muted}
               name="location-outline"
               size={12}
             />
-            <Text className="text-caption text-text-secondary">
+            <Text className={`text-caption ${secondaryText}`}>
               {tutor.location.city}
             </Text>
           </View>
         </View>
 
-        <Text className="text-button text-text-primary mt-1">
+        <Text className={`text-button ${primaryText} mt-1`}>
           {formatNpr(tutor.monthlyRateNpr)}
-          <Text className="text-caption text-text-muted"> /mo</Text>
+          <Text className={`text-caption ${mutedText}`}> /mo</Text>
         </Text>
       </View>
     </AnimatedPressable>
@@ -267,14 +306,17 @@ function CompactCard({
   tutor,
   onPress,
   className,
+  tone,
 }: {
   tutor: TutorProfile;
   onPress?: () => void;
   className: string;
+  tone: 'light' | 'dark';
 }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.cardPressed,
   });
+  const dark = tone === 'dark';
 
   return (
     <AnimatedPressable
@@ -284,35 +326,56 @@ function CompactCard({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className={`w-[200px] rounded-card bg-surface border border-border overflow-hidden ${className}`}
+      className={`w-[200px] border rounded-card overflow-hidden ${
+        dark
+          ? 'bg-glass border-glass-border'
+          : 'bg-surface border-border'
+      } ${className}`}
     >
       <View className="p-3 gap-1">
         <View className="flex-row items-center gap-1">
           <Text
-            className="text-card-title text-text-primary flex-1"
+            className={`text-card-title flex-1 ${
+              dark ? "text-white" : "text-text-primary"
+            }`}
             numberOfLines={1}
           >
             {tutor.fullName}
           </Text>
+          {tutor.isVerifiedProfessional ? (
+            <View className="-ml-0.5">
+              <Ionicons
+                color={colors.brand.verification}
+                name="checkmark-circle"
+                size={14}
+              />
+            </View>
+          ) : null}
         </View>
         <Text
-          className="text-caption text-text-secondary"
+          className={`text-caption ${dark ? 'text-slate-300' : 'text-text-secondary'}`}
           numberOfLines={2}
         >
           {tutor.headline}
         </Text>
         <View className="flex-row items-center gap-1 mt-1">
           <Ionicons color={colors.brand.accent} name="star" size={11} />
-          <Text className="text-micro text-text-primary">
+          <Text
+            className={`text-micro ${dark ? 'text-white' : 'text-text-primary'}`}
+          >
             {tutor.rating.toFixed(1)}
           </Text>
-          <Text className="text-micro text-text-muted">
+          <Text
+            className={`text-micro ${
+              dark ? 'text-slate-400' : 'text-text-muted'
+            }`}
+          >
             · {tutor.location.city}
           </Text>
         </View>
-        <Text className="text-button-sm text-text-primary mt-1">
+        <Text className={`text-button-sm mt-1 ${dark ? 'text-white' : 'text-text-primary'}`}>
           {formatNpr(tutor.monthlyRateNpr)}
-          <Text className="text-caption text-text-muted"> /mo</Text>
+          <Text className={`text-caption ${dark ? 'text-slate-400' : 'text-text-muted'}`}> /mo</Text>
         </Text>
       </View>
     </AnimatedPressable>

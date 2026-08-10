@@ -3,6 +3,7 @@ import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
+  ScreenSheet,
 } from "@/components/shared/ScreenLayout";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Ionicons } from "@expo/vector-icons";
@@ -197,6 +198,9 @@ export function AIChat() {
         </View>
       </ScreenHeader>
 
+      {/* Chat + input bar — light sheet overlapping the dark hero
+          (premium dark→light seam, shared `ScreenSheet` pattern) */}
+      <ScreenSheet>
       <KeyboardAvoidingView
         behavior="padding"
         keyboardVerticalOffset={0}
@@ -257,6 +261,7 @@ export function AIChat() {
       </View>
 
       </KeyboardAvoidingView>
+      </ScreenSheet>
 
       <BottomNav role="student" current="/AI-chat" />
     </ScreenLayout>

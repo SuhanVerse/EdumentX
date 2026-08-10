@@ -11,14 +11,25 @@ module.exports = {
       colors: {
         // ── Core palette ─────────────────────────────────────────────────────
         // Backward-compat alias: screens still use bg-night / text-night
-        // Phase 2 (July 2026): ink family moved to Slate #0F172A (BasoBas-style)
+        // Phase 2 (July 2026): ink family moved to Slate #0F172A
         night: '#0F172A',
+        // Deep Slate — the "page well" under glass cards. One step
+        // darker than `night` so translucent surfaces read as float.
+        'night-deep': '#0A0F1E',
         // Semantic alias for the same value
         ink: '#0F172A',
         'ink-muted': '#6B7280',
         'surface-muted': '#F1ECE0',
         sand: '#F1ECE0',
         surface: '#FFFFFF',
+
+        // Dark-mode glass surfaces (the Premium UI pass). These are
+        // luminance-based so they read identically on any backdrop;
+        // hairline borders are what give glass its crisp edge.
+        glass: 'rgba(255, 255, 255, 0.06)',
+        'glass-strong': 'rgba(255, 255, 255, 0.10)',
+        'glass-border': 'rgba(255, 255, 255, 0.14)',
+        'glass-faint': 'rgba(255, 255, 255, 0.03)',
 
         // Brand
         primary: {
@@ -27,6 +38,25 @@ module.exports = {
           light: '#F1ECE0',
         },
         accent: {
+          DEFAULT: '#E5A03B',
+          light: '#FBEBCF',
+          // Aliases used across the app (bg-accent-soft / text-accent-dark).
+          // Kept as nested keys so nested-class resolution works in v3.
+          soft: '#FBEBCF',
+          dark: '#8B5E10',
+        },
+        // Amber brand family — alias of the accent tokens. Declared as
+        // a nested object with a DEFAULT key (same shape as primary /
+        // accent / verification / ai above) so both bare utilities
+        // (bg-amber, text-amber, border-amber/30, bg-amber/10) and the
+        // light variant (bg-amber-light) resolve. The PREVIOUS state
+        // had NO amber key at all, so Tailwind fell back to its default
+        // amber palette object ({50..950}) — an object without a
+        // DEFAULT key silently drops every bare `amber` class (visible
+        // as the "dim" map CTA and washed-out subject pills in the
+        // Aug 9 screenshots). extend deep-merges, so the default
+        // amber-500-style numeric shades remain available too.
+        amber: {
           DEFAULT: '#E5A03B',
           light: '#FBEBCF',
         },

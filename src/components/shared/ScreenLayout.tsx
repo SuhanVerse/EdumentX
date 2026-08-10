@@ -144,6 +144,41 @@ export function ScreenHeader({
 }
 
 /**
+ * Light sheet body — the premium "dark hero → light sheet" seam.
+ *
+ * Screens with a dark (`bg-night`) hero and a light body used to have
+ * a hard color edge where the hero ended. This wrapper is the shared
+ * fix: the light content overlaps the dark hero by 16px (`-mt-4`)
+ * with a `rounded-t-3xl` top, so the hero reads as a backdrop behind
+ * a floating sheet instead of two stacked rectangles. `overflow-hidden`
+ * makes the rounded corners actually clip the first child (tab bars,
+ * cards, etc.).
+ *
+ * Structure:
+ *
+ *   <ScreenLayout variant="night">
+ *     <ScreenHeader>…dark hero…</ScreenHeader>
+ *     <ScreenSheet>{…light content…}</ScreenSheet>
+ *     <BottomNav />
+ *   </ScreenLayout>
+ */
+export function ScreenSheet({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <View
+      className={`bg-background rounded-t-3xl -mt-4 flex-1 overflow-hidden ${className ?? ""}`}
+    >
+      {children}
+    </View>
+  );
+}
+
+/**
  * Canonical scroll body. A `ScrollView` preconfigured with the
  * standard content spacing (`SCREEN_CONTENT_CLASSES`), no scroll
  * indicator, and `keyboardShouldPersistTaps="handled"`.

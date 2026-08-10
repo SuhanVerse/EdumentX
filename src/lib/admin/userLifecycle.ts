@@ -28,9 +28,11 @@
  */
 import { getApp } from "@react-native-firebase/app";
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
 } from "@react-native-firebase/firestore";
 
@@ -128,6 +130,19 @@ export async function purgeUserAccount(
   // removes the very docs that carry them.
   const docPaths = await harvestDocPaths(uid);
 
+  // Also harvest every notification item under
+  // `notifications/{uid}/items/{autoId}` so the items subcollection
+  // is purged alongside the parent anchor doc. Firestore doesn't
+  // recurse into subcollections on `deleteDoc` of the parent — each
+  // child doc has to be deleted explicitly (admin rules allow it
+  // via the existing `match /notifications/{uid}` rule).
+  const notifItemsSnap = await getDocs(
+    collection(db, "notifications", uid, "items"),
+  );
+  const notifItemRefs = notifItemsSnap.docs.map((d) =>
+    doc(db, "notifications", uid, "items", d.id),
+  );
+
   const firestoreRefs = [
     doc(db, "users", uid),
     doc(db, "users", uid, ...TUTOR_PROFILE_DOC.split("/")),
@@ -136,6 +151,7 @@ export async function purgeUserAccount(
     doc(db, "tutorVerifications", uid),
     doc(db, "tutorProfileUpdates", uid),
     doc(db, "notifications", uid),
+    ...notifItemRefs,
   ];
 
   const firestoreDeleted: string[] = [];
