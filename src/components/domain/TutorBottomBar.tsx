@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   ActivePill,
@@ -62,6 +63,7 @@ export function TutorBottomBar({
   tone = "light",
 }: TutorBottomBarProps) {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const [width, setWidth] = React.useState(0);
   const activeIndex = Math.max(
     0,
@@ -86,7 +88,7 @@ export function TutorBottomBar({
 
   if (tone === "dark") {
     return (
-      <View className="px-4 pt-2 pb-3">
+      <View className="px-4 pt-2" style={{ paddingBottom: 12 + insets.bottom }}>
         {/* Floating glass dock (premium UI pass). Translucent white
             over the night canvas with a crisp hairline edge — no
             native blur so it renders identically on Android and iOS.
@@ -127,7 +129,8 @@ export function TutorBottomBar({
 
   return (
     <View
-      className="flex-row bg-surface border-t border-border px-2 pt-2 pb-3 relative"
+      className="flex-row bg-surface border-t border-border px-2 pt-2 relative"
+      style={{ paddingBottom: 12 + insets.bottom }}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
