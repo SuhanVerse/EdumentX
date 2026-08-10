@@ -384,20 +384,20 @@ export function TutorDashboard() {
   }
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
 
       {/* Header — standard ScreenHeader slot */}
-      <ScreenHeader>
+      <ScreenHeader variant="light">
         <View className="flex-row justify-between items-start gap-3">
           {/* `flex-1 min-w-0` lets the greeting column shrink when
               the bell takes space on long names (e.g. "Suhan Dongol").
               Without it the screen-title clips to the bell's width
               and reads as "Suh…" in the screenshots. */}
           <View className="flex-1 min-w-0">
-            <Text className="text-body text-white/70">Good to see you,</Text>
+            <Text className="text-body text-text-secondary">Good to see you,</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
               <Text
-                className="text-screen-title font-medium text-white mt-0.5"
+                className="text-screen-title font-medium text-text-primary mt-0.5"
                 numberOfLines={1}
               >
                 {data.fullName}
@@ -412,16 +412,16 @@ export function TutorDashboard() {
               </View>
             ) : null}
           </View>
-          <NotificationBell tone="dark" />
+          <NotificationBell tone="light" />
         </View>
 
         {/* Availability toggle */}
-        <View className="bg-white/10 rounded-2xl px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center border border-glass-border">
+        <View className="bg-surface rounded-2xl px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center border border-border">
           <View className="flex-1 pr-3">
-            <Text className="text-body font-medium text-white">
+            <Text className="text-body font-medium text-text-primary">
               {available ? "Available for new students" : "Hidden from search"}
             </Text>
-            <Text className="text-caption text-white/65 mt-0.5">
+            <Text className="text-caption text-text-secondary mt-0.5">
               Toggle to {available ? "pause" : "resume"} appearing in search
               results
             </Text>
@@ -476,7 +476,7 @@ export function TutorDashboard() {
         />
       ) : null}
 
-      <ScreenScroll className="flex-1 bg-night-deep">
+      <ScreenScroll className="flex-1 bg-background">
         {/* Metric cards 2x2 */}
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
@@ -511,11 +511,11 @@ export function TutorDashboard() {
             editor (live availability grid) */}
         <Pressable
           onPress={() => router.push("/tutor-capacity")}
-          className="bg-glass border border-glass-border rounded-2xl p-4 mb-3.5 active:opacity-70"
+          className="bg-surface border border-border rounded-2xl p-4 mb-3.5 active:opacity-70"
         >
           <View className="flex-row items-center gap-2 mb-2.5">
-            <Ionicons name="people" size={16} color="rgba(255,255,255,0.55)" />
-            <Text className="flex-1 text-button-sm font-medium text-white">
+            <Ionicons name="people" size={16} color="#6B7280" />
+            <Text className="flex-1 text-button-sm font-medium text-text-primary">
               Capacity
             </Text>
             <Text
@@ -525,9 +525,9 @@ export function TutorDashboard() {
             >
               {currentStudents} of {capacity} filled
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.45)" />
+            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
           </View>
-          <View className="h-2 rounded-full bg-night-deep overflow-hidden">
+          <View className="h-2 rounded-full bg-border overflow-hidden">
             <View
               className={`h-full rounded-full ${capColor}`}
               style={{ width: `${capPct}%` }}
@@ -536,12 +536,12 @@ export function TutorDashboard() {
         </Pressable>
 
         {/* Profile completion */}
-        <View className="bg-glass border border-glass-border rounded-2xl p-4 mb-3.5">
-          <Text className="text-button-sm font-medium text-white mb-1.5">
+        <View className="bg-surface border border-border rounded-2xl p-4 mb-3.5">
+          <Text className="text-button-sm font-medium text-text-primary mb-1.5">
             Profile completion
           </Text>
           <View className="flex-row items-center gap-2.5">
-            <View className="flex-1 h-1.5 rounded-full bg-night-deep overflow-hidden">
+            <View className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
               <View
                 className="h-full bg-accent rounded-full"
                 style={{ width: `${data.profileCompletion}%` }}
@@ -557,12 +557,12 @@ export function TutorDashboard() {
             land in Phase 5 alongside the collections that back
             them. We deliberately don't show fake names or stats
             here. */}
-        <View className="bg-glass border border-glass-border rounded-2xl p-6 mb-3.5 items-center">
-          <View className="w-14 h-14 rounded-pill bg-glass-strong border border-glass-border items-center justify-center mb-3">
+        <View className="bg-surface border border-border rounded-2xl p-6 mb-3.5 items-center">
+          <View className="w-14 h-14 rounded-pill bg-background border border-border items-center justify-center mb-3">
             <Ionicons name="briefcase-outline" size={26} color="#E5A03B" />
           </View>
           {TODAY_SESSIONS.length === 0 ? (
-            <Text className="text-caption text-slate-400 py-2">
+            <Text className="text-caption text-text-muted py-2">
               No sessions scheduled today.
             </Text>
           ) : (
@@ -570,13 +570,13 @@ export function TutorDashboard() {
               <View
                 key={s.time}
                 className={`flex-row items-center gap-3 py-2.5 ${
-                  i > 0 ? "border-t border-glass-border" : ""
+                  i > 0 ? "border-t border-border" : ""
                 }`}
               >
                 <Text className="w-[60px] text-caption font-medium text-accent">{s.time}</Text>
                 <View className="flex-1">
-                  <Text className="text-button-sm text-white">{s.student}</Text>
-                  <Text className="text-caption text-slate-400 mt-0.5">
+                  <Text className="text-button-sm text-text-primary">{s.student}</Text>
+                  <Text className="text-caption text-text-muted mt-0.5">
                     {s.subject} · {s.duration}
                   </Text>
                 </View>
@@ -588,7 +588,7 @@ export function TutorDashboard() {
         {/* Pending requests */}
         <View className="mb-3.5">
           <View className="flex-row justify-between items-center mb-2.5">
-            <Text className="text-card-title font-medium text-white">
+            <Text className="text-card-title font-medium text-text-primary">
               Pending requests
             </Text>
             <Pressable
@@ -613,7 +613,7 @@ export function TutorDashboard() {
           {reqTab === "enrollments" && (
             <View className="flex-col gap-2.5">
               {PENDING_REQUESTS.length === 0 ? (
-                <Text className="text-caption text-slate-400 py-2">
+                <Text className="text-caption text-text-muted py-2">
                   No new enrollment requests.
                 </Text>
               ) : (
@@ -621,18 +621,18 @@ export function TutorDashboard() {
                   <Pressable
                     key={req.id}
                     onPress={() => showComingSoon("Request details")}
-                    className="bg-glass rounded-2xl p-3.5 border border-glass-border active:opacity-70"
+                    className="bg-surface rounded-2xl p-3.5 border border-border active:opacity-70"
                   >
                     <View className="flex-row gap-2.5 items-start">
                       <AvatarCircle uri={req.student.avatar} />
                       <View className="flex-1">
                         <View className="flex-row justify-between items-center">
-                          <Text className="text-card-title font-medium text-white">
+                          <Text className="text-card-title font-medium text-text-primary">
                             {req.student.name}
                           </Text>
                           <StatusBadge status="pending" />
                         </View>
-                        <Text className="text-caption text-slate-400 mt-0.5">
+                        <Text className="text-caption text-text-muted mt-0.5">
                           {req.student.grade}
                         </Text>
                         <View className="flex-row gap-1 mt-1.5 flex-wrap">
@@ -640,7 +640,7 @@ export function TutorDashboard() {
                             <SubjectChip key={s} label={s} />
                           ))}
                         </View>
-                        <Text className="mt-1.5 text-micro text-slate-400">
+                        <Text className="mt-1.5 text-micro text-text-muted">
                           {req.plan} · {req.schedule} · From {req.startDate}
                         </Text>
                       </View>
@@ -654,7 +654,7 @@ export function TutorDashboard() {
           {reqTab === "batches" && (
             <View className="flex-col gap-2.5">
               {BATCH_REQUESTS.length === 0 ? (
-                <Text className="text-caption text-slate-400 py-2">
+                <Text className="text-caption text-text-muted py-2">
                   No batch requests right now.
                 </Text>
               ) : (
@@ -668,12 +668,12 @@ export function TutorDashboard() {
                   return (
                     <View
                       key={br.id}
-                      className={`bg-glass rounded-2xl p-3.5 border ${
+                      className={`bg-surface rounded-2xl p-3.5 border ${
                         action === "accepted"
                           ? "border-verification"
                           : action === "rejected"
                             ? "border-danger-bg"
-                            : "border-glass-border"
+                            : "border-border"
                       }`}
                       style={{ opacity: action ? 0.85 : 1 }}
                     >
@@ -689,33 +689,33 @@ export function TutorDashboard() {
                       <View className="flex-row gap-2.5 items-start">
                         <AvatarCircle uri={br.student.avatar} />
                         <View className="flex-1">
-                          <Text className="text-card-title font-medium text-white">
+                          <Text className="text-card-title font-medium text-text-primary">
                             {br.student.name}
                           </Text>
-                          <Text className="text-caption text-slate-400 mt-0.5">
+                          <Text className="text-caption text-text-muted mt-0.5">
                             {br.student.grade} · {br.subject}
                           </Text>
 
                           {br.kind === "join" && slot ? (
-                            <View className="mt-2 bg-night-deep border border-glass-border rounded-lg px-2.5 py-1.5">
+                            <View className="mt-2 bg-background border border-border rounded-lg px-2.5 py-1.5">
                               <View className="flex-row items-center gap-1.5">
                                 <Ionicons name="lock-closed" size={11} color="#4A7FA5" />
-                                <Text className="text-caption font-medium text-slate-300">
+                                <Text className="text-caption font-medium text-text-secondary">
                                   {slot.label}
                                 </Text>
                               </View>
-                              <Text className="text-caption text-slate-400 mt-0.5">
+                              <Text className="text-caption text-text-muted mt-0.5">
                                 Code: {br.sessionCode} · {slot.students}/{slot.capacity} students
                               </Text>
                             </View>
                           ) : null}
 
                           {br.message ? (
-                            <Text className="mt-2 text-caption text-slate-300 leading-relaxed italic">
+                            <Text className="mt-2 text-caption text-text-secondary leading-relaxed italic">
                               &ldquo;{br.message}&rdquo;
                             </Text>
                           ) : null}
-                          <Text className="mt-1.5 text-micro text-slate-400">{br.submittedAt}</Text>
+                          <Text className="mt-1.5 text-micro text-text-muted">{br.submittedAt}</Text>
                         </View>
                       </View>
 
@@ -736,17 +736,17 @@ export function TutorDashboard() {
                               !blocked && setBatchActions((p) => ({ ...p, [br.id]: "accepted" }))
                             }
                             className={`flex-1 h-9 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                              blocked ? "bg-night-deep" : "bg-verification active:opacity-80"
+                              blocked ? "bg-border" : "bg-verification active:opacity-80"
                             }`}
                           >
                             <Ionicons
                               name="checkmark"
                               size={13}
-                              color={blocked ? "rgba(255,255,255,0.35)" : "#FFFFFF"}
+                              color={blocked ? "#6B7280" : "#FFFFFF"}
                             />
                             <Text
                               className={`text-caption font-medium ${
-                                blocked ? "text-slate-400" : "text-white"
+                                blocked ? "text-text-muted" : "text-white"
                               }`}
                             >
                               Accept
@@ -756,7 +756,7 @@ export function TutorDashboard() {
                             onPress={() =>
                               setBatchActions((p) => ({ ...p, [br.id]: "rejected" }))
                             }
-                            className="flex-1 h-9 bg-glass border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
+                            className="flex-1 h-9 bg-surface border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
                           >
                             <Ionicons name="close" size={13} color="#C1503D" />
                             <Text className="text-caption font-medium text-danger">Decline</Text>
@@ -765,7 +765,7 @@ export function TutorDashboard() {
                       ) : (
                         <Text
                           className={`mt-2.5 text-center text-caption ${
-                            action === "accepted" ? "text-verification" : "text-slate-400"
+                            action === "accepted" ? "text-verification" : "text-text-muted"
                           }`}
                         >
                           {action === "accepted"
@@ -786,14 +786,14 @@ export function TutorDashboard() {
         {/* Group batch CTA */}
         <Pressable
           onPress={() => showComingSoon("Group batch creation")}
-          className="w-full flex-row items-center gap-3 p-3.5 bg-glass border border-glass-border rounded-2xl active:opacity-70"
+          className="w-full flex-row items-center gap-3 p-3.5 bg-surface border border-border rounded-2xl active:opacity-70"
         >
           <View className="w-10 h-10 rounded-xl bg-ai items-center justify-center">
             <Ionicons name="people" size={20} color="#FFFFFF" />
           </View>
           <View className="flex-1">
             <Text className="text-card-title font-medium text-ai">Create a group batch</Text>
-            <Text className="text-caption text-slate-400 mt-0.5">
+            <Text className="text-caption text-text-muted mt-0.5">
               Combine 2–6 students into a shared batch
             </Text>
           </View>
@@ -809,14 +809,14 @@ export function TutorDashboard() {
               accessibilityLabel={label}
               onPress={() => showComingSoon(feature)}
               style={{ width: "48%" }}
-              className="bg-glass border border-glass-border rounded-2xl p-3.5 mb-2.5 active:opacity-70"
+              className="bg-surface border border-border rounded-2xl p-3.5 mb-2.5 active:opacity-70"
             >
-              <Text className="text-button-sm font-medium text-white">{label}</Text>
+              <Text className="text-button-sm font-medium text-text-primary">{label}</Text>
             </Pressable>
           ))}
         </View>
       </ScreenScroll>
-      <TutorBottomBar tone="dark" />
+      <TutorBottomBar tone="light" />
     </ScreenLayout>
   );
 }
@@ -867,23 +867,23 @@ function statusAccent(kind: "join" | "conversion") {
 function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
   return (
     <View
-      className="bg-glass border border-glass-border rounded-2xl p-3.5 mb-2.5"
+      className="bg-surface border border-border rounded-2xl p-3.5 mb-2.5"
       style={{ width: "48%" }}
     >
       <View className="flex-row items-center justify-between mb-2">
-        <View className="w-8 h-8 rounded-lg items-center justify-center bg-glass-strong border border-glass-border">
+        <View className="w-8 h-8 rounded-lg items-center justify-center bg-background border border-border">
           <Ionicons
             name={iconName}
             size={16}
-            color="#FFFFFF"
+            color="#2F5D50"
           />
         </View>
         {trendUp ? <Ionicons name="trending-up" size={14} color="#3F8A5A" /> : null}
       </View>
-      <Text className="text-label text-slate-400 mb-1">{label}</Text>
-      <Text className="text-heading text-white leading-tight">{value}</Text>
+      <Text className="text-label text-text-muted mb-1">{label}</Text>
+      <Text className="text-heading text-text-primary leading-tight">{value}</Text>
       <Text
-        className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-slate-400"}`}
+        className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}
       >
         {trend}
       </Text>
@@ -903,7 +903,7 @@ type SubjectChipProps = {
 function SubjectChip({ label }: SubjectChipProps) {
   return (
     <View className="px-2 py-0.5 rounded-sm bg-accent-light">
-      <Text className="text-micro text-accent font-medium">{label}</Text>
+      <Text className="text-micro text-accent-dark font-medium">{label}</Text>
     </View>
   );
 }
@@ -936,8 +936,8 @@ type AvatarCircleProps = { uri: string };
  */
 function AvatarCircle({ uri }: AvatarCircleProps) {
   return (
-    <View className="w-10 h-10 rounded-full bg-glass-strong border border-glass-border items-center justify-center">
-      <Ionicons name="person-outline" size={20} color="rgba(255,255,255,0.45)" />
+    <View className="w-10 h-10 rounded-full bg-background border border-border items-center justify-center">
+      <Ionicons name="person-outline" size={20} color="#2F5D50" />
       {/* Network image would render here in the wired version:
             <Image source={{ uri }} className="w-10 h-10 rounded-full" /> */}
       <Text className="sr-only">{uri}</Text>
@@ -957,7 +957,7 @@ function AvatarCircle({ uri }: AvatarCircleProps) {
 function TutorDashboardEmptyState() {
   const router = useRouter();
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
       <View className="flex-1 items-center justify-center px-8">
         <FloatingEmptyIcon
           iconName="document-text-outline"
@@ -966,10 +966,10 @@ function TutorDashboardEmptyState() {
           size={28}
           sizeClass="w-16 h-16"
         />
-        <Text className="text-section-title font-medium text-white text-center">
+        <Text className="text-section-title font-medium text-text-primary text-center">
           Your tutor profile isn&apos;t set up yet
         </Text>
-        <Text className="text-body text-slate-300 text-center mt-2 leading-relaxed">
+        <Text className="text-body text-text-secondary text-center mt-2 leading-relaxed">
           Finish your tutor profile to unlock the dashboard. You&apos;ll
           add your subjects, rate, location, and verification
           documents.
@@ -984,7 +984,7 @@ function TutorDashboardEmptyState() {
             Complete your profile
           </Text>
         </Pressable>
-        <Text className="text-caption text-slate-400 text-center mt-5">
+        <Text className="text-caption text-text-muted text-center mt-5">
           Already submitted? You may be under admin review — check
           the &quot;Under review&quot; page.
         </Text>
@@ -1015,7 +1015,7 @@ function AvailabilitySwitch({
   // Track bg color — interpolated between the off (white/20) and on
   // (verification green) tokens. Using the same hex lookups that
   // exist elsewhere in the codebase so we don't introduce new colors.
-  const TRACK_OFF = "rgba(255,255,255,0.20)";
+  const TRACK_OFF = "#E7E1D3";
   const TRACK_ON = colors.brand.verification;
   const progress = useSharedValue(checked ? 1 : 0);
 
@@ -1052,7 +1052,7 @@ function AvailabilitySwitch({
         checked={checked}
         trackWidth={TRACK_WIDTH}
         thumbSize={THUMB_SIZE}
-        thumbClassName="w-5 h-5 rounded-full bg-white shadow-sm"
+        thumbClassName="w-5 h-5 rounded-full bg-white border border-border shadow-sm"
         style={{ elevation: 2 }}
       />
     </Pressable>
@@ -1081,7 +1081,7 @@ function RequestsSubTabs<TKey extends string>({
   );
   return (
     <View
-      className="flex-row bg-glass border border-glass-border rounded-xl p-1 mb-2.5 relative"
+      className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5 relative"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
@@ -1109,19 +1109,19 @@ function RequestsSubTabs<TKey extends string>({
           >
             <Text
               className={`text-caption font-medium ${
-                on ? "text-white" : "text-slate-300"
+                on ? "text-white" : "text-text-secondary"
               }`}
             >
               {t.label}
             </Text>
             <View
               className={`px-1.5 py-[1px] rounded-full ${
-                on ? "bg-white/25" : "bg-night-deep"
+                on ? "bg-white/25" : "bg-border"
               }`}
             >
               <Text
                 className={`text-micro font-semibold ${
-                  on ? "text-white" : "text-slate-400"
+                  on ? "text-white" : "text-text-muted"
                 }`}
               >
                 {t.count}
