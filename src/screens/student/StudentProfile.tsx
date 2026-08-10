@@ -305,7 +305,7 @@ export function StudentProfile() {
               </Text>
             <View className="flex-row items-center justify-between bg-surface-muted border border-border rounded-card h-input px-4">
                 <Text
-                  className="text-body-lg text-text-secondary flex-1"
+                  className="text-body-lg text-text-primary flex-1"
                   numberOfLines={1}
                 >
                   {user?.email ?? "Not signed in"}
