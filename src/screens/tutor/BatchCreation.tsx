@@ -49,7 +49,7 @@ export function BatchesScreen() {
   const handleCreateNewBatch = () => setShowPickStudents(true);
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
       {/* Header — standard light header slot. The old `pt-12` manual
           status-bar compensation is gone: `ScreenLayout`'s safe area
           now provides the top inset like every other screen. */}
