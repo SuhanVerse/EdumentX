@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
@@ -226,6 +227,7 @@ export function BottomNav({
   tone?: "light" | "dark";
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const tabs = STUDENT_TABS;
   const activeRoute = current ?? pathname;
@@ -258,7 +260,7 @@ export function BottomNav({
   }
 
   return tone === "dark" ? (
-    <View className="px-4 pt-2 pb-3">
+    <View className="px-4 pt-2" style={{ paddingBottom: 12 + insets.bottom }}>
       {/* Floating glass dock — the dark-nav surface. Translucent
           white over the night canvas reads as frosted glass without
           a native blur (which would degrade on Android); the
@@ -273,7 +275,7 @@ export function BottomNav({
       </View>
     </View>
   ) : (
-    <View className="bg-surface border-t border-border pt-2 pb-3">
+    <View className="bg-surface border-t border-border pt-2" style={{ paddingBottom: 12 + insets.bottom }}>
       <TabRow
         tabs={tabs}
         activeIndex={activeIndex >= 0 ? activeIndex : 0}
