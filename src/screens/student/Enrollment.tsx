@@ -235,8 +235,8 @@ export function MyEnrollments() {
     <ScreenLayout variant="background">
       {/* Header — slate hero, same shape as StudentHome / MapSearch
           / AIChat. */}
-      <ScreenHeader>
-        <Text className="text-body text-white/70 mb-0.5">Your learning</Text>
+      <ScreenHeader variant="light">
+        <Text className="text-body text-text-secondary mb-0.5">Your learning</Text>
         <View
           style={{
             borderBottomWidth: 2,
@@ -245,11 +245,11 @@ export function MyEnrollments() {
             alignSelf: "flex-start",
           }}
         >
-          <Text className="text-screen-title font-medium text-white">
+          <Text className="text-screen-title font-medium text-text-primary">
             My Enrollments
           </Text>
         </View>
-        <Text className="text-caption text-white/70 mt-1">
+        <Text className="text-caption text-text-secondary mt-1">
           {activeList.length + pendingList.length + pastList.length} total
           enrollments
         </Text>
