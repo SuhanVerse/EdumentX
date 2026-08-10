@@ -485,27 +485,27 @@ export function EditTeachingDetails() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero header — slate, matches the other tutor surfaces. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
+      {/* Hero header — light, matches the other tutor surfaces. */}
+      <View className="bg-surface px-6 pb-8 shrink-0 border-b border-border">
         <View className="flex-row items-center gap-3 mt-2">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
+            className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} color="#2F5D50" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-body text-white/70 mb-0.5">
+            <Text className="text-body text-text-secondary mb-0.5">
               Profile · Teaching details
             </Text>
-            <Text className="text-screen-title font-medium text-white">
+            <Text className="text-screen-title font-medium text-text-primary">
               Edit subjects &amp; rate
             </Text>
           </View>
         </View>
-        <Text className="text-caption text-white/70 mt-2">
+        <Text className="text-caption text-text-secondary mt-2">
           Changes here go back to the verification team for a re-review.
           You can keep using the rest of EdumentX while we look at them.
         </Text>
