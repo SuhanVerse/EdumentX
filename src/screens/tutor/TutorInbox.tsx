@@ -355,7 +355,7 @@ type SubjectChipProps = { label: string };
 function SubjectChip({ label }: SubjectChipProps) {
   return (
     <View className="px-2 py-1 rounded-sm bg-verification-light">
-      <Text className="text-micro text-verification font-medium">{label}</Text>
+      <Text className="text-micro text-verification-dark font-medium">{label}</Text>
     </View>
   );
 }
@@ -363,7 +363,7 @@ function SubjectChip({ label }: SubjectChipProps) {
 function PendingBadge() {
   return (
     <View className="px-2 py-0.5 rounded-sm bg-warning-bg">
-      <Text className="text-micro font-semibold text-warning">Pending</Text>
+      <Text className="text-micro font-semibold text-warning-text">Pending</Text>
     </View>
   );
 }
