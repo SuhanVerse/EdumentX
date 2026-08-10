@@ -379,10 +379,10 @@ export function EditTutorProfile() {
       {/* Hero header — shows the tutor's name (or fallback) instead
           of a hardcoded "Your account" label. The text-display token
           matches the other student/tutor surfaces. */}
-      <ScreenHeader>
-        <Text className="text-body text-white/70 mb-0.5">Profile</Text>
+      <ScreenHeader variant="light">
+        <Text className="text-body text-text-secondary mb-0.5">Profile</Text>
         <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
-          <Text className="text-display text-white">
+          <Text className="text-display text-text-primary">
             {form.fullName || form.email || 'Your account'}
           </Text>
         </View>
