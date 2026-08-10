@@ -200,53 +200,52 @@ export function StudentHome() {
   }, [user]);
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
 
       {/* Hero header — standard ScreenHeader slot */}
-      <ScreenHeader>
+      <ScreenHeader variant="light">
         <View className="flex-row items-start justify-between mb-4 gap-3">
           {/* `flex-1 min-w-0` lets the greeting shrink to fit a long
               name (e.g. "Suhan Dongol") next to the notification
               bell — without it the View clips to the bell's width
               and the name reads "Su…" in the screenshots. */}
           <View className="flex-1 min-w-0">
-            <Text className="text-body text-white/70 mb-0.5">Good day,</Text>
+            <Text className="text-body text-text-secondary mb-0.5">Good day,</Text>
             <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
               <Text
-                className="text-screen-title font-medium text-white"
+                className="text-screen-title font-medium text-text-primary"
                 numberOfLines={1}
               >
                 {profile.fullName}
               </Text>
             </View>
           </View>
-          <NotificationBell tone="dark" />
+          <NotificationBell tone="light" />
         </View>
 
         {/* Location */}
         <View className="flex-row items-center gap-1.5 mb-3.5">
-          <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.7)" />
-          <Text className="text-caption text-white/70">{profile.locationLabel}</Text>
+          <Ionicons name="location-outline" size={14} color="#6B7280" />
+          <Text className="text-caption text-text-secondary">{profile.locationLabel}</Text>
         </View>
 
         {/* Search bar — glass input on the night hero (Premium UI:
             translucent white surface + hairline edge) */}
-        <View className="bg-glass-strong rounded-2xl h-input flex-row items-center px-4 gap-2.5 border border-glass-border">
-          <Ionicons name="search-outline" size={18} color="rgba(255,255,255,0.5)" />
+        <View className="bg-surface rounded-2xl h-input flex-row items-center px-4 gap-2.5 border border-border">
+          <Ionicons name="search-outline" size={18} color="#6B7280" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search subjects, tutors, locations…"
-            placeholderTextColor="rgba(255,255,255,0.35)"
-            className="flex-1 text-body-lg text-white"
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 text-body-lg text-text-primary"
           />
         </View>
       </ScreenHeader>
 
-      {/* Content — dark body (Premium UI pass): the scroll sits on
-          `bg-night-deep` (one step darker than the night hero) so the
-          glass cards read as floating surfaces. */}
-      <ScreenScroll className="flex-1 bg-night-deep">
+      {/* Content — warm-paper body (Premium UI pass): the scroll sits on
+          `bg-background` so the white cards read as floating surfaces. */}
+      <ScreenScroll className="flex-1 bg-background">
         {/* Primary CTA — the ONLY amber surface on this screen. Amber
             is reserved for high-priority actions; tapping this
             launches the map discovery surface. */}
@@ -269,16 +268,16 @@ export function StudentHome() {
         {/* Tutor list section header */}
         <View className="pb-3">
           <View className="flex-row items-center justify-between">
-            <Text className="text-section-title font-semibold text-white">
+            <Text className="text-section-title font-semibold text-text-primary">
               Recommended tutors
             </Text>
             {!tutorsLoading && (
-              <Text className="text-caption text-slate-400">
+              <Text className="text-caption text-text-muted">
                 {tutors.length} available
               </Text>
             )}
           </View>
-          <Text className="text-body-sm text-slate-400 mt-1">
+          <Text className="text-body-sm text-text-muted mt-1">
             Verified tutors ready to help you learn
           </Text>
         </View>
@@ -287,24 +286,24 @@ export function StudentHome() {
         <View className="gap-4">
           {tutorsLoading ? (
             <View className="items-center py-12">
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
-              <Text className="text-caption text-slate-400 mt-3">
+              <ActivityIndicator size="small" color="#2F5D50" />
+              <Text className="text-caption text-text-muted mt-3">
                 Loading tutors…
               </Text>
             </View>
           ) : tutors.length === 0 ? (
             <View className="items-center py-12 px-6">
-              <View className="w-14 h-14 rounded-2xl bg-glass-strong items-center justify-center mb-3 border border-glass-border">
+              <View className="w-14 h-14 rounded-2xl bg-surface items-center justify-center mb-3 border border-border">
                 <Ionicons
                   name="search-outline"
                   size={26}
-                  color="rgba(255,255,255,0.5)"
+                  color="#6B7280"
                 />
               </View>
-              <Text className="text-card-title font-medium text-white text-center">
+              <Text className="text-card-title font-medium text-text-primary text-center">
                 No tutors available yet
               </Text>
-              <Text className="text-body-sm text-slate-400 text-center mt-1.5">
+              <Text className="text-body-sm text-text-muted text-center mt-1.5">
                 Approved tutors will appear here once they&apos;ve been
                 verified by our team.
               </Text>
@@ -328,7 +327,6 @@ export function StudentHome() {
                   photoUrl: tutor.photoUrl,
                 })}
                 variant="wide"
-                tone="dark"
               />
             ))
           )}
@@ -365,7 +363,7 @@ export function StudentHome() {
         </View>
       </ScreenScroll>
 
-      <BottomNav role="student" current="/student-home" tone="dark" />
+      <BottomNav role="student" current="/student-home" tone="light" />
     </ScreenLayout>
   );
 }
@@ -388,10 +386,10 @@ function StudentHomeLogOut({
       onPressOut={onPressOut}
       style={animatedStyle}
       disabled={isSigningOut}
-      className="min-h-btn rounded-2xl items-center justify-center flex-row gap-2 bg-glass border border-glass-border"
+      className="min-h-btn rounded-2xl items-center justify-center flex-row gap-2 bg-surface border border-border"
     >
       {isSigningOut ? (
-        <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+        <ActivityIndicator size="small" color="#6B7280" />
       ) : (
         <Ionicons name="log-out-outline" size={18} color="#C1503D" />
       )}
