@@ -233,7 +233,7 @@ export function MyEnrollments() {
 
   return (
     <ScreenLayout variant="background">
-      {/* Header — slate hero, same shape as StudentHome / MapSearch
+      {/* Header — light hero, same shape as StudentHome / MapSearch
           / AIChat. */}
       <ScreenHeader variant="light">
         <Text className="text-body text-text-secondary mb-0.5">Your learning</Text>
@@ -255,8 +255,8 @@ export function MyEnrollments() {
         </Text>
       </ScreenHeader>
 
-      {/* Tabs + list — light sheet overlapping the dark hero (premium
-          dark→light seam, shared `ScreenSheet` pattern) */}
+      {/* Tabs + list — white sheet surface over the warm-paper body
+          (shared `ScreenSheet` pattern) */}
       <ScreenSheet>
         <EnrollmentTabs active={tab} onChange={setTab} counts={counts} />
 

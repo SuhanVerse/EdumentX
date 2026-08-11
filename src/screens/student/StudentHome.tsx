@@ -229,8 +229,8 @@ export function StudentHome() {
           <Text className="text-caption text-text-secondary">{profile.locationLabel}</Text>
         </View>
 
-        {/* Search bar — glass input on the night hero (Premium UI:
-            translucent white surface + hairline edge) */}
+        {/* Search bar — white surface input on the warm-paper hero
+            (hairline border separates it from the body) */}
         <View className="bg-surface rounded-2xl h-input flex-row items-center px-4 gap-2.5 border border-border">
           <Ionicons name="search-outline" size={18} color="#6B7280" />
           <TextInput

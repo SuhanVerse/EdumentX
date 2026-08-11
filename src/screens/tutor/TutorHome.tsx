@@ -859,9 +859,9 @@ function statusAccent(kind: "join" | "conversion") {
 }
 
 /**
- * Dashboard metric tiles are intentionally monochrome glass cards —
- * the icons render white and the status pop comes from the trend
- * arrow. (No per-tile color accents; amber is reserved for CTAs.)
+ * Dashboard metric tiles are intentionally monochrome surface cards —
+ * the icons render in brand green and the status pop comes from the
+ * trend arrow. (No per-tile color accents; amber is reserved for CTAs.)
  */
 
 function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {

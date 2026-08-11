@@ -215,7 +215,7 @@ export function TutorPendingReview() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero — slate, matches the 5 other tutor surfaces so the
+      {/* Hero — light, matches the other tutor surfaces so the
           "this is still the tutor side of the app" feeling is
           preserved. */}
       <View className="px-5 pb-7 shrink-0">
