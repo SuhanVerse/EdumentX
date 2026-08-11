@@ -407,48 +407,53 @@ service cloud.firestore {
     // guards DIRECT-path reads (collection(db, "enrollments", uid,
     // "roster")) — a `collectionGroup(db, "roster")` query over every
     // tutor's roster fails with permission-denied even when the
-    // path-specific rule allows it (the Aug 9 log showed exactly
+    // path-specific rule allows it (the Aug 11 log showed exactly
     // this for subscribeEnrollmentsByStudent / subscribeRequestsByStudent).
     //
     // A collectionGroup query requires a match with a RECURSIVE parent
     // wildcard: `match /{path=**}/roster/{doc}`. Each block below
-    // binds that wildcard as `{prefix=**}` so the rules can verify
-    // the docs come from the expected top-level collection
-    // (`prefix[0]`) — a bare `/{path=**}/roster/...` would otherwise
-    // match ANY collection named `roster` anywhere in the database.
-    // Ownership is then checked via the denormalized uid fields on
-    // the doc itself (resource.data.studentUid / the tutor's uid in
-    // the path prefix) or isAdmin(). Read-only — all writes stay on
-    // the direct-path rules above.
+    // binds that wildcard as `{prefix=**}` — the literal collection
+    // name in the match declaration (e.g. `/roster/{enrollmentId}`)
+    // scopes the rule to that exact collection ID wherever it appears
+    // in the document tree.
+    //
+    // IMPORTANT: `{prefix=**}` captures the ENTIRE matched path as a
+    // single string (per the rules-behavior docs:
+    // https://firebase.google.com/docs/rules/rules-behavior), so
+    // `prefix[0]` returns the first CHARACTER, not the first SEGMENT.
+    // Earlier code used `prefix.size() >= 2 && prefix[0] == "enrollments"`
+    // which always evaluated false (prefix[0] was `"e"`, not
+    // `"enrollments"`), short-circuiting the `&&` chain before
+    // `resource.data.studentUid == auth.uid` was ever checked. The
+    // fix: rely on resource-data identity instead. Every write path
+    // populates `studentUid` and/or `tutorUid` on each row (verified
+    // in FirebaseEnrollmentRepository.ts:620 / :768), so checking
+    // those fields is sufficient. Read-only — all writes stay on the
+    // direct-path rules above.
     match /{prefix=**}/roster/{enrollmentId} {
       allow get, list: if isSignedIn()
-        && prefix.size() >= 2 && prefix[0] == "enrollments"
         && (resource.data.studentUid == request.auth.uid
-            || prefix[1] == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
             || isAdmin());
     }
     match /{prefix=**}/requests/{requestId} {
       allow get, list: if isSignedIn()
-        && prefix.size() >= 2 && prefix[0] == "enrollmentRequests"
         && (resource.data.studentUid == request.auth.uid
-            || prefix[1] == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
             || isAdmin());
     }
     match /{prefix=**}/members/{memberId} {
       allow get, list: if isSignedIn()
-        && prefix.size() >= 4 && prefix[0] == "batches"
         && (resource.data.studentUid == request.auth.uid
-            || prefix[1] == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
             || isAdmin());
     }
     match /{prefix=**}/classes/{batchId} {
       allow get, list: if isSignedIn()
-        && prefix.size() >= 2 && prefix[0] == "batches"
-        && (prefix[1] == request.auth.uid || isAdmin());
+        && (resource.data.tutorUid == request.auth.uid || isAdmin());
     }
     match /{prefix=**}/reviews/{reviewId} {
       allow get, list: if isSignedIn()
-        && prefix.size() >= 2 && prefix[0] == "reviews"
         && (resource.data.studentUid == request.auth.uid || isAdmin());
     }
 
