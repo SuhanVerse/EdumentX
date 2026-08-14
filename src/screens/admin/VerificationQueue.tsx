@@ -800,6 +800,9 @@ export function VerificationQueue() {
             verificationStatus: "approved",
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
+            // Newly-approved tutors start visible in discovery; the
+            // tutor can hide themselves from the dashboard toggle.
+            isAvailableForNewStudents: true,
             degree: profileData?.degree ?? null,
             institution: profileData?.institution ?? null,
             updatedAt: serverTimestamp(),
@@ -823,6 +826,7 @@ export function VerificationQueue() {
             verificationStatus: "approved",
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
+            isAvailableForNewStudents: true,
             updatedAt: serverTimestamp(),
           },
           { merge: true },

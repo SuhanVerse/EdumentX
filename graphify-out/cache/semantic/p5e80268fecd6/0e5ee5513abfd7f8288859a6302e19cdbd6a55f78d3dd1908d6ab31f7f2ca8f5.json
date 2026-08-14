@@ -1,0 +1,1 @@
+{"nodes": [{"id": "screenshot_expo_doctor", "label": "Expo Doctor Error Screenshot", "file_type": "image", "source_file": "Documentation/99-Archive/context-snapshots-jun2026/Screenshot from 2026-06-09 13-58-17.png", "rationale": "Depicts dependency conflicts and duplicate native module warnings in the Expo build environment."}], "edges": [], "hyperedges": []}

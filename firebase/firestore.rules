@@ -104,6 +104,15 @@ service cloud.firestore {
     match /tutors/{uid} {
       allow read: if true;
       allow create, update: if isAdmin();
+      // Tutor-driven search visibility: the owner may update ONLY
+      // their own `isAvailableForNewStudents` flag (plus the
+      // `updatedAt` sibling) on the discovery doc.
+      // `diff(...).affectedKeys().hasOnly([...])` rejects any write
+      // that touches any other field — the admin approval mirror is
+      // the only other writer.
+      allow update: if isOwner(uid) && request.resource.data
+        .diff(resource.data).affectedKeys()
+        .hasOnly(['isAvailableForNewStudents', 'updatedAt']);
       // Admin can purge the discovery copy when the user is deleted.
       allow delete: if isAdmin();
     }

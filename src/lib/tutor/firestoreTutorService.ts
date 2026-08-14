@@ -25,6 +25,8 @@ import {
   getDoc,
   onSnapshot,
   query,
+  serverTimestamp,
+  setDoc,
   where,
   type Unsubscribe,
 } from "@react-native-firebase/firestore";
@@ -59,6 +61,12 @@ export type TutorListing = {
   verificationStatus: string;
   isVerifiedProfessional: boolean;
   hasPendingUpdate: boolean;
+  /** Tutor-driven search visibility. `false` hides the tutor from
+   *  discovery (StudentHome / MapSearch) without touching their
+   *  `verificationStatus`. The tutor toggles this on their own
+   *  `tutors/{uid}` doc — the only field the rules let them write
+   *  there (see the `differsOnlyFrom` carve-out in firestore.rules). */
+  isAvailableForNewStudents: boolean;
   rating: number;
   reviewCount: number;
   yearsExperience: number;
@@ -80,6 +88,10 @@ const DEFAULT_TUTOR_LISTING: TutorListing = {
   verificationStatus: "pending",
   isVerifiedProfessional: false,
   hasPendingUpdate: false,
+  // Default visible — legacy `tutors/{uid}` docs predate the flag
+  // and the backfill script defaults them to `true`, so a strict
+  // `== true` discovery filter must not hide them.
+  isAvailableForNewStudents: true,
   rating: 0,
   reviewCount: 0,
   yearsExperience: 0,
@@ -107,6 +119,10 @@ export function subscribeTutors(
     tutorsRef,
     where("verificationStatus", "==", "approved"),
     where("hasPendingUpdate", "==", false),
+    // Tutor-driven search visibility — the dashboard toggle writes
+    // this field on the tutor's own `tutors/{uid}` doc (rules
+    // carve-out), and discovery hides tutors who flipped it off.
+    where("isAvailableForNewStudents", "==", true),
   );
 
   return onSnapshot(
@@ -155,6 +171,7 @@ export function subscribeTutors(
               : "pending",
           isVerifiedProfessional: data.isVerifiedProfessional === true,
           hasPendingUpdate: data.hasPendingUpdate === true,
+          isAvailableForNewStudents: data.isAvailableForNewStudents !== false,
           rating: typeof data.rating === "number" ? data.rating : 0,
           reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
           yearsExperience:
@@ -501,4 +518,30 @@ function tutorsDocToTutorProfile(
     availability: null,
     enrolledCount: 0,
   });
+}
+
+// ─── Search-visibility write ─────────────────────────────────────────────────
+
+/**
+ * Flip the tutor's own `isAvailableForNewStudents` flag on the
+ * `tutors/{uid}` discovery doc. This is the ONLY field a tutor may
+ * write on that doc — the Firestore rules carve-out allows an owner
+ * update only when `request.resource.data` differs from the existing
+ * doc solely in `isAvailableForNewStudents` (+ `updatedAt`). Any
+ * other field change is rejected by the rules.
+ */
+export async function setTutorAvailability(
+  tutorUid: string,
+  available: boolean,
+): Promise<void> {
+  const db = getFirestore(getApp());
+  const tutorRef = doc(db, "tutors", tutorUid);
+  await setDoc(
+    tutorRef,
+    {
+      isAvailableForNewStudents: available,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }

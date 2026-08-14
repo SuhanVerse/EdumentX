@@ -1,12 +1,14 @@
 # EdumentX — Zero-Budget Hybrid Architecture
 
 > **Status**: Source of truth for the production stack.
-> **Last updated**: Aug 2026 — Phase 3.5 stabilization. The 3D stack
-> (`expo-gl`, `three`, `@react-three/fiber`, `@react-three/drei`) was
-> **removed** after a device crash in `WebGLCapabilities.getMaxPrecision`;
-> onboarding now uses flat `react-native-svg` illustrations. Map pins,
-> GPS auto-location and the location picker shipped in the same pass.
-> See §4a for the removal rationale.
+> **Last updated**: Aug 2026 — Phase 3.5 stabilization + enrollment
+> data-model notes. The 3D stack (`expo-gl`, `three`, `@react-three/fiber`,
+> `@react-three/drei`) was **removed** after a device crash in
+> `WebGLCapabilities.getMaxPrecision`; onboarding now uses flat
+> `react-native-svg` illustrations. Map pins, GPS auto-location and the
+> location picker shipped in the same pass. §2 documents the
+> enrollment collections + `slotKey` format; §9a documents the
+> `node:test` unit-test pattern. See §4a for the removal rationale.
 > **Read this first** if you are about to add a new backend dependency.
 
 This document is the canonical reference for every service the EdumentX
@@ -94,6 +96,30 @@ users/{uid}/tutorProfile/default   # tutor-only profile fields
 When we add tutor-discovery in Phase 5, the candidate collection will be
 `tutors/{uid}` (denormalized for read efficiency), but write access
 stays owner-only.
+
+**Enrollment collections** (Phase 5, all under the tutor's uid):
+
+```
+enrollmentRequests/{tutorUid}/requests/{requestId}  # pending student asks
+enrollments/{tutorUid}/roster/{enrollmentId}         # active students
+notifications/{uid}/items/{itemId}                   # per-user inbox
+```
+
+**slotKey format — `"<day>:<slot>"`** (e.g. `mon:5-7`, `wed:9-12`).
+This is a hard contract shared by every enrollment feature:
+
+- Built with `slotKey(day, slot)` in `services/enrollments/types.ts`
+  and parsed with `parseSlotKey` — a key that fails to parse returns
+  `null` and is **silently excluded** from derived views
+  (`deriveTodaySessions`, `computeBookedMap`, capacity counts), so a
+  typo like `mon-5-7` (hyphen) instead of `mon:5-7` (colon) makes an
+  enrollment invisible without an obvious error.
+- Days are the `DayKey` union (`mon`…`sun`); slots are `TimeSlotKey`
+  (`6-9`…`7-9`). See `types.ts` for the canonical lists.
+- `derived.ts` logs a warn-once message for malformed keys so bad
+  data can't hide (see the `warnBadSlotKey` guard).
+- Any new writer (tests, seeds, scripts) MUST use the colon format or
+  its data will never surface in the tutor dashboard.
 
 **Hard rule**: do not call Cloud Functions from the client. There is no
 Cloud Function runtime on Spark. All server-side logic (KNN, Haversine,
@@ -434,6 +460,44 @@ lib/
 types/
   onboarding.ts             # Phase 3 — extracted OnboardingSlide type
 ```
+
+---
+
+## 9a. Unit Tests — `node:test` (zero dependencies)
+
+Pure-logic modules are covered with **Node's built-in test runner**
+(`node:test`) — no jest/vitest install, so nothing to justify in §0.
+
+**Run**: `npm run test:derived` — covers every pure helper in
+`services/enrollments/derived.ts` + `types.ts` (44 tests across 8
+suites): `todayIsoInKtm`, `todayDayKeyInKtm`, `slotDurationMinutes`,
+`deriveTodaySessions`, `computeBookedMap`, `countAvailabilityCells`,
+`slotKey`/`parseSlotKey`, `nextOccurrenceIsoInKtm`, plus the
+malformed-slotKey guard.
+
+**Pattern** (mirrors the other `scripts/*.ts` flows):
+
+```
+scripts/testDerived.ts            # node:test + node:assert/strict
+npm run test:derived              # tsc → node --test
+```
+
+**Conventions**:
+
+- Tests import from `../src/...` directly and are compiled by the same
+  `tsc` step — no mock Firestore/RN needed because the helpers are pure
+  (no Firestore/RN imports; that's a `derived.ts` invariant).
+- **Calendar helpers have two different clock conventions** — don't
+  mix them: `todayIsoInKtm` / `todayDayKeyInKtm` take **UTC instants**
+  and resolve in Asia/Kathmandu; `nextOccurrenceIsoInKtm` anchors on
+  the **device's local calendar** (`new Date(y, m-1, d)` fixtures).
+  Mixing them shifts results by a day.
+- Verify weekday anchors with ground-truth `node` output before
+  writing expectations — calendar tests fail on wrong anchors, not
+  wrong code.
+- Follow this pattern for new pure logic (`computeBookedMap`-style
+  derived helpers, parsers, formatters) instead of adding a test
+  framework.
 
 ---
 

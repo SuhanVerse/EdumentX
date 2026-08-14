@@ -20,7 +20,15 @@
     "seed:tutors:build": "npx tsc scripts/seedSupabaseTutors.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "seed:tutors": "npm run seed:tutors:build && node dist/scripts/seedSupabaseTutors.js",
     "delete:user:build": "npx tsc scripts/deleteUser.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
-    "delete:user": "npm run delete:user:build && node dist/scripts/deleteUser.js"
+    "delete:user": "npm run delete:user:build && node dist/scripts/deleteUser.js",
+    "smoke:enrollments:build": "npx tsc scripts/smokeTestEnrollments.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "smoke:enrollments": "npm run smoke:enrollments:build && node dist/scripts/smokeTestEnrollments.js",
+    "test:derived:build": "npx tsc scripts/testDerived.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "test:derived": "npm run test:derived:build && node --test dist/scripts/scripts/testDerived.js",
+    "backfill:tutor-availability:build": "npx tsc scripts/backfillTutorAvailability.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "backfill:tutor-availability": "npm run backfill:tutor-availability:build && node dist/scripts/backfillTutorAvailability.js",
+    "test:rules:deployed": "node scripts/checkDeployedRules.mjs",
+    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

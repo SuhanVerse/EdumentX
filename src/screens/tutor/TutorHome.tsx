@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   Text,
   View,
@@ -30,17 +31,27 @@ import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
+import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import { deriveTodaySessions } from "@/services/enrollments/derived";
+import type {
+  Enrollment,
+  EnrollmentRequest,
+} from "@/services/enrollments/types";
+import { setTutorAvailability } from "@/lib/tutor/firestoreTutorService";
 import { useAuthStore } from "@/store/authStore";
 
 /**
- * EdumentX — Tutor Dashboard (UI-only milestone)
+ * EdumentX — Tutor Dashboard
  *
- * Live reads from `users/{uid}/tutorProfile/default` via `onSnapshot`.
- * Empty-state copy stays for the sessions / pending-request cards —
- * those collections land in Phase 5. Numeric metric values
- * (rating, reviews, response rate, monthly earnings) now come from the
- * tutor profile doc so they reflect the saved `fullName` and not the
- * stale "Manoj Khadka" mock that lived here before.
+ * Live reads from `users/{uid}/tutorProfile/default` via `onSnapshot`
+ * (metrics, verification state, capacity), a live
+ * `enrollmentRequests/{tutorUid}/requests` subscription for the
+ * pending-request list (filtered to `status === "pending"`), and a
+ * live `enrollments/{tutorUid}/roster` subscription that derives
+ * today's sessions — no `sessions` collection exists; today's
+ * sessions are computed from active enrollments whose `slotKey` day
+ * matches today (Asia/Kathmandu) and whose `[startDate, endDate]`
+ * window contains today.
  */
 
 // Shape mirrors the fields the JSX reads from the tutorProfile doc.
@@ -93,139 +104,16 @@ function toNum(value: unknown): number {
   return typeof value === "number" ? value : 0;
 }
 
-// TODO(firebase): replace with a Firestore `sessions` query filtered by
-// `tutorId == auth.uid && date == today`.
-const TODAY_SESSIONS: readonly {
-  time: string;
-  student: string;
-  subject: string;
-  duration: string;
-}[] = [
-  { time: "4:00 PM", student: "Aarav Tamang",     subject: "Mathematics", duration: "60 min" },
-  { time: "6:00 PM", student: "Priya Maharjan",   subject: "Physics",     duration: "60 min" },
-];
+// Live pending enrollment requests — subscribed from
+// `enrollmentRequests/{tutorUid}/requests` (see the `pendingRequests`
+// state + effect below) and filtered to `status === "pending"`.
 
-type PendingRequest = {
-  id: string;
-  student: { name: string; grade: string; avatar: string };
-  subjects: string[];
-  plan: string;
-  schedule: string;
-  startDate: string;
-};
+// Batch join/conversion requests have no live collection yet — the
+// batch flow only supports tutor-created groups (see `subscribeBatches`
+// in the enrollment repository). The "Batch requests" tab below
+// renders an empty state until the student-side join flow ships.
 
-// TODO(firebase): replace with a Firestore `enrollmentRequests` query
-// filtered by `tutorId == auth.uid && status == "pending"`. The shape
-// mirrors the planned document so the JSX consumer below doesn't need
-// to change.
-const PENDING_REQUESTS: readonly PendingRequest[] = [
-  {
-    id: "er1",
-    student: { name: "Sita Karki",    grade: "Grade 9",  avatar: "https://i.pravatar.cc/100?img=47" },
-    subjects: ["Mathematics", "Physics"],
-    plan: "2x / week",
-    schedule: "Mon · Wed · 5–6 PM",
-    startDate: "Aug 12",
-  },
-  {
-    id: "er2",
-    student: { name: "Bishal Thapa",  grade: "Grade 11", avatar: "https://i.pravatar.cc/100?img=12" },
-    subjects: ["Chemistry"],
-    plan: "1x / week",
-    schedule: "Sat · 10–11 AM",
-    startDate: "Aug 17",
-  },
-];
 
-type BatchRequest = {
-  id: string;
-  kind: "join" | "conversion";
-  student: { name: string; grade: string; avatar: string };
-  subject: string;
-  slotId: string;
-  sessionCode: string;
-  message?: string;
-  submittedAt: string;
-};
-
-// TODO(firebase): replace with a Firestore `batchRequests` query
-// filtered by `tutorId == auth.uid && status == "pending"`. Includes
-// both "join" (existing batch) and "conversion" (1:1 trial) requests.
-const BATCH_REQUESTS: readonly BatchRequest[] = [
-  {
-    id: "br1",
-    kind: "join",
-    student: { name: "Anish Pradhan", grade: "Grade 10", avatar: "https://i.pravatar.cc/100?img=33" },
-    subject: "Mathematics",
-    slotId: "slot-a",
-    sessionCode: "MATH-A2F",
-    submittedAt: "Submitted 2h ago",
-  },
-  {
-    id: "br2",
-    kind: "conversion",
-    student: { name: "Sneha Adhikari", grade: "Grade 8", avatar: "https://i.pravatar.cc/100?img=20" },
-    subject: "Science",
-    slotId: "slot-b",
-    sessionCode: "SCI-91K",
-    message: "Loved the trial last week. Can we make this weekly?",
-    submittedAt: "Submitted yesterday",
-  },
-];
-
-type SessionSlot = {
-  id: string;
-  label: string;
-  students: number;
-  capacity: number;
-  currentStudents: number;
-  rating: number;
-  reviews: number;
-  responseRate: number;
-  profileCompletion: number;
-  thisMonthEarningsNpr: number;
-};
-
-// TODO(firebase): replace with a Firestore `sessions` query filtered by
-// `tutorId == auth.uid`. Three entries are enough for the demo.
-const SESSION_SLOTS: readonly SessionSlot[] = [
-  {
-    id: "slot-a",
-    label: "Morning batch · 7–8 AM",
-    students: 5,
-    capacity: 8,
-    currentStudents: 5,
-    rating: 4.8,
-    reviews: 47,
-    responseRate: 92,
-    profileCompletion: 75,
-    thisMonthEarningsNpr: 12_000,
-  },
-  {
-    id: "slot-b",
-    label: "Afternoon batch · 2–3 PM",
-    students: 4,
-    capacity: 6,
-    currentStudents: 4,
-    rating: 4.6,
-    reviews: 31,
-    responseRate: 88,
-    profileCompletion: 75,
-    thisMonthEarningsNpr: 9_000,
-  },
-  {
-    id: "slot-c",
-    label: "Evening batch · 5–6 PM",
-    students: 3,
-    capacity: 6,
-    currentStudents: 3,
-    rating: 4.7,
-    reviews: 22,
-    responseRate: 90,
-    profileCompletion: 75,
-    thisMonthEarningsNpr: 7_000,
-  },
-];
 
 type QuickAction = { label: string; feature: string };
 
@@ -252,9 +140,23 @@ function showComingSoon(feature: string) {
 export function TutorDashboard() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
-  const [available, setAvailable] = useState(true);
+  // Search visibility — backed by the tutor's own
+  // `tutors/{uid}.isAvailableForNewStudents` flag (see
+  // `setTutorAvailability` + the rules carve-out). `null` while the
+  // first snapshot is in flight; once loaded it reflects the doc.
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [availableToggleBusy, setAvailableToggleBusy] = useState(false);
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
-  const [batchActions, setBatchActions] = useState<Record<string, "accepted" | "rejected">>({});
+  // Live pending enrollment requests addressed to this tutor. The
+  // subscription returns the full list (pending + decided history);
+  // we filter to pending so decided rows drop off the dashboard
+  // automatically.
+  const [pendingRequests, setPendingRequests] = useState<EnrollmentRequest[]>([]);
+  const [requestsLoaded, setRequestsLoaded] = useState(false);
+  // Live roster (`enrollments/{tutorUid}/roster`) — today's sessions
+  // are derived from it (see `deriveTodaySessions` below).
+  const [roster, setRoster] = useState<Enrollment[]>([]);
+  const [rosterLoaded, setRosterLoaded] = useState(false);
   // The under-review banner is dismissable for the current session
   // — once the tutor has read it, the "Got it" button hides the
   // banner without affecting the underlying `verificationStatus`
@@ -345,6 +247,100 @@ export function TutorDashboard() {
     return () => unsub();
   }, [user]);
 
+  // Live enrollment requests — the same `enrollmentRequests/{uid}/requests`
+  // collection the inbox screen subscribes to. Filtered to `pending` so
+  // accepted/declined rows drop off the dashboard automatically.
+  useEffect(() => {
+    if (!user) {
+      setPendingRequests([]);
+      setRequestsLoaded(true);
+      return;
+    }
+    const repo = getEnrollmentRepository();
+    const unsub = repo.subscribeRequests(
+      user.uid,
+      (list) => {
+        setPendingRequests(list.filter((r) => r.status === "pending"));
+        setRequestsLoaded(true);
+      },
+      (err) => {
+        console.warn("TutorDashboard: subscribeRequests failed", err);
+        setRequestsLoaded(true);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  // Live roster — today's sessions are derived from active
+  // enrollments whose slot day + date window cover today (no
+  // `sessions` collection exists; see `deriveTodaySessions`).
+  useEffect(() => {
+    if (!user) {
+      setRoster([]);
+      setRosterLoaded(true);
+      return;
+    }
+    const repo = getEnrollmentRepository();
+    const unsub = repo.subscribeEnrollments(
+      user.uid,
+      (list) => {
+        setRoster(list);
+        setRosterLoaded(true);
+      },
+      (err) => {
+        console.warn("TutorDashboard: subscribeEnrollments failed", err);
+        setRosterLoaded(true);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  // Live search-visibility flag from the tutor's own `tutors/{uid}`
+  // discovery doc. Defaults to visible (true) when the doc is
+  // missing or predates the flag — same default as the backfill.
+  useEffect(() => {
+    if (!user) {
+      setAvailable(null);
+      return;
+    }
+    const db = getFirestore(getApp());
+    const tutorRef = doc(db, "tutors", user.uid);
+    const unsub = onSnapshot(
+      tutorRef,
+      (snap) => {
+        const data = snap.data() as { isAvailableForNewStudents?: boolean } | undefined;
+        setAvailable(data?.isAvailableForNewStudents !== false);
+      },
+      (err) => {
+        console.warn("TutorDashboard: availability flag read failed", err);
+        setAvailable(true);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  async function handleToggleAvailability() {
+    if (!user || available == null || availableToggleBusy) return;
+    const next = !available;
+    setAvailableToggleBusy(true);
+    // Optimistic flip so the switch feels instant; the snapshot
+    // re-confirms from the doc on the next write.
+    setAvailable(next);
+    try {
+      await setTutorAvailability(user.uid, next);
+    } catch (err) {
+      console.warn("TutorDashboard: setTutorAvailability failed", err);
+      // Revert the optimistic flip — the doc still has the old value.
+      setAvailable(!next);
+      Alert.alert(
+        "Couldn't update",
+        "We couldn't change your search visibility. Try again in a moment.",
+      );
+    } finally {
+      setAvailableToggleBusy(false);
+    }
+  }
+
   const capacity = data.capacity;
   const currentStudents = data.currentStudents;
   const capPct = capacity > 0 ? (currentStudents / capacity) * 100 : 0;
@@ -415,20 +411,25 @@ export function TutorDashboard() {
           <NotificationBell tone="light" />
         </View>
 
-        {/* Availability toggle */}
+        {/* Availability toggle — backed by the tutor's own
+            `tutors/{uid}.isAvailableForNewStudents` flag. The switch
+            is disabled until the first snapshot lands so it never
+            renders a stale optimistic default. */}
         <View className="bg-surface rounded-2xl px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center border border-border">
           <View className="flex-1 pr-3">
             <Text className="text-body font-medium text-text-primary">
-              {available ? "Available for new students" : "Hidden from search"}
+              {available === false ? "Hidden from search" : "Available for new students"}
             </Text>
             <Text className="text-caption text-text-secondary mt-0.5">
-              Toggle to {available ? "pause" : "resume"} appearing in search
-              results
+              {available == null
+                ? "Loading search visibility…"
+                : `Toggle to ${available ? "pause" : "resume"} appearing in search results`}
             </Text>
           </View>
           <AvailabilitySwitch
-            checked={available}
-            onToggle={() => setAvailable(!available)}
+            checked={available !== false}
+            disabled={available == null || availableToggleBusy}
+            onToggle={handleToggleAvailability}
           />
         </View>
       </ScreenHeader>
@@ -492,9 +493,7 @@ export function TutorDashboard() {
           <Metric
             iconName="time"
                       label="Pending requests"
-            value={String(
-              PENDING_REQUESTS.length + BATCH_REQUESTS.length,
-            )}
+            value={String(pendingRequests.length)}
           />
           <Metric
             iconName="cash"
@@ -553,22 +552,25 @@ export function TutorDashboard() {
           </View>
         </View>
 
-        {/* Empty state — sessions, requests, and batch tooling
-            land in Phase 5 alongside the collections that back
-            them. We deliberately don't show fake names or stats
-            here. */}
+        {/* Today's sessions — derived live from the roster (active
+            enrollments on today's weekday within their date window),
+            not a `sessions` collection. */}
         <View className="bg-surface border border-border rounded-2xl p-6 mb-3.5 items-center">
           <View className="w-14 h-14 rounded-pill bg-background border border-border items-center justify-center mb-3">
             <Ionicons name="briefcase-outline" size={26} color="#E5A03B" />
           </View>
-          {TODAY_SESSIONS.length === 0 ? (
+          {!rosterLoaded ? (
+            <Text className="text-caption text-text-muted py-2">
+              Loading sessions…
+            </Text>
+          ) : deriveTodaySessions(roster).length === 0 ? (
             <Text className="text-caption text-text-muted py-2">
               No sessions scheduled today.
             </Text>
           ) : (
-            TODAY_SESSIONS.map((s, i) => (
+            deriveTodaySessions(roster).map((s, i) => (
               <View
-                key={s.time}
+                key={s.key}
                 className={`flex-row items-center gap-3 py-2.5 ${
                   i > 0 ? "border-t border-border" : ""
                 }`}
@@ -577,7 +579,8 @@ export function TutorDashboard() {
                 <View className="flex-1">
                   <Text className="text-button-sm text-text-primary">{s.student}</Text>
                   <Text className="text-caption text-text-muted mt-0.5">
-                    {s.subject} · {s.duration}
+                    {s.subject}
+                    {s.duration ? ` · ${s.duration}` : ""}
                   </Text>
                 </View>
               </View>
@@ -592,7 +595,7 @@ export function TutorDashboard() {
               Pending requests
             </Text>
             <Pressable
-              onPress={() => showComingSoon("Inbox")}
+              onPress={() => router.push("/tutor-inbox")}
               className="flex-row items-center gap-0.5 active:opacity-70"
             >
               <Text className="text-button-sm text-amber">See all</Text>
@@ -605,35 +608,39 @@ export function TutorDashboard() {
             activeKey={reqTab}
             onChange={setReqTab}
             tabs={[
-              { key: "enrollments", label: "New enrollments", count: PENDING_REQUESTS.length },
-              { key: "batches", label: "Batch requests", count: BATCH_REQUESTS.length },
+              { key: "enrollments", label: "New enrollments", count: pendingRequests.length },
+              { key: "batches", label: "Batch requests", count: 0 },
             ]}
           />
 
           {reqTab === "enrollments" && (
             <View className="flex-col gap-2.5">
-              {PENDING_REQUESTS.length === 0 ? (
+              {!requestsLoaded ? (
+                <Text className="text-caption text-text-muted py-2">
+                  Loading requests…
+                </Text>
+              ) : pendingRequests.length === 0 ? (
                 <Text className="text-caption text-text-muted py-2">
                   No new enrollment requests.
                 </Text>
               ) : (
-                PENDING_REQUESTS.map((req) => (
+                pendingRequests.map((req) => (
                   <Pressable
-                    key={req.id}
-                    onPress={() => showComingSoon("Request details")}
+                    key={req.requestId}
+                    onPress={() => router.push("/tutor-inbox")}
                     className="bg-surface rounded-2xl p-3.5 border border-border active:opacity-70"
                   >
                     <View className="flex-row gap-2.5 items-start">
-                      <AvatarCircle uri={req.student.avatar} />
+                      <AvatarCircle uri={req.studentAvatar} name={req.studentName} />
                       <View className="flex-1">
                         <View className="flex-row justify-between items-center">
                           <Text className="text-card-title font-medium text-text-primary">
-                            {req.student.name}
+                            {req.studentName}
                           </Text>
                           <StatusBadge status="pending" />
                         </View>
                         <Text className="text-caption text-text-muted mt-0.5">
-                          {req.student.grade}
+                          {req.studentGrade}
                         </Text>
                         <View className="flex-row gap-1 mt-1.5 flex-wrap">
                           {req.subjects.map((s) => (
@@ -641,8 +648,16 @@ export function TutorDashboard() {
                           ))}
                         </View>
                         <Text className="mt-1.5 text-micro text-text-muted">
-                          {req.plan} · {req.schedule} · From {req.startDate}
+                          {req.schedule} · From {req.startDate}
                         </Text>
+                        {req.message.trim().length > 0 ? (
+                          <Text
+                            className="mt-1.5 text-caption text-text-secondary"
+                            numberOfLines={2}
+                          >
+                            {req.message}
+                          </Text>
+                        ) : null}
                       </View>
                     </View>
                   </Pressable>
@@ -653,132 +668,13 @@ export function TutorDashboard() {
 
           {reqTab === "batches" && (
             <View className="flex-col gap-2.5">
-              {BATCH_REQUESTS.length === 0 ? (
-                <Text className="text-caption text-text-muted py-2">
-                  No batch requests right now.
+              <View className="bg-surface rounded-2xl p-4 border border-border items-center">
+                <Ionicons name="people-outline" size={22} color="#6B7268" />
+                <Text className="text-caption text-text-muted mt-2 text-center">
+                  No batch requests right now. Join requests from students
+                  will appear here in a future update.
                 </Text>
-              ) : (
-                BATCH_REQUESTS.map((br) => {
-                  const slot = SESSION_SLOTS.find((s) => s.id === br.slotId);
-                  const isFull = !!(slot && slot.students >= slot.capacity);
-                  const blocked = br.kind === "join" && isFull;
-                  const action = batchActions[br.id];
-                  const accent = statusAccent(br.kind);
-
-                  return (
-                    <View
-                      key={br.id}
-                      className={`bg-surface rounded-2xl p-3.5 border ${
-                        action === "accepted"
-                          ? "border-verification"
-                          : action === "rejected"
-                            ? "border-danger-bg"
-                            : "border-border"
-                      }`}
-                      style={{ opacity: action ? 0.85 : 1 }}
-                    >
-                      <View
-                        className={`self-start flex-row items-center gap-1.5 px-2 py-1 rounded-sm border mb-2.5 ${accent.bg} ${accent.border}`}
-                      >
-                        <Ionicons name={accent.icon} size={11} color={accent.iconColor} />
-                        <Text className={`text-micro font-semibold tracking-wider ${accent.color}`}>
-                          {accent.label}
-                        </Text>
-                      </View>
-
-                      <View className="flex-row gap-2.5 items-start">
-                        <AvatarCircle uri={br.student.avatar} />
-                        <View className="flex-1">
-                          <Text className="text-card-title font-medium text-text-primary">
-                            {br.student.name}
-                          </Text>
-                          <Text className="text-caption text-text-muted mt-0.5">
-                            {br.student.grade} · {br.subject}
-                          </Text>
-
-                          {br.kind === "join" && slot ? (
-                            <View className="mt-2 bg-background border border-border rounded-lg px-2.5 py-1.5">
-                              <View className="flex-row items-center gap-1.5">
-                                <Ionicons name="lock-closed" size={11} color="#4A7FA5" />
-                                <Text className="text-caption font-medium text-text-secondary">
-                                  {slot.label}
-                                </Text>
-                              </View>
-                              <Text className="text-caption text-text-muted mt-0.5">
-                                Code: {br.sessionCode} · {slot.students}/{slot.capacity} students
-                              </Text>
-                            </View>
-                          ) : null}
-
-                          {br.message ? (
-                            <Text className="mt-2 text-caption text-text-secondary leading-relaxed italic">
-                              &ldquo;{br.message}&rdquo;
-                            </Text>
-                          ) : null}
-                          <Text className="mt-1.5 text-micro text-text-muted">{br.submittedAt}</Text>
-                        </View>
-                      </View>
-
-                      {blocked && !action ? (
-                        <View className="mt-2.5 flex-row items-center gap-1.5 px-2.5 py-2 bg-danger-bg border border-danger-bg rounded-lg">
-                          <Ionicons name="alert-circle" size={13} color="#B91C1C" />
-                          <Text className="text-caption text-danger-text">
-                            Session is full ({slot?.students}/{slot?.capacity}). Approval is blocked.
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {!action ? (
-                        <View className="flex-row gap-2 mt-3">
-                          <Pressable
-                            disabled={blocked}
-                            onPress={() =>
-                              !blocked && setBatchActions((p) => ({ ...p, [br.id]: "accepted" }))
-                            }
-                            className={`flex-1 h-9 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                              blocked ? "bg-border" : "bg-verification active:opacity-80"
-                            }`}
-                          >
-                            <Ionicons
-                              name="checkmark"
-                              size={13}
-                              color={blocked ? "#6B7280" : "#FFFFFF"}
-                            />
-                            <Text
-                              className={`text-caption font-medium ${
-                                blocked ? "text-text-muted" : "text-white"
-                              }`}
-                            >
-                              Accept
-                            </Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() =>
-                              setBatchActions((p) => ({ ...p, [br.id]: "rejected" }))
-                            }
-                            className="flex-1 h-9 bg-surface border border-danger-bg rounded-xl flex-row items-center justify-center gap-1.5 active:opacity-80"
-                          >
-                            <Ionicons name="close" size={13} color="#C1503D" />
-                            <Text className="text-caption font-medium text-danger">Decline</Text>
-                          </Pressable>
-                        </View>
-                      ) : (
-                        <Text
-                          className={`mt-2.5 text-center text-caption ${
-                            action === "accepted" ? "text-verification" : "text-text-muted"
-                          }`}
-                        >
-                          {action === "accepted"
-                            ? br.kind === "conversion"
-                              ? "Accepted — session code generated for student"
-                              : "Accepted — student added to batch"
-                            : "Declined"}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })
-              )}
+              </View>
             </View>
           )}
         </View>
@@ -831,32 +727,6 @@ type MetricProps = {
   trendUp?: boolean;
 };
 
-/**
- * Pill styling for a batch-request card header. Two kinds currently:
- *   - "join":       student wants to join a slot (accent).
- *   - "conversion": student wants to upgrade from trial to weekly
- *                   (verification green).
- */
-function statusAccent(kind: "join" | "conversion") {
-  if (kind === "join") {
-    return {
-      bg: "bg-accent/10",
-      border: "border-accent/30",
-      icon: "person-add-outline" as const,
-      iconColor: "#E5A03B",
-      color: "text-accent",
-      label: "Join request",
-    };
-  }
-  return {
-    bg: "bg-verification/10",
-    border: "border-verification/30",
-    icon: "swap-horizontal-outline" as const,
-    iconColor: "#3F8A5A",
-    color: "text-verification",
-    label: "Conversion",
-  };
-}
 
 /**
  * Dashboard metric tiles are intentionally monochrome surface cards —
@@ -926,22 +796,29 @@ function StatusBadge({ status }: StatusBadgeProps) {
   );
 }
 
-type AvatarCircleProps = { uri: string };
+type AvatarCircleProps = { uri?: string | null; name?: string };
 
 /**
- * Faux avatar — the mock student list uses `i.pravatar.cc` URLs but
- * the network may be offline. We render the first letter of the name
- * over a tinted tile, which is the same fallback the student card
- * uses, so the UI looks coherent whether the image loads or not.
+ * Renders the student's avatar when a real URL exists; otherwise
+ * falls back to the student's initial on a tinted tile. The truthy
+ * guard is required: `<Image source={{ uri: "" }}>` throws on
+ * Android, and live requests may carry a null avatar.
  */
-function AvatarCircle({ uri }: AvatarCircleProps) {
+function AvatarCircle({ uri, name }: AvatarCircleProps) {
+  const hasImage = typeof uri === "string" && uri.length > 0;
+  const initial = (name?.charAt(0) ?? "?").toUpperCase();
+  if (!hasImage) {
+    return (
+      <View className="w-10 h-10 rounded-full bg-background border border-border items-center justify-center">
+        <Text className="text-card-title font-medium text-text-muted">{initial}</Text>
+      </View>
+    );
+  }
   return (
-    <View className="w-10 h-10 rounded-full bg-background border border-border items-center justify-center">
-      <Ionicons name="person-outline" size={20} color="#2F5D50" />
-      {/* Network image would render here in the wired version:
-            <Image source={{ uri }} className="w-10 h-10 rounded-full" /> */}
-      <Text className="sr-only">{uri}</Text>
-    </View>
+    <Image
+      source={{ uri }}
+      className="w-10 h-10 rounded-full bg-background border border-border"
+    />
   );
 }
 
@@ -1008,9 +885,11 @@ const THUMB_SIZE = 20;
 function AvailabilitySwitch({
   checked,
   onToggle,
+  disabled = false,
 }: {
   checked: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }) {
   // Track bg color — interpolated between the off (white/20) and on
   // (verification green) tokens. Using the same hex lookups that
@@ -1039,9 +918,9 @@ function AvailabilitySwitch({
   return (
     <Pressable
       accessibilityRole="switch"
-      accessibilityState={{ checked }}
+      accessibilityState={{ checked, disabled }}
       accessibilityLabel="Toggle availability"
-      onPress={onToggle}
+      onPress={disabled ? undefined : onToggle}
       className="w-11 h-6 rounded-full px-0.5 justify-center"
     >
       <Animated.View

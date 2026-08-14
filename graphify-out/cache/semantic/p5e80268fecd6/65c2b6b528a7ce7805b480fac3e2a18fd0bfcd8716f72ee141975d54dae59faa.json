@@ -1,0 +1,1 @@
+{"nodes": [{"id": "expo_sdk_upgrade_md_expo_sdk_upgrade", "label": "Expo SDK Upgrade Layer", "file_type": "document", "source_file": ".agents/skills/upgrading-react-native/references/expo-sdk-upgrade.md", "rationale": "Conditional layer for Expo-based projects."}], "edges": [], "hyperedges": []}
