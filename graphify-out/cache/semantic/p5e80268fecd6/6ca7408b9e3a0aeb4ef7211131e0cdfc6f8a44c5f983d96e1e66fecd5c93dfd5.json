@@ -1,1 +1,0 @@
-{"nodes": [{"id": "documentation_gemini_chat_context_v2", "label": "Gemini Chat Context V2", "file_type": "document", "source_file": "Documentation/99-Archive/context-snapshots-jun2026/gemini_chat_context_v2.md", "rationale": "Extends the context with technical troubleshooting for Expo, Tamagui, and Firebase integration."}], "edges": [], "hyperedges": []}

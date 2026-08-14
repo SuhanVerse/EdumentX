@@ -74,4 +74,8 @@ Thumbs.db
 #private_key_json
 private_key_firebase.json
 
+# graphify AST cache — regenerable per-file build artifacts, never version-controlled
+# (graphify rewrites these on every run; committing them would churn the repo)
+graphify-out/cache/
+
 

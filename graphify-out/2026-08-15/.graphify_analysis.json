@@ -139,6 +139,13 @@
       "documentation_98_reference_basobas_basobas_app_src_services_visits_service_finalizerental",
       "documentation_98_reference_basobas_basobas_app_src_services_visits_service_reschedulevisit",
       "documentation_98_reference_basobas_basobas_app_src_services_visits_service_tenantreschedulevisit",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_cityfilter",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_initial_filters",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_matchescity",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_matchestype",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_propertyfilters",
+      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_usepropertystore",
       "documentation_98_reference_basobas_basobas_app_src_types_database_types",
       "documentation_98_reference_basobas_basobas_app_src_types_database_types_compositetypes",
       "documentation_98_reference_basobas_basobas_app_src_types_database_types_constants",
@@ -556,14 +563,7 @@
       "documentation_98_reference_basobas_basobas_app_src_services_properties_service_publicselectrow",
       "documentation_98_reference_basobas_basobas_app_src_services_properties_service_setlistingpaused",
       "documentation_98_reference_basobas_basobas_app_src_services_properties_service_unlocked_columns",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_cityfilter",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_initial_filters",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_matchescity",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_matchestype",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_propertyfilters",
       "documentation_98_reference_basobas_basobas_app_src_store_propertystore_propertystore",
-      "documentation_98_reference_basobas_basobas_app_src_store_propertystore_usepropertystore",
       "documentation_98_reference_basobas_basobas_app_src_types_property_types_open_visit_statuses",
       "documentation_98_reference_basobas_basobas_app_src_types_property_types_property_type_labels",
       "documentation_98_reference_basobas_basobas_app_src_types_property_types_propertypublic",
@@ -1045,7 +1045,6 @@
       "documentation_98_reference_basobas_basobas_app_package_dependencies_expo_constants",
       "documentation_98_reference_basobas_basobas_app_package_dependencies_expo_image_picker",
       "documentation_98_reference_basobas_basobas_app_package_dependencies_expo_status_bar",
-      "documentation_98_reference_basobas_basobas_app_package_dependencies_lucide_react_native",
       "documentation_98_reference_basobas_basobas_app_package_dependencies_react_native",
       "documentation_98_reference_basobas_basobas_app_package_dependencies_react_native_gesture_handler",
       "expo_application",
@@ -1064,7 +1063,6 @@
       "package_dependencies_expo_vector_icons",
       "package_dependencies_expo_video_thumbnails",
       "package_dependencies_firebase_admin",
-      "package_dependencies_lucide_react_native",
       "package_dependencies_react",
       "package_dependencies_react_native",
       "package_dependencies_react_native_firebase_app",
@@ -1076,7 +1074,6 @@
       "package_json_expo_constants",
       "package_json_expo_image_picker",
       "package_json_expo_status_bar",
-      "package_json_lucide_react_native",
       "package_json_react",
       "package_json_react_native",
       "package_json_react_native_gesture_handler",
@@ -2085,21 +2082,21 @@
       "clsx",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_clsx",
+      "documentation_98_reference_basobas_basobas_figma_package_dependencies_input_otp",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_context_menu",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_menubar",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_navigation_menu",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_radio_group",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_select",
-      "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_toggle",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_tooltip",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_tailwind_merge",
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_tw_animate_css",
+      "input_otp",
       "radix_ui_react_context_menu",
       "radix_ui_react_menubar",
       "radix_ui_react_navigation_menu",
       "radix_ui_react_radio_group",
       "radix_ui_react_select",
-      "radix_ui_react_toggle",
       "radix_ui_react_tooltip",
       "tailwind_merge",
       "tw_animate_css"
@@ -2504,10 +2501,13 @@
       "src_components_map_tutoravatarpin_tutoravatarpinprops",
       "src_lib_map_avatarpins",
       "src_lib_map_avatarpins_avatarpinhost",
+      "src_lib_map_avatarpins_avatarpinkey",
       "src_lib_map_avatarpins_avatarpinmap",
       "src_lib_map_avatarpins_cache",
+      "src_lib_map_avatarpins_getcachedavatarpin",
       "src_lib_map_avatarpins_pincaptureitem",
-      "src_lib_map_avatarpins_pinitem"
+      "src_lib_map_avatarpins_pinitem",
+      "src_lib_map_avatarpins_useavatarpins"
     ],
     "69": [
       "documentation_98_reference_basobas_basobas_app_src_components_map_propertypreviewsheet",
@@ -3047,12 +3047,19 @@
       "documentation_98_reference_basobas_basobas_figma_src_imports_dock_svg_eft19db9fc"
     ],
     "102": [
+      "src_app_map_search",
+      "src_app_map_search_mapsearchroute",
       "src_hooks_usecamerabounds",
       "src_hooks_usecamerabounds_mapbounds",
       "src_hooks_usecamerabounds_usecamerabounds",
       "src_hooks_usetutorclustering",
       "src_hooks_usetutorclustering_tutorclusterfeature",
-      "src_hooks_usetutorclustering_usetutorclustering"
+      "src_hooks_usetutorclustering_usetutorclustering",
+      "src_lib_location_distance",
+      "src_lib_location_distance_haversinekm",
+      "src_lib_location_distance_ranktutorsbydistance",
+      "src_lib_tutor_firestoretutorservice_subscribetutors",
+      "src_screens_student_mapsearch_mapsearch"
     ],
     "103": [
       "metro_config",
@@ -3797,18 +3804,13 @@
       "documentation_gemini_chat_context"
     ],
     "206": [
-      "src_app_map_search",
-      "src_app_map_search_mapsearchroute",
-      "src_lib_map_avatarpins_avatarpinkey",
-      "src_lib_map_avatarpins_getcachedavatarpin",
-      "src_lib_map_avatarpins_useavatarpins",
-      "src_lib_tutor_firestoretutorservice_subscribetutors",
-      "src_screens_student_mapsearch_mapsearch"
+      "documentation_98_reference_basobas_basobas_app_package_dependencies_lucide_react_native",
+      "package_dependencies_lucide_react_native",
+      "package_json_lucide_react_native"
     ],
     "207": [
-      "src_lib_location_distance",
-      "src_lib_location_distance_haversinekm",
-      "src_lib_location_distance_ranktutorsbydistance"
+      "documentation_98_reference_basobas_basobas_figma_package_dependencies_radix_ui_react_toggle",
+      "radix_ui_react_toggle"
     ],
     "208": [
       "documentation_97_educational_contents_edumentx_mid_defense_images_level_0_dfd",
@@ -3854,10 +3856,6 @@
       "documentation_98_reference_basobas_basobas_app_package_dependencies_react_native_web",
       "package_dependencies_react_native_web",
       "package_json_react_native_web"
-    ],
-    "219": [
-      "documentation_98_reference_basobas_basobas_figma_package_dependencies_input_otp",
-      "input_otp"
     ],
     "220": [
       "documentation_98_reference_basobas_basobas_figma_package_dependencies_lucide_react",
@@ -4667,13 +4665,13 @@
   },
   "cohesion": {
     "0": 0.04647983595352016,
-    "1": 0.0906832298136646,
+    "1": 0.08099794941900205,
     "2": 0.06009615384615385,
     "3": 0.06038961038961039,
     "4": 0.07622504537205081,
     "5": 0.048974008207934336,
     "6": 0.052464947987336044,
-    "7": 0.04596491228070176,
+    "7": 0.04859335038363171,
     "8": 0.14619883040935672,
     "9": 0.05279034690799397,
     "10": 0.6666666666666666,
@@ -4686,7 +4684,7 @@
     "17": 0.07112375533428165,
     "18": 0.1166429587482219,
     "19": 0.06848357791754019,
-    "20": 0.04878048780487805,
+    "20": 0.05263157894736842,
     "21": 0.06976744186046512,
     "22": 0.1126984126984127,
     "23": 0.09411764705882353,
@@ -4734,7 +4732,7 @@
     "65": 0.15204678362573099,
     "66": 0.17543859649122806,
     "67": 0.1111111111111111,
-    "68": 0.23636363636363636,
+    "68": 0.1978021978021978,
     "69": 0.18382352941176472,
     "70": 0.11764705882352941,
     "71": 0.175,
@@ -4768,7 +4766,7 @@
     "99": 0.18181818181818182,
     "100": 0.18181818181818182,
     "101": 0.18181818181818182,
-    "102": 0.4,
+    "102": 0.19230769230769232,
     "103": 0.2,
     "104": 0.2222222222222222,
     "105": 0.2222222222222222,
@@ -4872,7 +4870,7 @@
     "203": 1.0,
     "204": 1.0,
     "205": 1.0,
-    "206": 0.3333333333333333,
+    "206": 0.6666666666666666,
     "207": 1.0,
     "208": 1.0,
     "209": 1.0,
@@ -4885,7 +4883,6 @@
     "216": 1.0,
     "217": 1.0,
     "218": 0.6666666666666666,
-    "219": 1.0,
     "220": 1.0,
     "221": 1.0,
     "222": 1.0,
@@ -5250,18 +5247,18 @@
   "questions": [
     {
       "type": "bridge_node",
-      "question": "Why does `@react-native-firebase/app` connect `ScreenLayout.tsx` to `TutorProfileScreen.tsx`, `DocumentUploader.tsx`, `motion/index.ts`, `dependencies`, `EditProfile.tsx`, `tutor/types.ts`, `Enrollment.tsx`, `colors.ts`, `FirebaseEnrollmentRepository.ts`, `TutorHome.tsx`, `EditTeachingDetails.tsx`, `VerificationQueue.tsx`, `AIChat.tsx`, `aiChatStore.ts`, `useAuthStore`, `Notification.tsx`, `plugins`, `UserManagement.tsx`, `documents.ts`, `storage.ts`, `firestoreTutorService.ts`?",
-      "why": "High betweenness centrality (0.188) - this node is a cross-community bridge."
+      "question": "Why does `@clerk/expo` connect `OTP Authentication` to `Landlord KYC`, `Profile Editing`, `Visit Requests`, `KYC Confirmation`, `Listing Details`, `Root Layout and Auth`, `Visits Tab`, `Project Dependencies`, `Phone Entry Screen`, `My Properties Management`, `Landlord Dashboard`, `Listing Creation Steps`, `Expo Plugins`?",
+      "why": "High betweenness centrality (0.191) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `@clerk/expo` connect `useClerkSupabase` to `verification.tsx`, `err`, `visits.service.ts`, `tokens.ts`, `properties.service.ts`, `basobas-app/app/_layout.tsx`, `(tabs)/visits.tsx`, `dependencies`, `phone.tsx`, `(landlord)/(tabs)/profile.tsx`, `(landlord)/(tabs)/index.tsx`, `property.types.ts`, `plugins`?",
-      "why": "High betweenness centrality (0.185) - this node is a cross-community bridge."
+      "question": "Why does `plugins` connect `Expo Plugins` to `Android and iOS Configuration`, `Role Selection`?",
+      "why": "High betweenness centrality (0.190) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `plugins` connect `plugins` to `expo`, `ScreenLayout.tsx`?",
-      "why": "High betweenness centrality (0.181) - this node is a cross-community bridge."
+      "question": "Why does `@react-native-firebase/app` connect `Role Selection` to `Profile Inputs`, `Document Uploader`, `Tutor Navigation`, `Expo and Native Modules`, `Student Profile Management`, `Review and Ratings`, `Enrollment Calendar`, `Onboarding Illustration`, `Notifications and Availability`, `Tutor Home Dashboard`, `Teaching Details Editing`, `Verification Queue`, `AI Chat and Home`, `AI Chat Service`, `Admin Dashboard`, `Notifications Center`, `Expo Plugins`, `Admin User Management`, `Document Picker and Upload`, `User Lifecycle and Purge`, `Firestore Tutor Service`?",
+      "why": "High betweenness centrality (0.190) - this node is a cross-community bridge."
     },
     {
       "type": "isolated_nodes",
@@ -5270,17 +5267,17 @@
     },
     {
       "type": "low_cohesion",
-      "question": "Should `verification.tsx` be split into smaller, more focused modules?",
+      "question": "Should `Landlord KYC` be split into smaller, more focused modules?",
       "why": "Cohesion score 0.04647983595352016 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `err` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.0906832298136646 - nodes in this community are weakly interconnected."
+      "question": "Should `Profile Editing` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08099794941900205 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `useClerkSupabase` be split into smaller, more focused modules?",
+      "question": "Should `OTP Authentication` be split into smaller, more focused modules?",
       "why": "Cohesion score 0.06009615384615385 - nodes in this community are weakly interconnected."
     }
   ]

@@ -1,1 +1,0 @@
-{"nodes": [{"id": "material_top_tabs_md_material_top_tabs", "label": "Material Top Tabs Skill", "file_type": "document", "source_file": ".agents/skills/react-navigation/references/material-top-tabs.md", "rationale": "Covers swipeable top tabs using react-native-pager-view."}], "edges": [], "hyperedges": []}
