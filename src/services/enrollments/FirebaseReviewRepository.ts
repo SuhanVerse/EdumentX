@@ -10,16 +10,11 @@ import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
   collection,
-  collectionGroup,
   doc,
-  getDocs,
   onSnapshot,
   query,
   runTransaction,
   serverTimestamp,
-  setDoc,
-  deleteDoc,
-  where,
   type Unsubscribe,
 } from "@react-native-firebase/firestore";
 
@@ -125,7 +120,6 @@ export const FirebaseReviewRepository: ReviewRepository = {
       >;
       const categoryPatch: Record<string, number> = {};
       for (const key of CATEGORY_KEYS) {
-        const prevSumRaw = oldCategory[key];
         const prevAvgRaw = oldCategory[key]; // stored as the running average
         // New average = (oldAvg * oldCount + newScore) / newCount
         const prevAvg =
@@ -177,108 +171,87 @@ export const FirebaseReviewRepository: ReviewRepository = {
     return { reviewId };
   },
 
-  async deleteReview(reviewId, actorUid, isAdmin) {
+  async deleteReview(tutorUid, reviewId, _actorUid, _isAdmin) {
     const db = getFirestore(getApp());
-    // We need to find the review doc to learn its tutorUid. We do a
-    // collectionGroup query scoped to the reviewId and the actor
-    // (the rule allows delete only when the actor matches the
-    // doc.studentUid or is an admin).
-    // Simpler path: have the caller pass tutorUid. Update the
-    // interface to require it — but for now we'll search across
-    // tutors' reviews subcollections by studentUid.
-    const q = query(
-      collectionGroup(db, "reviews"),
-      where("__name__", "==", reviewId),
-    );
-    // Fallback: scan all docs under collectionGroup("reviews") —
-    // unindexed on reviewId alone but the doc id is a path segment
-    // match so it's free.
-    const snap = await getDocs(q);
-    const reviewDoc = snap.docs[0];
-    if (!reviewDoc) {
-      // Try scanning wider — collectionGroup allows fetching all
-      // docs; this is fine for our small dataset.
-      const all = await getDocs(collectionGroup(db, "reviews"));
-      const match = all.docs.find((d) => d.id === reviewId);
-      if (!match) {
+    // The caller supplies the tutorUid, so we can address the review
+    // by its exact path instead of scanning every tutor's reviews
+    // subcollection for the id.
+    const reviewRef = doc(db, "reviews", tutorUid, "reviews", reviewId);
+    await runTransaction(db, async (tx) => {
+      const reviewSnap = await tx.get(reviewRef);
+      if (!reviewSnap.exists) {
         throw new Error("Review not found");
       }
-      // Path looks like `reviews/{tutorUid}/reviews/{reviewId}`
-      const pathSegments = match.ref.path.split("/");
-      const tutorUid = pathSegments[1] ?? "";
-      await runTransaction(db, async (tx) => {
-        const reviewData = match.data() as Record<string, unknown>;
-        const profileRef = doc(db, "users", tutorUid, "tutorProfile", "default");
-        const profileSnap = await tx.get(profileRef);
-        const profileData = (profileSnap.data() ?? {}) as Record<string, unknown>;
-        const oldRating = clampScore(profileData.rating);
-        const oldCount =
-          typeof profileData.reviewCount === "number"
-            ? profileData.reviewCount
+      const reviewData = reviewSnap.data() as Record<string, unknown>;
+      const profileRef = doc(db, "users", tutorUid, "tutorProfile", "default");
+      const profileSnap = await tx.get(profileRef);
+      const profileData = (profileSnap.data() ?? {}) as Record<string, unknown>;
+      const oldRating = clampScore(profileData.rating);
+      const oldCount =
+        typeof profileData.reviewCount === "number"
+          ? profileData.reviewCount
+          : 0;
+      const removedScore = clampScore(reviewData.score);
+      const newCount = Math.max(0, oldCount - 1);
+      const newRating =
+        newCount === 0 ? 0 : (oldRating * oldCount - removedScore) / newCount;
+
+      const oldBreakdown = (profileData.reviewBreakdown ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const breakdownPatch: Record<number, number> = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      };
+      for (let star = 1; star <= 5; star++) {
+        const prev =
+          typeof oldBreakdown[String(star)] === "number"
+            ? (oldBreakdown[String(star)] as number)
             : 0;
-        const removedScore = clampScore(reviewData.score);
-        const newCount = Math.max(0, oldCount - 1);
-        const newRating =
-          newCount === 0 ? 0 : (oldRating * oldCount - removedScore) / newCount;
+        breakdownPatch[star] = Math.max(
+          0,
+          prev - (Math.round(removedScore) === star ? 1 : 0),
+        );
+      }
 
-        const oldBreakdown = (profileData.reviewBreakdown ?? {}) as Record<
-          string,
-          unknown
-        >;
-        const breakdownPatch: Record<number, number> = {
-          1: 0,
-          2: 0,
-          3: 0,
-          4: 0,
-          5: 0,
-        };
-        for (let star = 1; star <= 5; star++) {
-          const prev =
-            typeof oldBreakdown[String(star)] === "number"
-              ? (oldBreakdown[String(star)] as number)
-              : 0;
-          breakdownPatch[star] = Math.max(
-            0,
-            prev - (Math.round(removedScore) === star ? 1 : 0),
-          );
-        }
+      const oldCategory = (profileData.categoryRatings ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const categoryPatch: Record<string, number> = {};
+      for (const key of CATEGORY_KEYS) {
+        const prevAvg =
+          typeof oldCategory[key] === "number"
+            ? (oldCategory[key] as number)
+            : 0;
+        categoryPatch[key] =
+          newCount === 0
+            ? 0
+            : Math.max(
+                0,
+                (prevAvg * oldCount - clampScore(reviewData[key])) / newCount,
+              );
+      }
 
-        const oldCategory = (profileData.categoryRatings ?? {}) as Record<
-          string,
-          unknown
-        >;
-        const categoryPatch: Record<string, number> = {};
-        for (const key of CATEGORY_KEYS) {
-          const prevAvg =
-            typeof oldCategory[key] === "number"
-              ? (oldCategory[key] as number)
-              : 0;
-          categoryPatch[key] =
-            newCount === 0
-              ? 0
-              : Math.max(
-                  0,
-                  (prevAvg * oldCount - clampScore(reviewData[key])) / newCount,
-                );
-        }
-
-        tx.delete(match.ref);
-        tx.update(profileRef, {
-          rating: newRating,
-          reviewCount: newCount,
-          categoryRatings: categoryPatch,
-          reviewBreakdown: breakdownPatch,
-          updatedAt: serverTimestamp(),
-        });
+      tx.delete(reviewRef);
+      tx.update(profileRef, {
+        rating: newRating,
+        reviewCount: newCount,
+        categoryRatings: categoryPatch,
+        reviewBreakdown: breakdownPatch,
+        updatedAt: serverTimestamp(),
       });
-      // Reference actorUid / isAdmin so the rule at the leaf can
-      // authorise the delete — they're not used here in client
-      // code but documenting the contract for callers.
-      void actorUid;
-      void isAdmin;
-      return;
-    }
-    throw new Error("Review path resolution failed");
+    });
+    // The delete rule at `reviews/{tutorUid}/reviews/{reviewId}`
+    // authorises `studentUid == auth.uid || isAdmin()` — the actor
+    // params are documented here for the caller contract; the rule
+    // is the enforcement point.
+    void _actorUid;
+    void _isAdmin;
   },
 };
 

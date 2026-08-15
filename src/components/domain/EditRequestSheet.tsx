@@ -46,6 +46,7 @@ import {
 } from "react-native";
 
 import { colors } from "@/constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import {
@@ -80,6 +81,7 @@ export function EditRequestSheet({
   onSaved,
   onRemoved,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const studentUid = useAuthStore((s) => s.user?.uid ?? null);
   const [schedule, setSchedule] = useState("");
   const [startDate, setStartDate] = useState(todayIsoInKtm());
@@ -256,7 +258,7 @@ export function EditRequestSheet({
           <ScrollView
             keyboardShouldPersistTaps="handled"
             className="px-5"
-            contentContainerStyle={{ paddingBottom: 24 }}
+            contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
           >
             {/* Subjects (read-only context) */}
             {tutor.subjects.length > 0 ? (

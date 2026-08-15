@@ -19,6 +19,8 @@
 
 // Matches the project + host the `npm run test:rules` script passes
 // to `firebase emulators:exec`. Overridable for other setups.
+import { Buffer } from "node:buffer";
+
 const PROJECT = process.env.RULES_TEST_PROJECT ?? "demo-edumentx";
 const HOST = process.env.RULES_TEST_HOST ?? "http://127.0.0.1:8080";
 const BASE = `${HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;

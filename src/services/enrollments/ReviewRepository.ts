@@ -62,8 +62,15 @@ export interface ReviewRepository {
   /** Atomic submit: writes the review + aggregates counters. */
   submitReview(input: SubmitReviewInput): Promise<{ reviewId: string }>;
 
-  /** Soft-delete a review. The tutor's counters roll back. */
+  /**
+   * Soft-delete a review. The tutor's counters roll back.
+   *
+   * `tutorUid` is required so the implementation can address the
+   * review by its exact path (`reviews/{tutorUid}/reviews/{reviewId}`)
+   * instead of scanning `collectionGroup("reviews")` for it.
+   */
   deleteReview(
+    tutorUid: string,
     reviewId: string,
     actorUid: string,
     isAdmin: boolean,

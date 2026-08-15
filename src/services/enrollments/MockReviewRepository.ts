@@ -78,7 +78,7 @@ export const MockReviewRepository: ReviewRepository = {
     return { reviewId: review.id };
   },
 
-  async deleteReview(reviewId, _actorUid, _isAdmin) {
+  async deleteReview(_tutorUid, reviewId, _actorUid, _isAdmin) {
     for (const s of STORE.values()) {
       const before = s.reviews.length;
       s.reviews = s.reviews.filter((r) => r.id !== reviewId);

@@ -158,6 +158,18 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   returns `null` and is silently excluded from derived views, so
   writers (tests, seeds, scripts) MUST use the colon format.
   `derived.ts` logs a warn-once (`warnBadSlotKey`) for bad keys.
+- **Group Batches is live** — `services/batches/` (`BatchesRepository`
+  interface + Firebase/Mock impls + `dataSource` selector gated by
+  `EXPO_PUBLIC_USE_MOCK_DATA`). `BatchCreation.tsx` fetches live
+  batches + per-batch members, its student picker reads the live
+  active roster (`enrollments/{tutorUid}/roster`), and the 3-step
+  wizard creates batches via the existing `createBatch` transaction.
+  Member add/remove + `endBatch` use direct paths (no
+  collectionGroup scans). Rules verified in `test:rules`.
+- **Platform Statistics is live** — `PlatformStatistics.tsx` aggregates
+  real counts with `getCountFromServer` (users, tutors, approved
+  tutors, pending enrollment requests) with loading/error/retry
+  states; the fabricated `MOCK_ADMIN_STATS` module was deleted.
 
 **Search-visibility flag (Aug 2026):**
 - The tutor dashboard's "Available for new students / Hidden from
@@ -186,14 +198,14 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   fetches the latest released ruleset from the Firebase Rules API
   and fails on drift vs local `firebase/firestore.rules` (needs
   `GOOGLE_APPLICATION_CREDENTIALS`); (2) boots the Firestore
-  emulator with the LOCAL rules and exercises the availability
-  carve-out via the REST API (owner flip allowed; owner touching
-  other fields denied; stranger denied).
+  emulator with the LOCAL rules and exercises the security rules
+  via the REST API — the `tutors/{uid}` availability carve-out
+  (owner flip allowed; other fields denied; stranger denied) and
+  the batches collections (owner creates batch + adds/removes
+  members; strangers denied).
 
 **Pending deliverables (as of Aug 15, 2026):**
 - Rebuild the EAS dev client with the updated native deps (Clerk
   packages removed, `@react-native-google-signin/google-signin`
   restored).
-- Wire the `MOCK_TUTORS` list in `student_home.tsx` to a real
-  `tutors` collection query.
 

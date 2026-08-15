@@ -514,9 +514,10 @@ npm run test:derived              # tsc → node --test
 | 5.2 Map screen | ✅ Done | `MapSearch.tsx` — live Firestore tutors, GPS default camera, cluster + teardrop pins, `LocationPickerModal`. |
 | 5.3 Nominatim geocoding | ✅ Done | `geocoder.ts` + `geocoding.ts` (`accept-language=en`), `LocationField` map picker. |
 | 5.4 Client-side KNN | ✅ Done | `lib/location/distance.ts` (Haversine + nearest-N). |
-| 6 Admin + Verification | ⏳ Pending | `tutors` approval queue + doc review (Supabase `private-verification-docs` read via public URL workaround). |
-| 7.1 RAG chatbot | ⏳ Pending | Groq integration |
-| 7.2 Polish + beta | ⏳ Pending | Phase 3b: BasoBas rhythm shared `Card` primitive (`components/ui/Card.tsx`) applied to profile screens |
+| 6 Admin + Verification | ✅ Done | `VerificationQueue.tsx` — live `tutorVerifications` + `tutorProfileUpdates` `onSnapshot`, approve/reject/request-info actions; doc review via Supabase `private-verification-docs` public-URL workaround. `AdminHome` shows live user counts; `PlatformStatistics` aggregates live counts with `getCountFromServer`. |
+| 7.1 RAG chatbot | ✅ Done | `AIChat.tsx` → `chatService` → Supabase Edge Function (Groq backend). JWT-verified, probe-verified end-to-end (Aug 15). `USE_MOCK_DATA=true` switches to the client-side mock pipeline. |
+| 7.2 Polish + beta | ✅ Done | Phase 3b: BasoBas rhythm shared `Card` primitive (`components/ui/Card.tsx`) applied to profile screens; admin screens on the light `bg-background` theme. |
+| 7.3 Group Batches | ✅ Done | `services/batches/` domain (`BatchesRepository` interface + Firebase/Mock impls + `dataSource` selector). `BatchCreation.tsx` live: roster-backed student picker, 3-step wizard, member add/remove, `endBatch`. Rules + `test:rules` checks cover all batch paths. |
 | 8 Admin user lifecycle | ✅ Done | Lifecycle: suspend / soft delete / **restore** (`status: active`, `deletedAt: null`) from `UserManagement.tsx`; "Delete permanently" (`lib/admin/userLifecycle.ts`) purges Firestore via `isAdmin()` rules grants + best-effort Supabase object removal. **Auth guard**: `src/app/_layout.tsx` reads `users/{uid}.status` inside `onAuthStateChanged` and signs out `deleted`/`suspended` accounts with an "Access Denied" alert — they can't reach any app screen. Firebase Auth identity deletion is server-side only: `scripts/deleteUser.ts` (`npm run delete:user`) — needs `GOOGLE_APPLICATION_CREDENTIALS` + service-role key, ends with a "cannot be undone" confirmation. |
 
 See `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`

@@ -31,13 +31,12 @@ import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
-import { Avatar } from "@/components/ui/Avatar";
+import { Avatar , getInitials } from "@/components/ui/Avatar";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
 import { AnimatedPressable, usePressScale, useShake } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
-import { getInitials } from "@/components/ui/Avatar";
 import {
   type TutorProfile,
   type TutorSession,
@@ -976,7 +975,6 @@ function AboutSection({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const BIO_LINE_HEIGHT = 22;
   const COLLAPSED_LINES = 3;
 
   return (

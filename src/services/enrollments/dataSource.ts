@@ -22,12 +22,12 @@ const rawFlag = process.env.EXPO_PUBLIC_USE_MOCK_DATA;
 const isMockEnabled = rawFlag === "true";
 
 if (isMockEnabled) {
-  // eslint-disable-next-line no-console
+   
   console.log(
     "[enrollments] USE_MOCK_DATA=true — using MockEnrollmentRepository.",
   );
 } else {
-  // eslint-disable-next-line no-console
+   
   console.log(
     "[enrollments] USE_MOCK_DATA=" +
       (rawFlag ?? "unset") +

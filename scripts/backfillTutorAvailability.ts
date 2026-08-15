@@ -18,6 +18,7 @@
 
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import * as fs from "fs";
 
 function initAdmin() {
   if (getApps().length > 0) return;
@@ -33,7 +34,9 @@ function initAdmin() {
     process.exit(1);
   }
   initializeApp({
-    credential: cert(require(process.env.GOOGLE_APPLICATION_CREDENTIALS)),
+    credential: cert(
+      JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS!, "utf8")),
+    ),
   });
 }
 

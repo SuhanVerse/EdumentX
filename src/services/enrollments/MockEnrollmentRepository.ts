@@ -644,3 +644,33 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
 
 // Helpers exposed for component tests.
 export { computeBookedMap, parseSlotKey, buildSlotKey };
+
+/**
+ * In-memory batch-member mutations for the batches domain
+ * (`MockBatchesRepository`). The batches repo is a facade over this
+ * module, so member add/remove must be able to reach the same store
+ * that `subscribeBatchMembers` reads from — otherwise the mock UI
+ * would show members that never appear in the live list.
+ */
+export function addMockBatchMember(
+  tutorUid: string,
+  batchId: string,
+  member: BatchMember,
+): void {
+  const s = getStore(tutorUid);
+  const existing = s.members[batchId] ?? [];
+  if (existing.some((m) => m.enrollmentId === member.enrollmentId)) return;
+  s.members[batchId] = [...existing, member];
+  s.emitter.emit("members", { batchId, members: s.members[batchId] });
+}
+
+export function removeMockBatchMember(
+  tutorUid: string,
+  batchId: string,
+  memberId: string,
+): void {
+  const s = getStore(tutorUid);
+  const existing = s.members[batchId] ?? [];
+  s.members[batchId] = existing.filter((m) => m.memberId !== memberId);
+  s.emitter.emit("members", { batchId, members: s.members[batchId] });
+}

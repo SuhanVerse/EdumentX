@@ -365,7 +365,7 @@ export function UserManagement() {
 
         {/* Search */}
         <View className="bg-surface rounded-xl h-11 flex-row items-center px-3 gap-2.5">
-          <Ionicons name="search-outline" size={18} color="#6B7268" />
+          <Ionicons name="search-outline" size={18} className="text-text-muted" />
           <TextInput
             value={search}
             onChangeText={setSearch}
@@ -379,7 +379,7 @@ export function UserManagement() {
               onPress={() => setSearch("")}
               className="active:opacity-70"
             >
-              <Ionicons name="close-circle" size={18} color="#6B7268" />
+              <Ionicons name="close-circle" size={18} className="text-text-muted" />
             </Pressable>
           )}
         </View>
@@ -514,7 +514,7 @@ export function UserManagement() {
             non-empty array. */}
         {showMock && users.length === 0 ? (
           <View className="mt-4 bg-warning-bg border border-amber rounded-card p-3 flex-row items-start gap-2">
-            <Ionicons name="alert-circle" size={16} color="#E5A03B" />
+            <Ionicons name="alert-circle" size={16} className="text-accent" />
             <View className="flex-1">
               <Text className="text-button-sm font-medium text-warning-text">
                 Demo data
@@ -704,7 +704,7 @@ function UserRow({
           </View>
           {user.verified && (
             <View className="absolute -bottom-0.5 -right-0.5">
-              <Ionicons name="checkmark-circle" size={16} color="#3F8A5A" />
+              <Ionicons name="checkmark-circle" size={16} className="text-success" />
             </View>
           )}
         </View>
@@ -820,7 +820,7 @@ function EmptyState({
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
-        <Ionicons name={icon} size={26} color="#E5A03B" />
+        <Ionicons name={icon} size={26} className="text-accent" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}

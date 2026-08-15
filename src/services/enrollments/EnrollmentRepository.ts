@@ -103,12 +103,12 @@ export type CreateBatchInput = {
   /** Active enrollments to seed as initial members. Each member's
    *  `studentName` / `studentAvatar` is snapshotted from the local
    *  enrollment array so the batch doc remains self-contained. */
-  members: ReadonlyArray<{
+  members: readonly {
     enrollmentId: string;
     studentUid: string;
     studentName: string;
     studentAvatar: string | null;
-  }>;
+  }[];
 };
 
 // ─── Write inputs ──────────────────────────────────────────────────────────

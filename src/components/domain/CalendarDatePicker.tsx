@@ -122,12 +122,11 @@ export function CalendarDatePicker({
 
   const minDate = parseIso(effectiveMin);
   const maxDate = maxIso ? parseIso(maxIso) : null;
-  const selectedDate = value ? parseIso(value) : null;
 
   const cells = useMemo(() => {
     const total = daysInMonth(viewYear, viewMonth);
     const leading = firstWeekday(viewYear, viewMonth);
-    const slots: Array<{ iso: string | null }> = [];
+    const slots: { iso: string | null }[] = [];
     for (let i = 0; i < leading; i++) slots.push({ iso: null });
     for (let day = 1; day <= total; day++) {
       const d = new Date(Date.UTC(viewYear, viewMonth, day, 12));

@@ -76,12 +76,9 @@ const DEFAULT_CAMERA: MapCameraPosition = {
 /** Service radius drawn under the selected pin (metres). The tutor
  *  profile has no radius field yet — 2.5 km is the sensible default
  *  for metro Nepal. */
-const SELECTED_RADIUS_M = 2500;
 
 /** Translucent accent fill for the selected-tutor radius circle
  *  (AARRGGBB — alpha-first, Google Maps Android convention). */
-const RADIUS_FILL = "#3DFBEBCF";
-const RADIUS_LINE = "#E5A03B";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -116,7 +113,7 @@ export function MapSearch() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
   const [selectedTutor, setSelectedTutor] = useState<TutorListing | null>(null);
-  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  const [selectedTutorId] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [markerIcons, setMarkerIcons] = useState<MarkerIconSet | null>(null);
 
@@ -272,29 +269,6 @@ export function MapSearch() {
   });
 
   // ── Selected tutor service-radius circle ──
-  // Drawn under the selected pin (both platforms — expo-maps exposes
-  // `circles` on Google AND Apple). Translucent accent fill + accent
-  // stroke. The selected tutor is always one of the pinned clusters
-  // (`selectionGeo`), so its coordinates are resolved.
-  const selectionGeo = selectedTutorId
-    ? geo.find((g) => g.uid === selectedTutorId) ?? null
-    : null;
-  // `withPinCoordinates` always fills `coordinates`, so once we have a
-  // hit it's non-null. The optional chain is belt-and-braces in case a
-  // legacy tutor still slips through with no GPS at all.
-  const selectionCircle =
-    selectionGeo && selectionGeo.coordinates
-      ? {
-          id: "selected-radius",
-          latitude: selectionGeo.coordinates.latitude,
-          longitude: selectionGeo.coordinates.longitude,
-          radius: SELECTED_RADIUS_M,
-          color: RADIUS_FILL,
-          lineColor: RADIUS_LINE,
-          lineWidth: 1.5,
-        }
-      : null;
-
   // ── Nearby tutors (bottom list preview) ──
   const nearbyTutors = rankTutorsByDistance(
     geo,

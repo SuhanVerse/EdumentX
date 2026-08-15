@@ -5,25 +5,25 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5318 nodes · 8564 edges · 613 communities (403 shown, 210 thin omitted)
+- 5317 nodes · 8563 edges · 594 communities (406 shown, 188 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 33 edges (avg confidence: 0.71)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5b1b72b9`
+- Built from commit: `1a226409`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- tokens.ts
+- verification.tsx
 - err
+- (landlord)/(tabs)/profile.tsx
+- plugins
 - useClerkSupabase
-- EmailSignUp.tsx
-- property.types.ts
-- kyc-landlord.tsx
+- tokens.ts
 - UI Accordion
 - (tenant)/property/[id].tsx
-- TutorMap.tsx
+- MapSearch.tsx
 - UI Sheet
 - Skill: Upgrade Helper Core Workflow
 - usePressScale
@@ -36,22 +36,22 @@
 - Embedding Cache
 - motion/index.ts
 - dependencies
-- ScreenLayout.tsx
-- enrollments/types.ts
+- EditProfile.tsx
+- AIChat.tsx
 - tutor/types.ts
-- Enrollment.tsx
+- RequestEnrollmentSheet.tsx
 - colors.ts
 - TutorDetailsScreen.tsx
-- MockEnrollmentRepository.ts
+- FirebaseEnrollmentRepository.ts
 - Bundle Optimization
 - expo
 - Constraint Extraction
 - Tutor Ranking Engine
 - Backend API Handlers
-- TutorCapacityScreen.tsx
-- AI Preferences and Settings
-- (landlord)/edit-profile.tsx
-- Location Picker
+- (tabs)/visits.tsx
+- ScreenHeader.tsx
+- useUserStore
+- markerIcons.ts
 - map.tsx
 - TutorHome.tsx
 - MockTutorRepository.ts
@@ -62,14 +62,14 @@
 - Antigravity + Claude Integration Guide
 - Onboarding Slides
 - EditTeachingDetails.tsx
-- AI Guardrails and Sorting
+- mockChatService.ts
 - WebGPU & Three.js for Expo
 - VerificationQueue.tsx
 - dependencies
 - What You Must Do When Invoked
 - aiChatStore.ts
 - useAuthStore
-- (landlord)/(tabs)/index.tsx
+- (tenant)/(tabs)/profile.tsx
 - Location Service
 - Notification.tsx
 - Supabase Location Service
@@ -77,16 +77,16 @@
 - UI Command Dialog
 - Supabase Seed Scripts
 - Tenant Navigation Layout
-- plugins
+- basobas-app/app/_layout.tsx
 - UserManagement.tsx
-- Search Constraints and Groq
+- groqRanker.ts
 - API Request Handler
 - scripts
 - Skill: Avoid Barrel Exports
 - Skill: R8 Code Shrinking
 - UI Menubar
 - Tailwind CSS Setup for Expo with react-native-css
-- Property Filter Drawer
+- filter.tsx
 - basobas-figma/package.json
 - App Screen Registry
 - Landlord Dashboard Shell
@@ -98,17 +98,17 @@
 - Enrollment Repository
 - Supabase AI Response Generator
 - Map Marker Generator
-- AvailabilityTimeList.tsx
-- Visit Scheduling
+- avatarPins.tsx
+- notifications-prefs.tsx
 - UI Carousel
 - Form Primitives
 - FAQ Knowledge Base
 - devDependencies
 - Skill: Analyze JS Bundle Size
-- App Package Configuration
+- scripts
 - Schedule Visit Drawer
 - Supabase FAQ Knowledge Base
-- devDependencies
+- qualifications.ts
 - Intent Classification and Prompts
 - Constraint Extractor and Prompts
 - devDependencies
@@ -118,7 +118,7 @@
 - Skill: Native Assets
 - Metro Config
 - Landlord Settings Screen
-- Package Configuration
+- nepalGeo.ts
 - firestoreTutorService.ts
 - React Native TV Best Practices
 - Expo Upgrade Workflow
@@ -146,7 +146,7 @@
 - Agent Documentation
 - Meteorological System Architecture
 - ERA5 Data Analysis
-- New Listing Step 1
+- useTutorClustering.ts
 - Skill: React Compiler
 - Native Controls
 - Skill: Determine Library Size
@@ -177,29 +177,29 @@
 - System Data Flow Diagrams
 - Data Flow Diagrams
 - App ESLint Configuration
-- TutorInbox.tsx
-- expo-file-system
-- expo-image
-- expo-image-manipulator
+- EnrollmentRequestCard.tsx
+- basobas-app/package.json
+- MarkdownText.tsx
+- useUserLocation.ts
 - Global Constraints
-- expo-linking
+- splash
 - Icons (SF Symbols)
-- expo-maps
+- experiments
 - Skill: Analyze App Bundle Size
-- FirebaseEnrollmentRepository.ts
-- Phone Entry Screen
+- ios
+- useClerkSupabase.ts
 - Rules
 - Focus Management
 - Skill: Disable JS Bundle Compression
-- react-native-reanimated
-- react-native-safe-area-context
+- @gorhom/bottom-sheet
+- expo-location
 - react-native-screens
-- react-native-svg
+- expo-splash-screen
 - Skill: High-Performance Animations
-- supercluster
-- zustand
+- firebase-admin
+- react-dom
 - Emotion Styled Components
-- step-4.tsx
+- property.types.ts
 - Form Field Component
 - Toggle Component
 - Search Area Button
@@ -238,7 +238,7 @@
 - Skill: Profile Native Code
 - Radix UI Popover
 - React Native Best Practices
-- derived.ts
+- react-native-gesture-handler
 - Migrating from expo-av to expo-video
 - Material Icons
 - Skill: Concurrent React
@@ -390,7 +390,6 @@
 - Network Performance on TV
 - Skill: Material Top Tabs
 - Common Features
-- esewa-webview.tsx
 - tutors.ts
 - graphify reference: query, path, explain
 - Skill: Monorepo vs Single-App Targeting
@@ -446,19 +445,8 @@
 - ui-safe-area-scroll.md
 - ui-scrollview-content-inset.md
 - ui-styling.md
-- base64-arraybuffer
 - clsx
-- expo
-- expo-blur
-- expo-camera
-- @expo-google-fonts/dm-sans
-- @hookform/resolvers
-- @react-native-community/slider
-- react-native-country-picker-modal
-- react-native-webview
-- @react-navigation/native
 - @react-navigation/stack
-- use-debounce
 - @radix-ui/react-context-menu
 - @radix-ui/react-menubar
 - @radix-ui/react-navigation-menu
@@ -466,19 +454,12 @@
 - @radix-ui/react-select
 - @radix-ui/react-tooltip
 - tw-animate-css
-- expo-asset
 - expo-build-properties
-- expo-constants
-- expo-font
 - expo-image-picker
-- expo-router
 - expo-status-bar
 - prettier-plugin-tailwindcss
-- react
-- react-native
 - @react-native-firebase/firestore
 - react-native-view-shot
-- tailwindcss
 - Firebase Email Verification
 
 ## God Nodes (most connected - your core abstractions)
@@ -494,16 +475,16 @@
 10. `AnimatedPressable` - 31 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `plugins` --extends--> `expo-asset`  [EXTRACTED]
-  app.json → package.json
-- `plugins` --extends--> `expo-dev-client`  [EXTRACTED]
-  app.json → package.json
 - `include` --extends--> `expo-env.d.ts`  [EXTRACTED]
   Documentation/98-Reference-BasoBas/basobas-app/tsconfig.json → tsconfig.json
 - `include` --extends--> `.expo/types/**/*.ts`  [EXTRACTED]
   Documentation/98-Reference-BasoBas/basobas-app/tsconfig.json → tsconfig.json
 - `include` --extends--> `nativewind-env.d.ts`  [EXTRACTED]
   Documentation/98-Reference-BasoBas/basobas-app/tsconfig.json → tsconfig.json
+- `plugins` --extends--> `expo-dev-client`  [EXTRACTED]
+  app.json → package.json
+- `plugins` --extends--> `expo-asset`  [EXTRACTED]
+  app.json → package.json
 
 ## Import Cycles
 - 3-file cycle: `src/services/ai/chatService.ts -> src/services/ai/mockChatService.ts -> src/services/ai/groqRanker.ts -> src/services/ai/chatService.ts`
@@ -534,43 +515,43 @@
 - **TV Accessibility Implementation Flow** — claude_skills_react_native_tv_best_practices_references_a11y_implementation, claude_skills_react_native_tv_best_practices_references_focus_management, claude_skills_react_native_tv_best_practices_references_video_streaming [INFERRED 0.80]
 - **Machine Learning Model Suite** — process_nrt_synthesis, process_ensemble_prediction, process_lstm_forecast [INFERRED 0.85]
 
-## Communities (613 total, 210 thin omitted)
+## Communities (594 total, 188 thin omitted)
 
-### Community 0 - "tokens.ts"
+### Community 0 - "verification.tsx"
 Cohesion: 0.04
-Nodes (85): emptySlot(), LandlordKYCUploadScreen(), SlotState, styles, uploadedFromServer(), MediaItem, MediaType, styles (+77 more)
+Nodes (63): emptySlot(), LandlordKYCUploadScreen(), SlotState, styles, uploadedFromServer(), formatDateTime(), LandlordVerificationScreen(), styles (+55 more)
 
 ### Community 1 - "err"
 Cohesion: 0.07
-Nodes (79): ListingDetailScreen(), ShareDetailsScreen(), err(), getErrorMessage(), ok(), Result, DashboardActivity, getLandlordDashboard() (+71 more)
+Nodes (75): ConfirmationScreen(), LoadingScreen(), styles, compressImage(), EditProfileScreen(), NEPAL_CITIES, styles, LandlordLocationPicker() (+67 more)
 
-### Community 2 - "useClerkSupabase"
-Cohesion: 0.06
-Nodes (56): @clerk/expo, LoadingScreen(), styles, maskPhone(), OTPVerificationScreen(), IMPORTANT: after finalize (which activates the session), use, s, DeclineRequestScreen() (+48 more)
+### Community 2 - "(landlord)/(tabs)/profile.tsx"
+Cohesion: 0.12
+Nodes (22): FilterTab, FORMATTER, matchesFilter(), MyPropertiesScreen(), MyPropertiesScreenProps, PropertyCard(), STATUS_STYLES, TABS (+14 more)
 
-### Community 3 - "EmailSignUp.tsx"
-Cohesion: 0.11
-Nodes (25): plugins, expo-video, expo-video, @react-native-firebase/app, @react-native-firebase/auth, @react-native-google-signin/google-signin, ./plugins/withGoogleMapsApiKey, BackButton() (+17 more)
+### Community 3 - "plugins"
+Cohesion: 0.14
+Nodes (15): plugins, expo-font, expo-router, plugins, expo-font, expo-router, expo-asset, expo-dev-client (+7 more)
 
-### Community 4 - "property.types.ts"
+### Community 4 - "useClerkSupabase"
 Cohesion: 0.05
-Nodes (75): EMPTY_COPY, OPEN_UI, parseVisitDate(), subtitleFor(), TabKey, TABS, VisitsTab(), OPTIONS (+67 more)
+Nodes (70): DeclineRequestScreen(), REASONS, styles, RequestDetailScreen(), ShareDetailsScreen(), buildDays(), DayOption, styles (+62 more)
 
-### Community 5 - "kyc-landlord.tsx"
-Cohesion: 0.06
-Nodes (47): ConfirmationScreen(), DetailRowProps, NOTE: supabase is obtained via useClerkSupabase() hook below, styles, SummaryCardProps, compressDoc(), DocTypeChipProps, DocumentUploadZoneProps (+39 more)
+### Community 5 - "tokens.ts"
+Cohesion: 0.04
+Nodes (64): DetailRowProps, NOTE: supabase is obtained via useClerkSupabase() hook below, styles, SummaryCardProps, compressDoc(), DocTypeChipProps, DocumentUploadZoneProps, KYCLandlordScreen() (+56 more)
 
 ### Community 6 - "UI Accordion"
 Cohesion: 0.05
 Nodes (51): AccordionContent(), AccordionItem(), AccordionTrigger(), Avatar(), AvatarFallback(), AvatarImage(), BreadcrumbEllipsis(), BreadcrumbItem() (+43 more)
 
 ### Community 7 - "(tenant)/property/[id].tsx"
-Cohesion: 0.04
-Nodes (54): AMENITY_ICONS, AMENITY_LABELS, AmenityRow, camelToTitle(), EXTRA_DETAIL_ICONS, EXTRA_DETAIL_LABELS, ExtraDetailRow, formatExtraValue() (+46 more)
+Cohesion: 0.07
+Nodes (38): AMENITY_ICONS, AMENITY_LABELS, AmenityRow, camelToTitle(), EXTRA_DETAIL_ICONS, EXTRA_DETAIL_LABELS, ExtraDetailRow, formatExtraValue() (+30 more)
 
-### Community 8 - "TutorMap.tsx"
-Cohesion: 0.05
-Nodes (43): PIN_HEIGHT, PIN_WIDTH, TutorAvatarPin(), TutorAvatarPinProps, AndroidMap, APPLE_NO_POI, GOOGLE_POI_FREE_STYLE, IosMap (+35 more)
+### Community 8 - "MapSearch.tsx"
+Cohesion: 0.11
+Nodes (23): AndroidMap, APPLE_NO_POI, GOOGLE_POI_FREE_STYLE, IosMap, MapCameraPosition, MapCircle, setCameraPositionSafe(), TutorMapHandle (+15 more)
 
 ### Community 9 - "UI Sheet"
 Cohesion: 0.05
@@ -581,8 +562,8 @@ Cohesion: 0.06
 Nodes (33): Notes, Official Expo Reference, Pre-Upgrade Audit (Required), Quick Commands, Related Skills, Skill: Expo SDK Upgrade Layer, When to Apply, Workflow Additions (+25 more)
 
 ### Community 11 - "usePressScale"
-Cohesion: 0.05
-Nodes (48): CompactCard(), TutorCard(), TutorCardProps, WideCard(), Chip(), TutorPreviewSheet(), TutorPreviewSheetProps, usePressScale() (+40 more)
+Cohesion: 0.04
+Nodes (54): TutorTab(), Chip(), ConfirmDialogAction(), SelectOptionRow(), usePressScale(), AnimatedPressable, PrimaryButton(), PrimaryButtonProps (+46 more)
 
 ### Community 12 - "TypeScript Configuration"
 Cohesion: 0.05
@@ -590,7 +571,7 @@ Nodes (42): compilerOptions, paths, strict, extends, include, **/*.ts, **/*.tsx,
 
 ### Community 13 - "TutorProfileScreen.tsx"
 Cohesion: 0.09
-Nodes (29): AvatarUploader(), ChipGroup(), ChipGroupProps, LocationField(), NameEmailFields(), baseLayout(), Card(), CARD_SHADOW_STYLE (+21 more)
+Nodes (32): @react-native-firebase/app, ChipGroup(), INPUT_BASE, INPUT_BORDER_ERROR, INPUT_BORDER_OK, NameEmailFields(), NameEmailFieldsProps, FieldShell() (+24 more)
 
 ### Community 14 - "Intent Classification"
 Cohesion: 0.10
@@ -601,8 +582,8 @@ Cohesion: 0.06
 Nodes (33): Common Pitfalls, Prerequisites, Quick Config, Related Skills, Skill: Android Emulator Composite Action (RN CLI), Template (`.github/actions/github-actions/android-build/action.yml`), When to Use, Common Pitfalls (+25 more)
 
 ### Community 16 - "dependencies"
-Cohesion: 0.05
-Nodes (41): dependencies, @clerk/expo, expo-constants, expo-crypto, expo-document-picker, expo-file-system, @expo-google-fonts/dm-serif-display, expo-haptics (+33 more)
+Cohesion: 0.03
+Nodes (59): dependencies, @clerk/expo, expo, expo-blur, expo-camera, expo-constants, expo-crypto, expo-document-picker (+51 more)
 
 ### Community 17 - "UI Alert Dialog"
 Cohesion: 0.07
@@ -613,48 +594,48 @@ Cohesion: 0.12
 Nodes (26): clearMemoryCache(), computeHash(), getCachedEmbedding(), memoryCache, MemoryEmbeddingCache, setCachedEmbedding(), buildHistoryString(), countMessages() (+18 more)
 
 ### Community 19 - "motion/index.ts"
-Cohesion: 0.09
-Nodes (30): AnimatedView, BadgeDotProps, TUTOR_TABS, TutorBottomBarProps, TutorTab(), TutorTabDef, TutorTabKey, ActivePill() (+22 more)
+Cohesion: 0.06
+Nodes (47): AnimatedView, BadgeDotProps, TUTOR_TABS, TutorBottomBarProps, TutorTabDef, TutorTabKey, CompactCard(), TutorCardProps (+39 more)
 
 ### Community 20 - "dependencies"
-Cohesion: 0.06
-Nodes (32): expo, expo-application, expo-dev-client, expo-haptics, expo-location, expo-splash-screen, @expo/vector-icons, expo-video-thumbnails (+24 more)
+Cohesion: 0.04
+Nodes (53): base64-arraybuffer, expo, expo-application, expo-constants, expo-file-system, expo-font, expo-haptics, expo-image (+45 more)
 
-### Community 21 - "ScreenLayout.tsx"
-Cohesion: 0.05
-Nodes (44): AvatarBubble(), CameraButton(), TutorDocumentList(), DisplayRow(), EditableField(), EditAction(), MenuRow(), AnimatedPressable (+36 more)
+### Community 21 - "EditProfile.tsx"
+Cohesion: 0.09
+Nodes (19): RemoveEnrollmentDialogProps, AvatarBubble(), CameraButton(), AvatarUploader(), AvatarUploaderProps, UploadButton(), ConfirmDialog(), TutorDocumentList() (+11 more)
 
-### Community 22 - "enrollments/types.ts"
-Cohesion: 0.14
-Nodes (20): CellPalette, CellStatus, EMPTY_PENDING, SlotCell(), StudentAvailabilityGrid(), StudentAvailabilityGridProps, CellPalette, cellStatus() (+12 more)
+### Community 22 - "AIChat.tsx"
+Cohesion: 0.07
+Nodes (18): Props, ReviewModal(), SUB_AXES, BottomNav(), BottomNavRole, BottomNavTab, STUDENT_TABS, TabButton() (+10 more)
 
 ### Community 23 - "tutor/types.ts"
 Cohesion: 0.11
 Nodes (18): CategoryRatings, Review, SessionStatus, SessionType, TutorCoordinates, TutorLocation, TutorSession, CATEGORY_KEYS (+10 more)
 
-### Community 24 - "Enrollment.tsx"
-Cohesion: 0.09
-Nodes (22): CalendarDatePicker(), CalendarDatePickerProps, DAY_LABELS, daysInMonth(), firstWeekday(), MONTH_NAMES, parseIso(), toIso() (+14 more)
+### Community 24 - "RequestEnrollmentSheet.tsx"
+Cohesion: 0.19
+Nodes (13): CalendarDatePicker(), CalendarDatePickerProps, DAY_LABELS, daysInMonth(), firstWeekday(), MONTH_NAMES, parseIso(), toIso() (+5 more)
 
 ### Community 25 - "colors.ts"
-Cohesion: 0.09
-Nodes (17): INPUT_BASE, INPUT_BORDER_ERROR, INPUT_BORDER_OK, NameEmailFieldsProps, AiMatchIllustration(), T, COLORS, VerifiedIllustration() (+9 more)
+Cohesion: 0.07
+Nodes (17): StudentPickerSheetProps, AiMatchIllustration(), T, DiscoverIllustration(), T, COLORS, VerifiedIllustration(), FloatingEmptyIcon() (+9 more)
 
 ### Community 26 - "TutorDetailsScreen.tsx"
-Cohesion: 0.08
-Nodes (19): Avatar(), AvatarProps, getAvatarTint(), getInitials(), TINTS, AvailabilitySection(), BackButton(), formatNprShort() (+11 more)
+Cohesion: 0.09
+Nodes (16): Avatar(), AvatarProps, getAvatarTint(), getInitials(), TINTS, AvailabilitySection(), BackButton(), formatNprShort() (+8 more)
 
-### Community 27 - "MockEnrollmentRepository.ts"
-Cohesion: 0.11
-Nodes (24): AcceptRequestInput, AvailabilityCallback, AvailabilitySnapshot, BatchCallback, BatchMemberCallback, CreateBatchInput, EnrollmentCallback, ErrorCallback (+16 more)
+### Community 27 - "FirebaseEnrollmentRepository.ts"
+Cohesion: 0.04
+Nodes (92): NOTE: this helper uses LOCAL calendar math (its doc comment says, WED_NOON_UTC, AvailabilityTimeList(), AvailabilityTimeListProps, EditRequestSheet(), Props, CellPalette, CellStatus (+84 more)
 
 ### Community 28 - "Bundle Optimization"
 Cohesion: 0.06
 Nodes (32): Analyze App Bundle Size, Analyze JS Bundle Size, Avoid Barrel Exports, Remote Chunk Loading, Disable JS Bundle Compression, Determine Library Size, Native Assets, R8 Code Shrinking (+24 more)
 
 ### Community 29 - "expo"
-Cohesion: 0.09
-Nodes (22): tsconfigPaths, typedRoutes, expo, assetBundlePatterns, experiments, icon, ios, name (+14 more)
+Cohesion: 0.15
+Nodes (12): expo, assetBundlePatterns, icon, name, orientation, scheme, slug, userInterfaceStyle (+4 more)
 
 ### Community 30 - "Constraint Extraction"
 Cohesion: 0.13
@@ -668,29 +649,29 @@ Nodes (24): adjustWeightsByContext(), calculateScore(), rankTutors(), SORT_INTEN
 Cohesion: 0.13
 Nodes (19): getJwks(), getJwksUrl(), verifyClerkJwt(), arrayBufferToBase64(), checkEsewaTransactionStatus(), generateSignature(), getEsewaConfig(), grantUserPass() (+11 more)
 
-### Community 33 - "TutorCapacityScreen.tsx"
-Cohesion: 0.21
-Nodes (8): Skeleton(), SkeletonRow(), SkeletonText(), OptimisticSlot, TutorCapacityScreen(), countAvailabilityCells(), AvailabilitySnapshot, MAX_CAPACITY
+### Community 33 - "(tabs)/visits.tsx"
+Cohesion: 0.12
+Nodes (21): EMPTY_COPY, OPEN_UI, parseVisitDate(), subtitleFor(), TabKey, TABS, VisitsTab(), formatDate() (+13 more)
 
-### Community 34 - "AI Preferences and Settings"
-Cohesion: 0.08
-Nodes (7): AIPreferencesScreen(), GENERAL_REASONS, REASON_INFO, SettingsScreen(), Props, ScreenHeader(), Props
+### Community 34 - "ScreenHeader.tsx"
+Cohesion: 0.09
+Nodes (5): GENERAL_REASONS, REASON_INFO, Props, ScreenHeader(), Props
 
-### Community 35 - "(landlord)/edit-profile.tsx"
+### Community 35 - "useUserStore"
 Cohesion: 0.07
-Nodes (44): compressImage(), EditProfileScreen(), NEPAL_CITIES, styles, compressImage(), EditProfileScreen(), NEPAL_CITIES, styles (+36 more)
+Nodes (38): AIPreferencesScreen(), buildEsewaForm(), EsewaWebViewScreen(), parseQuery(), styles, WEBVIEW_UA, ProGateModal(), Feature (+30 more)
 
-### Community 36 - "Location Picker"
-Cohesion: 0.11
-Nodes (22): LocationFieldProps, LocationQuickAction(), LocationSaveButton(), LocationSummary(), DEFAULT_CAMERA, GeocodeState, LocationPickerModal(), LocationPickerModalProps (+14 more)
+### Community 36 - "markerIcons.ts"
+Cohesion: 0.40
+Nodes (4): LocationPickerModal(), loadMarkerIcons(), MarkerIconSet, PIN_ASSETS
 
 ### Community 37 - "map.tsx"
-Cohesion: 0.07
-Nodes (34): DEFAULT_LOCATION, LandlordLocationPicker(), styles, fmtKm(), fmtNpr(), INITIAL_CAMERA, MapCenter, styles (+26 more)
+Cohesion: 0.05
+Nodes (44): AMENITIES_APARTMENT, AMENITIES_HOUSE, AMENITIES_ROOM, AMENITIES_STUDIO, BATHROOM_OPTIONS, FieldErrors, FURNISHING, KITCHEN_OPTIONS (+36 more)
 
 ### Community 38 - "TutorHome.tsx"
-Cohesion: 0.09
-Nodes (17): getToneConfig(), ReviewBanner(), ReviewBannerDismiss(), ReviewBannerTone, setTutorAvailability(), AvatarCircleProps, FALLBACK, MetricProps (+9 more)
+Cohesion: 0.10
+Nodes (13): setTutorAvailability(), AvatarCircleProps, FALLBACK, MetricProps, QUICK_ACTIONS, QuickAction, ReqTab, showComingSoon() (+5 more)
 
 ### Community 39 - "MockTutorRepository.ts"
 Cohesion: 0.18
@@ -722,11 +703,11 @@ Nodes (16): FeatureSlide, s, SLIDES, MapIllustration(), styles, NextButton, Next
 
 ### Community 47 - "EditTeachingDetails.tsx"
 Cohesion: 0.06
-Nodes (35): scoreMatch(), SearchableSelect(), SearchableSelectProps, SelectOptionRow(), CTEVT, ENGINEERING, INSTITUTION_LABELS, InstitutionItem (+27 more)
+Nodes (40): LocationField(), LocationFieldProps, LocationQuickAction(), LocationSaveButton(), LocationSummary(), DEFAULT_CAMERA, GeocodeState, LocationPickerModalProps (+32 more)
 
-### Community 48 - "AI Guardrails and Sorting"
-Cohesion: 0.15
-Nodes (21): checkContactInfoLeak(), checkHallucinatedTutors(), checkPromptInjection(), checkResponse(), containsOffensiveContent(), GuardrailResult, parseMessageToConstraints(), applyDeterministicSort() (+13 more)
+### Community 48 - "mockChatService.ts"
+Cohesion: 0.17
+Nodes (18): checkContactInfoLeak(), checkHallucinatedTutors(), checkPromptInjection(), checkResponse(), containsOffensiveContent(), GuardrailResult, hasReorderIntent(), constraintsToFilters() (+10 more)
 
 ### Community 49 - "WebGPU & Three.js for Expo"
 Cohesion: 0.08
@@ -734,7 +715,7 @@ Nodes (24): 1. make-webgpu-renderer.ts, 1. "X is not part of the THREE namespace
 
 ### Community 50 - "VerificationQueue.tsx"
 Cohesion: 0.06
-Nodes (44): DocumentPlayButton(), DocumentRow(), DocumentUploader(), DocumentUploaderButton(), kindAccent(), kindIconName(), ImageCloseButton(), ImageThumbnail() (+36 more)
+Nodes (44): DocumentPlayButton(), DocumentRow(), DocumentUploader(), DocumentUploaderButton(), kindAccent(), kindIconName(), VideoViewerModal(), ACCEPTED_MIME (+36 more)
 
 ### Community 51 - "dependencies"
 Cohesion: 0.08
@@ -745,16 +726,16 @@ Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native AGENTS.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
 ### Community 53 - "aiChatStore.ts"
-Cohesion: 0.14
-Nodes (20): useAiChat(), ActivePill, ChatRequest, ChatResponse, ChatServiceError, EDGE_FUNCTION_URL, generateSessionId(), mapKeysToCamel() (+12 more)
+Cohesion: 0.11
+Nodes (25): useAiChat(), ConstraintPreset, QUICK_CHIPS, ClientSearchConstraints, ActivePill, ChatRequest, ChatResponse, ChatServiceError (+17 more)
 
 ### Community 54 - "useAuthStore"
-Cohesion: 0.06
-Nodes (31): dashboardPathForRole(), IMPORTANT: this must return the dashboard routes (`/student-home`,, RootLayout(), Props, ReviewModal(), SUB_AXES, ADMIN_TABS, AdminNav() (+23 more)
+Cohesion: 0.05
+Nodes (46): @react-native-firebase/auth, dashboardPathForRole(), IMPORTANT: this must return the dashboard routes (`/student-home`,, RootLayout(), TutorBottomBar(), TutorCard(), ADMIN_TABS, AdminNav() (+38 more)
 
-### Community 55 - "(landlord)/(tabs)/index.tsx"
-Cohesion: 0.09
-Nodes (23): ActivityItem, buildActivity(), buildInsights(), buildStats(), computeGreeting(), EMPTY_STATS, initialsOf(), InsightItem (+15 more)
+### Community 55 - "(tenant)/(tabs)/profile.tsx"
+Cohesion: 0.06
+Nodes (32): ActivityItem, buildActivity(), buildInsights(), buildStats(), computeGreeting(), EMPTY_STATS, initialsOf(), InsightItem (+24 more)
 
 ### Community 56 - "Location Service"
 Cohesion: 0.16
@@ -784,25 +765,25 @@ Nodes (19): buildEmbeddingText(), cleanupStaleTutors(), envPath, errors, firesto
 Cohesion: 0.18
 Nodes (12): FloatingDock, FloatingDockProps, DockTab, DockTabProps, styles, LANDLORD_DOCK_ITEMS, TENANT_DOCK_ITEMS, DOCK_BOTTOM_GAP (+4 more)
 
-### Community 63 - "plugins"
-Cohesion: 0.18
-Nodes (8): expo-font, expo-router, plugins, expo-font, expo-router, expo-secure-store, clerkTokenCache, expo-secure-store
+### Community 63 - "basobas-app/app/_layout.tsx"
+Cohesion: 0.33
+Nodes (3): expo-secure-store, clerkTokenCache, expo-secure-store
 
 ### Community 64 - "UserManagement.tsx"
-Cohesion: 0.11
-Nodes (16): RemoveEnrollmentDialogProps, ConfirmDialog(), ConfirmDialogAction(), AdminUser, deriveEmptySubtitle(), deriveEmptyTitle(), formatDate(), getRoleConfig() (+8 more)
-
-### Community 65 - "Search Constraints and Groq"
 Cohesion: 0.15
-Nodes (17): ConstraintPreset, QUICK_CHIPS, ClientSearchConstraints, buildSystemPrompt(), buildUserPrompt(), DETERMINISTIC_SORT_PATTERNS, DeterministicSort, getApiKey() (+9 more)
+Nodes (13): AdminUser, deriveEmptySubtitle(), deriveEmptyTitle(), formatDate(), getRoleConfig(), getStatusConfig(), MOCK_USERS, RoleFilter (+5 more)
+
+### Community 65 - "groqRanker.ts"
+Cohesion: 0.19
+Nodes (14): applyDeterministicSort(), buildSystemPrompt(), buildUserPrompt(), detectDeterministicSort(), DETERMINISTIC_SORT_PATTERNS, DeterministicSort, getApiKey(), groqRank() (+6 more)
 
 ### Community 66 - "API Request Handler"
 Cohesion: 0.18
 Nodes (13): corsHeaders, handleRequest(), AuthError, checkRateLimit(), CORS_HEADERS, errorResponse(), firebaseJWKS, handleCORS() (+5 more)
 
 ### Community 67 - "scripts"
-Cohesion: 0.08
-Nodes (24): scripts, android, backfill:tutor-availability, backfill:tutor-availability:build, delete:user, delete:user:build, deploy:all, deploy:rules (+16 more)
+Cohesion: 0.04
+Nodes (47): babel-preset-expo, eslint, eslint-config-expo, devDependencies, babel-preset-expo, eslint, eslint-config-expo, prettier (+39 more)
 
 ### Community 68 - "Skill: Avoid Barrel Exports"
 Cohesion: 0.08
@@ -820,9 +801,9 @@ Nodes (11): Menubar(), MenubarCheckboxItem(), MenubarContent(), MenubarItem(), M
 Cohesion: 0.08
 Nodes (23): Animated Components (`src/tw/animated.tsx`), Apple System Colors with CSS Variables, Configuration Files, CSS Component Wrappers, Custom Theme Variables, Global CSS, Image Component (`src/tw/image.tsx`), IMPORTANT: No Babel Config Needed (+15 more)
 
-### Community 72 - "Property Filter Drawer"
-Cohesion: 0.14
-Nodes (14): AMENITIES, Amenity, FilterDrawer(), matchesType(), PROPERTY_TYPES, SortOption, SORTS, AMENITIES (+6 more)
+### Community 72 - "filter.tsx"
+Cohesion: 0.29
+Nodes (7): AMENITIES, Amenity, FilterDrawer(), matchesType(), PROPERTY_TYPES, SortOption, SORTS
 
 ### Community 73 - "basobas-figma/package.json"
 Cohesion: 0.13
@@ -853,8 +834,8 @@ Cohesion: 0.19
 Nodes (13): containsForbiddenDetail(), generateResponse(), safeWarmTone(), summarizeRelaxHint(), getApiKey(), groqChat(), groqChatJSON(), groqChatStream() (+5 more)
 
 ### Community 80 - "storage.ts"
-Cohesion: 0.17
-Nodes (16): AvatarUploaderProps, UploadButton(), avatarStoragePathFromUrl(), harvestDocPaths(), PurgeResult, purgeUserAccount(), getSupabase(), supabase (+8 more)
+Cohesion: 0.21
+Nodes (13): avatarStoragePathFromUrl(), harvestDocPaths(), PurgeResult, purgeUserAccount(), getSupabase(), supabase, BUCKET, MIME_BY_EXT (+5 more)
 
 ### Community 82 - "Supabase AI Response Generator"
 Cohesion: 0.19
@@ -864,13 +845,13 @@ Nodes (13): containsForbiddenDetail(), generateResponse(), safeWarmTone(), summa
 Cohesion: 0.23
 Nodes (14): C, chunk(), clamp01(), cover(), crc32(), CRC_TABLE, encodePng(), OUT_DIR (+6 more)
 
-### Community 84 - "AvailabilityTimeList.tsx"
-Cohesion: 0.13
-Nodes (7): AvailabilityTimeListProps, StudentPickerSheetProps, DiscoverIllustration(), T, FloatingEmptyIcon(), DAY_LABELS, Enrollment
+### Community 84 - "avatarPins.tsx"
+Cohesion: 0.15
+Nodes (14): PIN_HEIGHT, PIN_WIDTH, TutorAvatarPin(), TutorAvatarPinProps, AvatarPinHost, avatarPinKey(), AvatarPinMap, cache (+6 more)
 
-### Community 85 - "Visit Scheduling"
-Cohesion: 0.18
-Nodes (12): buildDays(), DayOption, styles, SuggestTimeScreen(), TIME_SLOTS, DayOption, DAYS, TODO: surface a proper error toast when the app has one. (+4 more)
+### Community 85 - "notifications-prefs.tsx"
+Cohesion: 0.15
+Nodes (4): NotificationPrefsModal(), NotifRowProps, styles, ToggleProps
 
 ### Community 86 - "UI Carousel"
 Cohesion: 0.19
@@ -892,9 +873,9 @@ Nodes (15): @babel/core, devDependencies, @babel/core, babel-preset-expo, eslint
 Cohesion: 0.08
 Nodes (24): Analyze, bundle-stats / statoscope, Code Examples, Common Offenders, Comparing Bundles, For Expo Projects, For Non-Expo Projects, Generate Bundle with Source Map (+16 more)
 
-### Community 91 - "App Package Configuration"
-Cohesion: 0.15
-Nodes (12): main, name, private, scripts, android, format, ios, lint (+4 more)
+### Community 91 - "scripts"
+Cohesion: 0.25
+Nodes (8): scripts, android, format, ios, lint, prebuild, start, web
 
 ### Community 92 - "Schedule Visit Drawer"
 Cohesion: 0.21
@@ -904,9 +885,9 @@ Nodes (12): buildMonthGrid(), DEFAULT_TIME_SLOTS, formatDateLong(), isPastDate()
 Cohesion: 0.19
 Nodes (9): ALL_FAQ_KEYWORDS, FAQ, FAQ_BY_CATEGORY, FaqCategory, FaqEntry, calculateMatchScore(), FaqMatchResult, getFaqAnswer() (+1 more)
 
-### Community 94 - "devDependencies"
-Cohesion: 0.13
-Nodes (15): babel-preset-expo, eslint, eslint-config-expo, devDependencies, babel-preset-expo, eslint, eslint-config-expo, prettier (+7 more)
+### Community 94 - "qualifications.ts"
+Cohesion: 0.18
+Nodes (10): BACHELORS, DIPLOMA, DOCTORATE, INTERMEDIATE, MASTERS, PROFESSIONAL, QUALIFICATION_LABELS, QualificationItem (+2 more)
 
 ### Community 95 - "Intent Classification and Prompts"
 Cohesion: 0.21
@@ -944,13 +925,13 @@ Nodes (8): config, cssInteropJsxRuntimeAbs, cssInteropPkgRoot, fs, { getDefaultC
 Cohesion: 0.22
 Nodes (4): MenuRowProps, MenuRowWithSubtextProps, styles, ToggleProps
 
-### Community 105 - "Package Configuration"
-Cohesion: 0.22
-Nodes (8): engines, node, main, name, overrides, react-native-css-interop, private, version
+### Community 105 - "nepalGeo.ts"
+Cohesion: 0.32
+Nodes (7): KATHMANDU_VALLEY_CENTER, centroidFor(), LatLon, matchLabel(), NEPAL_CITY_CENTROIDS, PinResolvable, withPinCoordinates()
 
 ### Community 106 - "firestoreTutorService.ts"
-Cohesion: 0.32
-Nodes (11): DEFAULT_TUTOR_LISTING, fetchTutorProfile(), parseAvailability(), profileDocToTutorProfile(), tryEnhanceFromProfile(), tutorsDocToTutorProfile(), createDefaultTutorProfile(), parseAvailability() (+3 more)
+Cohesion: 0.27
+Nodes (12): TutorPreviewSheet(), TutorPreviewSheetProps, motionSpring, DEFAULT_TUTOR_LISTING, fetchTutorProfile(), parseAvailability(), profileDocToTutorProfile(), tryEnhanceFromProfile() (+4 more)
 
 ### Community 107 - "React Native TV Best Practices"
 Cohesion: 0.33
@@ -1052,9 +1033,9 @@ Nodes (5): ERA5 Meteorological Data, Google Earth Engine Tri-Sat Data, RAG Archi
 Cohesion: 0.40
 Nodes (5): ERA5 Accuracy Analysis, ERA5 Correlation Matrix, ERA5 R-Squared Analysis, Methodology Overview, ERA5 Reanalysis Dataset
 
-### Community 135 - "New Listing Step 1"
+### Community 135 - "useTutorClustering.ts"
 Cohesion: 0.40
-Nodes (3): PropertyType, styles, TYPES
+Nodes (4): MapBounds, useCameraBounds(), TutorClusterFeature, useTutorClustering()
 
 ### Community 136 - "Skill: React Compiler"
 Cohesion: 0.09
@@ -1144,29 +1125,49 @@ Nodes (3): Level 0 Data Flow Diagram, System Architecture Diagram, EdumentX Syst
 Cohesion: 0.67
 Nodes (3): DFD Level 2.1, DFD Level 2.2, DFD Level 2.3
 
-### Community 167 - "TutorInbox.tsx"
-Cohesion: 0.09
-Nodes (13): AvailabilityTimeList(), AvatarCircleProps, DetailFieldProps, EnrollmentRequestAction, EnrollmentRequestCard(), EnrollmentRequestCardProps, StatusBadgeProps, SubjectChipProps (+5 more)
+### Community 167 - "EnrollmentRequestCard.tsx"
+Cohesion: 0.15
+Nodes (7): AvatarCircleProps, DetailFieldProps, EnrollmentRequestAction, EnrollmentRequestCard(), EnrollmentRequestCardProps, StatusBadgeProps, SubjectChipProps
+
+### Community 168 - "basobas-app/package.json"
+Cohesion: 0.40
+Nodes (4): main, name, private, version
+
+### Community 169 - "MarkdownText.tsx"
+Cohesion: 0.50
+Nodes (4): InlineText(), MarkdownText(), T, tokenizeInline()
+
+### Community 170 - "useUserLocation.ts"
+Cohesion: 0.40
+Nodes (4): DEFAULT_LOCATION, LocationData, useUserLocation(), UseUserLocationResult
 
 ### Community 171 - "Global Constraints"
 Cohesion: 0.10
 Nodes (20): Global Constraints, Light Theme Unification ("The Study Desk") Implementation Plan, Self-Review, Task 10: TutorCapacity — light hero, Task 11: BatchCreation — fix night layout (should be light), Task 12: PendingReview — convert full dark to light, Task 13: AIChat — carve-out (verify only, no change expected), Task 14: MapSearch — carve-out (verify only) (+12 more)
 
+### Community 172 - "splash"
+Cohesion: 0.50
+Nodes (4): splash, backgroundColor, image, resizeMode
+
 ### Community 173 - "Icons (SF Symbols)"
 Cohesion: 0.10
 Nodes (19): Animated Symbols, Animation Effects, Basic Usage, Best Practices, Camera, Common Icons, Communication, Content Actions (+11 more)
+
+### Community 174 - "experiments"
+Cohesion: 0.67
+Nodes (3): tsconfigPaths, typedRoutes, experiments
 
 ### Community 175 - "Skill: Analyze App Bundle Size"
 Cohesion: 0.10
 Nodes (20): Analyze, Android: Ruler (Spotify), CI Size Validation, Emerge Tools (Cross-Platform), Features, iOS: Xcode App Thinning, Key Metrics, Optimization Impact Example (+12 more)
 
-### Community 176 - "FirebaseEnrollmentRepository.ts"
-Cohesion: 0.17
-Nodes (16): notificationCopy, NotificationDoc, NotificationType, writeNotification(), UpdateEnrollmentRequestInput, FirebaseEnrollmentRepository, mapBatch(), mapBatchMember() (+8 more)
+### Community 176 - "ios"
+Cohesion: 0.67
+Nodes (3): ios, bundleIdentifier, supportsTablet
 
-### Community 177 - "Phone Entry Screen"
-Cohesion: 0.50
-Nodes (4): countryCodeToFlag(), PhoneEntryScreen(), PREFERRED, styles
+### Community 177 - "useClerkSupabase.ts"
+Cohesion: 0.13
+Nodes (17): @clerk/expo, maskPhone(), OTPVerificationScreen(), IMPORTANT: after finalize (which activates the session), use, s, countryCodeToFlag(), PhoneEntryScreen(), PREFERRED (+9 more)
 
 ### Community 178 - "Rules"
 Cohesion: 0.10
@@ -1184,9 +1185,9 @@ Nodes (19): Applicability, Background, Check APK Contents, Common Pitfalls, Edit
 Cohesion: 0.11
 Nodes (19): 1. Basic Animated Style (UI Thread), 2. Run Code on UI Thread with `scheduleOnUI`, 3. Call JS from UI Thread with `scheduleOnRN`, 4. Animation with Callback, Breaking Changes, Common Pitfalls, Key Concepts, Main Thread vs JS Thread (+11 more)
 
-### Community 189 - "step-4.tsx"
-Cohesion: 0.10
-Nodes (26): AMENITIES_APARTMENT, AMENITIES_HOUSE, AMENITIES_ROOM, AMENITIES_STUDIO, BATHROOM_OPTIONS, FieldErrors, FURNISHING, KITCHEN_OPTIONS (+18 more)
+### Community 189 - "property.types.ts"
+Cohesion: 0.05
+Nodes (69): NewListingStep2(), collectExtraDetails(), countSelected(), DetailRow, MediaItem, NewListingStep4(), parseJSON(), parseMedia() (+61 more)
 
 ### Community 198 - "Project Documentation and Analysis"
 Cohesion: 0.67
@@ -1219,10 +1220,6 @@ Nodes (18): Analyzing Results, Analyzing Time Profiler Results, Android Profilin
 ### Community 234 - "React Native Best Practices"
 Cohesion: 0.11
 Nodes (18): Attribution, Bundling (`bundle-*`), Critical: Bundle Size, Critical: FPS & Re-renders, High: Native Performance, High: TTI Optimization, JavaScript/React (`js-*`), Native (`native-*`) (+10 more)
-
-### Community 235 - "derived.ts"
-Cohesion: 0.21
-Nodes (13): NOTE: this helper uses LOCAL calendar math (its doc comment says, WED_NOON_UTC, computeBookedMap(), deriveTodaySessions(), isBetween(), nextOccurrenceIsoInKtm(), slotDurationMinutes(), todayDayKeyInKtm() (+5 more)
 
 ### Community 236 - "Migrating from expo-av to expo-video"
 Cohesion: 0.12
@@ -1496,10 +1493,6 @@ Nodes (6): Basic Example, Canonical Docs, Description, Prerequisites, Skill: Mat
 Cohesion: 0.29
 Nodes (7): Badges, Common Features, Custom Tab Bar, Displaying Icons, Indicators, Lazy Rendering, Scrollable Tab Bar
 
-### Community 523 - "esewa-webview.tsx"
-Cohesion: 0.38
-Nodes (6): buildEsewaForm(), EsewaWebViewScreen(), parseQuery(), styles, WEBVIEW_UA, EsewaFormFields
-
 ### Community 524 - "tutors.ts"
 Cohesion: 0.29
 Nodes (4): MOCK_TUTORS, MOCK_TUTORS_COUNTS, MOCK_TUTORS_RAW, nprFormat
@@ -1557,24 +1550,24 @@ Cohesion: 0.67
 Nodes (3): react-hook-form, react-hook-form, react-hook-form
 
 ## Knowledge Gaps
-- **2312 isolated node(s):** `Establish Product Scope`, `First Response Gate`, `Rules`, `Select the Evidence Mode`, `1. Collect Decision Evidence` (+2307 more)
+- **2312 isolated node(s):** `MediaItem`, `MediaType`, `DocumentTypeSelectorProps`, `Option`, `DocumentUploadCardProps` (+2307 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **210 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **188 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `plugins` connect `EmailSignUp.tsx` to `Android and iOS Configuration`, `dependencies`, `expo-asset`, `plugins`?**
-  _High betweenness centrality (0.090) - this node is a cross-community bridge._
-- **Why does `@clerk/expo` connect `useClerkSupabase` to `tokens.ts`, `(landlord)/edit-profile.tsx`, `property.types.ts`, `kyc-landlord.tsx`, `(tenant)/property/[id].tsx`, `dependencies`, `Phone Entry Screen`, `(landlord)/(tabs)/index.tsx`, `step-4.tsx`, `plugins`?**
-  _High betweenness centrality (0.081) - this node is a cross-community bridge._
-- **Why does `plugins` connect `plugins` to `useClerkSupabase`, `expo`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
-- **What connects `Establish Product Scope`, `First Response Gate`, `Rules` to the rest of the system?**
+- **Why does `plugins` connect `plugins` to `Android and iOS Configuration`, `TutorProfileScreen.tsx`, `useAuthStore`?**
+  _High betweenness centrality (0.106) - this node is a cross-community bridge._
+- **Why does `@clerk/expo` connect `useClerkSupabase.ts` to `verification.tsx`, `err`, `(landlord)/(tabs)/profile.tsx`, `plugins`, `useClerkSupabase`, `tokens.ts`, `(tabs)/visits.tsx`, `(tenant)/property/[id].tsx`, `dependencies`, `(tenant)/(tabs)/profile.tsx`, `property.types.ts`, `basobas-app/app/_layout.tsx`?**
+  _High betweenness centrality (0.097) - this node is a cross-community bridge._
+- **Why does `@react-native-firebase/app` connect `TutorProfileScreen.tsx` to `UserManagement.tsx`, `plugins`, `usePressScale`, `EditTeachingDetails.tsx`, `storage.ts`, `VerificationQueue.tsx`, `dependencies`, `EditProfile.tsx`, `useAuthStore`, `AIChat.tsx`, `aiChatStore.ts`, `Notification.tsx`?**
+  _High betweenness centrality (0.087) - this node is a cross-community bridge._
+- **What connects `MediaItem`, `MediaType`, `DocumentTypeSelectorProps` to the rest of the system?**
   _2312 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `tokens.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0367955286446204 - nodes in this community are weakly interconnected._
+- **Should `verification.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.04351851851851852 - nodes in this community are weakly interconnected._
 - **Should `err` be split into smaller, more focused modules?**
-  _Cohesion score 0.07236154649947753 - nodes in this community are weakly interconnected._
-- **Should `useClerkSupabase` be split into smaller, more focused modules?**
-  _Cohesion score 0.056140350877192984 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06764346764346764 - nodes in this community are weakly interconnected._
+- **Should `(landlord)/(tabs)/profile.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.11965811965811966 - nodes in this community are weakly interconnected._

@@ -350,7 +350,7 @@ export function NotificationsCenter() {
             onPress={() => router.back()}
             className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} className="text-white" />
           </Pressable>
           <View className="flex-1">
             <Text className="text-body text-white/70 mb-0.5">Inbox</Text>
@@ -364,7 +364,7 @@ export function NotificationsCenter() {
             onPress={() => setShowPrefs(true)}
             className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
           >
-            <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+            <Ionicons name="settings-outline" size={20} className="text-white" />
           </Pressable>
         </View>
       </View>
@@ -495,7 +495,7 @@ function LoadingState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-sand items-center justify-center mb-3">
-        <Ionicons name="sync" size={26} color="#6B7268" />
+        <Ionicons name="sync" size={26} className="text-text-muted" />
       </View>
       <Text className="text-body text-text-secondary">Loading your inbox…</Text>
     </View>
@@ -534,7 +534,7 @@ function EmptyState({ tab }: { tab: Tab }) {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
-        <Ionicons name="sparkles" size={26} color="#E5A03B" />
+        <Ionicons name="sparkles" size={26} className="text-accent" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}
@@ -600,7 +600,7 @@ function NotificationPreferences({
               onPress={onClose}
               className="w-9 h-9 items-center justify-center rounded-pill bg-sand active:opacity-70"
             >
-              <Ionicons name="close" size={18} color="#6B7268" />
+              <Ionicons name="close" size={18} className="text-text-muted" />
             </Pressable>
           </View>
 

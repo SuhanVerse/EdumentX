@@ -84,14 +84,14 @@ import {
 } from "@/lib/validation";
 const ROLE_TITLE_MAX = 60;
 
-type AdminProfile = {
+type AdminProfileData = {
   fullName: string;
   roleTitle: string;
   phone: string;
   email: string;
 };
 
-const EMPTY_PROFILE: AdminProfile = {
+const EMPTY_PROFILE: AdminProfileData = {
   fullName: "",
   roleTitle: "",
   phone: "",
@@ -101,16 +101,16 @@ const EMPTY_PROFILE: AdminProfile = {
 export function AdminProfile() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const [profile, setProfile] = useState<AdminProfile>(EMPTY_PROFILE);
+  const [profile, setProfile] = useState<AdminProfileData>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof AdminProfile, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof AdminProfileData, string>>>({});
   const [isEditing, setIsEditing] = useState(false);
   // Snapshot of the profile at the moment editing began, used to
   // detect whether any actual changes were made and to enable the
   // Save button only when something has changed.
-  const [editingSnapshot, setEditingSnapshot] = useState<AdminProfile | null>(null);
+  const [editingSnapshot, setEditingSnapshot] = useState<AdminProfileData | null>(null);
 
   // Load existing profile (if any). On first sign-in the doc is
   // missing, the snapshot returns `undefined`, and we leave the
@@ -128,7 +128,7 @@ export function AdminProfile() {
         const snap = await getDoc(profileRef);
         if (cancelled) return;
         if (snap.exists()) {
-          const d = snap.data() as Partial<AdminProfile> | undefined;
+          const d = snap.data() as Partial<AdminProfileData> | undefined;
           setProfile({
             fullName: typeof d?.fullName === "string" ? d.fullName : "",
             roleTitle: typeof d?.roleTitle === "string" ? d.roleTitle : "",
@@ -173,8 +173,8 @@ export function AdminProfile() {
   // standard "edit profile" header.
   const isFirstTime = !loading && profile.fullName.trim().length === 0;
 
-  function validate(p: AdminProfile): Partial<Record<keyof AdminProfile, string>> {
-    const e: Partial<Record<keyof AdminProfile, string>> = {};
+  function validate(p: AdminProfileData): Partial<Record<keyof AdminProfileData, string>> {
+    const e: Partial<Record<keyof AdminProfileData, string>> = {};
     const nameErr = validateFullName(p.fullName);
     if (nameErr) e.fullName = nameErr;
     if (p.roleTitle.trim().length === 0) {
@@ -551,7 +551,7 @@ export function AdminProfile() {
               onPress={startEditing}
               className="min-h-btn-lg rounded-card items-center justify-center border-2 border-border bg-surface active:opacity-80 self-center w-full max-w-sm flex-row gap-2"
             >
-              <Ionicons name="pencil-outline" size={18} color="#0F172A" />
+              <Ionicons name="pencil-outline" size={18} className="text-text-primary" />
               <Text className="text-button text-base font-semibold text-text-primary">
                 Edit
               </Text>
@@ -602,7 +602,7 @@ export function AdminProfile() {
             disabled={isSigningOut}
             className="min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
           >
-            <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+            <Ionicons name="log-out-outline" size={18} className="text-danger" />
             <Text className="text-button font-semibold text-danger">
               {isSigningOut ? "Logging out..." : "Log out"}
             </Text>

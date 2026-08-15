@@ -126,15 +126,3 @@ function hasGrade(c: ClientSearchConstraints): boolean {
 function hasBudget(c: ClientSearchConstraints): boolean {
   return c.budget_max !== undefined && c.budget_max !== null && c.budget_max > 0;
 }
-
-/**
- * Location is NO LONGER required for minimum constraints.
- * Kept as a utility in case we need it for optional questions.
- */
-function hasLocation(c: ClientSearchConstraints): boolean {
-  if (c.location_preference === "anywhere") return true;
-  if (c.tutoring_mode === "online") return true;
-  return (
-    typeof c.location_text === "string" && c.location_text.trim().length > 0
-  );
-}

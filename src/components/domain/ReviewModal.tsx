@@ -33,7 +33,7 @@ import type { CategoryRatings } from "@/lib/tutor/types";
 
 const COMMENT_MAX = 500;
 
-const SUB_AXES: Array<{ key: keyof CategoryRatings; label: string }> = [
+const SUB_AXES: { key: keyof CategoryRatings; label: string }[] = [
   { key: "teaching", label: "Teaching" },
   { key: "punctuality", label: "Punctuality" },
   { key: "communication", label: "Communication" },

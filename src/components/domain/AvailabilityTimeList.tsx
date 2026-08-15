@@ -41,7 +41,6 @@ import {
   TIME_SLOT_KEYS,
   TIME_SLOT_LABELS,
   type BookedMap,
-  type DayKey,
   type TimeSlotKey,
   type WeeklyAvailability,
 } from "@/services/enrollments/types";

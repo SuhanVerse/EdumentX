@@ -219,18 +219,6 @@ export function MyEnrollments() {
     }
   }
 
-  async function fastForwardRequestAccepted(r: LiveEnrollmentRequest) {
-    if (!__DEV__) return;
-    // Synthetically creates an enrollment from the request — useful
-    // for verifying the Past tab on a request that the tutor
-    // accepted.
-    Alert.alert(
-      "Dev tip",
-      "Use the tutor's inbox → Accept in dev mode to mirror the production flow. The auto-sweep then moves the accepted enrollment to Past once endDate is past.",
-    );
-    void r;
-  }
-
   return (
     <ScreenLayout variant="background">
       {/* Header — light hero, same shape as StudentHome / MapSearch

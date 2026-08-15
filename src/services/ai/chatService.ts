@@ -220,7 +220,7 @@ export async function sendChatMessage(
   let idToken: string;
   try {
     idToken = await currentUser.getIdToken();
-  } catch (err) {
+  } catch {
     throw new ChatServiceError(
       "Failed to authenticate. Please try signing in again.",
       "token_error",
@@ -281,7 +281,7 @@ export async function sendChatMessage(
       },
       body: JSON.stringify(body),
     });
-  } catch (err) {
+  } catch {
     throw new ChatServiceError(
       "Network error. Please check your connection and try again.",
       "network_error",

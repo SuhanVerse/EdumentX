@@ -61,7 +61,9 @@ function initAdmin() {
     process.exit(1);
   }
   initializeApp({
-    credential: cert(require(process.env.GOOGLE_APPLICATION_CREDENTIALS)),
+    credential: cert(
+      JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS!, "utf8")),
+    ),
   });
 }
 
