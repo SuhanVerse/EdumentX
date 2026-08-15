@@ -90,7 +90,12 @@ users/{uid}                        # structural metadata (uid, email,
                                    #   role, displayName, createdAt,
                                    #   updatedAt)
 users/{uid}/studentProfile/default # student-only profile fields
+                                   #   (incl. `savedTutors` uid-key
+                                   #   map §7.5 + `paymentMethods` map
+                                   #   §7.6)
 users/{uid}/tutorProfile/default   # tutor-only profile fields
+                                   #   (incl. single `payoutMethod`
+                                   #   object §7.6)
 ```
 
 When we add tutor-discovery in Phase 5, the candidate collection will be
@@ -104,6 +109,36 @@ enrollmentRequests/{tutorUid}/requests/{requestId}  # pending student asks
 enrollments/{tutorUid}/roster/{enrollmentId}         # active students
 notifications/{uid}/items/{itemId}                   # per-user inbox
 ```
+
+**Later collections** (all rule-covered, all deployed):
+
+```
+tutors/{uid}                          # denormalized discovery doc (admin-written;
+                                      #   rating/reviewCount mirror is only
+                                      #   refreshed at approval — the cards
+                                      #   overlay LIVE aggregates from the
+                                      #   reviews collectionGroup instead)
+tutorVerifications/{uid}              # verification queue source of truth
+tutorProfileUpdates/{uid}             # pending edit-review queue
+reviews/{tutorUid}/reviews/{reviewId} # student reviews (counted on the profile;
+                                      #   also aggregated per-tutor via
+                                      #   collectionGroup for the cards)
+batches/{tutorUid}/classes/{batchId}  # group batches
+batches/{tutorUid}/classes/{batchId}/members/{memberId}
+conversations/{conversationId}        # 1:1 messaging (deterministic id)
+conversations/{conversationId}/messages/{messageId}
+```
+
+The messaging layout deserves a note: `conversationId` is the **sorted
+participant pair joined by `__`** (`conversationKey(uidA, uidB)` in
+`services/messages/types.ts`), so either side addresses the same
+conversation without a lookup query. Membership is enforced in rules
+via two scalar fields (`participantA`/`participantB` ==
+`request.auth.uid`) because list-membership operators (`in`/`hasAny`)
+and bare `auth` both fail the local rules emulator with "Null value
+error" — see the comment block in `firebase/firestore.rules`.
+`participants` (array) is kept solely for the hub's
+`where participants array-contains uid` query.
 
 **slotKey format — `"<day>:<slot>"`** (e.g. `mon:5-7`, `wed:9-12`).
 This is a hard contract shared by every enrollment feature:
@@ -408,57 +443,63 @@ adding the dependency.
 
 ```
 .env                        # EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY,
-                            # EXPO_PUBLIC_FIREBASE_*, EXPO_PUBLIC_GROQ_API_KEY
+                            # EXPO_PUBLIC_FIREBASE_*, EXPO_PUBLIC_GROQ_API_KEY,
+                            # EXPO_PUBLIC_USE_MOCK_DATA
 
 firebase/
-  firestore.rules           # owner-only access; deploy via `npm run deploy:rules`
+  firestore.rules           # owner/participant-gated access; deploy via `npm run deploy:rules`
   storage.rules             # unused — Supabase handles storage rules
   indexes.json
 .firebaserc                 # pins project alias to `edumentx-dev`
-firebase.json               # no emulators block (we don't use local emulators)
+firebase.json
 
-services/
-  firebase/
-    authService.ts          # @react-native-firebase/auth (modular API)
-    errors.ts               # formatFirebaseError, authErrorSuggestsModeFlip
-  supabase/                 # TO CREATE in Phase 5.1
-    client.ts
-    storage.ts
-  nominatim/                # TO CREATE in Phase 5.3
-    reverse.ts
-  llm/                      # TO CREATE in Phase 7.1
-    groq.ts
+src/services/               # one folder per domain; each has a Firebase + Mock
+                            # impl + `dataSource.ts` selector (EXPO_PUBLIC_USE_MOCK_DATA)
+  firebase/                 # authService.ts (modular RNFirebase), errors.ts
+  supabase/                 # client.ts, storage.ts (uploadAvatar/uploadVerificationDoc)
+  nominatim/                # geocoder.ts (keyless reverse/forward)
+  tutors/                   # subscribeTutors (approved, available discovery docs)
+  enrollments/              # requests, roster, availability, batches, reviews —
+                            #   transactions + derived.ts (pure helpers, node:test-covered)
+  batches/                  # batches/{tutorUid}/classes + members (roster-backed picker)
+  messages/                 # conversations/{id} + messages (deterministic ids, meta)
+  ai/                       # chatService.ts → Supabase Edge Function (Groq);
+                            #   mockChatService.ts for USE_MOCK_DATA=true
 
-lib/
-  location/                 # TO CREATE in Phase 5.4
-    haversine.ts
-    bbox.ts
-    knn.ts
-  rag/                      # TO CREATE in Phase 7.1
-    promptBuilder.ts
+src/lib/
+  tutor/                    # firestoreTutorService, types
+  admin/                    # userLifecycle.ts, verification/discovery
+  location/                 # distance.ts (Haversine + nearest-N), nepalBounds, nepalGeo
+  map/                      # markerIcons, avatarPins (teardrop pin rasterization)
+  mock/                     # typed seed data (mock mode only)
+  verification/             # notifications.ts (writeNotification), discovery.ts
 
-components/
-  forms/AvatarUploader.tsx  # rewires to Supabase in Phase 5.1
-  map/                      # Phase 5.2+
-    TutorMap.tsx            # platform-adaptive expo-maps wrapper
-    LocationPickerModal.tsx # tap-to-pin picker (GPS + Nominatim)
-    TutorPreviewSheet.tsx
-  premium/                  # Phase 3 — animation primitives (post-3D-removal)
-    SplashParticleField.tsx # 24-particle ambient drift behind the splash
-  ui/                       # Phase 3 — reusable primitives
-    PrimaryButton.tsx       # primary/accent/ghost, Reanimated 4 spring press
-    PaginationDots.tsx      # onboarding dots with spring-snap width
-    SearchBar.tsx           # input with optional right icon
-    Avatar.tsx              # initials-first circular avatar
-  domain/                   # Phase 3 — listing cards
-    TutorCard.tsx           # `wide` + `compact-h` variants over MOCK_TUTORS
+src/components/
+  shared/                   # ScreenLayout/ScreenHeader/ScreenScroll, BottomNav,
+                            #   TutorBottomBar, NotificationBell, ReviewBanner
+  domain/                   # TutorCard, EnrollmentRequestCard, EnrolledStudentRow,
+                            #   WeeklyAvailabilityGrid, CalendarDatePicker, sheets
+  map/                      # TutorMap, TutorPreviewSheet
+  motion/                   # press-scale primitives, SwitchThumb, ActivePill, Skeleton
+  ui/                       # Avatar, Card, ConfirmDialog, EmptyState
+  forms/                    # LocationField, ConfirmDialog
+  illustrations/            # SVG illustrations (raw hex allowed here)
 
-lib/
-  mock/                     # Phase 3 — typed seed data
-    tutors.ts               # `MOCK_TUTORS` (12 Nepali tutors) + formatNpr()
+src/screens/
+  auth/                     # EmailSignUp, RoleSelection, Student/TutorProfileScreen
+  student/                  # StudentHome, MapSearch, Enrollment, StudentProfile, AIChat, FiltersSheet
+  tutor/                    # TutorHome, TutorInbox, BatchCreation, TutorCapacityScreen,
+                            #   EditProfile, PendingReview, EditTeachingDetails
+  admin/                    # AdminHome, PlatformStatistics, VerificationQueue,
+                            #   UserManagement, AdminProfile
+  shared/                   # Notification
 
-types/
-  onboarding.ts             # Phase 3 — extracted OnboardingSlide type
+src/app/                    # expo-router file routes (all Stack.Screen-registered)
+src/store/                  # Zustand: authStore, aiChatStore
+src/hooks/                  # useUserLocation, useTutorClustering, useCameraBounds
+src/constants/              # colors.ts (SVG-only hex), theme.ts
+
+scripts/                    # seed/backfill/test harnesses (tsc-compiled, node:test)
 ```
 
 ---
@@ -469,11 +510,11 @@ Pure-logic modules are covered with **Node's built-in test runner**
 (`node:test`) — no jest/vitest install, so nothing to justify in §0.
 
 **Run**: `npm run test:derived` — covers every pure helper in
-`services/enrollments/derived.ts` + `types.ts` (44 tests across 8
+`services/enrollments/derived.ts` + `types.ts` (47 tests across 9
 suites): `todayIsoInKtm`, `todayDayKeyInKtm`, `slotDurationMinutes`,
 `deriveTodaySessions`, `computeBookedMap`, `countAvailabilityCells`,
-`slotKey`/`parseSlotKey`, `nextOccurrenceIsoInKtm`, plus the
-malformed-slotKey guard.
+`cloneAvailability`, `countAvailabilityChanges`, `slotKey`/`parseSlotKey`,
+`nextOccurrenceIsoInKtm`, plus the malformed-slotKey guard.
 
 **Pattern** (mirrors the other `scripts/*.ts` flows):
 
@@ -518,6 +559,9 @@ npm run test:derived              # tsc → node --test
 | 7.1 RAG chatbot | ✅ Done | `AIChat.tsx` → `chatService` → Supabase Edge Function (Groq backend). JWT-verified, probe-verified end-to-end (Aug 15). `USE_MOCK_DATA=true` switches to the client-side mock pipeline. |
 | 7.2 Polish + beta | ✅ Done | Phase 3b: BasoBas rhythm shared `Card` primitive (`components/ui/Card.tsx`) applied to profile screens; admin screens on the light `bg-background` theme. |
 | 7.3 Group Batches | ✅ Done | `services/batches/` domain (`BatchesRepository` interface + Firebase/Mock impls + `dataSource` selector). `BatchCreation.tsx` live: roster-backed student picker, 3-step wizard, member add/remove, `endBatch`. Rules + `test:rules` checks cover all batch paths. |
+| 7.4 In-app messaging | ✅ Done | `services/messages/` domain — `conversations/{id}` + `messages` subcollection with deterministic sorted-pair ids, participant-gated rules (scalar `participantA/B` checks — see §2). `/chat` (inverted FlatList, composer, peer identity from `meta`/tutor profile) + `/messages` hub; wired from the student enrollment card's "Message" CTA and both dashboards' headers. Rules deployed + 13 `test:rules` checks. |
+| 7.5 Saved tutors | ✅ Done | `services/savedTutors/` domain — `savedTutors` uid-key map on `users/{uid}/studentProfile/default` (owner subcollection rules already cover it; no rules change). Toggle via `deleteField()` in one `setDoc(merge)`. Heart on `TutorDetailsScreen` + `/saved-tutors` list (TutorCard, live feed) replace the old "Coming soon" alert. |
+| 7.6 Payments, Payouts, Help | ✅ Done | `services/paymentMethods/` domain — student `paymentMethods` map + tutor single `payoutMethod` on the profile docs, zero-commission direct-payment model (eSewa/Khalti/IME Pay/bank, shared `PaymentMethodForm`). `/payment-methods` (list + add/remove), `/payouts` (method + live roster × `monthlyRateNpr` earnings), `/help-support` (FAQ + mailto). Share on `TutorDetailsScreen` now uses the native `Share.share`; group-batch pricing card messages the tutor; session CTAs open the enroll sheet. All "Coming soon" alerts removed from student/tutor profiles. |
 | 8 Admin user lifecycle | ✅ Done | Lifecycle: suspend / soft delete / **restore** (`status: active`, `deletedAt: null`) from `UserManagement.tsx`; "Delete permanently" (`lib/admin/userLifecycle.ts`) purges Firestore via `isAdmin()` rules grants + best-effort Supabase object removal. **Auth guard**: `src/app/_layout.tsx` reads `users/{uid}.status` inside `onAuthStateChanged` and signs out `deleted`/`suspended` accounts with an "Access Denied" alert — they can't reach any app screen. Firebase Auth identity deletion is server-side only: `scripts/deleteUser.ts` (`npm run delete:user`) — needs `GOOGLE_APPLICATION_CREDENTIALS` + service-role key, ends with a "cannot be undone" confirmation. |
 
 See `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`

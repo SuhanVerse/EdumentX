@@ -7,6 +7,9 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/**',
+      // Expo-generated route types — rebuilt on every `expo start`;
+      // gitignored and not source.
+      '.expo/**',
       // Deno edge functions — `jsr:`/`npm:` specifiers are not
       // resolvable by the Node-based linter.
       'supabase/**',

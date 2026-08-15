@@ -135,13 +135,6 @@ export function EditTutorProfile() {
   const isLocked =
     verificationStatus === "pending" || hasPendingUpdateLocal;
 
-  function showComingSoon(feature: string) {
-    Alert.alert(
-      "Coming soon",
-      `${feature} will be available in a future update.`,
-    );
-  }
-
   /**
    * Persist a single live-editable field to the profile doc. Used
    * by the EditableField `onCommit` handlers. Writes are scoped to
@@ -307,8 +300,8 @@ export function EditTutorProfile() {
       Alert.alert(
         "Profile is locked",
         verificationStatus === "pending"
-          ? "Your account is still being reviewed. You'll be able to update your photo once it's approved."
-          : "Your recent profile changes are under review. You'll be able to update your photo once the review is complete.",
+          ? "Photos unlock once your profile is approved."
+          : "Photo updates are paused while changes are under review.",
       );
       return;
     }
@@ -571,8 +564,8 @@ export function EditTutorProfile() {
           </View>
           <Text className="text-caption text-text-muted mt-2 px-1">
             {hasPendingUpdateLocal
-              ? "Editing is paused while your previous changes are under review."
-              : "Changes to your teaching details require admin re-review before they go live."}
+              ? "Editing paused — pending admin review."
+              : "Teaching details require admin approval to go live."}
           </Text>
         </View>
 
@@ -627,12 +620,12 @@ export function EditTutorProfile() {
             <MenuRow
               icon="card-outline"
               label="Payouts"
-              onPress={() => showComingSoon("Payouts")}
+              onPress={() => router.push("/payouts" as never)}
             />
             <MenuRow
               icon="help-circle-outline"
               label="Help & support"
-              onPress={() => showComingSoon("Help & support")}
+              onPress={() => router.push("/help-support" as never)}
               last
             />
           </View>

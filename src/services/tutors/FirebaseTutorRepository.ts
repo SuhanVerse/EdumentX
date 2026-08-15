@@ -12,6 +12,14 @@
  * `EXPO_PUBLIC_USE_MOCK_DATA !== "true"`.
  */
 
+import { getApp } from "@react-native-firebase/app";
+import {
+  collectionGroup,
+  getFirestore,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
+import type { Unsubscribe } from "@react-native-firebase/firestore";
+
 import {
   subscribeTutors as firestoreSubscribeTutors,
   fetchTutorProfile as firestoreFetchTutorProfile,
@@ -73,6 +81,66 @@ function toCanonicalListing(t: FirestoreTutorListing): TutorListing {
  */
 let latestSnapshot: TutorListing[] = [];
 
+// ─── Live rating aggregates ──────────────────────────────────────────────────
+
+/**
+ * Live per-tutor rating + count, aggregated from the `reviews`
+ * collectionGroup (`reviews/{tutorUid}/reviews/{reviewId}`).
+ *
+ * Why an overlay instead of the discovery doc's fields: the
+ * `tutors/{uid}` docs only mirror `rating`/`reviewCount` at approval
+ * time, and the rules make them admin-write-only (students can't
+ * bump them when they submit a review). Overlaying the live
+ * aggregates keeps the student-facing cards honest without any
+ * rules change. One subscription covers every tutor; `status !=
+ * "active"` rows and `_namespaceAnchor` placeholder docs are
+ * skipped. Fallback when a tutor has no reviews: the discovery
+ * doc's (zero) values pass through untouched.
+ */
+type ReviewAggregate = { rating: number; count: number };
+
+let latestAggregates = new Map<string, ReviewAggregate>();
+
+function subscribeReviewAggregates(
+  onData: (aggregates: Map<string, ReviewAggregate>) => void,
+): Unsubscribe {
+  const db = getFirestore(getApp());
+  return onSnapshot(
+    collectionGroup(db, "reviews"),
+    (snap) => {
+      const sums = new Map<string, { sum: number; count: number }>();
+      snap.docs.forEach((d) => {
+        const data = d.data() as {
+          tutorUid?: string;
+          status?: string;
+          score?: unknown;
+        };
+        if (!data.tutorUid || data.status !== "active") return;
+        const score = typeof data.score === "number" ? data.score : 0;
+        const bucket = sums.get(data.tutorUid) ?? { sum: 0, count: 0 };
+        bucket.sum += score;
+        bucket.count += 1;
+        sums.set(data.tutorUid, bucket);
+      });
+      const aggregates = new Map<string, ReviewAggregate>();
+      sums.forEach((bucket, uid) => {
+        aggregates.set(uid, {
+          rating: bucket.sum / bucket.count,
+          count: bucket.count,
+        });
+      });
+      latestAggregates = aggregates;
+      onData(aggregates);
+    },
+    (err) => {
+      console.warn(
+        "TutorRepository: reviews aggregate subscribe failed",
+        err,
+      );
+    },
+  );
+}
+
 export const FirebaseTutorRepository: TutorRepository = {
   /**
    * Subscribe to the live Firestore tutor list. Caches the latest
@@ -80,14 +148,34 @@ export const FirebaseTutorRepository: TutorRepository = {
    * interface doc).
    */
   subscribeTutors(onData, onError) {
-    return firestoreSubscribeTutors(
+    // Two live sources merged into one emission stream: the approved
+    // tutor list (discovery docs) + the reviews collectionGroup for
+    // live rating/reviewCount. `emit` re-fires on either snapshot;
+    // listings without an aggregate keep their discovery values.
+    let latest: TutorListing[] = [];
+    const emit = () => {
+      const merged = latest.map((t) => {
+        const agg = latestAggregates.get(t.uid);
+        return agg
+          ? { ...t, rating: agg.rating, reviewCount: agg.count }
+          : t;
+      });
+      latestSnapshot = merged;
+      onData(merged);
+    };
+
+    const unsubTutors = firestoreSubscribeTutors(
       (firestoreList) => {
-        const canonical = firestoreList.map(toCanonicalListing);
-        latestSnapshot = canonical;
-        onData(canonical);
+        latest = firestoreList.map(toCanonicalListing);
+        emit();
       },
       onError,
     );
+    const unsubReviews = subscribeReviewAggregates(() => emit());
+    return () => {
+      unsubTutors();
+      unsubReviews();
+    };
   },
 
   /**

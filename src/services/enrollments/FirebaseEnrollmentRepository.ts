@@ -313,7 +313,29 @@ async function safeEnrolledCount(
   return typeof data?.enrolledCount === "number" ? data.enrolledCount : 0;
 }
 
-// ─── Tutor name resolution ──────────────────────────────────────────────────
+// ─── Tutor identity resolution ──────────────────────────────────────────────
+
+/**
+ * Cache of tutor display identity (name + avatar) for the student's
+ * "My Enrollments" view. The roster doc snapshots the STUDENT's own
+ * name/avatar, not the tutor's — so the student subscription resolves
+ * each tutor from their PUBLIC `users/{uid}/tutorProfile/default`
+ * doc (signed-in users can read tutor profiles) and attaches it to
+ * the enrollment for the card. Cached per tutorUid so snapshots
+ * don't re-read every tutor on every emit.
+ */
+const tutorDisplayCache = new Map<
+  string,
+  { name: string; avatar: string | null }
+>();
+
+function applyTutorDisplay(list: Enrollment[]): Enrollment[] {
+  return list.map((e) => {
+    const info = tutorDisplayCache.get(e.tutorUid);
+    if (!info) return e;
+    return { ...e, tutorName: info.name, tutorAvatar: info.avatar };
+  });
+}
 
 /**
  * Read the tutor's `fullName` from the profile subdoc. Used to
@@ -586,7 +608,46 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         });
         // Newest first
         enrollments.sort((a, b) => b.acceptedAt - a.acceptedAt);
-        onData(enrollments);
+        // Emit immediately with whatever tutor identity is already
+        // cached, then backfill the missing tutors (public profile
+        // read) and emit again — the card flips from the generic
+        // placeholder to the real name/photo as soon as it lands.
+        onData(applyTutorDisplay(enrollments));
+        const missingTutorUids = [
+          ...new Set(
+            enrollments
+              .map((e) => e.tutorUid)
+              .filter((uid) => uid.length > 0 && !tutorDisplayCache.has(uid)),
+          ),
+        ];
+        if (missingTutorUids.length > 0) {
+          void (async () => {
+            await Promise.all(
+              missingTutorUids.map(async (tutorUid) => {
+                try {
+                  const tutorSnap = await getDoc(
+                    doc(db, "users", tutorUid, "tutorProfile", "default"),
+                  );
+                  const d = tutorSnap.data() as
+                    | { fullName?: unknown; photoUrl?: unknown }
+                    | undefined;
+                  tutorDisplayCache.set(tutorUid, {
+                    name:
+                      typeof d?.fullName === "string" ? d.fullName : "",
+                    avatar:
+                      typeof d?.photoUrl === "string" ? d.photoUrl : null,
+                  });
+                } catch {
+                  tutorDisplayCache.set(tutorUid, {
+                    name: "",
+                    avatar: null,
+                  });
+                }
+              }),
+            );
+            onData(applyTutorDisplay(enrollments));
+          })();
+        }
       },
       (err) => {
         console.warn(
@@ -612,15 +673,48 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     // the student types their preferred days/times into the
     // `schedule` text and the tutor reads it on the inbox card.
     // See `firestore.rules` for the matching create-rule.
+    //
+    // Identity aggregation: the caller's `student` block may be
+    // sparse (the sheet sends empty name/grade/avatar), so we
+    // snapshot the student's OWN profile subdoc here — the owner
+    // can always read it — and fill any missing fields. The tutor's
+    // inbox card then renders the real name, grade, and photo
+    // without a second read. (Legacy requests already in Firestore
+    // with a null avatar are backfilled by
+    // `scripts/backfillRequestAvatars.ts`.)
+    const profileRef = doc(db, "users", input.studentUid, "studentProfile", "default");
+    const profileSnap = await getDoc(profileRef);
+    const profile = profileSnap.data() as
+      | { fullName?: unknown; grade?: unknown; photoUrl?: unknown }
+      | undefined;
+    const fillName =
+      input.student.name.trim().length > 0
+        ? input.student.name.trim()
+        : typeof profile?.fullName === "string"
+          ? profile.fullName
+          : "";
+    const fillGrade =
+      input.student.grade.trim().length > 0
+        ? input.student.grade.trim()
+        : typeof profile?.grade === "string"
+          ? profile.grade
+          : "";
+    const fillAvatar =
+      typeof input.student.avatar === "string" && input.student.avatar.length > 0
+        ? input.student.avatar
+        : typeof profile?.photoUrl === "string" && profile.photoUrl.length > 0
+          ? profile.photoUrl
+          : null;
+
     const ref = doc(collection(db, "enrollmentRequests", input.tutorUid, "requests"));
     const requestId = ref.id;
     await setDoc(ref, {
       requestId,
       tutorUid: input.tutorUid,
       studentUid: input.studentUid,
-      studentName: input.student.name,
-      studentGrade: input.student.grade,
-      studentAvatar: input.student.avatar,
+      studentName: fillName,
+      studentGrade: fillGrade,
+      studentAvatar: fillAvatar,
       subjects: input.subjects,
       schedule: input.schedule,
       startDate: input.startDate,
@@ -965,6 +1059,29 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
             [slot]: status,
           },
         },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  },
+
+  async saveAvailability(tutorUid, availability) {
+    const db = getFirestore(getApp());
+    const profileRef = doc(
+      db,
+      "users",
+      tutorUid,
+      "tutorProfile",
+      "default",
+    );
+    // Whole-map replace under `availability` — the profile rule
+    // (`isOwner(userId) || isAdmin()`) permits any field write, and
+    // a full-week draft is exactly what the capacity screen's
+    // "Save changes" flushes.
+    await setDoc(
+      profileRef,
+      {
+        availability,
         updatedAt: serverTimestamp(),
       },
       { merge: true },

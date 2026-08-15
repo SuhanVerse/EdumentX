@@ -188,6 +188,13 @@ export type Enrollment = {
   removeReason: string | null;
   /** Back-reference to the originating `enrollmentRequests/{id}`. */
   requestId: string;
+  /** Enriched display info for the STUDENT's "My Enrollments" view:
+   *  the roster doc snapshots the student's own name/avatar, so the
+   *  tutor's identity is resolved separately (public tutor-profile
+   *  read) during `subscribeEnrollmentsByStudent`. Undefined on the
+   *  tutor's own roster subscription (not needed there). */
+  tutorName?: string;
+  tutorAvatar?: string | null;
 };
 
 // ─── Batches ────────────────────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import {
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   Text,
   TextInput,
@@ -21,13 +20,10 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 
-import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { TutorCard } from "@/components/domain/TutorCard";
-import { logout } from "@/services/firebase/authService";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
-import { useAiChatStore } from "@/store/aiChatStore";
 import {
   getTutorRepository,
   type TutorListing,
@@ -39,41 +35,14 @@ import { createDefaultTutorProfile } from "@/lib/tutor/types";
  *
  * Reads the live user doc (`users/{uid}`) and profile subcollection
  * (`users/{uid}/studentProfile/default`) on mount and re-renders if
- * the user edits their profile. Tutor discovery is wired in Phase 5
- * via a `tutors` collection query — until then, this surface shows a
- * professional empty state instead of fake placeholder names.
+ * the user edits their profile. Logout lives on the Profile tab
+ * (`/stu-profile`) — it is the only sign-out surface.
  */
 
 type Profile = {
   fullName: string;
   locationLabel: string;
 };
-
-/**
- * Sign the user out, clear the local auth store, and route back to the
- * auth screen. Calls the Firebase `logout()` helper, then drops the
- * cached `user` / `role` from the local Zustand store so the layout
- * guard immediately redirects on the next render.
- */
-async function handleSignOut(router: ReturnType<typeof useRouter>) {
-  try {
-    await logout();
-    useAuthStore.getState().reset();
-    // Wipe the AI chat session (history + constraint pills) so a
-    // different user logging in on this device never inherits the
-    // previous account's conversation context.
-    useAiChatStore.getState().resetSession();
-  } catch (err) {
-    console.error("StudentHome: sign-out failed", err);
-    Alert.alert("Could not sign out", "Please try again.");
-    return;
-  }
-  // Replace the dashboard in the history stack so the user can't
-  // swipe-back into it. `replace` is mandatory — `push` would leave the
-  // dashboard mounted under /email-signup and the layout guard would
-  // bounce back to the dashboard on the next render.
-  router.replace("/email-signup");
-}
 
 /**
  * Resolve the display name shown in the dashboard greeting.
@@ -123,7 +92,6 @@ function resolveLocationLabel(
 export function StudentHome() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Live reads from Firestore. We hold them in local state and
   // subscribe via `onSnapshot` so the dashboard re-renders if the
@@ -220,7 +188,17 @@ export function StudentHome() {
               </Text>
             </View>
           </View>
-          <NotificationBell tone="light" />
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Messages"
+              onPress={() => router.push("/messages" as never)}
+              className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={19} color="#2F5D50" />
+            </Pressable>
+            <NotificationBell tone="light" />
+          </View>
         </View>
 
         {/* Location */}
@@ -332,70 +310,9 @@ export function StudentHome() {
           )}
         </View>
 
-        {/* Sign out — required because there's no other way to clear the
-            native Firebase Auth session from inside a flat-route app
-            with no tab navigator. Confirms before destroying the
-            session so an accidental tap doesn't log the user out. */}
-        <View className="pb-2">
-          <StudentHomeLogOut
-            isSigningOut={isSigningOut}
-            onPress={() => {
-              if (isSigningOut) return;
-              Alert.alert(
-                "Log out?",
-                "You'll need to sign in again next time.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Log out",
-                    style: "destructive",
-                    onPress: () => {
-                      setIsSigningOut(true);
-                      handleSignOut(router).finally(() =>
-                        setIsSigningOut(false),
-                      );
-                    },
-                  },
-                ],
-              );
-            }}
-          />
-        </View>
       </ScreenScroll>
 
       <BottomNav role="student" current="/student-home" tone="light" />
     </ScreenLayout>
-  );
-}
-
-function StudentHomeLogOut({
-  isSigningOut,
-  onPress,
-}: {
-  isSigningOut: boolean;
-  onPress: () => void;
-}) {
-  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
-  return (
-    <AnimatedPressable
-      accessibilityRole="button"
-      accessibilityLabel="Log out"
-      accessibilityState={{ busy: isSigningOut }}
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={animatedStyle}
-      disabled={isSigningOut}
-      className="min-h-btn rounded-2xl items-center justify-center flex-row gap-2 bg-surface border border-border"
-    >
-      {isSigningOut ? (
-        <ActivityIndicator size="small" color="#6B7280" />
-      ) : (
-        <Ionicons name="log-out-outline" size={18} color="#C1503D" />
-      )}
-      <Text className="text-button font-semibold text-danger">
-        {isSigningOut ? "Logging out..." : "Log out"}
-      </Text>
-    </AnimatedPressable>
   );
 }

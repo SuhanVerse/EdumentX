@@ -214,7 +214,7 @@ EdumentX/
 │   ├── admin/
 │   │   ├── AdminHome.tsx        # Admin dashboard
 │   │   ├── AdminProfile.tsx     # Admin profile setup
-│   │   ├── PlatformStatistics.tsx   # Analytics (mock data)
+│   │   ├── PlatformStatistics.tsx   # Live Firestore count aggregations
 │   │   ├── UserManagement.tsx   # User management
 │   │   └── VerificationQueue.tsx    # Tutor verification
 │   └── shared/
@@ -389,10 +389,9 @@ EdumentX/
 
 #### `screens/student/MapSearch.tsx`
 
-- Map placeholder — "Google Maps integration coming soon"
-- Search bar + filter button
-- Opens `FiltersSheet` as inline Modal (not a route)
-- Skeleton hint cards for placeholder tutor pins
+- Live `expo-maps` native map with clustered teardrop/avatar pins
+- Search bar + filter button (opens `FiltersSheet` as inline Modal)
+- GPS default camera + Nepal bounds lock; horizontal nearby-tutor carousel
 - `BottomNav` at bottom
 
 #### `screens/student/AIChat.tsx`
@@ -406,9 +405,9 @@ EdumentX/
 #### `screens/student/Enrollment.tsx`
 
 - Three tabs: Active / Pending / Past
-- Mock data from `@/data/mockData`
-- Batch invitation cards
-- Rate & Review / Message tutor — "Coming soon" alerts
+- Live Firestore via `subscribeEnrollmentsByStudent` / `subscribeRequestsByStudent`
+- Rate & Review opens the review modal (writes `reviews/{tutorUid}/reviews`)
+- Message tutor navigates to `/chat` (1:1 messaging — `services/messages/`)
 
 #### `screens/student/StudentProfile.tsx`
 
@@ -416,7 +415,7 @@ EdumentX/
 - Live Firestore read on mount
 - Editable fields via `EditableField` component
 - Notifications row → routes to `/notification`
-- Menu rows (Saved tutors, Payment methods) → "Coming soon"
+- Menu rows (Saved tutors, Payment methods) remain "Coming soon" placeholders
 - Logout via `ConfirmDialog` overlay
 - `BottomNav` at bottom
 
@@ -436,11 +435,11 @@ EdumentX/
 - 2×2 metric grid (Active students, Rating, Pending requests, Monthly earnings)
 - Capacity bar with color thresholds
 - Profile completion bar
-- Today's sessions (mock data)
-- Pending enrollment requests + batch requests with Accept/Decline actions
-- Group batch CTA
+- Today's sessions (derived live from the roster via `deriveTodaySessions`)
+- Pending enrollment requests (live subscription, filtered to pending)
+- Group batch CTA → `/batches`; quick actions → inbox/batches/availability/messages
 - `ReviewBanner` shows at top when verification is pending/rejected/more_info
-- Availability toggle (local state)
+- Availability toggle backed by `tutors/{uid}.isAvailableForNewStudents`
 - `TutorBottomBar` at bottom
 
 #### `screens/tutor/tutor_inbox.tsx`
@@ -484,8 +483,7 @@ EdumentX/
 #### `screens/admin/AdminHome.tsx`
 
 - Three section cards: Platform Statistics, Verification Queue, User Management
-- Live display name from Firestore `onSnapshot`
-- Count badges (mock data for now)
+- Live display name from Firestore `onSnapshot`; live active/suspended user counts
 - `AdminNav` at bottom
 
 #### `screens/admin/VerificationQueue.tsx`

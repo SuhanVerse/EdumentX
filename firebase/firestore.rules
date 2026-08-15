@@ -351,20 +351,49 @@ service cloud.firestore {
       // denormalized `enrolledCount` against the 6-student cap
       // (`max(profile.studentCapacity, 6)` so a tutor who left the
       // legacy default `studentCapacity = 0` still gets a safety net).
+      //
+      // Legacy profiles may predate the denormalized counters and
+      // have NO `enrolledCount` / `studentCapacity` field at all — a
+      // strict `int >= int` comparison would then evaluate against
+      // `undefined` and hard-deny every create (the "acceptRequest
+      // permission-denied" bug, Aug 2026). Coerce missing values to
+      // 0 so the cap defaults to 6, mirroring the client-side
+      // `num()` / `MAX_CAPACITY` defaults in
+      // `FirebaseEnrollmentRepository.acceptRequest`.
       allow create: if isSignedIn()
         && request.resource.data.tutorUid == request.auth.uid
         && request.resource.data.tutorUid == tutorUid
         && request.resource.data.status == "active"
-        && get(
-          /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-        ).data.enrolledCount
-          < (get(
+        && (
+          'enrolledCount' in get(
             /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-          ).data.studentCapacity >= 6
+          ).data
             ? get(
               /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-            ).data.studentCapacity
-            : 6);
+            ).data.enrolledCount
+            : 0
+        )
+          < (
+            (
+              'studentCapacity' in get(
+                /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+              ).data
+                ? get(
+                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                ).data.studentCapacity
+                : 0
+            ) >= 6
+              ? (
+                'studentCapacity' in get(
+                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                ).data
+                  ? get(
+                    /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                  ).data.studentCapacity
+                  : 0
+              )
+              : 6
+          );
       // Update: the tutor can flip status / removedAt / removeReason
       // (the three fields touched by `removeEnrollment`).
       allow update: if isSignedIn()
@@ -403,6 +432,70 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if isSignedIn()
           && get(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // 1:1 messaging — conversations/{conversationId} + messages
+    // ────────────────────────────────────────────────────────────────────
+    //
+    // Deterministic conversation ids (sorted participant pair joined
+    // with `__` — see services/messages/types.ts), so either side
+    // addresses the same doc without a query. Membership is checked
+    // via two SCALAR fields (`participantA` / `participantB` = the
+    // sorted pair) — scalar equality against `request.auth.uid` is the
+    // battle-tested operator in this file, and list-membership ops
+    // (`in` / `hasAny` / index access) fail the local rules emulator
+    // with "Null value error" for doc-sourced lists (firebase-tools
+    // 15.18 emulator quirk). The `participants` ARRAY still exists
+    // for the SDK's `where participants array-contains uid` hub query.
+    //
+    // NOTE: bare `auth.uid` also hits that emulator null-value bug —
+    // every check here uses `request.auth.uid`, matching the rest of
+    // this rules file.
+    match /conversations/{conversationId} {
+      // `resource == null` matters: the chat screen subscribes to a
+      // conversation doc that does NOT exist yet (before the first
+      // message). Accessing `resource.data.X` on a missing doc THROWS
+      // in rules, which surfaces as `permission-denied` instead of an
+      // empty snapshot. Allow the (empty) read of a nonexistent doc;
+      // existing docs still require participant membership.
+      allow read: if isSignedIn()
+        && (resource == null
+            || resource.data.participantA == request.auth.uid
+            || resource.data.participantB == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && (request.resource.data.participantA == request.auth.uid
+            || request.resource.data.participantB == request.auth.uid);
+      // Participants may bump lastMessage / their own meta entry;
+      // non-participants can never touch the thread.
+      allow update: if isSignedIn()
+        && (resource.data.participantA == request.auth.uid
+            || resource.data.participantB == request.auth.uid);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        // Same missing-parent guard: the messages subcollection query
+        // runs while the conversation doc may not exist yet.
+        allow read: if isSignedIn() && (
+          !exists(/databases/$(database)/documents/conversations/$(conversationId))
+          || get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.participantA == request.auth.uid
+          || get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.participantB == request.auth.uid
+        );
+        allow create: if isSignedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantA == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantB == request.auth.uid);
+        allow update, delete: if false;
       }
     }
 

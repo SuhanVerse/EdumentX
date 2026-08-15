@@ -602,6 +602,15 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     emitAvailability(s);
   },
 
+  async saveAvailability(tutorUid, availability) {
+    const s = getStore(tutorUid);
+    s.availability = {
+      ...s.availability,
+      ...availability,
+    };
+    emitAvailability(s);
+  },
+
   async createBatch(input: CreateBatchInput) {
     const s = getStore(input.tutorUid);
     const batchId = `batch-${Date.now()}`;

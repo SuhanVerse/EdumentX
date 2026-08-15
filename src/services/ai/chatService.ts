@@ -219,7 +219,11 @@ export async function sendChatMessage(
 
   let idToken: string;
   try {
-    idToken = await currentUser.getIdToken();
+    // Explicit forceRefresh=false: call the METHOD (not the legacy
+    // property-style accessor) — RNFirebase's modular-deprecation shim
+    // warns if the namespace form is used. We don't force a refresh
+    // here; the cached token is fine for the Edge Function call.
+    idToken = await currentUser.getIdToken(false);
   } catch {
     throw new ChatServiceError(
       "Failed to authenticate. Please try signing in again.",

@@ -18,7 +18,7 @@ import {
   type Unsubscribe,
 } from "@react-native-firebase/firestore";
 
-import type { Review } from "@/lib/tutor/types";
+import type { CategoryRatings, Review } from "@/lib/tutor/types";
 import type {
   ReviewRepository,
   SubmitReviewInput,
@@ -55,7 +55,23 @@ function mapReviewDoc(
     rating: clampScore(raw.score),
     timestamp: formatTimestamp(raw.createdAt),
     comment: typeof raw.comment === "string" ? raw.comment : "",
+    categoryRatings: mapCategoryRatings(raw.categoryRatings),
   };
+}
+
+/** Map the per-axis scores (optional on legacy docs). */
+function mapCategoryRatings(
+  raw: unknown,
+): CategoryRatings | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const record = raw as Record<string, unknown>;
+  const all = CATEGORY_KEYS.every((key) => key in record);
+  if (!all) return undefined;
+  const out = {} as CategoryRatings;
+  for (const key of CATEGORY_KEYS) {
+    out[key] = clampScore(record[key]);
+  }
+  return out;
 }
 
 function formatTimestamp(value: unknown): string {

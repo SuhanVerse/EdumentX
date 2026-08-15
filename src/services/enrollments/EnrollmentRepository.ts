@@ -275,6 +275,15 @@ export interface EnrollmentRepository {
     status: SlotStatus,
   ): Promise<void>;
 
+  /** Bulk-write the full weekly availability map (replace). Used by
+   *  the capacity screen's explicit "Save changes" flow, which
+   *  accumulates edits in local state and flushes them in one
+   *  write instead of one round-trip per cell tap. */
+  saveAvailability(
+    tutorUid: string,
+    availability: WeeklyAvailability,
+  ): Promise<void>;
+
   /** Atomic batch creation with seed members. */
   createBatch(input: CreateBatchInput): Promise<{ batchId: string }>;
 

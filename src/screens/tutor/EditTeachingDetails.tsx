@@ -506,8 +506,7 @@ export function EditTeachingDetails() {
           </View>
         </View>
         <Text className="text-caption text-text-secondary mt-2">
-          Changes here go back to the verification team for a re-review.
-          You can keep using the rest of EdumentX while we look at them.
+          Changes are reviewed before going live.
         </Text>
       </View>
 
@@ -591,7 +590,7 @@ export function EditTeachingDetails() {
                 Qualifications
               </Text>
               <Text className="text-caption text-text-secondary -mt-2">
-                Changing your qualifications requires admin re-approval.
+                Admin approval required.
               </Text>
 
               {/* Degree — SearchableSelect with curated qualifications */}
@@ -632,9 +631,8 @@ export function EditTeachingDetails() {
                 Verification documents
               </Text>
               <Text className="text-caption text-text-muted">
-                {TUTOR_DOC_LABEL.citizenship} and{" "}
-                {TUTOR_DOC_LABEL.certificate} are required. {TUTOR_DOC_LABEL.demo}{" "}
-                is optional. Replace a slot to re-upload that document.
+                {TUTOR_DOC_LABEL.citizenship} &amp; {TUTOR_DOC_LABEL.certificate}{" "}
+                required · {TUTOR_DOC_LABEL.demo} optional.
               </Text>
               <DocumentUploader
                 kind="citizenship"
@@ -685,12 +683,12 @@ export function EditTeachingDetails() {
                 hint to the tutor what's actually changing. */}
             <View className="mt-6 p-4 rounded-card bg-warning-bg border border-warning/30">
               <Text className="text-button-sm font-medium text-warning-text">
-                Heads up
+                {hasChanges ? "Pending admin approval" : "No changes yet"}
               </Text>
-              <Text className="text-caption text-warning-text mt-1 leading-relaxed">
+              <Text className="text-caption text-warning-text mt-1">
                 {hasChanges
-                  ? "Your changes will be sent to the verification team. Your live profile stays the same until they approve."
-                  : "Nothing has changed yet. Edit the fields above and tap Save changes."}
+                  ? "Your live profile stays as-is until approved."
+                  : "Edit the fields above, then tap Save changes."}
               </Text>
             </View>
 

@@ -24,6 +24,7 @@ import {
   Image,
   Pressable,
   ScrollView,
+  Share,
   Text,
   View,
 } from "react-native";
@@ -38,12 +39,16 @@ import { AnimatedPressable, usePressScale, useShake } from "@/components/motion"
 import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
 import {
+  type CategoryRatings,
   type TutorProfile,
   type TutorSession,
   type Review,
 } from "@/lib/tutor/types";
 import { fetchTutorProfile } from "@/services/tutors/dataSource";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
+import { getSavedTutorsRepository } from "@/services/savedTutors/dataSource";
+import { useAuthStore } from "@/store/authStore";
 import {
   type AvailabilitySnapshot,
   type Batch,
@@ -97,6 +102,79 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
   );
 }
 
+const CATEGORY_KEYS = [
+  "teaching",
+  "punctuality",
+  "communication",
+  "knowledge",
+  "overall",
+] as const;
+
+/**
+ * Merge live review data over a fetched profile. The profile doc
+ * only mirrors aggregates (written transactionally by submitReview),
+ * and legacy profiles predate the fields entirely — the reviews
+ * collection (`reviews/{tutorUid}/reviews`) is the canonical source.
+ * When the live list is empty we keep the profile's values as-is
+ * (so the screen never flashes zeros while the snapshot is in
+ * flight).
+ */
+function mergeLiveReviews(
+  profile: TutorProfile,
+  liveReviews: Review[],
+): TutorProfile {
+  if (liveReviews.length === 0) return profile;
+
+  const breakdown: Record<1 | 2 | 3 | 4 | 5, number> = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+  const categorySums: Partial<CategoryRatings> = {};
+  let categoryCount = 0;
+  let ratingSum = 0;
+
+  for (const r of liveReviews) {
+    ratingSum += r.rating;
+    const star = Math.min(5, Math.max(1, Math.round(r.rating))) as
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5;
+    breakdown[star] += 1;
+    if (r.categoryRatings) {
+      for (const key of CATEGORY_KEYS) {
+        categorySums[key] =
+          (categorySums[key] ?? 0) + r.categoryRatings[key];
+      }
+      categoryCount += 1;
+    }
+  }
+
+  // Category averages only when at least one review carried the
+  // per-axis scores; otherwise keep the profile mirror's values.
+  const categoryRatings: CategoryRatings = {
+    ...profile.categoryRatings,
+  };
+  if (categoryCount > 0) {
+    for (const key of CATEGORY_KEYS) {
+      categoryRatings[key] = (categorySums[key] ?? 0) / categoryCount;
+    }
+  }
+
+  return {
+    ...profile,
+    rating: ratingSum / liveReviews.length,
+    reviewCount: liveReviews.length,
+    reviewBreakdown: breakdown,
+    categoryRatings,
+    reviews: liveReviews,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main Screen
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -108,7 +186,28 @@ export function TutorDetailsScreen() {
 
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [isSaved, setIsSaved] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const isSaved = !!id && savedIds.includes(id);
+
+  function handleSaveToggle() {
+    const uid = user?.uid;
+    if (!uid || !id) return;
+    // Optimistic flip — the onSnapshot round-trip reconciles if the
+    // write fails.
+    setSavedIds((prev) =>
+      isSaved
+        ? prev.filter((x) => x !== id)
+        : prev.includes(id)
+          ? prev
+          : [...prev, id],
+    );
+    getSavedTutorsRepository()
+      .toggleSavedTutor(uid, id, isSaved)
+      .catch((err) =>
+        console.warn("TutorDetailsScreen: save toggle failed", err),
+      );
+  }
   const [bioExpanded, setBioExpanded] = useState(false);
   const [demoVideoVisible, setDemoVideoVisible] = useState(false);
   const [enrollSheetVisible, setEnrollSheetVisible] = useState(false);
@@ -137,6 +236,10 @@ export function TutorDetailsScreen() {
     () => new Set(),
   );
   const [requests, setRequests] = useState<EnrollmentRequest[]>([]);
+  // Live reviews — the canonical source for rating, count, breakdown
+  // and the review list (the fetched profile only mirrors
+  // aggregates). Merged over the profile via `mergeLiveReviews`.
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   // Fetch the tutor profile from Firestore on mount
   useEffect(() => {
@@ -156,6 +259,48 @@ export function TutorDetailsScreen() {
       })
       .finally(() => setProfileLoading(false));
   }, [id]);
+
+  // Live reviews subscription — drives the Reviews & Ratings section
+  // and the header stats straight from the reviews collection.
+  useEffect(() => {
+    if (!id) return;
+    const unsub = getReviewRepository().subscribeReviews(
+      id,
+      (list) => setReviews(list),
+      (err) =>
+        console.warn(
+          "TutorDetailsScreen: reviews subscribe failed",
+          err,
+        ),
+    );
+    return unsub;
+  }, [id]);
+
+  // Overlay the live reviews onto the fetched profile. Falls back to
+  // the profile's own (mirrored) fields while the snapshot is in
+  // flight or when there are no reviews yet.
+  const displayTutor = useMemo(
+    () => (tutor ? mergeLiveReviews(tutor, reviews) : tutor),
+    [tutor, reviews],
+  );
+
+  // Live saved-tutors subscription — the heart mirrors the
+  // `savedTutors` map on the student's own profile doc, so it stays
+  // in lock-step with the Saved Tutors list screen.
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) return;
+    const unsub = getSavedTutorsRepository().subscribeSavedTutorIds(
+      uid,
+      setSavedIds,
+      (err) =>
+        console.warn(
+          "TutorDetailsScreen: saved-tutors subscribe failed",
+          err,
+        ),
+    );
+    return unsub;
+  }, [user?.uid]);
 
   // Live availability subscription. The repo emits
   // `{ availability, enrolledCount, studentCapacity }`; we only
@@ -343,13 +488,19 @@ export function TutorDetailsScreen() {
     );
   }
 
+  // Non-null after the guards above; carries the live-review overlay.
+  const effectiveTutor = displayTutor ?? tutor;
+
   return (
     <ScreenLayout variant="background">
       {/* Fixed top bar — stays in place while content scrolls underneath */}
       <TopBar
         isSaved={isSaved}
-        onSaveToggle={() => setIsSaved(!isSaved)}
+        onSaveToggle={handleSaveToggle}
         onBack={() => router.back()}
+        shareMessage={`${effectiveTutor.fullName} — ${effectiveTutor.headline} · ${formatNprShort(
+          effectiveTutor.monthlyRateNpr,
+        )}/month on EdumentX`}
       />
 
       <ScrollView
@@ -362,16 +513,31 @@ export function TutorDetailsScreen() {
         bounces
       >
         {/* ═══ SECTION 1: Profile Header ═══ */}
-        <ProfileHeader tutor={tutor} />
+        <ProfileHeader tutor={effectiveTutor} />
 
         {/* ═══ SECTION 2: Pricing ═══ */}
         <View className={SECTION_GAP}>
-          <PricingSection tutor={tutor} />
+          <PricingSection
+            tutor={effectiveTutor}
+            onMessageTutor={() =>
+              router.push({
+                pathname: "/chat",
+                params: {
+                  peerId: tutor.id,
+                  peerName: tutor.fullName,
+                  peerAvatar: tutor.photoUrl ?? "",
+                },
+              } as never)
+            }
+          />
         </View>
 
         {/* ═══ SECTION 3: Session Board ═══ */}
         <View className={SECTION_GAP}>
-          <SessionBoardSection tutor={tutor} />
+          <SessionBoardSection
+            tutor={effectiveTutor}
+            onRequestSlot={openSheet}
+          />
         </View>
 
         {/* ═══ SECTION 3b: Weekly Availability (live) ═══ */}
@@ -388,26 +554,26 @@ export function TutorDetailsScreen() {
 
         {/* ═══ SECTION 4: About ═══ */}
         <View className={SECTION_GAP}>
-          <AboutSection tutor={tutor} expanded={bioExpanded} onToggle={() => setBioExpanded(!bioExpanded)} />
+          <AboutSection tutor={effectiveTutor} expanded={bioExpanded} onToggle={() => setBioExpanded(!bioExpanded)} />
         </View>
 
         {/* ═══ SECTION 5: Demo Lesson ═══ */}
         <View className={SECTION_GAP}>
           <DemoLessonSection
-            tutor={tutor}
+            tutor={effectiveTutor}
             onPlay={() => setDemoVideoVisible(true)}
           />
         </View>
 
         {/* ═══ SECTION 6: Reviews & Ratings ═══ */}
         <View>
-          <ReviewsSection tutor={tutor} />
+          <ReviewsSection tutor={effectiveTutor} />
         </View>
       </ScrollView>
 
       {/* ═══ SECTION 7: Sticky Footer CTA ═══ */}
       <StickyFooter
-        tutor={tutor}
+        tutor={effectiveTutor}
         insets={insets}
         openSheet={openSheet}
       />
@@ -415,15 +581,15 @@ export function TutorDetailsScreen() {
       {/* ═══ Demo Video Modal ═══ */}
       <VideoViewerModal
         visible={demoVideoVisible}
-        uri={tutor.demoVideoUrl ?? ""}
-        label={`${tutor.fullName} — demo lesson`}
+        uri={effectiveTutor.demoVideoUrl ?? ""}
+        label={`${effectiveTutor.fullName} — demo lesson`}
         onClose={() => setDemoVideoVisible(false)}
       />
 
       {/* ═══ Enroll Request Sheet ═══ */}
       <RequestEnrollmentSheet
         visible={enrollSheetVisible}
-        tutor={tutor}
+        tutor={effectiveTutor}
         onClose={handleSheetClose}
         onSubmitted={handleSheetSubmitted}
       />
@@ -439,10 +605,12 @@ function TopBar({
   isSaved,
   onSaveToggle,
   onBack,
+  shareMessage,
 }: {
   isSaved: boolean;
   onSaveToggle: () => void;
   onBack: () => void;
+  shareMessage: string;
 }) {
   return (
     <View className="px-5 pb-2 bg-background z-10">
@@ -454,7 +622,14 @@ function TopBar({
             onPress={onSaveToggle}
             color={isSaved ? colors.semantic.danger : undefined}
           />
-          <IconButton iconName="share-outline" onPress={() => Alert.alert("Share", "Share feature coming soon.")} />
+          <IconButton
+            iconName="share-outline"
+            onPress={() =>
+              Share.share({ message: shareMessage }).catch(() => {
+                // Share sheet dismissed / unsupported — nothing to do.
+              })
+            }
+          />
         </View>
       </View>
     </View>
@@ -644,7 +819,13 @@ function IconButton({
 // Section 2: Pricing
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function PricingSection({ tutor }: { tutor: TutorProfile }) {
+function PricingSection({
+  tutor,
+  onMessageTutor,
+}: {
+  tutor: TutorProfile;
+  onMessageTutor: () => void;
+}) {
   return (
     <View className={SECTION_PADDING}>
       <Text className="text-section-title font-semibold text-text-primary mb-3">
@@ -666,13 +847,23 @@ function PricingSection({ tutor }: { tutor: TutorProfile }) {
           <Text className="text-caption text-text-muted">/month</Text>
         </View>
 
-        {/* Group Batch — placeholder until pricing is finalised */}
-        <View className="flex-1 bg-surface border border-border rounded-card p-4 items-center justify-center opacity-60">
-          <Ionicons name="people-outline" size={24} color={colors.text.muted} />
-          <Text className="text-caption text-text-muted text-center mt-2">
-            Group batch coming soon
+        {/* Group Batch — ask the tutor about group rates */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ask about group batches"
+          onPress={onMessageTutor}
+          className="flex-1 bg-surface border border-border rounded-card p-4 items-center justify-center active:opacity-70"
+        >
+          <View className="w-10 h-10 rounded-lg bg-accent-soft items-center justify-center mb-3">
+            <Ionicons name="people-outline" size={20} color={colors.brand.accent} />
+          </View>
+          <Text className="text-caption text-text-muted uppercase tracking-wider">
+            Group batch
           </Text>
-        </View>
+          <Text className="text-caption text-text-muted text-center mt-2">
+            Message to ask about rates
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -682,7 +873,13 @@ function PricingSection({ tutor }: { tutor: TutorProfile }) {
 // Section 3: Session Board
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
+function SessionBoardSection({
+  tutor,
+  onRequestSlot,
+}: {
+  tutor: TutorProfile;
+  onRequestSlot: () => void;
+}) {
   const hasSessions = tutor.sessions.length > 0;
   const totalSlots = tutor.studentCapacity;
   const totalFilled = tutor.currentStudents;
@@ -719,14 +916,18 @@ function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
           {/* Session cards */}
           <View className="gap-3">
             {tutor.sessions.map((session) => (
-              <SessionCard key={session.id} session={session} />
+              <SessionCard
+                key={session.id}
+                session={session}
+                onEnroll={onRequestSlot}
+              />
             ))}
           </View>
 
           {/* Empty slot CTA */}
           <Pressable
             accessibilityRole="button"
-            onPress={() => Alert.alert("Create session", "Session creation coming soon.")}
+            onPress={onRequestSlot}
             className="mt-3 flex-row items-center gap-3 p-4 border-2 border-dashed border-border rounded-card bg-surface active:opacity-70"
           >
             <View className="w-10 h-10 rounded-pill bg-accent-soft items-center justify-center">
@@ -779,7 +980,13 @@ function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
   );
 }
 
-function SessionCard({ session }: { session: TutorSession }) {
+function SessionCard({
+  session,
+  onEnroll,
+}: {
+  session: TutorSession;
+  onEnroll: () => void;
+}) {
   const isPrivate = session.type === "private_batch";
   const fillPct = (session.seatsFilled / session.seatsTotal) * 100;
 
@@ -839,7 +1046,7 @@ function SessionCard({ session }: { session: TutorSession }) {
         </View>
         <Pressable
           accessibilityRole="button"
-          onPress={() => Alert.alert("Enroll", "Enrollment coming soon.")}
+          onPress={onEnroll}
           disabled={session.status === "full"}
           className={`px-3 py-1.5 rounded-pill ${
             session.status === "full"

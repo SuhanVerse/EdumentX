@@ -135,10 +135,14 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   firing before the navigator mounts.
 
 **Tutor dashboard + enrollments (Aug 2026):**
-- `src/screens/tutor/TutorHome.tsx` is fully live: metrics (rating,
-  reviews, response rate, monthly earnings, capacity, profile
-  completion) read from `users/{uid}/tutorProfile/default` via
-  `onSnapshot`; pending requests come from
+- `src/screens/tutor/TutorHome.tsx` is fully live: capacity +
+  active-students + monthly rate come from
+  `users/{uid}/tutorProfile/default` via `onSnapshot`; **Avg rating
+  + Reviews** are derived from the `reviews/{tutorUid}/reviews`
+  collection (`subscribeReviews`); **Response rate** = share of
+  responded requests across the full request history; **Monthly
+  revenue** = live roster × `monthlyRateNpr` (zero-budget earnings
+  proxy — no session billing). Pending requests come from
   `enrollmentRequests/{tutorUid}/requests` filtered to `pending`;
   "today's sessions" are **derived** from the live roster
   (`enrollments/{tutorUid}/roster`) — there is NO `sessions`
@@ -170,6 +174,41 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   real counts with `getCountFromServer` (users, tutors, approved
   tutors, pending enrollment requests) with loading/error/retry
   states; the fabricated `MOCK_ADMIN_STATS` module was deleted.
+- **In-app messaging is live** — `services/messages/` (messages
+  domain: `MessagesRepository` interface + Firebase/Mock impls +
+  `dataSource` selector). Schema: `conversations/{conversationId}`
+  with a `messages` subcollection; `conversationId` is the **sorted
+  participant pair joined by `__`** (`conversationKey`), so either
+  side addresses the same thread without a lookup. Each side
+  self-writes its own display `meta` (name/avatar) so the hub needs
+  no cross-user reads. Routes: `/chat` (params `peerId`,
+  optional `peerName`/`peerAvatar`) + `/messages` hub. Entries:
+  the student enrollment card's "Message" CTA, Messages header
+  buttons on both dashboards, and TutorHome's quick actions.
+  Rules caveat: list-membership ops (`in`/`hasAny`) and bare
+  `auth` fail the local emulator with "Null value error" — the
+  conversation rules use scalar `participantA`/`participantB` ==
+  `request.auth.uid` checks instead (see the comment in
+  `firebase/firestore.rules`).
+- **Saved tutors is live** — `services/savedTutors/` domain.
+  Storage: a `savedTutors` uid-key map on
+  `users/{uid}/studentProfile/default`; the heart on
+  `TutorDetailsScreen` and the `/saved-tutors` list (TutorCard wide
+  cards from the live tutor feed) both subscribe to it, and
+  `toggleSavedTutor` flips a single key with `deleteField()` in one
+  `setDoc(merge)`. No rules change was needed — the owner
+  subcollection wildcard (`match /users/{userId}/{subcollection}/
+  {document=**}`) already covers it.
+- **Payments / Payouts / Help are live** — `services/paymentMethods/`
+  domain (student `paymentMethods` map + tutor single `payoutMethod`
+  on the profile docs, zero-commission direct-payment model).
+  Screens: `/payment-methods` (list + add/remove via shared
+  `PaymentMethodForm`), `/payouts` (payout method + live earnings =
+  roster count × `monthlyRateNpr`), `/help-support` (FAQ + mailto).
+  TutorDetailsScreen share uses the native `Share.share`; the group
+  batch pricing card routes to `/chat`; session CTAs open the
+  enroll sheet. All "Coming soon" alerts in student/tutor profiles
+  are gone.
 
 **Search-visibility flag (Aug 2026):**
 - The tutor dashboard's "Available for new students / Hidden from
@@ -182,6 +221,24 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   (`firebase/firestore.rules`) lets the OWNER update only that flag
   (+ `updatedAt`) via
   `request.resource.data.diff(resource.data).affectedKeys().hasOnly(...)`.
+- **Live ratings on the cards** — the discovery docs only mirror
+  `rating`/`reviewCount` at approval time (and are admin-write-only,
+  so students can't bump them), so `FirebaseTutorRepository`
+  `subscribeTutors` overlays live aggregates from a single
+  `collectionGroup("reviews")` subscription (status == "active" docs,
+  grouped by `tutorUid`) onto every listing. One listener covers all
+  tutors; no index needed (no filters on the query).
+  `TutorDetailsScreen` does the same per-tutor: it subscribes to
+  `reviews/{uid}/reviews` and merges rating, count, star breakdown,
+  category averages and the review LIST over the fetched profile
+  (`mergeLiveReviews` in the screen), so the Reviews & Ratings
+  section shows real reviews instead of the profile doc's mirrored
+  aggregates (which never included the list). `Review` carries an
+  optional `categoryRatings` (mapped from the raw doc) to feed the
+  category averages. Note: the local
+  emulator's `runQuery` can't do `collectionGroupId` (400) — the
+  `reviewsListRulesTest.mjs` suite verifies the underlying `list`
+  rule via the document-parent query form instead.
   NOTE: `differsOnlyFrom` is NOT a real rules function — it fails
   closed; don't reintroduce it.
 - Newly-approved tutors default to visible (the admin approval mirror
@@ -190,19 +247,20 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   `true` so the strict filter doesn't hide them.
 
 **Test commands (Aug 2026):**
-- `npm run test:derived` — 44 unit tests over every pure helper in
+- `npm run test:derived` — 47 unit tests over every pure helper in
   `services/enrollments/derived.ts` + `types.ts` (KTM date helpers,
   slotKey parsing, today-sessions derivation, booked-map, capacity
-  counts, malformed-slotKey guard).
-- `npm run test:rules` — TWO checks: (1) `test:rules:deployed`
+  counts + availability-draft helpers, malformed-slotKey guard).
+- `npm run test:rules` — TWO stages: (1) `test:rules:deployed`
   fetches the latest released ruleset from the Firebase Rules API
   and fails on drift vs local `firebase/firestore.rules` (needs
   `GOOGLE_APPLICATION_CREDENTIALS`); (2) boots the Firestore
   emulator with the LOCAL rules and exercises the security rules
-  via the REST API — the `tutors/{uid}` availability carve-out
-  (owner flip allowed; other fields denied; stranger denied) and
-  the batches collections (owner creates batch + adds/removes
-  members; strangers denied).
+  via the REST API across FOUR suites: the `tutors/{uid}`
+  availability carve-out, the batches collections, the
+  acceptRequest transaction paths (incl. the legacy no-counters
+  profile carve-out), and the conversations/messages participant
+  gates.
 
 **Pending deliverables (as of Aug 15, 2026):**
 - Rebuild the EAS dev client with the updated native deps (Clerk

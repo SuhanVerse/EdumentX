@@ -32,7 +32,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 
 import { ActivePill } from "@/components/motion";
 import { BottomNav } from "@/components/shared/BottomNav";
@@ -288,10 +288,14 @@ export function MyEnrollments() {
                     })
                   }
                   onMessage={() =>
-                    Alert.alert(
-                      "Coming soon",
-                      "In-app messaging will be available in a future update.",
-                    )
+                    router.push({
+                      pathname: "/chat",
+                      params: {
+                        peerId: e.tutorUid,
+                        peerName: e.tutorName ?? "",
+                        peerAvatar: e.tutorAvatar ?? "",
+                      },
+                    } as never)
                   }
                   onFastForward={__DEV__ ? () => fastForwardToPast(e) : undefined}
                 />
@@ -513,8 +517,18 @@ function EnrollmentCard({
       className={`bg-surface border border-border rounded-card p-4 ${statusStripe} active:opacity-80`}
     >
       <View className="flex-row gap-3 items-start">
-        <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted border border-border items-center justify-center">
-          <Ionicons name="person-outline" size={22} color={colors.text.muted} />
+        {/* Tutor avatar — resolved from the tutor's public profile
+            during `subscribeEnrollmentsByStudent` enrichment. Falls
+            back to a placeholder glyph until it lands. */}
+        <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted border border-border items-center justify-center overflow-hidden">
+          {enrollment.tutorAvatar ? (
+            <Image
+              source={{ uri: enrollment.tutorAvatar }}
+              className="w-full h-full"
+            />
+          ) : (
+            <Ionicons name="person-outline" size={22} color={colors.text.muted} />
+          )}
         </View>
 
         <View className="flex-1 min-w-0">
@@ -524,7 +538,8 @@ function EnrollmentCard({
                 className="text-card-title font-medium text-text-primary"
                 numberOfLines={1}
               >
-                Enrollment #{enrollment.enrollmentId.slice(0, 6)}
+                {enrollment.tutorName ||
+                  `Enrollment #${enrollment.enrollmentId.slice(0, 6)}`}
               </Text>
             </View>
             <StatusBadge status={status} />

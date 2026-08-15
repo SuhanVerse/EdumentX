@@ -44,14 +44,11 @@ import { useAiChatStore } from "@/store/aiChatStore";
  *     already a project dependency).
  *   - Logout button opens a custom `ConfirmDialog` overlay (NOT a
  *     native Alert) which on confirm calls `logout()` + clears the
- *     auth store and routes to `/email-signup`.
- *   - Notifications section is a "Coming soon" placeholder, per
- *     spec.
- *   - All copy lives in this file. Other menu rows (Saved tutors,
- *     Payment methods, Help & support) also fire the "Coming soon"
- *     alert — the spec is strict that anything not explicitly listed
- *     must alert, not be built.
- */
+ *     auth store and routes to `/email-signup`.   *   - Notifications section routes to the shared notification
+   *     center.
+   *   - Saved tutors / Payment methods / Help & support all route to
+   *     their live screens.
+   */
 
 const PHONE_REGEX = /^\+?\d[\d\s-]{5,18}$/;
 
@@ -146,13 +143,6 @@ export function StudentProfile() {
       .then(() => setSavedPhotoUrl(avatarUri))
       .catch((err) => console.warn("StudentProfile: photoUrl persist failed", err));
   }, [avatarUri, savedPhotoUrl, user]);
-
-  function showComingSoon(feature: string) {
-    Alert.alert(
-      "Coming soon",
-      `${feature} will be available in a future update.`,
-    );
-  }
 
   async function pickImage() {
     const uid = user?.uid;
@@ -359,7 +349,7 @@ export function StudentProfile() {
           </Pressable>
         </View>
 
-        {/* Other menu rows — all alert "Coming soon". */}
+        {/* More menu — all rows route to live screens. */}
         <View className="mt-7">
           <Text className="text-label text-ink-muted mb-2">
             More
@@ -368,12 +358,17 @@ export function StudentProfile() {
             <MenuRow
               icon="heart-outline"
               label="Saved tutors"
-              onPress={() => showComingSoon("Saved tutors")}
+              onPress={() => router.push("/saved-tutors" as never)}
             />
             <MenuRow
               icon="card-outline"
               label="Payment methods"
-              onPress={() => showComingSoon("Payment methods")}
+              onPress={() => router.push("/payment-methods" as never)}
+            />
+            <MenuRow
+              icon="help-circle-outline"
+              label="Help & support"
+              onPress={() => router.push("/help-support" as never)}
               last
             />
           </View>

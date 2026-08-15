@@ -32,26 +32,23 @@ import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
 import { deriveTodaySessions } from "@/services/enrollments/derived";
 import type {
   Enrollment,
   EnrollmentRequest,
 } from "@/services/enrollments/types";
 import { setTutorAvailability } from "@/lib/tutor/firestoreTutorService";
+import type { Review } from "@/lib/tutor/types";
 import { useAuthStore } from "@/store/authStore";
 
 /**
  * EdumentX — Tutor Dashboard
  *
- * Live reads from `users/{uid}/tutorProfile/default` via `onSnapshot`
- * (metrics, verification state, capacity), a live
- * `enrollmentRequests/{tutorUid}/requests` subscription for the
- * pending-request list (filtered to `status === "pending"`), and a
- * live `enrollments/{tutorUid}/roster` subscription that derives
- * today's sessions — no `sessions` collection exists; today's
- * sessions are computed from active enrollments whose `slotKey` day
- * matches today (Asia/Kathmandu) and whose `[startDate, endDate]`
- * window contains today.
+ * Live reads from `users/{uid}/tutorProfile/default`, the tutor's
+ * pending `enrollmentRequests` (filtered to pending), and the live
+ * roster — today's sessions are derived from active enrollments
+ * whose slot day + date window cover today (Asia/Kathmandu).
  */
 
 // Shape mirrors the fields the JSX reads from the tutorProfile doc.
@@ -63,11 +60,11 @@ interface TutorDashboardData {
   isVerifiedProfessional: boolean;
   capacity: number;
   currentStudents: number;
-  rating: number;
-  reviews: number;
-  responseRate: number;
+  /** Per-month rate — combined with the live roster count for the
+   *  "Monthly revenue" metric (see the computed block in the
+   *  render). */
+  monthlyRateNpr: number;
   profileCompletion: number;
-  thisMonthEarningsNpr: number;
   // `verificationStatus` and `hasPendingUpdate` come from the same
   // tutorProfile doc and drive the under-review banner above the
   // dashboard. They are kept as raw strings / booleans (not narrowed
@@ -90,11 +87,8 @@ const FALLBACK: TutorDashboardData = {
   isVerifiedProfessional: false,
   capacity: 0,
   currentStudents: 0,
-  rating: 0,
-  reviews: 0,
-  responseRate: 0,
+  monthlyRateNpr: 0,
   profileCompletion: 0,
-  thisMonthEarningsNpr: 0,
   verificationStatus: undefined,
   hasPendingUpdate: false,
   rejectionReason: null,
@@ -104,30 +98,16 @@ function toNum(value: unknown): number {
   return typeof value === "number" ? value : 0;
 }
 
-// Live pending enrollment requests — subscribed from
-// `enrollmentRequests/{tutorUid}/requests` (see the `pendingRequests`
-// state + effect below) and filtered to `status === "pending"`.
-
-// Batch join/conversion requests have no live collection yet — the
-// batch flow only supports tutor-created groups (see `subscribeBatches`
-// in the enrollment repository). The "Batch requests" tab below
-// renders an empty state until the student-side join flow ships.
-
-
-
-type QuickAction = { label: string; feature: string };
+type QuickAction = { label: string; route: string };
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
-  { label: "View inbox",     feature: "Inbox"        },
-  { label: "Manage batches", feature: "Batch manager" },
-  { label: "Set availability", feature: "Availability" },
+  { label: "View inbox", route: "/tutor-inbox" },
+  { label: "Manage batches", route: "/batches" },
+  { label: "Set availability", route: "/tutor-capacity" },
+  { label: "Messages", route: "/messages" },
 ];
 
 type ReqTab = "enrollments" | "batches";
-
-function showComingSoon(feature: string) {
-  Alert.alert("Coming soon", `${feature} will be added in a future update.`);
-}
 
 /**
  * Sign-out used to live here but moved to the tutor profile tab
@@ -157,6 +137,14 @@ export function TutorDashboard() {
   // are derived from it (see `deriveTodaySessions` below).
   const [roster, setRoster] = useState<Enrollment[]>([]);
   const [rosterLoaded, setRosterLoaded] = useState(false);
+  // Live reviews — drive the Avg rating + Reviews metric tiles
+  // (average of the review docs in `reviews/{uid}/reviews`).
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  // Derived from ALL requests (pending + decided history): the share
+  // the tutor has already responded to. `null` until the first
+  // snapshot, and stays null when there are no requests at all.
+  const [responseRate, setResponseRate] = useState<number | null>(null);
   // The under-review banner is dismissable for the current session
   // — once the tutor has read it, the "Got it" button hides the
   // banner without affecting the underlying `verificationStatus`
@@ -214,14 +202,11 @@ export function TutorDashboard() {
             .isVerifiedProfessional,
           capacity: toNum((d as { capacity?: number }).capacity),
           currentStudents: toNum((d as { currentStudents?: number }).currentStudents),
-          rating: toNum((d as { rating?: number }).rating),
-          reviews: toNum((d as { reviews?: number }).reviews),
-          responseRate: toNum((d as { responseRate?: number }).responseRate),
+          monthlyRateNpr: toNum(
+            (d as { monthlyRateNpr?: number }).monthlyRateNpr,
+          ),
           profileCompletion: toNum(
             (d as { profileCompletion?: number }).profileCompletion,
-          ),
-          thisMonthEarningsNpr: toNum(
-            (d as { thisMonthEarningsNpr?: number }).thisMonthEarningsNpr,
           ),
           // Verification state — read but not yet written by the
           // tutor-side flows (those land in the next phase). The
@@ -261,6 +246,13 @@ export function TutorDashboard() {
       user.uid,
       (list) => {
         setPendingRequests(list.filter((r) => r.status === "pending"));
+        const total = list.length;
+        const responded = list.filter(
+          (r) => r.status === "accepted" || r.status === "declined",
+        ).length;
+        setResponseRate(
+          total > 0 ? Math.round((responded / total) * 100) : null,
+        );
         setRequestsLoaded(true);
       },
       (err) => {
@@ -290,6 +282,29 @@ export function TutorDashboard() {
       (err) => {
         console.warn("TutorDashboard: subscribeEnrollments failed", err);
         setRosterLoaded(true);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  // Live reviews — the `reviews/{uid}/reviews` collection is the
+  // source of truth for rating + count (the profile doc's `rating`/
+  // `reviewCount` are just a running mirror written by submitReview).
+  useEffect(() => {
+    if (!user) {
+      setReviews([]);
+      setReviewsLoaded(true);
+      return;
+    }
+    const unsub = getReviewRepository().subscribeReviews(
+      user.uid,
+      (list) => {
+        setReviews(list);
+        setReviewsLoaded(true);
+      },
+      (err) => {
+        console.warn("TutorDashboard: subscribeReviews failed", err);
+        setReviewsLoaded(true);
       },
     );
     return unsub;
@@ -351,6 +366,17 @@ export function TutorDashboard() {
         ? "bg-warning"
         : "bg-verification";
 
+  // Live-derived metrics. Rating + count come straight from the
+  // reviews collection; "Monthly revenue" is the current roster ×
+  // the per-month rate — the honest zero-budget proxy for earnings
+  // (no session-level billing data exists).
+  const reviewCount = reviews.length;
+  const avgRating =
+    reviewCount > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
+      : 0;
+  const monthlyRevenue = roster.length * data.monthlyRateNpr;
+
   // When the underlying verification status changes (e.g. admin
   // approval, a new edit goes pending, or a fresh "more_info"
   // request), re-show the banner even if the tutor had dismissed
@@ -408,7 +434,17 @@ export function TutorDashboard() {
               </View>
             ) : null}
           </View>
-          <NotificationBell tone="light" />
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Messages"
+              onPress={() => router.push("/messages" as never)}
+              className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={19} color="#2F5D50" />
+            </Pressable>
+            <NotificationBell tone="light" />
+          </View>
         </View>
 
         {/* Availability toggle — backed by the tutor's own
@@ -478,31 +514,54 @@ export function TutorDashboard() {
       ) : null}
 
       <ScreenScroll className="flex-1 bg-background">
-        {/* Metric cards 2x2 */}
+        {/* Metric cards — all live. Active students + capacity come
+            from the profile doc (maintained by acceptRequest); Avg
+            rating + Reviews from the reviews collection; Response
+            rate from the full request history; Monthly revenue from
+            roster × rate. */}
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
             iconName="people"
-                      label="Active students"
+            label="Active students"
             value={String(currentStudents)}
           />
           <Metric
             iconName="star"
-                      label="Avg rating"
-            value={data.rating.toFixed(1)}
+            label="Avg rating"
+            value={
+              !reviewsLoaded
+                ? "…"
+                : reviewCount === 0
+                  ? "—"
+                  : avgRating.toFixed(1)
+            }
+          />
+          <Metric
+            iconName="chatbox-ellipses-outline"
+            label="Reviews"
+            value={!reviewsLoaded ? "…" : String(reviewCount)}
+          />
+          <Metric
+            iconName="flash-outline"
+            label="Response rate"
+            value={
+              responseRate == null ? "—" : `${responseRate}%`
+            }
           />
           <Metric
             iconName="time"
-                      label="Pending requests"
+            label="Pending requests"
             value={String(pendingRequests.length)}
           />
           <Metric
             iconName="cash"
-                      label="This month"
+            label="Monthly revenue"
             value={
-              data.thisMonthEarningsNpr > 0
-                ? `Rs ${data.thisMonthEarningsNpr.toLocaleString("en-IN")}`
+              monthlyRevenue > 0
+                ? `Rs ${monthlyRevenue.toLocaleString("en-IN")}`
                 : "Rs 0"
             }
+            trend="Roster × monthly rate"
           />
         </View>
 
@@ -671,8 +730,7 @@ export function TutorDashboard() {
               <View className="bg-surface rounded-2xl p-4 border border-border items-center">
                 <Ionicons name="people-outline" size={22} color="#6B7268" />
                 <Text className="text-caption text-text-muted mt-2 text-center">
-                  No batch requests right now. Join requests from students
-                  will appear here in a future update.
+                  No batch requests right now.
                 </Text>
               </View>
             </View>
@@ -681,7 +739,7 @@ export function TutorDashboard() {
 
         {/* Group batch CTA */}
         <Pressable
-          onPress={() => showComingSoon("Group batch creation")}
+          onPress={() => router.push("/batches")}
           className="w-full flex-row items-center gap-3 p-3.5 bg-surface border border-border rounded-2xl active:opacity-70"
         >
           <View className="w-10 h-10 rounded-xl bg-ai items-center justify-center">
@@ -698,12 +756,12 @@ export function TutorDashboard() {
 
         {/* Quick actions row */}
         <View className="flex-row flex-wrap justify-between mt-3.5">
-          {QUICK_ACTIONS.map(({ label, feature }) => (
+          {QUICK_ACTIONS.map(({ label, route }) => (
             <Pressable
               key={label}
               accessibilityRole="button"
               accessibilityLabel={label}
-              onPress={() => showComingSoon(feature)}
+              onPress={() => router.push(route as never)}
               style={{ width: "48%" }}
               className="bg-surface border border-border rounded-2xl p-3.5 mb-2.5 active:opacity-70"
             >

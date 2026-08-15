@@ -72,6 +72,7 @@ export const MockReviewRepository: ReviewRepository = {
       rating: input.score,
       timestamp: new Date().toISOString(),
       comment: input.comment,
+      categoryRatings: input.categoryRatings,
     };
     s.reviews = [review, ...s.reviews];
     s.emitter.emit("reviews", s.reviews);

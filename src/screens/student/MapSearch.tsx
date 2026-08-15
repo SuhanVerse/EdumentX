@@ -25,6 +25,7 @@ import {
   TextInput,
   View,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 
 import {
@@ -280,14 +281,22 @@ export function MapSearch() {
   // ── Handlers ──
   const handleMarkerClick = useCallback(
     (marker: TutorMarker) => {
-      // If it's a cluster marker, zoom in
+      // If it's a cluster marker, zoom in. The native animation
+      // promise can reject with CancellationException when a newer
+      // camera move supersedes it mid-flight — that's harmless, so
+      // swallow it here (belt-and-braces on top of the safe wrapper
+      // inside TutorMap).
       if (marker.id.startsWith("cluster-")) {
-        mapRef.current?.setCameraPosition({
-          latitude: marker.latitude,
-          longitude: marker.longitude,
-          zoom: Math.min(camera.zoom + 2, 18),
-          duration: 300,
-        });
+        try {
+          mapRef.current?.setCameraPosition({
+            latitude: marker.latitude,
+            longitude: marker.longitude,
+            zoom: Math.min(camera.zoom + 2, 18),
+            duration: 300,
+          });
+        } catch {
+          // Superseded animation — ignore.
+        }
         return;
       }
 
@@ -319,8 +328,12 @@ export function MapSearch() {
       };
       const newCam = clampCameraToNepal(base) ?? base;
       setCamera(newCam);
+      // Single-animation jump: update the controlled `cameraTarget`
+      // prop and let the map animate from it. Calling
+      // `setCameraPosition` HERE TOO would start a SECOND animation
+      // that cancels the prop-driven one, which is exactly the
+      // "Animation cancelled" rejection storm in the logs.
       setCameraTarget(newCam);
-      mapRef.current?.setCameraPosition({ ...newCam, duration: 400 });
     }
   }, [userLocation]);
 
@@ -416,27 +429,41 @@ export function MapSearch() {
           </Text>
         </View>
 
-        {/* Nearby tutors strip at bottom */}
+        {/* Nearby tutors carousel — horizontal swipe over the map.
+            Cards are 200px wide with a 16px gap; `snapToInterval`
+            aligns one card per swipe. */}
         {nearbyTutors.length > 0 && !previewVisible && (
-          <View
-            className="absolute left-0 right-0 bottom-2 px-3"
-          >
-            <View
-              className="bg-surface rounded-card p-3 border border-border"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: -2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 6,
-                elevation: 3,
+          <View className="absolute left-0 right-0 bottom-2">
+            <View className="px-3 mb-2">
+              <View
+                className="self-start bg-surface/90 rounded-pill px-3 py-1 border border-border"
+                style={{
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+              >
+                <Text className="text-caption font-medium text-text-muted">
+                  {nearbyTutors.length} tutor{nearbyTutors.length !== 1 ? "s" : ""} within {filters.distance} km
+                </Text>
+              </View>
+            </View>
+            <FlatList
+              horizontal
+              data={nearbyTutors}
+              keyExtractor={(t) => t.uid}
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={216}
+              contentContainerStyle={{
+                paddingHorizontal: 12,
+                gap: 16,
+                paddingBottom: 4,
               }}
-            >
-              <Text className="text-caption font-medium text-text-muted mb-2">
-                {nearbyTutors.length} tutor{nearbyTutors.length !== 1 ? "s" : ""} within {filters.distance} km
-              </Text>
-              {nearbyTutors.slice(0, 3).map((t) => (
+              renderItem={({ item: t }) => (
                 <TutorCard
-                  key={t.uid}
                   tutor={createDefaultTutorProfile({
                     id: t.uid,
                     fullName: t.fullName,
@@ -466,8 +493,8 @@ export function MapSearch() {
                     setPreviewVisible(true);
                   }}
                 />
-              ))}
-            </View>
+              )}
+            />
           </View>
         )}
       </View>

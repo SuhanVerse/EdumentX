@@ -28,15 +28,14 @@
  *     sweep runs inside the repo.
  *   - `batches` comes from `subscribeBatches`.
  *   - `bookedMap` is derived at render time via `computeBookedMap`.
- *   - `optimisticSlot` is a local override for the cell that the
- *     tutor just tapped. It persists across the Firestore
- *     round-trip so the cell flips immediately and only reverts
- *     if the server rejects the write.
+ *   - `draft` is a local-only copy of the grid that accumulates
+ *     cell taps until "Save changes" flushes it in one bulk write
+ *     (`saveAvailability`). Nothing reaches Firestore per-tap.
  */
 
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
 import {
   ScreenLayout,
@@ -54,18 +53,16 @@ import {
   type WeeklyAvailability,
   type DayKey,
   type TimeSlotKey,
-  type SlotStatus,
   MAX_CAPACITY,
   DEFAULT_AVAILABILITY,
 } from "@/services/enrollments/types";
-import { computeBookedMap, countAvailabilityCells } from "@/services/enrollments/derived";
+import {
+  cloneAvailability,
+  computeBookedMap,
+  countAvailabilityCells,
+  countAvailabilityChanges,
+} from "@/services/enrollments/derived";
 import { useAuthStore } from "@/store/authStore";
-
-type OptimisticSlot = {
-  day: DayKey;
-  slot: TimeSlotKey;
-  status: SlotStatus;
-} | null;
 
 const PROGRESS_AMBER_THRESHOLD = 0.8;
 
@@ -89,7 +86,12 @@ export function TutorCapacityScreen() {
   // settles within a few hundred ms.
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
 
-  const [optimisticSlot, setOptimisticSlot] = useState<OptimisticSlot>(null);
+  // Local draft of the availability grid. `null` = no unsaved edits;
+  // once the tutor taps a cell it snapshots the live availability and
+  // accumulates changes until "Save changes" flushes it in one write.
+  const [draft, setDraft] = useState<WeeklyAvailability | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   // Subscribe to availability.
   useEffect(() => {
@@ -139,20 +141,17 @@ export function TutorCapacityScreen() {
     [enrollments, batches],
   );
 
-  // Counts for the legend + hero caption. Applied AFTER the
-  // optimistic slot overlay so the legend reflects the user's tap
-  // immediately.
-  const effectiveAvailability = useMemo(() => {
-    const base = availability ?? DEFAULT_AVAILABILITY;
-    if (!optimisticSlot) return base;
-    return {
-      ...base,
-      [optimisticSlot.day]: {
-        ...base[optimisticSlot.day],
-        [optimisticSlot.slot]: optimisticSlot.status,
-      },
-    };
-  }, [availability, optimisticSlot]);
+  // The rendered grid = the local draft while edits are pending,
+  // otherwise the live availability. Counts follow the same source so
+  // the legend reflects the tutor's taps immediately.
+  const effectiveAvailability = draft ?? availability ?? DEFAULT_AVAILABILITY;
+  const changes = useMemo(
+    () =>
+      draft && availability
+        ? countAvailabilityChanges(availability, draft)
+        : 0,
+    [draft, availability],
+  );
 
   const counts = useMemo(
     () => countAvailabilityCells(effectiveAvailability, bookedMap),
@@ -168,7 +167,10 @@ export function TutorCapacityScreen() {
         ? "bg-amber"
         : "bg-verification";
 
-  async function handleCellTap({
+  // Local edit — never touches Firestore. Seeds the draft from the
+  // live availability on the first tap, then flips the cell. Booked
+  // cells never reach here (the grid disables them).
+  function handleCellTap({
     day,
     slot,
     currentStatus,
@@ -177,31 +179,37 @@ export function TutorCapacityScreen() {
     slot: TimeSlotKey;
     currentStatus: "off" | "available" | "booked";
   }) {
-    if (!tutorUid) return;
     if (currentStatus === "booked") return; // disabled in the cell itself
-    const next: SlotStatus = currentStatus === "off" ? "available" : "off";
-    setOptimisticSlot({ day, slot, status: next });
+    setDraft((current) => {
+      const base = cloneAvailability(
+        current ?? availability ?? DEFAULT_AVAILABILITY,
+      );
+      base[day][slot] = currentStatus === "off" ? "available" : "off";
+      return base;
+    });
+  }
+
+  // Bulk flush — one write for the whole draft, then a transient
+  // "saved" confirmation and the bar disappears.
+  async function handleSave() {
+    if (!tutorUid || !draft || saving) return;
+    setSaving(true);
     try {
-      await repo.setSlotStatus(tutorUid, day, slot, next);
+      await repo.saveAvailability(tutorUid, draft);
+      setDraft(null);
+      setJustSaved(true);
+      // Auto-hide the "Saved" chip after a beat.
+      setTimeout(() => setJustSaved(false), 2200);
     } catch (err) {
-      console.warn("TutorCapacity: setSlotStatus failed", err);
+      console.warn("TutorCapacity: saveAvailability failed", err);
       Alert.alert(
         "Couldn't save",
         "We couldn't update your availability. Try again in a moment.",
       );
-      setOptimisticSlot(null);
+    } finally {
+      setSaving(false);
     }
   }
-
-  // Clear the optimistic slot once the Firestore snapshot echoes
-  // the new value (avoids a stale local override sticking around).
-  useEffect(() => {
-    if (!optimisticSlot) return;
-    const { day, slot, status } = optimisticSlot;
-    if (availability && availability[day][slot] === status) {
-      setOptimisticSlot(null);
-    }
-  }, [availability, optimisticSlot]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
 
@@ -243,7 +251,7 @@ export function TutorCapacityScreen() {
             Weekly availability
           </Text>
           <Text className="text-caption text-text-muted mb-3">
-            Tap a slot to cycle: Off → Available → Off.
+            Tap slots to edit, then save your changes.
           </Text>
           {!availabilityLoaded ? (
             <GridSkeleton />
@@ -268,6 +276,56 @@ export function TutorCapacityScreen() {
           </Text>
         </View>
       </ScreenScroll>
+
+      {/* Sticky save bar — appears only while there are unsaved
+          edits. Amber is the single high-priority CTA on this
+          screen (per the design system). */}
+      {draft !== null && (
+        <View className="px-4 pt-3 pb-2 border-t border-border bg-background">
+          <View className="flex-row items-center gap-3">
+            <View className="flex-1">
+              <Text className="text-button-sm font-medium text-text-primary">
+                {justSaved ? "Availability saved" : "Unsaved changes"}
+              </Text>
+              <Text className="text-caption text-text-muted mt-0.5">
+                {justSaved ? "Your schedule is live." : `${changes} slot${changes === 1 ? "" : "s"} changed`}
+              </Text>
+            </View>
+            {!justSaved && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Discard availability changes"
+                onPress={() => setDraft(null)}
+                disabled={saving}
+                className="h-11 px-3 rounded-card items-center justify-center active:opacity-70"
+              >
+                <Text className="text-button text-text-secondary">Discard</Text>
+              </Pressable>
+            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save availability changes"
+              onPress={() => void handleSave()}
+              disabled={saving || changes === 0}
+              className={`h-11 px-6 rounded-card items-center justify-center ${
+                saving || changes === 0 ? "bg-surface-muted" : "bg-accent active:opacity-90"
+              }`}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text
+                  className={`text-button font-semibold ${
+                    changes === 0 ? "text-text-muted" : "text-text-inverse"
+                  }`}
+                >
+                  {justSaved ? "Saved" : `Save changes${changes > 0 ? ` (${changes})` : ""}`}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       <TutorBottomBar />
     </ScreenLayout>

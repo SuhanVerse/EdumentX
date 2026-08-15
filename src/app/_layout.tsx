@@ -908,6 +908,10 @@ export default function RootLayout() {
           <Stack.Screen name="AI-chat" />
           <Stack.Screen name="enrollment" />
           <Stack.Screen name="stu-profile" />
+          <Stack.Screen name="saved-tutors" />
+          <Stack.Screen name="payment-methods" />
+          <Stack.Screen name="payouts" />
+          <Stack.Screen name="help-support" />
           {/* Tutor sub-screens (TutorBottomBar targets) */}
           <Stack.Screen name="batches" />
           <Stack.Screen name="tutor-inbox" />
@@ -922,6 +926,9 @@ export default function RootLayout() {
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />
+          {/* 1:1 messaging */}
+          <Stack.Screen name="messages" />
+          <Stack.Screen name="chat" />
           {/*Admin sub-screens*/}
           <Stack.Screen name="platform-statistics" />
           <Stack.Screen name="verification-queue" />

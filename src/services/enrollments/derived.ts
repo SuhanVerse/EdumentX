@@ -241,6 +241,40 @@ export function countAvailabilityCells(
   return { available, booked, off };
 }
 
+/**
+ * Deep-clone a `WeeklyAvailability` so a screen can hold a local
+ * draft (the capacity screen's "pending availability") without
+ * mutating the live subscription object. Copies every day row into
+ * a fresh object; cell values are plain strings, so a shallow copy
+ * per row is sufficient.
+ */
+export function cloneAvailability(
+  availability: import("./types").WeeklyAvailability,
+): import("./types").WeeklyAvailability {
+  const copy = {} as import("./types").WeeklyAvailability;
+  for (const day of DAY_KEYS) {
+    copy[day] = { ...availability[day] };
+  }
+  return copy;
+}
+
+/**
+ * Count how many cells differ between a base availability and a
+ * draft. Used by the capacity screen's "Save changes (N)" badge.
+ */
+export function countAvailabilityChanges(
+  base: import("./types").WeeklyAvailability,
+  draft: import("./types").WeeklyAvailability,
+): number {
+  let changes = 0;
+  for (const day of DAY_KEYS) {
+    for (const slot of TIME_SLOT_KEYS) {
+      if (base[day][slot] !== draft[day][slot]) changes++;
+    }
+  }
+  return changes;
+}
+
 // ─── Today's sessions (derived from the live roster) ───────────────────────
 
 /**

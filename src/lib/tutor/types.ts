@@ -56,6 +56,10 @@ export type Review = {
   rating: number;
   timestamp: string;
   comment: string;
+  /** Per-axis scores (1–5), present on reviews submitted through the
+   *  review flow. Absent on legacy reviews — consumers must treat it
+   *  as optional when averaging category ratings. */
+  categoryRatings?: CategoryRatings;
 };
 
 // ─── Category ratings ────────────────────────────────────────────────────────

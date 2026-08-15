@@ -28,7 +28,7 @@
     "backfill:tutor-availability:build": "npx tsc scripts/backfillTutorAvailability.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "backfill:tutor-availability": "npm run backfill:tutor-availability:build && node dist/scripts/backfillTutorAvailability.js",
     "test:rules:deployed": "node scripts/checkDeployedRules.mjs",
-    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs\"",
+    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs && node scripts/acceptRequestRulesTest.mjs && node scripts/messagesRulesTest.mjs && node scripts/reviewsListRulesTest.mjs\"",
     "probe:chat": "node scripts/probeChat.cjs"
   },
   "dependencies": {

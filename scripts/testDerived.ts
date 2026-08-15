@@ -13,8 +13,10 @@ import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
 import {
+  cloneAvailability,
   computeBookedMap,
   countAvailabilityCells,
+  countAvailabilityChanges,
   deriveTodaySessions,
   nextOccurrenceIsoInKtm,
   slotDurationMinutes,
@@ -555,14 +557,49 @@ describe("nextOccurrenceIsoInKtm", () => {
       nextOccurrenceIsoInKtm("mon", local(2026, 8, 19)),
       "2026-08-24",
     );
-  });
-
-  it("never returns today for same-day requests", () => {
+  });  it("never returns today for same-day requests", () => {
     // From Wednesday 2026-08-19, next Wednesday is 2026-08-26 (7 days),
     // never the anchor itself.
     assert.equal(
       nextOccurrenceIsoInKtm("wed", local(2026, 8, 19)),
       "2026-08-26",
     );
+  });
+});
+
+describe("cloneAvailability / countAvailabilityChanges", () => {
+  function sample() {
+    // Full 42-cell grid from the canonical factory, with a few
+    // cells toggled to "available" so the fixture is realistic.
+    const grid = makeEmptyAvailability();
+    grid.mon["5-7"] = "available";
+    grid.tue["7-9"] = "available";
+    return grid;
+  }
+
+  it("cloneAvailability returns a deep copy that can be mutated freely", () => {
+    const base = sample();
+    const copy = cloneAvailability(base);
+    copy.mon["5-7"] = "off";
+    // Mutating the copy never leaks into the source.
+    assert.equal(base.mon["5-7"], "available");
+    assert.equal(copy.mon["5-7"], "off");
+    // Unrelated day rows are independent objects too.
+    copy.tue["5-7"] = "available";
+    assert.equal(base.tue["5-7"], "off");
+  });
+
+  it("countAvailabilityChanges is zero for identical grids", () => {
+    const a = sample();
+    const b = cloneAvailability(a);
+    assert.equal(countAvailabilityChanges(a, b), 0);
+  });
+
+  it("counts exactly the differing cells", () => {
+    const base = sample();
+    const draft = cloneAvailability(base);
+    draft.mon["5-7"] = "off";
+    draft.tue["7-9"] = "off";
+    assert.equal(countAvailabilityChanges(base, draft), 2);
   });
 });

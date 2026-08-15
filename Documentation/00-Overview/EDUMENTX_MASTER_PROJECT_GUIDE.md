@@ -488,11 +488,12 @@ theme.components = {
 | `/role-selection` | `RoleSelectionScreen` | ✅ |
 | `/profile-student` | `StudentProfileScreen` (first-time profile only) | ✅ |
 | `/profile-tutor` | `TutorProfileScreen` (first-time profile only) | ✅ |
-| `/student-home` | `StudentHome` | ✅ (mock data — wire to Firestore next) |
-| `/tutor-home` | `TutorDashboard` | ✅ (mock data — wire to Firestore next) |
-| `/discover` (map) | — | ⏳ TODO |
-| `/tutor/:id` | — | ⏳ TODO |
-| `/chat/:id` | — | ⏳ TODO |
+| `/student-home` | `StudentHome` | ✅ Live — `subscribeTutors` discovery + live profile reads |
+| `/tutor-home` | `TutorDashboard` | ✅ Live — profile metrics, pending requests, derived today-sessions, availability toggle |
+| `/map-search` | `MapSearch` | ✅ Live — `expo-maps`, clustered pins, GPS, filters |
+| `/tutor/[id]` | `TutorDetailsScreen` | ✅ Live |
+| `/chat` | `ChatScreen` | ✅ Live — 1:1 messaging (`services/messages/`) |
+| `/messages` | `MessagesScreen` | ✅ Live — conversation hub |
 
 ### Navigation Patterns
 
@@ -1742,13 +1743,13 @@ Total source lines (screens + app + components + lib): ~2200
 |--------|----------|-------|
 | **Sprint 1: Auth Foundation** | 1 week | ✅ Done — Firebase Auth (RNFirebase), registration store, country picker |
 | **Sprint 2: Component Library** | 1 week | ✅ Mostly done — `PrimaryButton`, `FormInput`, `OTPInput`, `RoleCard`, `Chip` extracted |
-| **Sprint 3: Dashboards** | 2 weeks | ✅ UI shipped with mock data (`/student-home`, `/tutor-home`); ⏳ next: wire to Firestore `tutors`, `enrollmentRequests`, `sessions` collections |
-| **Sprint 4: Map & Discovery** | 2 weeks | OpenStreetMap + Nominatim, tutor list, filters, tutor detail screen |
-| **Sprint 5: Enrollments & Chat** | 2 weeks | Request flow, in-app messaging, notifications |
-| **Sprint 6: Polish & Beta** | 1 week | Onboarding polish, animations, accessibility audit, EAS build |
-| **Sprint 7: Verification & Trust** | 1 week | Tutor document upload, admin verification flow |
-| **Sprint 8: AI Matching** | 2 weeks | AI-powered recommendations, prompt engineering |
-| **Sprint 9: Launch Prep** | 1 week | App Store assets, store listing, ASO, beta testing |
+| **Sprint 3: Dashboards** | 2 weeks | ✅ Done — live Firestore (`tutors`, `enrollmentRequests`, roster-derived sessions) |
+| **Sprint 4: Map & Discovery** | 2 weeks | ✅ Done — `expo-maps` + Nominatim + filters + tutor details (Aug 2026) |
+| **Sprint 5: Enrollments & Chat** | 2 weeks | ✅ Done — request/accept/decline flow, group batches, notifications, 1:1 messaging (Aug 2026) |
+| **Sprint 6: Polish & Beta** | 1 week | ✅ Mostly done — availability draft UX, safe areas, theme sweep |
+| **Sprint 7: Verification & Trust** | 1 week | ✅ Done — tutor document upload, admin verification queue |
+| **Sprint 8: AI Matching** | 2 weeks | ✅ Done — Supabase Edge Function (Groq) RAG chatbot |
+| **Sprint 9: Launch Prep** | 1 week | ⏳ Remaining — App Store assets, store listing, ASO, beta testing |
 
 ---
 
