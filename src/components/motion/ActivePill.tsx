@@ -46,9 +46,11 @@ export function ActivePill({
       pointerEvents="none"
       // The pill lives in front of the tab row backgrounds but behind the
       // tab labels. Callers wrap the tabs in a `position: relative` View
-      // with explicit height; we don't enforce it here so the parent can
-      // decide the visual stacking.
-      style={animatedStyle}
+      // with explicit height, and pass width / position / color via
+      // `style` — merge it with the animated translateX so the pill
+      // actually renders (it was silently dropped before, leaving the
+      // white active label on the bare background).
+      style={[animatedStyle, style]}
       className={pillClassName}
       {...rest}
     />

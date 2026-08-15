@@ -22,10 +22,9 @@
  * stays authoritative — this layer only *re-orders* the input.
  *
  * Reachable from React Native because it reads `process.env` (Metro
- * injects `EXPO_PUBLIC_*` vars at bundle time). The sibling file
- * `ai/utils/groqClient.ts` is unreachable because it uses `Deno.env`
- * which only exists in the Supabase Edge Function runtime — do NOT
- * import from `ai/` here.
+ * injects `EXPO_PUBLIC_*` vars at bundle time). The server-side Groq
+ * client lives in `supabase/ai/utils/groqClient.ts` (Deno) — do NOT
+ * import from `supabase/` here.
  */
 
 import type { ChatResponse } from "@/services/ai/chatService";

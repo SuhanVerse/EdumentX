@@ -91,7 +91,7 @@ export function SecondaryButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={destructive ? '#C1503D' : '#26302B'}
+          color={destructive ? '#C1503D' : '#0F172A'}
         />
       ) : (
         <View className="flex-row items-center gap-2">

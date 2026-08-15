@@ -430,9 +430,8 @@ export function EditTeachingDetails() {
             documents: initial.documents,
             // Include the current avatar URL so the admin queue's
             // PendingEditCard can render the tutor's real photo
-            // instead of DiceBear. The `photoUrl` is a live-editable
-            // field (see `lib/verification/editableFields.ts`) and
-            // lives on the profile doc.
+            // instead of DiceBear. `photoUrl` is a live-editable
+            // field and lives on the profile doc.
             photoUrl: initial.photoUrl,
           },
           proposed,
@@ -486,29 +485,28 @@ export function EditTeachingDetails() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero header — slate, matches the other tutor surfaces. */}
-      <View className="bg-night px-5 pb-6 shrink-0">
+      {/* Hero header — light, matches the other tutor surfaces. */}
+      <View className="bg-surface px-6 pb-8 shrink-0 border-b border-border">
         <View className="flex-row items-center gap-3 mt-2">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
+            className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} color="#2F5D50" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-body text-white/70 mb-0.5">
+            <Text className="text-body text-text-secondary mb-0.5">
               Profile · Teaching details
             </Text>
-            <Text className="text-screen-title font-medium text-white">
+            <Text className="text-screen-title font-medium text-text-primary">
               Edit subjects &amp; rate
             </Text>
           </View>
         </View>
-        <Text className="text-caption text-white/70 mt-2">
-          Changes here go back to the verification team for a re-review.
-          You can keep using the rest of EdumentX while we look at them.
+        <Text className="text-caption text-text-secondary mt-2">
+          Changes are reviewed before going live.
         </Text>
       </View>
 
@@ -592,7 +590,7 @@ export function EditTeachingDetails() {
                 Qualifications
               </Text>
               <Text className="text-caption text-text-secondary -mt-2">
-                Changing your qualifications requires admin re-approval.
+                Admin approval required.
               </Text>
 
               {/* Degree — SearchableSelect with curated qualifications */}
@@ -633,9 +631,8 @@ export function EditTeachingDetails() {
                 Verification documents
               </Text>
               <Text className="text-caption text-text-muted">
-                {TUTOR_DOC_LABEL.citizenship} and{" "}
-                {TUTOR_DOC_LABEL.certificate} are required. {TUTOR_DOC_LABEL.demo}{" "}
-                is optional. Replace a slot to re-upload that document.
+                {TUTOR_DOC_LABEL.citizenship} &amp; {TUTOR_DOC_LABEL.certificate}{" "}
+                required · {TUTOR_DOC_LABEL.demo} optional.
               </Text>
               <DocumentUploader
                 kind="citizenship"
@@ -686,12 +683,12 @@ export function EditTeachingDetails() {
                 hint to the tutor what's actually changing. */}
             <View className="mt-6 p-4 rounded-card bg-warning-bg border border-warning/30">
               <Text className="text-button-sm font-medium text-warning-text">
-                Heads up
+                {hasChanges ? "Pending admin approval" : "No changes yet"}
               </Text>
-              <Text className="text-caption text-warning-text mt-1 leading-relaxed">
+              <Text className="text-caption text-warning-text mt-1">
                 {hasChanges
-                  ? "Your changes will be sent to the verification team. Your live profile stays the same until they approve."
-                  : "Nothing has changed yet. Edit the fields above and tap Save changes."}
+                  ? "Your live profile stays as-is until approved."
+                  : "Edit the fields above, then tap Save changes."}
               </Text>
             </View>
 
@@ -760,9 +757,15 @@ function locationsEqual(
 ): boolean {
   if (a === null && b === null) return true;
   if (a === null || b === null) return false;
+  const coordsEqual =
+    a.coordinates === undefined && b.coordinates === undefined
+      ? true
+      : a.coordinates?.latitude === b.coordinates?.latitude &&
+        a.coordinates?.longitude === b.coordinates?.longitude;
   return (
     a.city.trim() === b.city.trim() &&
-    (a.neighborhood ?? "").trim() === (b.neighborhood ?? "").trim()
+    (a.neighborhood ?? "").trim() === (b.neighborhood ?? "").trim() &&
+    coordsEqual
   );
 }
 

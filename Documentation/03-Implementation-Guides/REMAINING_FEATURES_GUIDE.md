@@ -82,13 +82,27 @@ The existing `useAiChat` hook needs to be updated to call `queryTutorAssistant()
 
 ---
 
-## Feature 2: Enrollment System (Phase 6.x)
+> ⚠️ **STATUS UPDATE (Aug 15, 2026):** Everything in this guide
+> has **shipped**. Enrollment requests (`enrollmentRequests/{tutorUid}/requests`),
+> rosters (`enrollments/{tutorUid}/roster`), availability, group
+> batches (`batches/{tutorUid}/classes` + members), reviews
+> (`reviews/{tutorUid}/reviews`), and 1:1 messaging
+> (`conversations/{id}` + `messages`) are all live with matching
+> rules (26 emulator checks in `npm run test:rules`). The plans
+> below remain as the design record; `ARCHITECTURE.md` §10 is the
+> live status.
 
-### Current State in EdumentX
-- `screens/student/Enrollment.tsx` (582 lines) — **UI complete** with tabs, invitation cards, status badges
-- `screens/tutor/tutor_inbox.tsx` (426 lines) — **UI complete** with expandable request cards
-- `data/mockData.ts` — Mock data powering both screens
-- **Missing:** Firestore collection, security rules, real data flow
+## Feature 2: Enrollment System (Phase 6.x) — SHIPPED
+
+### Current State in EdumentX (Aug 15, 2026)
+- `screens/student/Enrollment.tsx` — **live** — tabs via
+  `subscribeEnrollmentsByStudent` / `subscribeRequestsByStudent`
+- `screens/tutor/TutorInbox.tsx` — **live** via the shared
+  `EnrollmentRequestCard`; accept/decline via the enrollment repo
+  (accept = transaction: roster create + capacity bump + status
+  flip + notification; slot picker for the weekly slot)
+- **Missing:** nothing — rules, indexes, and `test:rules` checks are
+  all in place
 
 ### How BasoBas Handles It (Visits System)
 BasoBas has a full visit booking flow:

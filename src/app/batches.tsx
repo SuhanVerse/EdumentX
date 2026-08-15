@@ -1,4 +1,4 @@
-import { BatchesScreen } from "@/screens/tutor/batch_creation";
+import { BatchesScreen } from "@/screens/tutor/BatchCreation";
 
 export default function TutorBatchRoute() {
   return <BatchesScreen />;

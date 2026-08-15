@@ -31,25 +31,51 @@ import { colors } from "@/constants/colors";
  *     ~0.75 opacity underneath.
  *   - Slides up from the bottom with a spring-like easing. Drag-down
  *     to dismiss is wired via a PanResponder on the handle bar.
- *   - Filter options mirror what real tutor-search filters need
- *     (subject, level, mode, distance, budget, verification) but
- *     are UI-only — no backend query yet. "Show N results" just
- *     closes the sheet.
- *   - Visual language matches StudentHome / MapSearch: amber accent,
- *     verification green, surface cards, NativeWind tokens (no raw
- *     hex).
+ *
+ * Phase 7 (Aug 2026):
+ *   - The sheet used to be UI-only ("Show N results" just closed).
+ *     It is now a controlled component: MapSearch owns the `MapFilters`
+ *     state and passes an initial `value`; the sheet edits a local
+ *     copy and commits it via `onApply` on "Show results" (and Reset).
+ *     MapSearch applies the filters to the actual cluster/list query.
  *
  * Public API:
- *   <FiltersSheet visible={...} onClose={...} />
- *
- * The component owns all of its own state (subjects, level, mode,
- * distance, budget, verifiedOnly). When the user hits "Show results"
- * the sheet just calls `onClose()` — MapSearch is responsible for
- * actually applying the filter when the real `tutors` query lands in
- * Phase 5.
+ *   <FiltersSheet
+ *     visible={...}
+ *     value={filters}
+ *     onApply={(next) => setFilters(next)}
+ *     onClose={...}
+ *   />
  */
 
-const SUBJECTS = [
+export type MapFilters = {
+  /** Selected subjects — empty array = no subject constraint. */
+  subjects: string[];
+  /** Education level ("" = any). */
+  level: string;
+  /** Class mode ("" = any). */
+  mode: string;
+  /** Max distance in km — 20 = whole Valley, effectively "any". */
+  distance: number;
+  /** Max monthly budget in NPR — 30000 = effectively "any". */
+  budget: number;
+  /** Verified tutors only. */
+  verifiedOnly: boolean;
+};
+
+/** Non-restrictive defaults — the map shows everything until the
+ *  student narrows it down. */
+export const DEFAULT_MAP_FILTERS: MapFilters = {
+  subjects: [],
+  level: "",
+  mode: "",
+  distance: 20,
+  budget: 30000,
+  verifiedOnly: false,
+};
+
+/** Subject pills offered in the sheet. */
+export const FILTER_SUBJECTS = [
   "Math",
   "Physics",
   "Chemistry",
@@ -59,6 +85,7 @@ const SUBJECTS = [
   "Computer",
   "Accounts",
 ];
+
 const LEVELS = ["Class 6-8", "SEE", "+2 Science", "+2 Mgmt", "Bachelor's"];
 const MODES = ["Home tuition", "Online", "At tutor's place"];
 
@@ -212,17 +239,34 @@ function Pill({
 
 export function FiltersSheet({
   visible,
+  value,
+  onApply,
   onClose,
+  resultCount: resultCountProp,
 }: {
   visible: boolean;
+  /** Current filter state owned by MapSearch (the source of truth). */
+  value: MapFilters;
+  /** Commit the edited filters — fired by "Show results" and Reset. */
+  onApply: (filters: MapFilters) => void;
   onClose: () => void;
+  /** Live match count from the actual (filtered) tutor query. When
+   *  provided it replaces the estimate in the footer label. */
+  resultCount?: number;
 }) {
-  const [subjects, setSubjects] = useState<string[]>(["Math"]);
-  const [level, setLevel] = useState("SEE");
-  const [mode, setMode] = useState("Home tuition");
-  const [distance, setDistance] = useState(5);
-  const [budget, setBudget] = useState(15000);
-  const [verifiedOnly, setVerifiedOnly] = useState(true);
+  // Local editable copy — synced from the parent's `value` each time
+  // the sheet opens, so sliders never fight the live map state.
+  const [local, setLocal] = useState<MapFilters>(value);
+  useEffect(() => {
+    if (visible) setLocal(value);
+  }, [visible, value]);
+
+  const set = <K extends keyof MapFilters>(key: K, v: MapFilters[K]) =>
+    setLocal((f) => ({ ...f, [key]: v }));
+  const commit = (filters: MapFilters) => {
+    onApply(filters);
+    onClose();
+  };
 
   // Slide-up + backdrop fade. We drive both off the same Animated.Value
   // so they stay in sync. Spring-style easing gives a sheet-like feel
@@ -270,20 +314,17 @@ export function FiltersSheet({
   ).current;
 
   const toggleSubject = (s: string) =>
-    setSubjects((arr) =>
-      arr.includes(s) ? arr.filter((x) => x !== s) : [...arr, s],
-    );
+    set("subjects", local.subjects.includes(s)
+      ? local.subjects.filter((x) => x !== s)
+      : [...local.subjects, s]);
 
   const reset = () => {
-    setSubjects([]);
-    setLevel("");
-    setMode("");
-    setDistance(5);
-    setBudget(15000);
-    setVerifiedOnly(false);
+    const cleared: MapFilters = { ...value, subjects: [], level: "", mode: "", distance: 5, budget: 15000, verifiedOnly: false };
+    setLocal(cleared);
+    commit(cleared);
   };
 
-  const resultCount = estimateResults(distance, budget, verifiedOnly);
+  const resultCount = resultCountProp ?? estimateResults(local.distance, local.budget, local.verifiedOnly);
   // Close-button spring scale. iconPressed = 0.85 for icon-only
   // tap targets (back chevrons, dismiss Xs, eye toggles).
   const { onPressIn: onCloseIn, onPressOut: onCloseOut, animatedStyle: closeStyle } =
@@ -366,11 +407,11 @@ export function FiltersSheet({
           >
             <Section title="Subject">
               <View className="flex-row flex-wrap gap-2">
-                {SUBJECTS.map((s) => (
+                {FILTER_SUBJECTS.map((s) => (
                   <Pill
                     key={s}
                     label={s}
-                    active={subjects.includes(s)}
+                    active={local.subjects.includes(s)}
                     onPress={() => toggleSubject(s)}
                     variant="subject"
                   />
@@ -384,8 +425,8 @@ export function FiltersSheet({
                   <Pill
                     key={l}
                     label={l}
-                    active={level === l}
-                    onPress={() => setLevel(l)}
+                    active={local.level === l}
+                    onPress={() => set("level", local.level === l ? "" : l)}
                   />
                 ))}
               </View>
@@ -397,31 +438,31 @@ export function FiltersSheet({
                   <Pill
                     key={m}
                     label={m}
-                    active={mode === m}
-                    onPress={() => setMode(m)}
+                    active={local.mode === m}
+                    onPress={() => set("mode", local.mode === m ? "" : m)}
                   />
                 ))}
               </View>
             </Section>
 
-            <Section title={`Distance · within ${distance} km`}>
+            <Section title={`Distance · within ${local.distance} km`}>
               <RangeSlider
                 min={1}
                 max={20}
-                value={distance}
-                onChange={setDistance}
+                value={local.distance}
+                onChange={(v) => set("distance", v)}
               />
             </Section>
 
             <Section
-              title={`Budget · up to Rs ${budget.toLocaleString()}/mo`}
+              title={`Budget · up to Rs ${local.budget.toLocaleString()}/mo`}
             >
               <RangeSlider
                 min={3000}
                 max={30000}
                 step={500}
-                value={budget}
-                onChange={setBudget}
+                value={local.budget}
+                onChange={(v) => set("budget", v)}
               />
             </Section>
 
@@ -429,8 +470,8 @@ export function FiltersSheet({
               <Pressable
                 accessibilityRole="switch"
                 accessibilityLabel="Verified tutors only"
-                accessibilityState={{ checked: verifiedOnly }}
-                onPress={() => setVerifiedOnly((v) => !v)}
+                accessibilityState={{ checked: local.verifiedOnly }}
+                onPress={() => set("verifiedOnly", !local.verifiedOnly)}
                 className="w-full flex-row items-center justify-between bg-sand border border-border rounded-card p-3.5 active:opacity-80"
               >
                 <View className="flex-1 pr-4">
@@ -441,7 +482,7 @@ export function FiltersSheet({
                     Show only Blue Tick Pro &amp; Student Tutors
                   </Text>
                 </View>
-                <FiltersVerifiedSwitch checked={verifiedOnly} />
+                <FiltersVerifiedSwitch checked={local.verifiedOnly} />
               </Pressable>
             </Section>
           </ScrollView>
@@ -458,7 +499,7 @@ export function FiltersSheet({
             <View className="flex-[2]">
               <PrimaryButton
                 label={`Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
-                onPress={onClose}
+                onPress={() => commit(local)}
                 variant="accent"
                 size="md"
                 className="w-full"

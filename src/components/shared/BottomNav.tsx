@@ -7,9 +7,9 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
-import { colors } from "@/constants/colors";
 import { motion } from "@/lib/motion";
 
 /**
@@ -18,18 +18,21 @@ import { motion } from "@/lib/motion";
  * Renders the 5-tab nav used by every authenticated student screen
  * (Home → Map → AI → Enrollments → Profile).
  *
- * Active-tab indicator — a compact pill that hugs only the icon:
- *   - The pill is a fixed 48×28 bubble (same footprint as the icon
- *     box) positioned `absolute` inside the measured tab row.
- *   - Its left offset is computed on the JS side
- *     (`tabWidth * index + (tabWidth − pillWidth) / 2`) and written
- *     to a shared value inside `useEffect`, then the worklet only
- *     reads the shared value. This is the same bulletproof pattern
- *     the tutor bar's underline uses — the centering math never
- *     depends on a stale worklet closure, so the pill stays dead
- *     center under the active icon at any screen width.
- *   - The pill is a background decoration (`pointerEvents="none"`,
- *     rendered before the tabs) — it never affects tab layout.
+ * Two visual tones:
+ *   - `light` (default): the flat legacy bar — solid `bg-surface`
+ *     with a top hairline. Used by the screens that still sit on the
+ *     light `bg-background` page colour (Map, AI, Enrollments,
+ *     Profile).
+ *   - `dark`: the floating night glass dock — a translucent pill
+ *     (`bg-glass` + `border-glass-border` + amber accent) that hovers
+ *     inside the page gutter, used by the dark-slate redesign screens
+ *     (Home and anything that sits on `bg-night`).
+ *
+ * Active-tab marker (dark tone): the icon turns white and an amber
+ * 4px dot springs in underneath it — amber is reserved for this
+ * "you are here" state only; it is never used as a decorative tint
+ * anywhere else in the dock. (Phase 3b: the old green `bg-primary-light`
+ * pill was green-tinted; that is gone.)
  *
  * Labels are single-line with capped font scaling so "Enrollments"
  * can never wrap, overflow its tab, or collide with a neighbor on
@@ -53,12 +56,15 @@ export type BottomNavTab = {
   route: `/${string}`;
 };
 
+/** Amber accent — the only colour in the dark dock besides white. */
+const AMBER = "#E5A03B";
+
 /** Active pill size — matches the icon box (`w-12 h-7`) exactly. */
 const PILL_SIZE = 48;
 const PILL_HEIGHT = 28;
 
-const ACTIVE_COLOR = colors.brand.primary;
-const INACTIVE_COLOR = colors.text.muted;
+/** Muted slate gray — inactive icon tone on the light bar. */
+const INACTIVE_COLOR = "#6B7268";
 
 const STUDENT_TABS: BottomNavTab[] = [
   { icon: "home", label: "Home", route: "/student-home" },
@@ -77,15 +83,20 @@ function TabButton({
   tab,
   active,
   onPress,
+  tone,
 }: {
   tab: BottomNavTab;
   active: boolean;
   onPress: () => void;
+  tone: "light" | "dark";
 }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.chipPressed,
   });
-  const color = active ? ACTIVE_COLOR : INACTIVE_COLOR;
+  const activeColor = tone === "dark" ? "#FFFFFF" : "#2F5D50";
+  const color = active ? activeColor : tone === "dark"
+    ? "rgba(255,255,255,0.45)"
+    : INACTIVE_COLOR;
 
   return (
     <AnimatedPressable
@@ -107,6 +118,9 @@ function TabButton({
           color={color}
         />
       </View>
+      {tone === "dark" && active ? (
+        <View className="w-1 h-1 rounded-full mb-0.5" style={{ backgroundColor: AMBER }} />
+      ) : null}
       {/* Single-line label: `adjustsFontSizeToFit` shrinks only when
           the text would overflow its tab; `maxFontSizeMultiplier`
           caps accessibility font scaling so labels never wrap. */}
@@ -135,10 +149,12 @@ function TabRow({
   tabs,
   activeIndex,
   onPress,
+  tone,
 }: {
   tabs: BottomNavTab[];
   activeIndex: number;
   onPress: (tab: BottomNavTab) => void;
+  tone: "light" | "dark";
 }) {
   const [width, setWidth] = React.useState(0);
   const tabWidth = tabs.length > 0 ? width / tabs.length : 0;
@@ -161,7 +177,7 @@ function TabRow({
       className="flex-row relative"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
-      {width > 0 ? (
+      {tone === "light" && width > 0 ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -182,6 +198,7 @@ function TabRow({
           tab={tab}
           active={i === activeIndex}
           onPress={() => onPress(tab)}
+          tone={tone}
         />
       ))}
     </View>
@@ -191,8 +208,9 @@ function TabRow({
 export function BottomNav({
   role = "student",
   current,
+  tone = "light",
 }: {
-  role?: BottomNavRole;
+  role?: "student";
   /**
    * Optional override for the active route. When omitted, the active
    * state is derived from `usePathname()`. Pass this in when the
@@ -200,8 +218,16 @@ export function BottomNav({
    * Modal where the underlying route is still `/map-search`).
    */
   current?: string;
+  /**
+   * Visual tone:
+   *   - `light` (default): flat solid bar over a light canvas.
+   *   - `dark`: floating glass dock (translucent pill + hairline
+   *     edges + amber active dot) over the `bg-night` screens.
+   */
+  tone?: "light" | "dark";
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const tabs = STUDENT_TABS;
   const activeRoute = current ?? pathname;
@@ -233,12 +259,28 @@ export function BottomNav({
     router.replace(route as any);
   }
 
-  return (
-    <View className="bg-surface border-t border-border pt-1.5 pb-2.5">
+  return tone === "dark" ? (
+    <View className="px-4 pt-2" style={{ paddingBottom: 12 + insets.bottom }}>
+      {/* Floating glass dock — the dark-nav surface. Translucent
+          white over the night canvas reads as frosted glass without
+          a native blur (which would degrade on Android); the
+          hairline `glass-border` gives it a crisp 1px edge. */}
+      <View className="flex-row relative rounded-3xl bg-glass border glass-border px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
+        <TabRow
+          tabs={tabs}
+          activeIndex={activeIndex >= 0 ? activeIndex : 0}
+          onPress={(tab) => goTo(tab.route)}
+          tone={tone}
+        />
+      </View>
+    </View>
+  ) : (
+    <View className="bg-surface border-t border-border pt-2" style={{ paddingBottom: 12 + insets.bottom }}>
       <TabRow
         tabs={tabs}
         activeIndex={activeIndex >= 0 ? activeIndex : 0}
         onPress={(tab) => goTo(tab.route)}
+        tone={tone}
       />
     </View>
   );

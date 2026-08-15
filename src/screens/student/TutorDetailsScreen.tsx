@@ -17,31 +17,48 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
+  Share,
   Text,
   View,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { Avatar , getInitials } from "@/components/ui/Avatar";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
-import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { AnimatedPressable, usePressScale, useShake } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
 import {
+  type CategoryRatings,
   type TutorProfile,
   type TutorSession,
   type Review,
 } from "@/lib/tutor/types";
 import { fetchTutorProfile } from "@/services/tutors/dataSource";
+import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
+import { getSavedTutorsRepository } from "@/services/savedTutors/dataSource";
+import { useAuthStore } from "@/store/authStore";
+import {
+  type AvailabilitySnapshot,
+  type Batch,
+  type Enrollment,
+  type EnrollmentRequest,
+  type WeeklyAvailability,
+  DEFAULT_AVAILABILITY,
+} from "@/services/enrollments/types";
+import { computeBookedMap } from "@/services/enrollments/derived";
+import { computePendingMap, type PendingMap } from "@/services/enrollments/pending";
+import { StudentAvailabilityGrid } from "@/components/domain/StudentAvailabilityGrid";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Section Spacing
@@ -83,6 +100,79 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
   );
 }
 
+const CATEGORY_KEYS = [
+  "teaching",
+  "punctuality",
+  "communication",
+  "knowledge",
+  "overall",
+] as const;
+
+/**
+ * Merge live review data over a fetched profile. The profile doc
+ * only mirrors aggregates (written transactionally by submitReview),
+ * and legacy profiles predate the fields entirely — the reviews
+ * collection (`reviews/{tutorUid}/reviews`) is the canonical source.
+ * When the live list is empty we keep the profile's values as-is
+ * (so the screen never flashes zeros while the snapshot is in
+ * flight).
+ */
+function mergeLiveReviews(
+  profile: TutorProfile,
+  liveReviews: Review[],
+): TutorProfile {
+  if (liveReviews.length === 0) return profile;
+
+  const breakdown: Record<1 | 2 | 3 | 4 | 5, number> = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+  const categorySums: Partial<CategoryRatings> = {};
+  let categoryCount = 0;
+  let ratingSum = 0;
+
+  for (const r of liveReviews) {
+    ratingSum += r.rating;
+    const star = Math.min(5, Math.max(1, Math.round(r.rating))) as
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5;
+    breakdown[star] += 1;
+    if (r.categoryRatings) {
+      for (const key of CATEGORY_KEYS) {
+        categorySums[key] =
+          (categorySums[key] ?? 0) + r.categoryRatings[key];
+      }
+      categoryCount += 1;
+    }
+  }
+
+  // Category averages only when at least one review carried the
+  // per-axis scores; otherwise keep the profile mirror's values.
+  const categoryRatings: CategoryRatings = {
+    ...profile.categoryRatings,
+  };
+  if (categoryCount > 0) {
+    for (const key of CATEGORY_KEYS) {
+      categoryRatings[key] = (categorySums[key] ?? 0) / categoryCount;
+    }
+  }
+
+  return {
+    ...profile,
+    rating: ratingSum / liveReviews.length,
+    reviewCount: liveReviews.length,
+    reviewBreakdown: breakdown,
+    categoryRatings,
+    reviews: liveReviews,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main Screen
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -94,9 +184,59 @@ export function TutorDetailsScreen() {
 
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [isSaved, setIsSaved] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const isSaved = !!id && savedIds.includes(id);
+
+  function handleSaveToggle() {
+    const uid = user?.uid;
+    if (!uid || !id) return;
+    // Optimistic flip — the onSnapshot round-trip reconciles if the
+    // write fails.
+    setSavedIds((prev) =>
+      isSaved
+        ? prev.filter((x) => x !== id)
+        : prev.includes(id)
+          ? prev
+          : [...prev, id],
+    );
+    getSavedTutorsRepository()
+      .toggleSavedTutor(uid, id, isSaved)
+      .catch((err) =>
+        console.warn("TutorDetailsScreen: save toggle failed", err),
+      );
+  }
   const [bioExpanded, setBioExpanded] = useState(false);
   const [demoVideoVisible, setDemoVideoVisible] = useState(false);
+
+  // Live availability + bookedMap for the new "Weekly availability"
+  // section between the Session Board and the About section.
+  // Students see the same Booked state tutors see — the
+  // `enrollments` + `batches` rules allow any signed-in user to
+  // read a tutor's roster.
+  const repo = getEnrollmentRepository();
+  const [availability, setAvailability] = useState<WeeklyAvailability>(
+    DEFAULT_AVAILABILITY,
+  );
+  const [bookedMap, setBookedMap] = useState<ReturnType<
+    typeof computeBookedMap
+  > | null>(null);
+
+  // Phase 1 grid redesign — track the student's selected slots
+  // (multi-select) and the tutor's open requests so the grid can
+  // render the amber border-2 ring on Selected cells and the
+  // hourglass overlay on Pending cells. The selection is purely
+  // visual — the student types their preferred days/times into the
+  // sheet's `schedule` text field. Nothing about the selection is
+  // sent to the tutor.
+  const [selectedSlotKeys, setSelectedSlotKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [requests, setRequests] = useState<EnrollmentRequest[]>([]);
+  // Live reviews — the canonical source for rating, count, breakdown
+  // and the review list (the fetched profile only mirrors
+  // aggregates). Merged over the profile via `mergeLiveReviews`.
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   // Fetch the tutor profile from Firestore on mount
   useEffect(() => {
@@ -116,6 +256,186 @@ export function TutorDetailsScreen() {
       })
       .finally(() => setProfileLoading(false));
   }, [id]);
+
+  // Live reviews subscription — drives the Reviews & Ratings section
+  // and the header stats straight from the reviews collection.
+  useEffect(() => {
+    if (!id) return;
+    const unsub = getReviewRepository().subscribeReviews(
+      id,
+      (list) => setReviews(list),
+      (err) =>
+        console.warn(
+          "TutorDetailsScreen: reviews subscribe failed",
+          err,
+        ),
+    );
+    return unsub;
+  }, [id]);
+
+  // Overlay the live reviews onto the fetched profile. Falls back to
+  // the profile's own (mirrored) fields while the snapshot is in
+  // flight or when there are no reviews yet.
+  const displayTutor = useMemo(
+    () => (tutor ? mergeLiveReviews(tutor, reviews) : tutor),
+    [tutor, reviews],
+  );
+
+  // Live saved-tutors subscription — the heart mirrors the
+  // `savedTutors` map on the student's own profile doc, so it stays
+  // in lock-step with the Saved Tutors list screen.
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) return;
+    const unsub = getSavedTutorsRepository().subscribeSavedTutorIds(
+      uid,
+      setSavedIds,
+      (err) =>
+        console.warn(
+          "TutorDetailsScreen: saved-tutors subscribe failed",
+          err,
+        ),
+    );
+    return unsub;
+  }, [user?.uid]);
+
+  // Live availability subscription. The repo emits
+  // `{ availability, enrolledCount, studentCapacity }`; we only
+  // need the availability grid for the time list.
+  useEffect(() => {
+    if (!id) return;
+    const unsub = repo.subscribeAvailability(
+      id,
+      (snap: AvailabilitySnapshot) => {
+        setAvailability(snap.availability ?? DEFAULT_AVAILABILITY);
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: availability subscribe failed", err),
+    );
+    return unsub;
+  }, [id, repo]);
+
+  // Live enrollments + batches — together they build the BookedMap.
+  // Students can read a tutor's roster (rules allow it) so they
+  // know which slots are taken before requesting.
+  useEffect(() => {
+    if (!id) return;
+    let latestEnrollments: Enrollment[] = [];
+    let latestBatches: Batch[] = [];
+    const recompute = () =>
+      setBookedMap(computeBookedMap(latestEnrollments, latestBatches));
+    const unsubE = repo.subscribeEnrollments(
+      id,
+      (list) => {
+        latestEnrollments = list;
+        recompute();
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: enrollments subscribe failed", err),
+    );
+    const unsubB = repo.subscribeBatches(
+      id,
+      (list) => {
+        latestBatches = list;
+        recompute();
+      },
+      (err) =>
+        console.warn("TutorDetailsScreen: batches subscribe failed", err),
+    );
+    return () => {
+      unsubE();
+      unsubB();
+    };
+  }, [id, repo]);
+
+  // Live enrollment requests — Phase 1 grid redesign. We need the
+  // open requests to overlay an hourglass icon + count badge on
+  // any slot another student has asked about. The repo's
+  // `subscribeRequests` already returns the full list (pending +
+  // historical); `computePendingMap` filters to the ones still
+  // waiting on a decision.
+  //
+  // Defensive retry — on a fresh app launch the auth token may
+  // not be available the instant this effect runs, and Firestore
+  // can surface `[firestore/permission-denied]` if `request.auth`
+  // is null when the LIST rule fires. We detach the failed
+  // listener and re-subscribe once after 1.5 s — most of the time
+  // the second attempt succeeds because the auth listener has
+  // caught up by then. The screen still renders fine without the
+  // overlay; this just gives the pending-hourglass a chance to
+  // appear when other students have open requests.
+  useEffect(() => {
+    if (!id) return;
+    let unsub = (): void => {};
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    let cancelled = false;
+
+    const attach = () => {
+      if (cancelled) return;
+      attempt += 1;
+      unsub = repo.subscribeRequests(
+        id,
+        (list) => setRequests(list),
+        (err) => {
+          console.warn("TutorDetailsScreen: requests subscribe failed", err);
+          // Detach the broken listener and re-subscribe after 1.5 s.
+          // Only retry once — a persistent rule failure should not
+          // loop forever.
+          unsub();
+          unsub = () => {};
+          if (attempt >= 2 || cancelled) return;
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            attach();
+          }, 1500);
+        },
+      );
+    };
+
+    attach();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      unsub();
+    };
+  }, [id, repo]);
+
+  const pendingMap: PendingMap = useMemo(
+    () => computePendingMap(requests),
+    [requests],
+  );
+
+  // Toggle a slot key in the multi-select set. The selection is
+  // purely visual — see the comment on `selectedSlotKeys` above.
+  const toggleSlotKey = useCallback((key: string) => {
+    setSelectedSlotKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedSlotKeys(new Set());
+  }, []);
+
+  // Enroll intent → the full-screen S-12 enrollment form. The
+  // grid selection above is purely visual (the student typed their
+  // candidate slots into the form), so tapping Enroll just carries
+  // the tutor id and lets the form own the request.
+  const openEnrollForm = useCallback(() => {
+    if (!id) return;
+    router.push({
+      pathname: "/enroll",
+      params: { tutorId: id },
+    } as never);
+  }, [id, router]);
 
   // ── Loading state ──
   if (profileLoading) {
@@ -154,13 +474,19 @@ export function TutorDetailsScreen() {
     );
   }
 
+  // Non-null after the guards above; carries the live-review overlay.
+  const effectiveTutor = displayTutor ?? tutor;
+
   return (
     <ScreenLayout variant="background">
       {/* Fixed top bar — stays in place while content scrolls underneath */}
       <TopBar
         isSaved={isSaved}
-        onSaveToggle={() => setIsSaved(!isSaved)}
+        onSaveToggle={handleSaveToggle}
         onBack={() => router.back()}
+        shareMessage={`${effectiveTutor.fullName} — ${effectiveTutor.headline} · ${formatNprShort(
+          effectiveTutor.monthlyRateNpr,
+        )}/month on EdumentX`}
       />
 
       <ScrollView
@@ -173,47 +499,79 @@ export function TutorDetailsScreen() {
         bounces
       >
         {/* ═══ SECTION 1: Profile Header ═══ */}
-        <ProfileHeader tutor={tutor} />
+        <ProfileHeader tutor={effectiveTutor} />
 
         {/* ═══ SECTION 2: Pricing ═══ */}
         <View className={SECTION_GAP}>
-          <PricingSection tutor={tutor} />
+          <PricingSection
+            tutor={effectiveTutor}
+            onMessageTutor={() =>
+              router.push({
+                pathname: "/chat",
+                params: {
+                  peerId: tutor.id,
+                  peerName: tutor.fullName,
+                  peerAvatar: tutor.photoUrl ?? "",
+                },
+              } as never)
+            }
+          />
         </View>
 
         {/* ═══ SECTION 3: Session Board ═══ */}
         <View className={SECTION_GAP}>
-          <SessionBoardSection tutor={tutor} />
+          <SessionBoardSection
+            tutor={effectiveTutor}
+            onRequestSlot={openEnrollForm}
+          />
+        </View>
+
+        {/* ═══ SECTION 3b: Weekly Availability (live) ═══ */}
+        <View className={SECTION_GAP}>
+          <AvailabilitySection
+            availability={availability}
+            bookedMap={bookedMap}
+            pendingMap={pendingMap}
+            selectedSlotKeys={selectedSlotKeys}
+            onSlotToggle={toggleSlotKey}
+            onClearSelection={clearSelection}
+          />
         </View>
 
         {/* ═══ SECTION 4: About ═══ */}
         <View className={SECTION_GAP}>
-          <AboutSection tutor={tutor} expanded={bioExpanded} onToggle={() => setBioExpanded(!bioExpanded)} />
+          <AboutSection tutor={effectiveTutor} expanded={bioExpanded} onToggle={() => setBioExpanded(!bioExpanded)} />
         </View>
 
         {/* ═══ SECTION 5: Demo Lesson ═══ */}
         <View className={SECTION_GAP}>
           <DemoLessonSection
-            tutor={tutor}
+            tutor={effectiveTutor}
             onPlay={() => setDemoVideoVisible(true)}
           />
         </View>
 
         {/* ═══ SECTION 6: Reviews & Ratings ═══ */}
         <View>
-          <ReviewsSection tutor={tutor} />
+          <ReviewsSection tutor={effectiveTutor} />
         </View>
       </ScrollView>
 
       {/* ═══ SECTION 7: Sticky Footer CTA ═══ */}
-      <StickyFooter tutor={tutor} insets={insets} />
+      <StickyFooter
+        tutor={effectiveTutor}
+        insets={insets}
+        openSheet={openEnrollForm}
+      />
 
       {/* ═══ Demo Video Modal ═══ */}
       <VideoViewerModal
         visible={demoVideoVisible}
-        uri={tutor.demoVideoUrl ?? ""}
-        label={`${tutor.fullName} — demo lesson`}
+        uri={effectiveTutor.demoVideoUrl ?? ""}
+        label={`${effectiveTutor.fullName} — demo lesson`}
         onClose={() => setDemoVideoVisible(false)}
       />
+
     </ScreenLayout>
   );
 }
@@ -226,10 +584,12 @@ function TopBar({
   isSaved,
   onSaveToggle,
   onBack,
+  shareMessage,
 }: {
   isSaved: boolean;
   onSaveToggle: () => void;
   onBack: () => void;
+  shareMessage: string;
 }) {
   return (
     <View className="px-5 pb-2 bg-background z-10">
@@ -241,7 +601,14 @@ function TopBar({
             onPress={onSaveToggle}
             color={isSaved ? colors.semantic.danger : undefined}
           />
-          <IconButton iconName="share-outline" onPress={() => Alert.alert("Share", "Share feature coming soon.")} />
+          <IconButton
+            iconName="share-outline"
+            onPress={() =>
+              Share.share({ message: shareMessage }).catch(() => {
+                // Share sheet dismissed / unsupported — nothing to do.
+              })
+            }
+          />
         </View>
       </View>
     </View>
@@ -431,7 +798,13 @@ function IconButton({
 // Section 2: Pricing
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function PricingSection({ tutor }: { tutor: TutorProfile }) {
+function PricingSection({
+  tutor,
+  onMessageTutor,
+}: {
+  tutor: TutorProfile;
+  onMessageTutor: () => void;
+}) {
   return (
     <View className={SECTION_PADDING}>
       <Text className="text-section-title font-semibold text-text-primary mb-3">
@@ -453,13 +826,23 @@ function PricingSection({ tutor }: { tutor: TutorProfile }) {
           <Text className="text-caption text-text-muted">/month</Text>
         </View>
 
-        {/* Group Batch — placeholder until pricing is finalised */}
-        <View className="flex-1 bg-surface border border-border rounded-card p-4 items-center justify-center opacity-60">
-          <Ionicons name="people-outline" size={24} color={colors.text.muted} />
-          <Text className="text-caption text-text-muted text-center mt-2">
-            Group batch coming soon
+        {/* Group Batch — ask the tutor about group rates */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ask about group batches"
+          onPress={onMessageTutor}
+          className="flex-1 bg-surface border border-border rounded-card p-4 items-center justify-center active:opacity-70"
+        >
+          <View className="w-10 h-10 rounded-lg bg-accent-soft items-center justify-center mb-3">
+            <Ionicons name="people-outline" size={20} color={colors.brand.accent} />
+          </View>
+          <Text className="text-caption text-text-muted uppercase tracking-wider">
+            Group batch
           </Text>
-        </View>
+          <Text className="text-caption text-text-muted text-center mt-2">
+            Message to ask about rates
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -469,7 +852,13 @@ function PricingSection({ tutor }: { tutor: TutorProfile }) {
 // Section 3: Session Board
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
+function SessionBoardSection({
+  tutor,
+  onRequestSlot,
+}: {
+  tutor: TutorProfile;
+  onRequestSlot: () => void;
+}) {
   const hasSessions = tutor.sessions.length > 0;
   const totalSlots = tutor.studentCapacity;
   const totalFilled = tutor.currentStudents;
@@ -506,14 +895,18 @@ function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
           {/* Session cards */}
           <View className="gap-3">
             {tutor.sessions.map((session) => (
-              <SessionCard key={session.id} session={session} />
+              <SessionCard
+                key={session.id}
+                session={session}
+                onEnroll={onRequestSlot}
+              />
             ))}
           </View>
 
           {/* Empty slot CTA */}
           <Pressable
             accessibilityRole="button"
-            onPress={() => Alert.alert("Create session", "Session creation coming soon.")}
+            onPress={onRequestSlot}
             className="mt-3 flex-row items-center gap-3 p-4 border-2 border-dashed border-border rounded-card bg-surface active:opacity-70"
           >
             <View className="w-10 h-10 rounded-pill bg-accent-soft items-center justify-center">
@@ -566,7 +959,13 @@ function SessionBoardSection({ tutor }: { tutor: TutorProfile }) {
   );
 }
 
-function SessionCard({ session }: { session: TutorSession }) {
+function SessionCard({
+  session,
+  onEnroll,
+}: {
+  session: TutorSession;
+  onEnroll: () => void;
+}) {
   const isPrivate = session.type === "private_batch";
   const fillPct = (session.seatsFilled / session.seatsTotal) * 100;
 
@@ -579,15 +978,23 @@ function SessionCard({ session }: { session: TutorSession }) {
 
   return (
     <View className="bg-surface border border-border rounded-card p-4">
-      {/* Top row: type + status */}
+      {/* Top row: type badge + status pill */}
       <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center gap-1.5">
+        <View
+          className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-pill ${
+            isPrivate ? "bg-ai-light" : "bg-verification-light"
+          }`}
+        >
           {isPrivate ? (
-            <Ionicons name="lock-closed" size={14} color={colors.brand.primary} />
+            <Ionicons name="lock-closed" size={13} color={colors.brand.ai} />
           ) : (
-            <Ionicons name="people" size={14} color={colors.brand.primary} />
+            <Ionicons name="people" size={13} color={colors.brand.verification} />
           )}
-          <Text className="text-caption text-text-secondary font-medium uppercase tracking-wider">
+          <Text
+            className={`text-micro font-semibold uppercase tracking-wider ${
+              isPrivate ? "text-ai" : "text-success"
+            }`}
+          >
             {isPrivate ? "Private Batch" : "Public Batch"}
           </Text>
         </View>
@@ -626,7 +1033,7 @@ function SessionCard({ session }: { session: TutorSession }) {
         </View>
         <Pressable
           accessibilityRole="button"
-          onPress={() => Alert.alert("Enroll", "Enrollment coming soon.")}
+          onPress={onEnroll}
           disabled={session.status === "full"}
           className={`px-3 py-1.5 rounded-pill ${
             session.status === "full"
@@ -648,6 +1055,108 @@ function SessionCard({ session }: { session: TutorSession }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Section 3b: Weekly Availability (live) — Phase 1 grid redesign
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Phase 1 — replaces the old `AvailabilityTimeList` (vertical
+ * day-grouped list) with a polished, responsive 7×6 grid that
+ * visually matches `WeeklyAvailabilityGrid`. The student can
+ * tap exactly one Available slot; the grid reflects that with
+ * the brand's amber border-2 over the green fill. Disabled taps
+ * (Booked / Off cells) shake the grid to communicate "this one
+ * isn't selectable" without changing the selection.
+ *
+ * Selection state lives at the screen level so it survives the
+ * sheet open/close cycle. The `Clear` button in the section
+ * header is the explicit UX for deselection; tap-again-to-deselect
+ * is wired inside the grid for symmetry.
+ *
+ * The slot is only "officially" booked after the tutor accepts —
+ * Booked (blue) is reserved for the post-accept state. While
+ * pending (someone else asked), the cell renders Available with a
+ * hourglass icon + count badge overlay.
+ */
+function AvailabilitySection({
+  availability,
+  bookedMap,
+  pendingMap,
+  selectedSlotKeys,
+  onSlotToggle,
+  onClearSelection,
+}: {
+  availability: WeeklyAvailability;
+  bookedMap: ReturnType<typeof computeBookedMap> | null;
+  pendingMap: PendingMap;
+  selectedSlotKeys: ReadonlySet<string>;
+  onSlotToggle: (slotKey: string) => void;
+  onClearSelection: () => void;
+}) {
+  const { shake, animatedStyle: shakeStyle } = useShake({ amplitude: 6, duration: 60 });
+
+  const handleDisabled = useCallback(() => {
+    shake();
+  }, [shake]);
+
+  const selectionCount = selectedSlotKeys.size;
+
+  return (
+    <Animated.View style={shakeStyle} className={SECTION_PADDING}>
+      {/* Header — title + Clear (when there's a selection) */}
+      <View className="flex-row items-center justify-between mb-1">
+        <Text className="text-section-title font-semibold text-text-primary">
+          Weekly availability
+        </Text>
+        {selectionCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear slot selection"
+            onPress={onClearSelection}
+            className="px-2.5 py-1 rounded-pill bg-surface border border-border active:opacity-70"
+          >
+            <Text className="text-micro text-text-secondary font-medium">
+              Clear ({selectionCount})
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <Text className="text-body-sm text-text-muted mb-4">
+        Tap one or more available slots to mark candidates. When you
+        send the request, type your preferred days and times in the
+        message.
+      </Text>
+
+      {bookedMap == null ? (
+        <View className="bg-surface border border-border rounded-card p-3 gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <View
+              key={i}
+              className="h-12 rounded-md bg-background"
+              style={{ opacity: 0.6 }}
+            />
+          ))}
+        </View>
+      ) : (
+        <StudentAvailabilityGrid
+          availability={availability}
+          bookedMap={bookedMap}
+          pendingMap={pendingMap}
+          selectedSlotKeys={selectedSlotKeys}
+          onSlotToggle={onSlotToggle}
+          onSlotDisabled={handleDisabled}
+        />
+      )}
+
+      {/* Helper copy — short, beneath the grid */}
+      <Text className="text-caption text-text-muted mt-3 leading-relaxed">
+        Tap a <Text className="font-semibold text-verification">green</Text> slot
+        to mark it. Blue slots are taken. Grey slots aren&apos;t open yet.
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Section 4: About
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -660,7 +1169,6 @@ function AboutSection({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const BIO_LINE_HEIGHT = 22;
   const COLLAPSED_LINES = 3;
 
   return (
@@ -1006,9 +1514,11 @@ function ReviewCard({ review }: { review: Review }) {
 function StickyFooter({
   tutor,
   insets,
+  openSheet,
 }: {
   tutor: TutorProfile;
   insets: { bottom: number };
+  openSheet: () => void;
 }) {
   return (
     <View
@@ -1025,11 +1535,15 @@ function StickyFooter({
           <Text className="text-micro text-text-muted">/month</Text>
         </View>
 
-        {/* Enroll button */}
+        {/* Enroll button — always visible. The student may have
+            *  selected candidate slots on the grid above, but the
+            *  request itself is captured in the sheet (the
+            *  schedule + message + dates). The button is the
+            *  single entry point to the sheet. */}
         <View className="flex-1">
           <PrimaryButton
             label={`Enroll with ${tutor.fullName.split(" ")[0]}`}
-            onPress={() => Alert.alert("Enroll", "Enrollment flow coming soon.")}
+            onPress={openSheet}
             variant="accent"
             size="md"
             className="w-full"

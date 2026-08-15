@@ -1,106 +1,96 @@
 /**
- * DiscoverIllustration — Onboarding slide 1 of 3.
+ * DiscoverIllustration — Onboarding slide 1 of 3 ("Discover tutors on
+ * the map"). Pure SVG — no GL, no R3F (the 3D `DiscoverScene3D` was
+ * removed after the device crash in
+ * `WebGLCapabilities.getMaxPrecision`).
  *
- * A stylized map: warm sand background, hairline grid, two road lines,
- * three tutor pins, and a pulsing amber current-location dot in the
- * centre. Pure SVG composition — no images.
+ * Composition (viewBox 220×220):
+ *   - tinted panel (onboarding map background)
+ *   - a white "map card" with soft road grid
+ *   - the slate EdumentX pin with its amber ring at center (same
+ *     visual language as `assets/markers/pin-tutor.png`) casting a
+ *     soft drop ring; two quieter pins read as nearby tutors
+ *   - a "search" pill above the card and a distance chip beside the
+ *     main pin — the BasoBas map-illustration pattern (mini UI scene
+ *     instead of literal geography)
  *
- * NativeWind migration: SVG primitives (`Rect`, `Line`, `Circle`) don't
- * resolve `className`; they need raw hex values for `fill` and `stroke`.
- * Hex values come from `constants/colors` (the local fallback). Tailwind
- * classes are applied to the outer wrapper only.
+ * SVG primitives need raw hex — colors come from
+ * `constants/colors.ts`; the outer wrapper takes Tailwind classes.
  */
-import { View } from 'react-native';
-import { Circle, G, Line, Path, Rect, Svg } from 'react-native-svg';
+import { Circle, Path, Rect, Svg } from "react-native-svg";
 
-import { colors } from '@/constants/colors';
+import { colors } from "@/constants/colors";
 
-const COLORS = {
-  sand: colors.background.page,
-  borderDefault: colors.border.default,
-  night: colors.brand.primary,
-  amber: colors.brand.accent,
+const T = {
+  panel: colors.onboarding.mapBackground,
   surface: colors.background.surface,
+  borderSoft: colors.border.default,
+  slate: colors.text.primary,
+  slateMuted: colors.text.secondary,
+  amber: colors.brand.accent,
+  brandLight: colors.brand.primaryLight,
+  road: colors.border.subtle,
 } as const;
+
+// 4-point sparkle star at (x, y), size s.
+function Star({ x, y, s }: { x: number; y: number; s: number }) {
+  const d = `M ${x} ${y - s} L ${x + s * 0.32} ${y - s * 0.32} L ${x + s} ${y} L ${x + s * 0.32} ${y + s * 0.32} L ${x} ${y + s} L ${x - s * 0.32} ${y + s * 0.32} L ${x - s} ${y} L ${x - s * 0.32} ${y - s * 0.32} Z`;
+  return <Path d={d} fill={T.amber} />;
+}
 
 export function DiscoverIllustration() {
   return (
-    <View className="w-full h-full items-center justify-center">
-      <Svg
-        viewBox="0 0 220 220"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* Map background */}
-        <Rect
-          x={0}
-          y={0}
-          width={220}
-          height={220}
-          rx={24}
-          ry={24}
-          fill={COLORS.sand}
-        />
+    <Svg
+      viewBox="0 0 220 220"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {/* Panel */}
+      <Rect x={0} y={0} width={220} height={220} rx={24} fill={T.panel} />
 
-        {/* Hairline grid + roads */}
-        <G>
-          <Line x1={40} y1={16} x2={40} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={80} y1={16} x2={80} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={120} y1={16} x2={120} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={160} y1={16} x2={160} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={200} y1={16} x2={200} y2={204} stroke={COLORS.borderDefault} strokeWidth={1} />
+      {/* Map card */}
+      <Rect x={28} y={46} width={164} height={112} rx={14} fill={T.surface} stroke={T.borderSoft} strokeWidth={1.2} />
 
-          <Line x1={16} y1={50} x2={204} y2={50} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={16} y1={90} x2={204} y2={90} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={16} y1={130} x2={204} y2={130} stroke={COLORS.borderDefault} strokeWidth={1} />
-          <Line x1={16} y1={170} x2={204} y2={170} stroke={COLORS.borderDefault} strokeWidth={1} />
+      {/* Road grid */}
+      <Path
+        d="M 52 80 H 184 M 52 108 H 184 M 52 136 H 184 M 82 62 V 142 M 118 62 V 142 M 152 62 V 142"
+        stroke={T.road}
+        strokeWidth={2}
+        opacity={0.6}
+      />
+      {/* Park patch */}
+      <Rect x={110} y={84} width={58} height={46} rx={10} fill={T.brandLight} />
 
-          {/* Two thicker road lines */}
-          <Line x1={16} y1={70} x2={204} y2={70} stroke={COLORS.borderDefault} strokeWidth={1.6} />
-          <Line x1={16} y1={150} x2={204} y2={150} stroke={COLORS.borderDefault} strokeWidth={1.6} />
-        </G>
+      {/* Search chip */}
+      <Rect x={52} y={54} width={92} height={12} rx={6} fill={T.surface} stroke={T.borderSoft} strokeWidth={1} />
+      <Circle cx={59} cy={60} r={3} fill={T.slateMuted} opacity={0.7} />
+      <Rect x={66} y={63} width={52} height={3.5} rx={1.75} fill={T.slateMuted} opacity={0.5} />
 
-        {/* Tutor pin — top-right */}
-        <G>
-          <Path
-            d="M150 30 L162 30 A8 8 0 0 1 170 38 L170 56 A8 8 0 0 1 162 64 L150 64 A8 8 0 0 1 142 56 L142 38 A8 8 0 0 1 150 30 Z"
-            fill={COLORS.surface}
-            stroke={COLORS.night}
-            strokeWidth={1.5}
-          />
-          <Circle cx={156} cy={47} r={4} fill={COLORS.night} />
-        </G>
+      {/* Main pin (slate teardrop + amber ring/dot) */}
+      <Circle cx={110} cy={104} r={9.5} fill={T.slate} />
+      <Path d="M 110 113 L 114.4 123 L 105.6 123 Z" fill={T.slate} />
+      <Circle cx={110} cy={104} r={12.5} fill="none" stroke={T.amber} strokeWidth={1.6} strokeDasharray="3 3" />
+      <Circle cx={110} cy={104} r={4} fill={T.amber} />
 
-        {/* Tutor pin — mid-left */}
-        <G>
-          <Path
-            d="M50 92 L62 92 A8 8 0 0 1 70 100 L70 118 A8 8 0 0 1 62 126 L50 126 A8 8 0 0 1 42 118 L42 100 A8 8 0 0 1 50 92 Z"
-            fill={COLORS.surface}
-            stroke={COLORS.night}
-            strokeWidth={1.5}
-          />
-          <Circle cx={56} cy={109} r={4} fill={COLORS.night} />
-        </G>
+      {/* Nearby pins */}
+      <Circle cx={176} cy={88} r={3.4} fill={T.slateMuted} opacity={0.65} />
+      <Circle cx={148} cy={132} r={3} fill={T.slateMuted} opacity={0.5} />
 
-        {/* Tutor pin — bottom-right */}
-        <G>
-          <Path
-            d="M160 142 L172 142 A8 8 0 0 1 180 150 L180 168 A8 8 0 0 1 172 176 L160 176 A8 8 0 0 1 152 168 L152 150 A8 8 0 0 1 160 142 Z"
-            fill={COLORS.surface}
-            stroke={COLORS.night}
-            strokeWidth={1.5}
-          />
-          <Circle cx={166} cy={159} r={4} fill={COLORS.night} />
-        </G>
+      {/* Distance chip under main pin */}
+      <Rect x={86} y={138} width={48} height={14} rx={7} fill={T.amber} />
+      <Circle cx={93} cy={145} r={2.6} fill={T.surface} />
+      <Rect x={99.5} y={143.6} width={26} height={2.8} rx={1.4} fill={T.surface} />
 
-        {/* Current-location pulse — outer ring */}
-        <Circle cx={110} cy={120} r={24} fill={COLORS.amber} opacity={0.15} />
-        {/* Inner pulse */}
-        <Circle cx={110} cy={120} r={14} fill={COLORS.amber} opacity={0.3} />
-        {/* Solid dot with white ring */}
-        <Circle cx={110} cy={120} r={8} fill={COLORS.amber} stroke={COLORS.surface} strokeWidth={3} />
-      </Svg>
-    </View>
+      {/* Bottom bar — "8 tutors nearby" */}
+      <Rect x={58} y={172} width={104} height={16} rx={8} fill={T.slate} />
+      <Circle cx={68} cy={180} r={3.2} fill={T.amber} />
+      <Rect x={75} y={178.4} width={58} height={3.2} rx={1.6} fill={T.surface} opacity={0.92} />
+
+      {/* Ambient accent stars */}
+      <Star x={182} y={60} s={3.4} />
+      <Star x={46} y={28} s={2.6} />
+      <Star x={46} y={184} s={3} />
+    </Svg>
   );
 }

@@ -1,11 +1,14 @@
 # EdumentX — Zero-Budget Hybrid Architecture
 
 > **Status**: Source of truth for the production stack.
-> **Last updated**: June 27, 2026 — Phase 3 (3D onboarding + animated
-> splash + reusable UI primitives) shipped. Four new JS-side
-> dependencies added (expo-gl, three, @react-three/fiber,
-> @react-three/drei) — all MIT, all keyless, all on the free tier.
-> See §4a for the 3D stack rationale.
+> **Last updated**: Aug 2026 — Phase 3.5 stabilization + enrollment
+> data-model notes. The 3D stack (`expo-gl`, `three`, `@react-three/fiber`,
+> `@react-three/drei`) was **removed** after a device crash in
+> `WebGLCapabilities.getMaxPrecision`; onboarding now uses flat
+> `react-native-svg` illustrations. Map pins, GPS auto-location and the
+> location picker shipped in the same pass. §2 documents the
+> enrollment collections + `slotKey` format; §9a documents the
+> `node:test` unit-test pattern. See §4a for the removal rationale.
 > **Read this first** if you are about to add a new backend dependency.
 
 This document is the canonical reference for every service the EdumentX
@@ -36,7 +39,11 @@ been working since Phase 2.
 | **RAG / Chatbot** | Groq Cloud API (Llama 3) **or** HuggingFace Serverless | Free dev tier | No |
 | **Push (future)** | Firebase Cloud Messaging | Unlimited | No |
 | **Analytics (future)** | Firebase Analytics | Unlimited events | No |
-| **3D / Animations** | `expo-gl` + `@react-three/fiber` + `@react-three/drei` + `three` | MIT (all 4) | No |
+| **Animations** | Reanimated 4 worklets (press springs, splash particles, onboarding transitions) | MIT, on-device only | No |
+| **Illustrations** | `react-native-svg` (onboarding scenes) — the 3D stack (`expo-gl`/R3F/`three`) was **removed** in Phase 3.5 after a device crash (`WebGLCapabilities.getMaxPrecision`) | MIT, on-device only | No |
+| **UX / Haptics** | `expo-haptics` (Phase 2 UI overhaul: tactile 100ms press micro-interactions) | MIT, keyless, on-device only | No |
+| **Map Markers** | `expo-image` + `react-native-view-shot` + bundled cluster PNGs (Aug 2026: teardrop pins with the tutor avatar are rasterized offscreen via `captureRef`, loaded through `Image.loadAsync` into `SharedRef<'image'>` Google Map markers) | MIT, keyless, on-device only | No |
+| **Dev / CI tooling** | `firebase-tools` (devDependency — the `firebase` CLI for `emulators:exec` rules testing and `deploy:rules`; runs headlessly on GitHub Actions runners) | Free, open-source (Apache-2.0), no card | No |
 
 If a future feature needs a service not on this list, **stop and add a
 row to this table before writing any code**. Do not introduce a paid
@@ -84,12 +91,94 @@ users/{uid}                        # structural metadata (uid, email,
                                    #   role, displayName, createdAt,
                                    #   updatedAt)
 users/{uid}/studentProfile/default # student-only profile fields
+                                   #   (incl. `savedTutors` uid-key
+                                   #   map §7.5)
 users/{uid}/tutorProfile/default   # tutor-only profile fields
 ```
 
 When we add tutor-discovery in Phase 5, the candidate collection will be
 `tutors/{uid}` (denormalized for read efficiency), but write access
 stays owner-only.
+
+**Enrollment collections** (Phase 5, all under the tutor's uid):
+
+```
+enrollmentRequests/{tutorUid}/requests/{requestId}  # pending student asks
+enrollments/{tutorUid}/roster/{enrollmentId}         # active students
+notifications/{uid}/items/{itemId}                   # per-user inbox
+```
+
+**Later collections** (all rule-covered, all deployed):
+
+```
+tutors/{uid}                          # denormalized discovery doc (admin-written;
+                                      #   rating/reviewCount mirror is only
+                                      #   refreshed at approval — the cards
+                                      #   overlay LIVE aggregates from the
+                                      #   reviews collectionGroup instead)
+tutorVerifications/{uid}              # verification queue source of truth
+tutorProfileUpdates/{uid}             # pending edit-review queue
+reviews/{tutorUid}/reviews/{reviewId} # student reviews (counted on the profile;
+                                      #   also aggregated per-tutor via
+                                      #   collectionGroup for the cards)
+batches/{tutorUid}/classes/{batchId}  # group batches
+batches/{tutorUid}/classes/{batchId}/members/{memberId}
+conversations/{conversationId}        # 1:1 messaging (deterministic id)
+conversations/{conversationId}/messages/{messageId}
+```
+
+**Batch `memberCount` — denormalized capacity contract.** The batch
+doc carries a denormalized `memberCount` (cap `MAX_BATCH_MEMBERS` =
+6 — the single source of truth in `services/enrollments/types.ts`).
+Every seat-visible surface reads this field: the marketplace capacity
+meter + `SeatsRing`, the browse sort (`sortBatchesForBrowse`), the
+enrollment form's full-batch block, and the tutor inbox/capacity
+cards. This is because students CAN read batch docs (the marketplace
+carve-out) but CANNOT read the tutor-gated `members` subcollection.
+The field is maintained on every mutation:
+
+- `createBatch` → `members.length` (the transaction seeds the members)
+- `addBatchMember` / the accept-transaction member write →
+  `increment(1)` — accepts are idempotent per `enrollmentId`, so the
+  counter only bumps when the member doc is new
+- `removeBatchMember` → `increment(-1)`
+
+Capacity itself is enforced by the **accept transaction** (`BatchFullError`
+thrown before any write → full rollback), NOT by Firestore rules:
+rules can't count subcollection docs transactionally, and a
+rules-level check would race under concurrent accepts. The emulator
+suite (`scripts/acceptRequestRulesTest.mjs`) locks that boundary — the
+tutor's member write stays PERMITTED at capacity, non-tutors stay
+BLOCKED — while the mock repo maintains the field identically
+(unit-tested in `scripts/testDerived.ts`). Legacy docs without the
+field read as 0 members → seats available.
+
+The messaging layout deserves a note: `conversationId` is the **sorted
+participant pair joined by `__`** (`conversationKey(uidA, uidB)` in
+`services/messages/types.ts`), so either side addresses the same
+conversation without a lookup query. Membership is enforced in rules
+via two scalar fields (`participantA`/`participantB` ==
+`request.auth.uid`) because list-membership operators (`in`/`hasAny`)
+and bare `auth` both fail the local rules emulator with "Null value
+error" — see the comment block in `firebase/firestore.rules`.
+`participants` (array) is kept solely for the hub's
+`where participants array-contains uid` query.
+
+**slotKey format — `"<day>:<slot>"`** (e.g. `mon:5-7`, `wed:9-12`).
+This is a hard contract shared by every enrollment feature:
+
+- Built with `slotKey(day, slot)` in `services/enrollments/types.ts`
+  and parsed with `parseSlotKey` — a key that fails to parse returns
+  `null` and is **silently excluded** from derived views
+  (`deriveTodaySessions`, `computeBookedMap`, capacity counts), so a
+  typo like `mon-5-7` (hyphen) instead of `mon:5-7` (colon) makes an
+  enrollment invisible without an obvious error.
+- Days are the `DayKey` union (`mon`…`sun`); slots are `TimeSlotKey`
+  (`6-9`…`7-9`). See `types.ts` for the canonical lists.
+- `derived.ts` logs a warn-once message for malformed keys so bad
+  data can't hide (see the `warnBadSlotKey` guard).
+- Any new writer (tests, seeds, scripts) MUST use the colon format or
+  its data will never surface in the tutor dashboard.
 
 **Hard rule**: do not call Cloud Functions from the client. There is no
 Cloud Function runtime on Spark. All server-side logic (KNN, Haversine,
@@ -113,11 +202,14 @@ verification docs — all without a card.
 **Code map**:
 - `.env` — `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - `services/supabase/client.ts` — singleton `createClient` instance
-  (to be created in Phase 5.1).
-- `services/supabase/storage.ts` — `uploadAvatar`, `uploadVerificationDoc`,
-  `getPublicUrl` helpers (to be created).
-- `components/forms/AvatarUploader.tsx` — calls `uploadAvatar` and
-  writes the returned URL into the user doc's profile subcollection.
+  (no Supabase Auth — Firebase owns identity; the anon key talks to
+  the Storage REST API only).
+- `services/supabase/storage.ts` — `uploadAvatar`,
+  `uploadVerificationDoc`, `getVerificationDocPublicUrl`.
+- `components/forms/AvatarUploader.tsx` — picks + compresses + uploads,
+  writes the returned URL into the profile doc.
+- `lib/verification/documents.ts` + `components/forms/DocumentUploader.tsx` —
+  citizenship / certificate / demo uploads into `private-verification-docs`.
 
 **Flow** (tutor uploads avatar):
 1. User picks image in `expo-image-picker`.
@@ -127,37 +219,106 @@ verification docs — all without a card.
 5. URL is written into `users/{uid}/{role}Profile/default.avatarUrl` via
    the existing `writeBatch` in `screens/auth/*ProfileScreen.tsx`.
 
+**Flow** (tutor uploads verification doc):
+1. `DocumentUploader` → `pickAndUploadTutorDoc` validates size + MIME,
+   then `uploadVerificationDoc` writes `{uid}/{kind}.{ext}` (upsert).
+2. The returned `TutorDocument` is persisted to Firestore on submit.
+3. Upload failures (RLS, bucket missing, missing env) surface the
+   bucket/path in the alert, with a ready-to-paste RLS INSERT policy
+   hint for the anon key (see `storage.ts`). The anon key MUST have an
+   INSERT policy on both buckets — Firebase is not a Supabase Auth
+   session, so `authenticated`-only policies reject every upload.
+
 **Hard rule**: never write a Supabase URL into a Firestore doc that the
 user can later rename or delete; the URL must be stable for the lifetime
 of the bucket.
 
+**Deletion (admin "Delete permanently")** — `src/lib/admin/userLifecycle.ts`:
+- Firestore purge is client-side: the app holds the anon key, and the
+  admin portal is the only writer that should remove rows, so
+  `firebase/firestore.rules` grants `delete: if isAdmin()` on
+  `users/{uid}`, `tutors/{uid}`, `tutorVerifications/{uid}`,
+  `tutorProfileUpdates/{uid}`, `notifications/{uid}` (deployed via
+  `npm run deploy:rules`). The flow is documented in
+  `src/screens/admin/UserManagement.tsx` + `lib/admin/userLifecycle.ts`.
+- Storage objects are **best-effort** from the app: RLS cannot tie a
+  Supabase storage row to the Firebase uid (the app never signs in to
+  Supabase Auth), and we deliberately do NOT ship an open `anon DELETE`
+  policy (anyone holding the public anon key could wipe the buckets).
+  Failed removals are surfaced with a pointer to
+  `npm run delete:user -- <uid>` — the dev-laptop script
+  (`scripts/deleteUser.ts`) that deletes the Firebase Auth identity
+  (`auth.deleteUser` — the *only* way on the Spark plan) and removes
+  the objects with the service-role key, which bypasses RLS.
+- Avatar objects are always `public-avatars/{uid}.jpg` (canonical path
+  from `uploadAvatar`), verification docs `{uid}/{kind}.{ext}` — the
+  script lists the `{uid}/` prefix, so it cleans stragglers the app
+  couldn't see even when the profile doc is already gone.
+
 ---
 
-## 4. Maps — OpenStreetMap via `react-native-maps`
+## 4. Maps — `expo-maps` (Google/Apple native maps)
 
-**Why**: Google Maps SDK requires a Cloud Billing account to remove
-the "for development purposes only" watermark. OSM tiles are free,
-keyless, and have excellent coverage of Kathmandu Valley.
+**Why**: The original plan pointed at OSM tiles via `react-native-maps`;
+Phase 5.2 landed on **`expo-maps`** instead (Android renders the native
+Google provider, iOS the native Apple provider) — no OSM tile server
+load, offline-friendlier, and the Google Maps API key is only needed
+for the Android **development** build (the `withGoogleMapsApiKey`
+config plugin in `app.json`; the shipped APK's key can stay a dev key).
+This supersedes the older `react-native-maps` + `<UrlTile>`
+consideration — no `UrlTile` is used anywhere today.
 
 **Setup**:
-- `react-native-maps` install is **deferred to Phase 5.2** (it is
-  NOT in the dependency tree today — see commit history; the
-  earlier "Phase 1.5" note pre-dated the NativeWind migration
-  pruning and is stale). When Phase 5.2 lands, install via
-  `npx expo install react-native-maps` to pick up the SDK 54 native
-  version.
-- No API key needed; we use the `<UrlTile>` component to point at
-  `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
+- `expo-maps` 0.12.x (installed via `npx expo install`).
+- `app.json` plugins: `expo-maps` (requestLocationPermission),
+  `expo-location` custom messages, and `./plugins/withGoogleMapsApiKey`.
+- **Reusable surface**: `components/map/TutorMap.tsx` — a single
+  `TutorMapView` that renders `GoogleMaps.View` on Android and
+  `AppleMaps.View` on iOS with one props contract (markers, circles,
+  imperative `setCameraPosition`, `onMarkerClick`, `onMapTap`,
+  `onCameraMove`).
 
-**Code map** (Phase 5.2):
-- `components/map/TutorMap.tsx` — base map container with `<UrlTile>`.
-- `components/map/TutorMarker.tsx` — single pin + popup.
-- `app/(student)/discover.tsx` — map screen wiring.
+**Nepal camera lock** (`lib/location/nepalBounds.ts` + `TutorMap`):
+- expo-maps has no "restrict panning to bounds" prop → out-of-bounds
+  gestures are snapped back in `onCameraMove`.
+- The snap is **throttled to one per 800ms** (`clampCooldownUntil`
+  ref). Without the throttle, each superseded camera animation makes
+  the previous native Promise reject with `java.util.concurrent.
+  CancellationException: Animation cancelled` → "Call to function
+  'ExpoGoogleMaps.setCameraPosition' has been rejected" red/log spam.
+- On Android, zoom is clamped natively via `minZoomPreference`/
+  `maxZoomPreference`, so the JS snap path only handles lat/lng.
+- Consumers always receive the clamped camera during a snap so
+  clustering math never sees phantom coordinates.
 
-**Hard rule**: never call `googleMapsApiKey` from the JS layer. The
-`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` env var is kept for backwards compat
-but should remain empty. If a future feature needs Google Places
-(geocoding, autocomplete), use Nominatim instead.
+**Custom drop pins** (`components/map/TutorAvatarPin.tsx` +
+`lib/map/avatarPins.tsx`):
+- expo-maps Google markers accept only `SharedRef<'image'>` icons —
+  never React nodes. Avatar pins are rendered offscreen by an
+  `AvatarPinHost` and rasterized with `react-native-view-shot`
+  (`captureRef` → temp PNG → `Image.loadAsync` → `ImageRef`).
+- Unique pins are cached module-wide per `(photoUrl × verified)`;
+  capture is gated on the avatar's `onLoad` with a 4 s timeout (a
+  stale avatar URL must not hang the pin) — a failed or timed-out
+  load falls back to the glyph pin, then to the bundled PNG set
+  (`pin-tutor.png` / `pin-verified.png`), then to the native tint.
+- `MapSearch` does NOT hot-swap icons: tutor markers mount only once
+  all pins have resolved (4.5 s cap), because expo-maps' marker
+  update path cannot be relied upon to change an existing marker's
+  icon. Clusters always show the `pin-cluster.png` badge.
+
+**Code map**:
+- `components/map/TutorMap.tsx` — platform-adaptive map.
+- `components/map/LocationPickerModal.tsx` — map in the profile form.
+- `screens/student/MapSearch.tsx` — student map screen (live tutors,
+  clustering via `useTutorClustering`, GPS recenter).
+- `lib/location/nepalBounds.ts` — bounds, valley center, zoom range.
+- `lib/location/nepalGeo.ts` — legacy-tutor centroid fallback ladder.
+- `scripts/generate-markers.mjs` + `assets/markers/*.png` — PNG pins.
+
+**Hard rule**: never add the Google Places API, Geocoding API, or a
+billing-keyed map SDK. Geocoding stays on Nominatim (§5); the Google
+API key stays dev-only.
 
 ---
 
@@ -172,81 +333,66 @@ without adding cost.
 request/second per IP. Heavy batch geocoding should use the
 `/search?q=...&format=json` endpoint with a `User-Agent` header.
 
-**Code map** (Phase 5.3):
-- `services/nominatim/reverse.ts` — `reverseGeocode(lat, lon)`.
-- `components/forms/LocationField.tsx` — upgrades from static list to
-  Nominatim-driven autocomplete.
+**Code map** (Phase 5.3, landed):
+- `services/nominatim/reverse.ts` → `lib/location/geocoder.ts` +
+  `lib/location/geocoding.ts` — forward + reverse geocoding with
+  `accept-language=en` (query param **and** header) so Nepali
+  responses come back in English; Devanagari results are stripped as
+  a last-line defense.
+- `components/forms/LocationField.tsx` — "Pick on Map" /
+  "Use my location" GPS pin flow (map picker, not keystroke search).
 
 **Hard rule**: respect the 1 req/sec rate limit. Debounce all
 autocomplete keystrokes to 800 ms minimum.
 
 ---
 
-## 4a. 3D + Animations — `expo-gl` + `@react-three/fiber` + `@react-three/drei` + `three`
+## 4a. Onboarding Illustrations + Animations — `react-native-svg` + Reanimated 4 (no GL)
 
-**Why**: Phase 3 (June 27, 2026) ships 3D scenes in two of the three
-onboarding slides (Discover map + AI Match orb) and a polished
-Reanimated 4 splash + onboarding flow. The 3D stack has to be
-zero-budget — and it is, because **all four packages are MIT** and
-none of them ship a cloud component. The only one with native code
-is `expo-gl` (the GL context provider); the other three are pure
-JS, so the EAS dev-client rebuild cost is the same single rebuild
-as if we had added just `expo-gl`.
+**Why**: Phases 3.0 shipped the three onboarding slides as 3D scenes
+(`expo-gl` + `@react-three/fiber` + `@react-three/drei` + `three`).
+On a physical device (RMX3630) that stack crashed on boot:
 
-| Package | Version | Role | Native? |
-|---|---|---|---|
-| `expo-gl` | `~16.0.10` | OpenGL ES view + context (the only native module) | Yes |
-| `@react-three/fiber` | `^9.0.4` | React renderer for three.js scenes. We import from `/native` subpath → RN-safe entrypoint that skips Web-only DOM/document/window shims. | No (pure JS) |
-| `@react-three/drei` | `^10.0.0` | Helpers (`<Float>`, `<Sparkles>`). Same `/native` subpath rule. | No (pure JS) |
-| `three` | `^0.171.0` | Underlying WebGL renderer + math. R3F drives it. | No (pure JS) |
+```
+TypeError: Cannot read property 'precision' of undefined
+  getMaxPrecision (three/build/three.cjs)
+  WebGLCapabilities (three/build/three.cjs)
+```
 
-**Why not a paid 3D engine?** Lume, React Three Fiber editor, and
-anything branded "Studio" either wants a card or ships telemetry.
-The bare R3F stack gives us the same shader pipeline at $0.
+`WebGLCapabilities.getMaxPrecision` reads
+`gl.getShaderPrecisionFormat(...)` and three.js 0.171 fails when the
+driver returns `undefined` instead of a format object — a device-GL
+edge case no JS-side flag (`gl.debug.checkShaderErrors = false`) can
+avoid, because the crash happens during renderer construction, before
+any shader compiles.
 
-**Why `/native` subpaths?** The default `@react-three/fiber` index
-references Web-only modules (e.g. `react-dom` for some reconciler
-plugins). On RN they crash on import with "document is not
-defined". The `/native` subpath is the curated RN-safe entrypoint
-that swaps in the ExpoGL-compatible reconciler. Same rule for
-`@react-three/drei/native`.
+**Decision (Phase 3.5 stabilization)**: all four packages were removed
+and the onboarding slides were rebuilt with flat `react-native-svg`
+illustrations plus Reanimated 4 entrances. Zero GL in the bundle, zero
+device variance, deterministic rendering. Animation stays on the UI
+thread via worklets.
 
-**Performance budgets**:
-- `dpr={[1, 2]}` on the native `<Canvas>` — clamps the device
-  pixel ratio to 2 so a 4K Android tablet doesn't melt.
-- One GL context per `<PremiumHero3D>` instance — slides 1 and 2
-  each get their own context; slide 3 is SVG so no context at all.
-- All particle drift (splash) is **pure Reanimated 4 worklets** —
-  no GL — so the splash surface stays clean for the future custom
-  EdumentX logo (which can be a flat `<Image>` or `<Svg>`).
+**Kept from the old pass**:
+- `components/premium/SplashParticleField.tsx` — 24-particle ambient
+  drift behind the splash (pure Reanimated worklets, no GL).
+- `screens/onboarding/SplashScreen.tsx` — Reanimated 4 rewrite.
 
-**Code map**:
-- `components/premium/PremiumHero3D.tsx` — `<Canvas>` wrapper with
-  the shared lighting rig (ambient + directional) and a `<Suspense>`
-  boundary for drei's async helpers. `pointerEvents="none"` by
-  default so the Next button beneath the GL surface still receives
-  taps.
-- `components/illustrations/DiscoverScene3D.tsx` — 3×3 sand-tile
-  grid + 3 tutor-pin cones + a pulsing amber beacon (rotates on Y,
-  beacon pulses via `useFrame` + `Math.sin`).
-- `components/illustrations/AiOrb3D.tsx` — `<Float>`-wrapped indigo
-  sphere + off-centre highlight + 20 `<Sparkles>` amber particles.
-- `components/premium/SplashParticleField.tsx` — 24-particle
-  ambient drift behind the splash logo (no GL).
-- `screens/onboarding/OnboardingScreen.tsx` — mounts the 3D scenes
-  inside `<PremiumHero3D>` for slides 1 + 2.
-- `screens/onboarding/SplashScreen.tsx` — Reanimated 4 rewrite
-  (dropped legacy `Animated.Value` + `Animated.timing`).
+**Current code map**:
+- `components/illustrations/DiscoverIllustration.tsx` — flat SVG map
+  card (mini UI scene pattern from BasoBas `MapIllustration`).
+- `components/illustrations/AiMatchIllustration.tsx` — flat SVG AI
+  orb + amber sparkle motif (restates the removed `AiOrb3D`).
+- `components/illustrations/VerifiedIllustration.tsx` — flat SVG
+  verification card + seal.
+- `screens/onboarding/OnboardingScreen.tsx` — carousel: eyebrow +
+  title + body per BasoBas `OnboardingLayout`, fixed proportional
+  illustration panel (~36% of screen height), spring-snap
+  `PaginationDots`, `PrimaryButton` CTA.
 
-**Hard rules**:
-- Never wrap `<Canvas>` in an outer `<GLView>` — the native Canvas
-  mounts its own GLView internally and stacking two contexts crashes
-  silently.
-- Never import from `@react-three/fiber` (default) — always from
-  `@react-three/fiber/native`. Same for drei.
-- Never load `.glb` / `.gltf` files until Phase 5.x ships Supabase
-  Storage — Metro is already configured (Phase 2 prep) to accept
-  those extensions, but no mesh should depend on them yet.
+**Rule going forward**: onboarding (and any "hero" surface) stays
+flat-SVG. No `expo-gl` reimports without a written justification in
+this section AND a device test matrix — the GL renderer is the single
+biggest source of device-class crash risk in the project.
 
 ---
 
@@ -321,58 +467,102 @@ adding the dependency.
 
 ```
 .env                        # EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY,
-                            # EXPO_PUBLIC_FIREBASE_*, EXPO_PUBLIC_GROQ_API_KEY
+                            # EXPO_PUBLIC_FIREBASE_*, EXPO_PUBLIC_GROQ_API_KEY,
+                            # EXPO_PUBLIC_USE_MOCK_DATA
 
 firebase/
-  firestore.rules           # owner-only access; deploy via `npm run deploy:rules`
+  firestore.rules           # owner/participant-gated access; deploy via `npm run deploy:rules`
   storage.rules             # unused — Supabase handles storage rules
   indexes.json
 .firebaserc                 # pins project alias to `edumentx-dev`
-firebase.json               # no emulators block (we don't use local emulators)
+firebase.json
 
-services/
-  firebase/
-    authService.ts          # @react-native-firebase/auth (modular API)
-    errors.ts               # formatFirebaseError, authErrorSuggestsModeFlip
-  supabase/                 # TO CREATE in Phase 5.1
-    client.ts
-    storage.ts
-  nominatim/                # TO CREATE in Phase 5.3
-    reverse.ts
-  llm/                      # TO CREATE in Phase 7.1
-    groq.ts
+src/services/               # one folder per domain; each has a Firebase + Mock
+                            # impl + `dataSource.ts` selector (EXPO_PUBLIC_USE_MOCK_DATA)
+  firebase/                 # authService.ts (modular RNFirebase), errors.ts
+  supabase/                 # client.ts, storage.ts (uploadAvatar/uploadVerificationDoc)
+  nominatim/                # geocoder.ts (keyless reverse/forward)
+  tutors/                   # subscribeTutors (approved, available discovery docs)
+  enrollments/              # requests, roster, availability, batches, reviews —
+                            #   transactions + derived.ts (pure helpers, node:test-covered)
+  batches/                  # batches/{tutorUid}/classes + members (roster-backed picker)
+  messages/                 # conversations/{id} + messages (deterministic ids, meta)
+  ai/                       # chatService.ts → Supabase Edge Function (Groq);
+                            #   mockChatService.ts for USE_MOCK_DATA=true
 
-lib/
-  location/                 # TO CREATE in Phase 5.4
-    haversine.ts
-    bbox.ts
-    knn.ts
-  rag/                      # TO CREATE in Phase 7.1
-    promptBuilder.ts
+src/lib/
+  tutor/                    # firestoreTutorService, types
+  admin/                    # userLifecycle.ts, verification/discovery
+  location/                 # distance.ts (Haversine + nearest-N), nepalBounds, nepalGeo
+  map/                      # markerIcons, avatarPins (teardrop pin rasterization)
+  mock/                     # typed seed data (mock mode only)
+  verification/             # notifications.ts (writeNotification), discovery.ts
 
-components/
-  forms/AvatarUploader.tsx  # rewires to Supabase in Phase 5.1
-  map/                      # TO CREATE in Phase 5.2
-    TutorMap.tsx
-    TutorMarker.tsx
-  premium/                  # Phase 3 — 3D + animation primitives
-    PremiumHero3D.tsx       # GLView + R3F Canvas wrapper for onboarding
-    SplashParticleField.tsx # 24-particle ambient drift behind splash
-  ui/                       # Phase 3 — reusable primitives
-    PrimaryButton.tsx       # primary/accent/ghost, Reanimated 4 spring press
-    PaginationDots.tsx      # onboarding dots with spring-snap width
-    SearchBar.tsx           # input with optional right icon
-    Avatar.tsx              # initials-first circular avatar
-  domain/                   # Phase 3 — listing cards
-    TutorCard.tsx           # `wide` + `compact-h` variants over MOCK_TUTORS
+src/components/
+  shared/                   # ScreenLayout/ScreenHeader/ScreenScroll, BottomNav,
+                            #   TutorBottomBar, NotificationBell, ReviewBanner
+  domain/                   # TutorCard, EnrollmentRequestCard, EnrolledStudentRow,
+                            #   WeeklyAvailabilityGrid, CalendarDatePicker, sheets
+  map/                      # TutorMap, TutorPreviewSheet
+  motion/                   # press-scale primitives, SwitchThumb, ActivePill, Skeleton
+  ui/                       # Avatar, Card, ConfirmDialog, EmptyState
+  forms/                    # LocationField, ConfirmDialog
+  illustrations/            # SVG illustrations (raw hex allowed here)
 
-lib/
-  mock/                     # Phase 3 — typed seed data
-    tutors.ts               # `MOCK_TUTORS` (12 Nepali tutors) + formatNpr()
+src/screens/
+  auth/                     # EmailSignUp, RoleSelection, Student/TutorProfileScreen
+  student/                  # StudentHome, MapSearch, Enrollment, StudentProfile, AIChat, FiltersSheet
+  tutor/                    # TutorHome, TutorInbox, BatchCreation, TutorCapacityScreen,
+                            #   EditProfile, PendingReview, EditTeachingDetails
+  admin/                    # AdminHome, PlatformStatistics, VerificationQueue,
+                            #   UserManagement, AdminProfile
+  shared/                   # Notification
 
-types/
-  onboarding.ts             # Phase 3 — extracted OnboardingSlide type
+src/app/                    # expo-router file routes (all Stack.Screen-registered)
+src/store/                  # Zustand: authStore, aiChatStore
+src/hooks/                  # useUserLocation, useTutorClustering, useCameraBounds
+src/constants/              # colors.ts (SVG-only hex), theme.ts
+
+scripts/                    # seed/backfill/test harnesses (tsc-compiled, node:test)
 ```
+
+---
+
+## 9a. Unit Tests — `node:test` (zero dependencies)
+
+Pure-logic modules are covered with **Node's built-in test runner**
+(`node:test`) — no jest/vitest install, so nothing to justify in §0.
+
+**Run**: `npm run test:derived` — covers every pure helper in
+`services/enrollments/derived.ts` + `types.ts` (47 tests across 9
+suites): `todayIsoInKtm`, `todayDayKeyInKtm`, `slotDurationMinutes`,
+`deriveTodaySessions`, `computeBookedMap`, `countAvailabilityCells`,
+`cloneAvailability`, `countAvailabilityChanges`, `slotKey`/`parseSlotKey`,
+`nextOccurrenceIsoInKtm`, plus the malformed-slotKey guard.
+
+**Pattern** (mirrors the other `scripts/*.ts` flows):
+
+```
+scripts/testDerived.ts            # node:test + node:assert/strict
+npm run test:derived              # tsc → node --test
+```
+
+**Conventions**:
+
+- Tests import from `../src/...` directly and are compiled by the same
+  `tsc` step — no mock Firestore/RN needed because the helpers are pure
+  (no Firestore/RN imports; that's a `derived.ts` invariant).
+- **Calendar helpers have two different clock conventions** — don't
+  mix them: `todayIsoInKtm` / `todayDayKeyInKtm` take **UTC instants**
+  and resolve in Asia/Kathmandu; `nextOccurrenceIsoInKtm` anchors on
+  the **device's local calendar** (`new Date(y, m-1, d)` fixtures).
+  Mixing them shifts results by a day.
+- Verify weekday anchors with ground-truth `node` output before
+  writing expectations — calendar tests fail on wrong anchors, not
+  wrong code.
+- Follow this pattern for new pure logic (`computeBookedMap`-style
+  derived helpers, parsers, formatters) instead of adding a test
+  framework.
 
 ---
 
@@ -382,14 +572,21 @@ types/
 |-------|--------|-------|
 | 1.5 Foundation (NativeWind) | ✅ Done | Source-of-truth tokens in `tailwind.config.js` |
 | 2 Native Firebase Auth | ✅ Done | `EmailSignUp.tsx` + `RoleSelection.tsx` + `StudentProfileScreen.tsx` + `TutorProfileScreen.tsx` |
-| 3 Onboarding 3D + Animations + UI Primitives | ✅ Done | Two of three onboarding slides upgraded to real WebGL (`expo-gl` + R3F), splash polished with Reanimated 4 + particle field, `PrimaryButton` / `PaginationDots` / `SearchBar` / `Avatar` / `TutorCard` primitives + `MOCK_TUTORS` seed. See §4a. |
-| 5.1 Supabase Storage | ⏳ Next | Keys already in `.env`; create `services/supabase/storage.ts` |
-| 5.2 OpenStreetMap tiles | ⏳ Next | Create `components/map/TutorMap.tsx` + install `react-native-maps` |
-| 5.3 Nominatim geocoding | ⏳ Pending | Upgrade `LocationField` |
-| 5.4 Client-side KNN | ⏳ Pending | `lib/location/knn.ts` |
-| 6 Admin + Verification | ⏳ Pending | Supabase `private-verification-docs` bucket |
-| 7.1 RAG chatbot | ⏳ Pending | Groq integration |
-| 7.2 Polish + beta | ⏳ Pending | |
+| 3 Onboarding + Animations + UI Primitives | ✅ Done | Phase 3.5: 3D slides **removed** (device GL crash, §4a), rebuilt as flat SVG illustrations; splash keeps Reanimated 4 + particle field; `PrimaryButton` / `PaginationDots` / `Avatar` / `TutorCard` primitives + `MOCK_TUTORS` seed. |
+| 4 Native Maps + Custom Pins | ✅ Done | `expo-maps` (Google/Apple native maps) replaces the old OSM-via-`react-native-maps` plan (§4). Teardrop pins rasterize the tutor avatar offscreen (`react-native-view-shot` → `expo-image` → `SharedRef<'image'>`), clusters use a bundled PNG. Pins mount only after rasterization resolves (expo-maps can't hot-swap marker icons) with PNG-branded fallbacks. |
+| 4a Nepal camera lock | ✅ Done | `clampCameraToNepal` snap-back in `onCameraMove`, throttled to one snap/800 ms after "Animation cancelled" rejection spam from superseded camera animations (§4). |
+| 5.1 Supabase Storage | ✅ Done | `services/supabase/storage.ts` — `uploadAvatar` + `uploadVerificationDoc`; RLS hint surfaced in error messages. `limited` (iOS) photo permissions accepted. |
+| 5.2 Map screen | ✅ Done | `MapSearch.tsx` — live Firestore tutors, GPS default camera, cluster + teardrop pins, `LocationPickerModal`. |
+| 5.3 Nominatim geocoding | ✅ Done | `geocoder.ts` + `geocoding.ts` (`accept-language=en`), `LocationField` map picker. |
+| 5.4 Client-side KNN | ✅ Done | `lib/location/distance.ts` (Haversine + nearest-N). |
+| 6 Admin + Verification | ✅ Done | `VerificationQueue.tsx` — live `tutorVerifications` + `tutorProfileUpdates` `onSnapshot`, approve/reject/request-info actions; doc review via Supabase `private-verification-docs` public-URL workaround. `AdminHome` shows live user counts; `PlatformStatistics` aggregates live counts with `getCountFromServer`. |
+| 7.1 RAG chatbot | ✅ Done | `AIChat.tsx` → `chatService` → Supabase Edge Function (Groq backend). JWT-verified, probe-verified end-to-end (Aug 15). `USE_MOCK_DATA=true` switches to the client-side mock pipeline. |
+| 7.2 Polish + beta | ✅ Done | Phase 3b: BasoBas rhythm shared `Card` primitive (`components/ui/Card.tsx`) applied to profile screens; admin screens on the light `bg-background` theme. |
+| 7.3 Group Batches | ✅ Done | `services/batches/` domain (`BatchesRepository` interface + Firebase/Mock impls + `dataSource` selector). `BatchCreation.tsx` live: roster-backed student picker, 3-step wizard, member add/remove, `endBatch`. Rules + `test:rules` checks cover all batch paths. |
+| 7.4 In-app messaging | ✅ Done | `services/messages/` domain — `conversations/{id}` + `messages` subcollection with deterministic sorted-pair ids, participant-gated rules (scalar `participantA/B` checks — see §2). `/chat` (inverted FlatList, composer, peer identity from `meta`/tutor profile) + `/messages` hub; wired from the student enrollment card's "Message" CTA and both dashboards' headers. Rules deployed + 13 `test:rules` checks. |
+| 7.5 Saved tutors | ✅ Done | `services/savedTutors/` domain — `savedTutors` uid-key map on `users/{uid}/studentProfile/default` (owner subcollection rules already cover it; no rules change). Toggle via `deleteField()` in one `setDoc(merge)`. Heart on `TutorDetailsScreen` + `/saved-tutors` list (TutorCard, live feed) replace the old "Coming soon" alert. |
+| 7.6 Help & support | ✅ Done | `/help-support` (FAQ + mailto). Share on `TutorDetailsScreen` now uses the native `Share.share`; group-batch pricing card messages the tutor; session CTAs open the enroll sheet. All "Coming soon" alerts removed from student/tutor profiles. Payouts + payment-methods screens were **removed (Aug 15)** — direct-bank/eWallet payment is a feature the demo doesn't need; the payment domain (`services/paymentMethods/`, `PaymentMethodForm`, `/payouts`, `/payment-methods`) is deleted. |
+| 8 Admin user lifecycle | ✅ Done | Lifecycle: suspend / soft delete / **restore** (`status: active`, `deletedAt: null`) from `UserManagement.tsx`; "Delete permanently" (`lib/admin/userLifecycle.ts`) purges Firestore via `isAdmin()` rules grants + best-effort Supabase object removal. **Auth guard**: `src/app/_layout.tsx` reads `users/{uid}.status` inside `onAuthStateChanged` and signs out `deleted`/`suspended` accounts with an "Access Denied" alert — they can't reach any app screen. Firebase Auth identity deletion is server-side only: `scripts/deleteUser.ts` (`npm run delete:user`) — needs `GOOGLE_APPLICATION_CREDENTIALS` + service-role key, ends with a "cannot be undone" confirmation. |
 
 See `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`
 for the full step-by-step checklist.

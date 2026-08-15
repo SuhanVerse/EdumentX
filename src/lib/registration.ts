@@ -24,6 +24,10 @@ export type Role = "student" | "tutor";
 export type LocationValue = {
   neighborhood: string;
   city: string;
+  /** GPS pin snapped by the location picker / "Locate Me" (Phase 5.2).
+   *  Persisted with the profile so the tutor map can plot real pins.
+   *  `undefined` for profiles saved before the GPS flow existed. */
+  coordinates?: { latitude: number; longitude: number };
 };
 
 export type RegistrationState = {

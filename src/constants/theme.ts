@@ -20,8 +20,8 @@ export const theme = {
     surfaceMuted:  '#F1ECE0',
 
     // ── Ink / text ───────────────────────────────────────────────────────────
-    ink:           '#26302B',
-    inkMuted:      '#6B7268',
+    ink:           '#0F172A',
+    inkMuted:      '#6B7280',
 
     // ── Brand ────────────────────────────────────────────────────────────────
     primary:       '#2F5D50',
@@ -56,27 +56,27 @@ export const theme = {
     borderSubtle:  'rgba(38, 48, 43, 0.05)',
 
     // ── Text ─────────────────────────────────────────────────────────────────
-    textPrimary:   '#26302B',
-    textSecondary: '#6B7268',
+    textPrimary:   '#0F172A',
+    textSecondary: '#6B7280',
     textInverse:   '#FFFFFF',
     textLink:      '#2F5D50',
 
     // ── Splash ───────────────────────────────────────────────────────────────
-    splash:        '#2F5D50',
+    splash:        '#0F172A',
     splashText:    '#FBF8F2',
     splashTrack:   'rgba(251, 248, 242, 0.20)',
   },
 
   shadow: {
     card: {
-      shadowColor: '#26302B',
+      shadowColor: '#0F172A',
       shadowOpacity: 0.06,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },
       elevation: 2,
     },
     elevated: {
-      shadowColor: '#26302B',
+      shadowColor: '#0F172A',
       shadowOpacity: 0.10,
       shadowRadius: 20,
       shadowOffset: { width: 0, height: 6 },

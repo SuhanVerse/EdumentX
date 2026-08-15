@@ -800,6 +800,9 @@ export function VerificationQueue() {
             verificationStatus: "approved",
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
+            // Newly-approved tutors start visible in discovery; the
+            // tutor can hide themselves from the dashboard toggle.
+            isAvailableForNewStudents: true,
             degree: profileData?.degree ?? null,
             institution: profileData?.institution ?? null,
             updatedAt: serverTimestamp(),
@@ -823,6 +826,7 @@ export function VerificationQueue() {
             verificationStatus: "approved",
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
+            isAvailableForNewStudents: true,
             updatedAt: serverTimestamp(),
           },
           { merge: true },
@@ -1185,7 +1189,7 @@ export function VerificationQueue() {
               <Ionicons
                 name={decidedExpanded ? "chevron-down" : "chevron-forward"}
                 size={16}
-                color="#6B7268"
+                className="text-text-muted"
               />
               <Text className="text-section-title font-medium text-text-primary">
                 Decided
@@ -1399,7 +1403,7 @@ function VerificationCard({
               accessibilityRole="button"
               accessibilityLabel="Approve"
             >
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            <Ionicons name="checkmark" size={14} className="text-white" />
             <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
           </Pressable>
           <Pressable
@@ -1409,7 +1413,7 @@ function VerificationCard({
             accessibilityRole="button"
             accessibilityLabel="Reject"
           >
-            <Ionicons name="close" size={14} color="#FFFFFF" />
+            <Ionicons name="close" size={14} className="text-white" />
             <Text className="text-button-sm font-medium text-text-inverse">Reject</Text>
           </Pressable>
           {status === "pending" ? (
@@ -1420,7 +1424,7 @@ function VerificationCard({
               accessibilityRole="button"
               accessibilityLabel="Request more info"
             >
-              <Ionicons name="information-circle" size={14} color="#FFFFFF" />
+              <Ionicons name="information-circle" size={14} className="text-white" />
               <Text className="text-button-sm font-medium text-text-inverse">Info</Text>
             </Pressable>
           ) : null}
@@ -1504,7 +1508,7 @@ function DocumentThumbnail({
           <Ionicons
             name={isImage ? "image-outline" : "play-circle"}
             size={28}
-            color="#E5A03B"
+            className="text-accent"
           />
         </View>
       )}
@@ -1631,7 +1635,7 @@ function PendingEditCard({
                 >
                   {f.oldValue}
                 </Text>
-                <Ionicons name="arrow-forward" size={12} color="#6B7268" />
+                <Ionicons name="arrow-forward" size={12} className="text-text-muted" />
                 <Text
                   className="text-body-sm font-medium text-accent"
                   numberOfLines={1}
@@ -1658,11 +1662,8 @@ function PendingEditCard({
           className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
           accessibilityRole="button"
           accessibilityLabel="Approve edit"
-        >
-          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-          <Text className="text-button-sm font-medium text-text-inverse">
-            Approve
-          </Text>
+        >          <Ionicons name="checkmark" size={14} className="text-white" />
+          <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
         </Pressable>
         <Pressable
           onPress={onReject}
@@ -1671,7 +1672,7 @@ function PendingEditCard({
           accessibilityRole="button"
           accessibilityLabel="Reject edit"
         >
-          <Ionicons name="close" size={14} color="#FFFFFF" />
+          <Ionicons name="close" size={14} className="text-white" />
           <Text className="text-button-sm font-medium text-text-inverse">Reject</Text>
         </Pressable>
       </View>
@@ -1750,7 +1751,7 @@ function EmptyState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
-        <Ionicons name="shield-checkmark" size={26} color="#E5A03B" />
+        <Ionicons name="shield-checkmark" size={26} className="text-accent" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         Queue is clear
@@ -1804,7 +1805,7 @@ function RejectReasonDialog({
         >
           <View className="items-center mb-3">
             <View className="w-12 h-12 rounded-pill bg-danger-bg items-center justify-center">
-              <Ionicons name="close-circle" size={24} color="#C1503D" />
+              <Ionicons name="close-circle" size={24} className="text-danger" />
             </View>
           </View>
 

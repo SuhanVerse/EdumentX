@@ -26,6 +26,12 @@
       "expo-dev-client",
       "expo-font",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F172A"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
@@ -52,7 +58,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow EdumentX to use your location to find tutors near you."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

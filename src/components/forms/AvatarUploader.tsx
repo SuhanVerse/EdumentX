@@ -58,8 +58,12 @@ export function AvatarUploader({
   errorMessage,
 }: AvatarUploaderProps) {
   async function handlePick() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
+    // `granted` covers iOS "Full Access" AND "Select More Photos…"
+    // (limited) — the picker works either way.
+    const {
+      granted,
+    } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) {
       Alert.alert(
         "Permission needed",
         "Allow photo access to choose a profile image.",

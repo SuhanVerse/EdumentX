@@ -7,11 +7,17 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/**',
+      // Expo-generated route types — rebuilt on every `expo start`;
+      // gitignored and not source.
+      '.expo/**',
       // Deno edge functions — `jsr:`/`npm:` specifiers are not
       // resolvable by the Node-based linter.
       'supabase/**',
       'Documentation/98-Reference-BasoBas/**',
       'Documentation/99-Archive/**',
+      // Extracted Figma AI reference bundle — standalone Vite web app
+      // (own deps, own eslint needs). Not part of the RN app.
+      'Documentation/02-Design-System/Asim_EdumentX_Design/**',
     ],
   },
   {

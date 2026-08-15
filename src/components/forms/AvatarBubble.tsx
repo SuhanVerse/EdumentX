@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 
+import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { colors } from "@/constants/colors";
 import { initials } from "@/data/mockData";
 
 /**
@@ -47,16 +49,27 @@ export function AvatarBubble({
         )}
       </View>
 
-      {editable && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Change profile picture"
-          onPress={onPress}
-          className="absolute right-1/4 -bottom-1 w-9 h-9 rounded-pill bg-amber items-center justify-center border-2 border-surface active:opacity-80"
-        >
-          <Ionicons name="camera" size={16} color="#FFFFFF" />
-        </Pressable>
-      )}
+      {editable && <CameraButton onPress={onPress} />}
     </View>
+  );
+}
+
+function CameraButton({ onPress }: { onPress?: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: 0.9,
+  });
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Change profile picture"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="absolute right-1/4 -bottom-1 w-9 h-9 rounded-pill bg-amber items-center justify-center border-2 border-surface"
+    >
+      <Ionicons name="camera" size={16} color={colors.text.inverse} />
+    </AnimatedPressable>
   );
 }

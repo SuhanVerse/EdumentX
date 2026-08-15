@@ -55,7 +55,7 @@ import {
   checkPromptInjection,
 } from "@/ai/domain/guardrails";
 
-// ─── FAQ entries (mirror of ai/knowledgeBase/faq.ts for the mock pipeline) ──
+// ─── FAQ entries (mirror of supabase/ai/knowledgeBase/faq.ts for the mock pipeline) ──
 //
 // The mock pipeline doesn't call the server's FAQ matcher. We inline the
 // most common FAQ questions and answers here so the mock behaves the same

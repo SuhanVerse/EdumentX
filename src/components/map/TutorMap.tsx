@@ -22,6 +22,12 @@
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
 import { GoogleMaps, AppleMaps } from 'expo-maps';
+import type { ImageRef } from 'expo-image';
+import {
+  clampCameraToNepal,
+  NEPAL_BOUNDS,
+  NEPAL_ZOOM_RANGE,
+} from "@/lib/location/nepalBounds";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +44,12 @@ export type TutorMarker = {
   title?: string;
   snippet?: string;
   color?: string;
+  /**
+   * Custom marker image (a native image ref loaded via
+   * `Image.loadAsync`). Android Google Maps only — Apple Maps markers
+   * are tinted via `color` and ignore this.
+   */
+  icon?: ImageRef | null;
 };
 
 export type MapCircle = {
@@ -62,9 +74,50 @@ export interface TutorMapProps {
   isMyLocationEnabled?: boolean;
   onMarkerClick?: (marker: TutorMarker) => void;
   onCameraMove?: (camera: MapCameraPosition) => void;
+  /** Fired when the user taps the map surface (not a marker). */
+  onMapTap?: (location: { latitude: number; longitude: number }) => void;
 }
 
 // ─── Camera helpers ─────────────────────────────────────────────────────────
+
+/**
+ * POI-free base layer (Android / Google Maps).
+ *
+ * expo-maps does not expose a `showsPointsOfInterest`-style boolean
+ * (that's react-native-maps), but its Android native module DOES apply
+ * a raw Google Maps style JSON via `properties.mapStyleOptions`
+ * (`MapStyleOptions(json)` — no paid mapId needed). This JSON hides the
+ * stock POI icons + labels (bus stops, shop, restaurant glyphs) that
+ * clutter the tutor map, while keeping roads, parks and water intact.
+ * Transit is intentionally left visible on Android (the platform
+ * allows it).
+ *
+ * Style controls live here, next to the map, not in the screen.
+ */
+const GOOGLE_POI_FREE_STYLE = JSON.stringify([
+  {
+    featureType: "poi",
+    elementType: "labels.icon",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text",
+    stylers: [{ visibility: "off" }],
+  },
+]);
+
+/**
+ * POI policy on iOS (Apple Maps). The platform supports granular POI
+ * categories, but NOT a style JSON — so we hide every category. Apple's
+ * `including` API: "To hide all POIs, set this to an empty array."
+ * Matches the Android POI-free base layer (GOOGLE_POI_FREE_STYLE).
+ * Empty array keeps roads, parks, and water labels visible — those
+ * aren't POIs.
+ */
+const APPLE_NO_POI = {
+  including: [],
+} as unknown as AppleMaps.MapProperties["pointsOfInterest"];
 
 /**
  * ExpoModulesCore wraps native camera animations in a Promise. When a new
@@ -93,14 +146,26 @@ function setCameraPositionSafe(
 const IosMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
   const {
     style, cameraPosition, markers = [], isMyLocationEnabled,
-    onMarkerClick, onCameraMove,
+    onMarkerClick, onCameraMove, onMapTap,
   } = props;
   const nativeRef = useRef<any>(null);
+  /**
+   * Nepal snap-back cooldown. `onCameraMove` fires once per animation
+   * frame, so without a guard a single out-of-bounds gesture → snap →
+   * re-render → snap... loop. Each superseded snap rejects the native
+   * animation Promise with `CancellationException: Animation cancelled`.
+   * we re-snap at most once per 800 ms, which kills the loop while
+   * keeping the country-lock behaviour.
+   */
+  const clampCooldownUntil = useRef(0);
 
   useImperativeHandle(ref, () => ({
     setCameraPosition: (config) => {
       setCameraPositionSafe(nativeRef, {
-        coordinates: { latitude: config.latitude, longitude: config.longitude },
+        coordinates: {
+          latitude: config.latitude,
+          longitude: config.longitude,
+        },
         zoom: config.zoom,
       });
     },
@@ -122,16 +187,38 @@ const IosMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
         title: m.title,
         tintColor: m.color,
       }))}
-      properties={{ isMyLocationEnabled }}
+      properties={{ isMyLocationEnabled, pointsOfInterest: APPLE_NO_POI }}
       onMarkerClick={(e: any) => {
         const m = markers.find((x) => x.id === e.id);
         if (m) onMarkerClick?.(m);
       }}
-      onCameraMove={(e: any) => onCameraMove?.({
-        latitude: e.coordinates?.latitude ?? 0,
-        longitude: e.coordinates?.longitude ?? 0,
-        zoom: e.zoom ?? 10,
-      })}
+      onMapClick={(e: any) => {
+        const c = e.coordinates;
+        if (c) onMapTap?.({ latitude: c.latitude, longitude: c.longitude });
+      }}
+      onCameraMove={(e: any) => {
+        // Same Nepal clamp as the Android map — see below.
+        const raw = {
+          latitude: e.coordinates?.latitude ?? 0,
+          longitude: e.coordinates?.longitude ?? 0,
+          zoom: e.zoom ?? 10,
+        };
+        const clamped = clampCameraToNepal(raw);
+        if (clamped) {
+          const now = Date.now();
+          if (now >= clampCooldownUntil.current) {
+            clampCooldownUntil.current = now + 800;
+            setCameraPositionSafe(nativeRef, {
+              coordinates: {
+                latitude: clamped.latitude,
+                longitude: clamped.longitude,
+              },
+              zoom: clamped.zoom,
+            });
+          }
+        }
+        onCameraMove?.(clamped ?? raw);
+      }}
     />
   );
 });
@@ -142,9 +229,10 @@ IosMap.displayName = 'IosMap';
 const AndroidMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
   const {
     style, cameraPosition, markers = [], circles = [],
-    isMyLocationEnabled, onMarkerClick, onCameraMove,
+    isMyLocationEnabled, onMarkerClick, onCameraMove, onMapTap,
   } = props;
   const nativeRef = useRef<any>(null);
+  const clampCooldownUntil = useRef(0);
 
   useImperativeHandle(ref, () => ({
     setCameraPosition: (config) => {
@@ -170,6 +258,7 @@ const AndroidMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
         id: m.id,
         coordinates: { latitude: m.latitude, longitude: m.longitude },
         title: m.title,
+        icon: m.icon ?? undefined,
       }))}
       circles={circles.map((c) => ({
         id: c.id,
@@ -179,16 +268,69 @@ const AndroidMap = forwardRef<TutorMapHandle, TutorMapProps>((props, ref) => {
         lineColor: c.lineColor,
         lineWidth: c.lineWidth,
       }))}
-      properties={{ isMyLocationEnabled }}
+      properties={{
+        isMyLocationEnabled,
+        // POI-free base layer (see GOOGLE_POI_FREE_STYLE above).
+        mapStyleOptions: { json: GOOGLE_POI_FREE_STYLE },
+        // Hard zoom floor/ceiling (Nepal-only app: no world zoom-out).
+        minZoomPreference: NEPAL_ZOOM_RANGE.min,
+        maxZoomPreference: NEPAL_ZOOM_RANGE.max,
+      }}
       onMarkerClick={(e: any) => {
         const m = markers.find((x) => x.id === e.id);
         if (m) onMarkerClick?.(m);
       }}
-      onCameraMove={(e: any) => onCameraMove?.({
-        latitude: e.coordinates?.latitude ?? 0,
-        longitude: e.coordinates?.longitude ?? 0,
-        zoom: e.zoom ?? 10,
-      })}
+      onMapClick={(e: any) => {
+        const c = e.coordinates;
+        if (c) onMapTap?.({ latitude: c.latitude, longitude: c.longitude });
+      }}
+      onCameraMove={(e: any) => {
+        // Nepal-only camera: expo-maps does not expose a "restrict
+        // panning to bounds" prop, so when a gesture carries the
+        // camera past the country box we snap it straight back via
+        // the imperative API. The consumer still receives the clamped
+        // position so its clustering math can't run on phantom
+        // coordinates. (See `lib/location/nepalBounds.ts`.)
+        //
+        // Throttled: a camera animation emits one move event per frame,
+        // and each imperative snap supersedes the previous animation —
+        // the superseded Promise rejects with `CancellationException:
+        // Animation cancelled` (harmless but spammy). One snap per
+        // 800 ms removes the loop entirely. Zoom is NOT re-snapped
+        // here on Android: `minZoomPreference`/`maxZoomPreference`
+        // already clamp it natively without an animation cycle.
+        const raw = {
+          latitude: e.coordinates?.latitude ?? 0,
+          longitude: e.coordinates?.longitude ?? 0,
+          zoom: e.zoom ?? 10,
+        };
+        if (
+          raw.latitude <= NEPAL_BOUNDS.northEast.latitude &&
+          raw.latitude >= NEPAL_BOUNDS.southWest.latitude &&
+          raw.longitude <= NEPAL_BOUNDS.northEast.longitude &&
+          raw.longitude >= NEPAL_BOUNDS.southWest.longitude
+        ) {
+          // Inside Nepal — no snap. Still surface the (zoom-adjusted)
+          // raw position to the consumer.
+          onCameraMove?.(raw);
+          return;
+        }
+        const clamped = clampCameraToNepal(raw);
+        if (clamped) {
+          const now = Date.now();
+          if (now >= clampCooldownUntil.current) {
+            clampCooldownUntil.current = now + 800;
+            setCameraPositionSafe(nativeRef, {
+              coordinates: {
+                latitude: clamped.latitude,
+                longitude: clamped.longitude,
+              },
+              zoom: clamped.zoom,
+            });
+          }
+        }
+        onCameraMove?.(clamped ?? raw);
+      }}
     />
   );
 });

@@ -214,12 +214,12 @@ function DocumentUploaderButton({
       } disabled:opacity-60`}
     >
       {uploading ? (
-        <ActivityIndicator size="small" color="#26302B" />
+        <ActivityIndicator size="small" color="#0F172A" />
       ) : (
         <Ionicons
           name={hasExisting ? "refresh" : "cloud-upload-outline"}
           size={14}
-          color="#26302B"
+          color="#0F172A"
         />
       )}
       <Text

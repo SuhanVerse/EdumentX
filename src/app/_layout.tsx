@@ -12,8 +12,8 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, View, StatusBar as NativeStatusBar } from "react-native";
+import { useCallback, useEffect, useRef } from "react";
+import { ActivityIndicator, Alert, View, StatusBar as NativeStatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -269,6 +269,10 @@ export default function RootLayout() {
         "batches",
         "tutor-inbox",
         "tutor_edit_profile",
+        // Tutor capacity & schedule — reachable from the dashboard's
+        // capacity card and `tutor_edit_profile`'s "Capacity &
+        // schedule" row.
+        "tutor-capacity",
         // Tutor high-risk edit screen. Reachable from
         // `tutor_edit_profile`'s "Subjects, rate & location" row.
         // The screen itself routes the user to /tutor-pending
@@ -395,6 +399,196 @@ export default function RootLayout() {
    * writes from the profile screens don't fail the
    * `request.resource.data.uid == userId` rules guard.
    */
+  /**
+   * For a tutor user, read `users/{uid}/tutorProfile/default` and
+   * write the denormalized `verificationStatus` to the store. The
+   * routing guard reads this flag to decide between /tutor-pending
+   * (status === "pending") and /tutor-home (anything else).
+   *
+   * The profile doc is the denormalized *cache* — the source of
+   * truth is `tutorVerifications/{uid}.status` (written by the
+   * admin's approve / reject handlers). The cache is updated in two
+   * places: (a) by the new-tutor `writeBatch` in
+   * `screens/auth/TutorProfileScreen.tsx`, and (b) by the admin
+   * approve / reject handlers in `screens/admin/VerificationQueue.tsx`.
+   * Both flows also write the queue doc so the two stay in lockstep.
+   *
+   * **Three states, three results.** The doc's presence matters as
+   * much as the field's value, so we branch on `profileSnap.exists()`
+   * *before* reading `verificationStatus`:
+   *
+   *   1. **Doc does not exist** — the user has `role: "tutor"` on
+   *      their user doc but never submitted the onboarding form
+   *      (closed the app mid-fill, or routed to /profile-tutor but
+   *      never tapped Finish Setup). After the
+   *      `RoleSelection`-removal refactor, this should be
+   *      unreachable in practice (the user doc only gets a tutor
+   *      role inside `TutorProfileScreen.handleSubmit`'s
+   *      `writeBatch`, which also creates this profile doc
+   *      atomically). But if it ever does happen — e.g. an admin
+   *      flips `role: "tutor"` directly via the console, or a
+   *      legacy account predates the refactor — we treat the user
+   *      as "still onboarding" and set status to `"pending"` so
+   *      the layout guard sends them to /tutor-pending (which has
+   *      a back-to-form path) instead of letting them land on
+   *      /tutor-home with no profile data. Treating "no doc" as
+   *      `"approved"` was the bug behind the
+   *      "new tutor lands on /tutor-home" report.
+   *
+   *   2. **Doc exists, no `verificationStatus` field** — a pre-
+   *      pipeline tutor (their profile was created before the
+   *      verification pipeline shipped). Treat as `"approved"` so
+   *      they keep their existing access, and backfill the missing
+   *      field on the same read.
+   *
+   *   3. **Doc exists with a canonical value** — mirror the value
+   *      directly. Backfill any *other* missing fields
+   *      (`isVerifiedProfessional`, `hasPendingUpdate`,
+   *      `rejectionReason`) so subsequent dashboard reads have a
+   *      fully-populated shape.
+   *
+   * Read failures are non-fatal. We leave the flag at `null` so the
+   * guard falls through to the catch-all dashboard branch — better
+   * to land the tutor on the real dashboard than to gate them on a
+   * transient network blip. The next auth-state change will retry.
+   */
+  const checkTutorVerificationStatus = useCallback(
+    async (uid: string): Promise<void> => {
+    try {
+      const app = getApp();
+      const firebaseDb = getFirestore(app);
+      const profileRef = doc(
+        firebaseDb,
+        "users",
+        uid,
+        "tutorProfile",
+        "default",
+      );
+      const profileSnap = await getDoc(profileRef);
+
+      // Case 1: a user with a tutor role but no profile doc —
+      // either an admin-console edit, a legacy account, or a
+      // pathological write that lost atomicity. Treat as "still
+      // onboarding" so the guard sends them to /tutor-pending,
+      // where they can use the back-to-form affordance to
+      // re-submit. Skip the backfill — there's nothing to write
+      // into.
+      if (!profileSnap.exists()) {
+        setTutorVerificationStatus("pending");
+        return;
+      }
+
+      const data = profileSnap.data() as
+        | {
+            verificationStatus?: string | null;
+            isVerifiedProfessional?: boolean;
+            hasPendingUpdate?: boolean;
+            rejectionReason?: string | null;
+          }
+        | undefined;
+
+      const raw = data?.verificationStatus;
+      // Case 2 + 3: doc exists. Either the field is one of the four
+      // canonical values (case 3) or it's missing/invalid (case 2 —
+      // pre-pipeline tutor). Map the missing case to "approved" so
+      // existing tutors keep their access.
+      const status: TutorVerificationStatus =
+        raw === "pending" ||
+        raw === "approved" ||
+        raw === "rejected" ||
+        raw === "more_info"
+          ? raw
+          : "approved";
+
+      setTutorVerificationStatus(status);
+
+      // Backfill any missing verification fields so subsequent
+      // `onSnapshot` reads in the dashboards have a populated shape.
+      // We only write if at least one field is missing; otherwise
+      // we leave the doc alone.
+      const needsStatusHeal = raw !== status;
+      const needsProfessionalHeal =
+        typeof data?.isVerifiedProfessional !== "boolean";
+      const needsPendingHeal =
+        typeof data?.hasPendingUpdate !== "boolean";
+      const needsReasonHeal =
+        typeof data?.rejectionReason !== "string" &&
+        typeof data?.rejectionReason !== "object";
+      if (
+        needsStatusHeal ||
+        needsProfessionalHeal ||
+        needsPendingHeal ||
+        needsReasonHeal
+      ) {
+        try {
+          await setDoc(
+            profileRef,
+            {
+              verificationStatus: status,
+              isVerifiedProfessional: status === "approved",
+              hasPendingUpdate: data?.hasPendingUpdate ?? false,
+              rejectionReason: data?.rejectionReason ?? null,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        } catch (healErr) {
+          // Non-fatal. The next login will retry.
+          console.warn(
+            "RootLayout: failed to backfill tutor verification fields",
+            healErr,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "RootLayout: failed to read tutorProfile/{default}",
+        err,
+      );
+      setTutorVerificationStatus(null);
+    }
+  },
+    [setTutorVerificationStatus],
+  );
+
+  /**
+   * For an admin user, read `users/{uid}/adminProfile/default` and
+   * write `hasAdminProfile` to the store. The routing guard uses
+   * this flag to decide between /admin-profile (first-time setup)
+   * and /admin-home (dashboard).
+   *
+   * "Has a profile" = the doc exists AND has a non-empty `fullName`.
+   * The full-name check is defensive: a half-written doc (e.g.
+   * created by a third party or a botched client migration) should
+   * still trigger the setup flow rather than landing the admin on an
+   * empty dashboard.
+   *
+   * Read failures are non-fatal — we leave the flag at its previous
+   * value so the admin isn't bounced to a profile screen when the
+   * real problem is a transient network blip. The next auth-state
+   * change will retry.
+   */
+  const checkAdminProfileFlag = useCallback(
+    async (uid: string): Promise<void> => {
+    try {
+      const app = getApp();
+      const firebaseDb = getFirestore(app);
+      const profileRef = doc(firebaseDb, "users", uid, "adminProfile", "default");
+      const profileSnap = await getDoc(profileRef);
+      const data = profileSnap.data() as
+        | { fullName?: string | null }
+        | undefined;
+      const fullName =
+        typeof data?.fullName === "string" ? data.fullName.trim() : "";
+      setHasAdminProfile(profileSnap.exists() && fullName.length > 0);
+    } catch (err) {
+      console.warn("RootLayout: failed to read adminProfile/{default}", err);
+    }
+  },
+    [setHasAdminProfile],
+  );
+
+
   useEffect(() => {
     const app = getApp();
     const firebaseAuth = getAuth(app);
@@ -431,8 +625,54 @@ export default function RootLayout() {
           const userDocRef = doc(firebaseDb, "users", nextUser.uid);
           const snap = await getDoc(userDocRef);
           const data = snap.data() as
-            | { role?: string | null; uid?: string | null; email?: string | null }
+            | {
+                role?: string | null;
+                uid?: string | null;
+                email?: string | null;
+                status?: string | null;
+              }
             | undefined;
+
+          // ── Access barrier: suspended / deleted accounts ──────────────
+          //
+          // An admin can mark a user `status: "suspended"` (pause) or
+          // `status: "deleted"` (soft delete) from the UserManagement
+          // screen. Those users still hold a valid Firebase Auth token,
+          // so without this barrier they would sign in normally (the
+          // Auth record is only destroyed by the server-side
+          // `scripts/deleteUser.ts`). The barrier:
+          //   1. reads the doc we just fetched,
+          //   2. refuses to populate ANY store state (role/profile
+          //      flags stay null → the redirect tree stays on the
+          //      signed-out branch), and
+          //   3. signs the account out and notifies the user.
+          //
+          // The layout guard's signed-out branch only allows
+          // onboarding + `/email-signup`, so no app screen can be
+          // reached while the uid is in this state.
+          const accountStatus = typeof data?.status === "string" ? data.status : null;
+          if (
+            snap.exists() &&
+            (accountStatus === "suspended" || accountStatus === "deleted")
+          ) {
+            lastUidRef.current = null;
+            setUser(null);
+            setRole(null);
+            setHasAdminProfile(false);
+            setTutorVerificationStatus(null);
+            try {
+              await firebaseAuth.signOut();
+            } catch (signOutErr) {
+              console.warn("RootLayout: signOut for blocked account failed", signOutErr);
+            }
+            setLoading(false);
+            Alert.alert(
+              "Access Denied",
+              "This account has been suspended or deleted. Please contact support.",
+            );
+            return;
+          }
+
           const roleValue = normalizeRole(data?.role);
           setRole(roleValue);
 
@@ -595,7 +835,18 @@ export default function RootLayout() {
       },
     );
     return subscriber;
-  }, [setUser, setRole, setHasAdminProfile, setTutorVerificationStatus, setLoading]);
+  }, [
+    setUser,
+    setRole,
+    setHasAdminProfile,
+    setTutorVerificationStatus,
+    setLoading,
+    // The three helpers are stable function declarations / Zustand
+    // actions, so including them never re-triggers the subscriber.
+    setHasExistingRole,
+    checkAdminProfileFlag,
+    checkTutorVerificationStatus,
+  ]);
 
   /**
    * Check if the current user is an admin by looking up `admins/{uid}`.
@@ -615,188 +866,6 @@ export default function RootLayout() {
     }
   }
 
-  /**
-   * For a tutor user, read `users/{uid}/tutorProfile/default` and
-   * write the denormalized `verificationStatus` to the store. The
-   * routing guard reads this flag to decide between /tutor-pending
-   * (status === "pending") and /tutor-home (anything else).
-   *
-   * The profile doc is the denormalized *cache* — the source of
-   * truth is `tutorVerifications/{uid}.status` (written by the
-   * admin's approve / reject handlers). The cache is updated in two
-   * places: (a) by the new-tutor `writeBatch` in
-   * `screens/auth/TutorProfileScreen.tsx`, and (b) by the admin
-   * approve / reject handlers in `screens/admin/VerificationQueue.tsx`.
-   * Both flows also write the queue doc so the two stay in lockstep.
-   *
-   * **Three states, three results.** The doc's presence matters as
-   * much as the field's value, so we branch on `profileSnap.exists()`
-   * *before* reading `verificationStatus`:
-   *
-   *   1. **Doc does not exist** — the user has `role: "tutor"` on
-   *      their user doc but never submitted the onboarding form
-   *      (closed the app mid-fill, or routed to /profile-tutor but
-   *      never tapped Finish Setup). After the
-   *      `RoleSelection`-removal refactor, this should be
-   *      unreachable in practice (the user doc only gets a tutor
-   *      role inside `TutorProfileScreen.handleSubmit`'s
-   *      `writeBatch`, which also creates this profile doc
-   *      atomically). But if it ever does happen — e.g. an admin
-   *      flips `role: "tutor"` directly via the console, or a
-   *      legacy account predates the refactor — we treat the user
-   *      as "still onboarding" and set status to `"pending"` so
-   *      the layout guard sends them to /tutor-pending (which has
-   *      a back-to-form path) instead of letting them land on
-   *      /tutor-home with no profile data. Treating "no doc" as
-   *      `"approved"` was the bug behind the
-   *      "new tutor lands on /tutor-home" report.
-   *
-   *   2. **Doc exists, no `verificationStatus` field** — a pre-
-   *      pipeline tutor (their profile was created before the
-   *      verification pipeline shipped). Treat as `"approved"` so
-   *      they keep their existing access, and backfill the missing
-   *      field on the same read.
-   *
-   *   3. **Doc exists with a canonical value** — mirror the value
-   *      directly. Backfill any *other* missing fields
-   *      (`isVerifiedProfessional`, `hasPendingUpdate`,
-   *      `rejectionReason`) so subsequent dashboard reads have a
-   *      fully-populated shape.
-   *
-   * Read failures are non-fatal. We leave the flag at `null` so the
-   * guard falls through to the catch-all dashboard branch — better
-   * to land the tutor on the real dashboard than to gate them on a
-   * transient network blip. The next auth-state change will retry.
-   */
-  async function checkTutorVerificationStatus(uid: string): Promise<void> {
-    try {
-      const app = getApp();
-      const firebaseDb = getFirestore(app);
-      const profileRef = doc(
-        firebaseDb,
-        "users",
-        uid,
-        "tutorProfile",
-        "default",
-      );
-      const profileSnap = await getDoc(profileRef);
-
-      // Case 1: a user with a tutor role but no profile doc —
-      // either an admin-console edit, a legacy account, or a
-      // pathological write that lost atomicity. Treat as "still
-      // onboarding" so the guard sends them to /tutor-pending,
-      // where they can use the back-to-form affordance to
-      // re-submit. Skip the backfill — there's nothing to write
-      // into.
-      if (!profileSnap.exists()) {
-        setTutorVerificationStatus("pending");
-        return;
-      }
-
-      const data = profileSnap.data() as
-        | {
-            verificationStatus?: string | null;
-            isVerifiedProfessional?: boolean;
-            hasPendingUpdate?: boolean;
-            rejectionReason?: string | null;
-          }
-        | undefined;
-
-      const raw = data?.verificationStatus;
-      // Case 2 + 3: doc exists. Either the field is one of the four
-      // canonical values (case 3) or it's missing/invalid (case 2 —
-      // pre-pipeline tutor). Map the missing case to "approved" so
-      // existing tutors keep their access.
-      const status: TutorVerificationStatus =
-        raw === "pending" ||
-        raw === "approved" ||
-        raw === "rejected" ||
-        raw === "more_info"
-          ? raw
-          : "approved";
-
-      setTutorVerificationStatus(status);
-
-      // Backfill any missing verification fields so subsequent
-      // `onSnapshot` reads in the dashboards have a populated shape.
-      // We only write if at least one field is missing; otherwise
-      // we leave the doc alone.
-      const needsStatusHeal = raw !== status;
-      const needsProfessionalHeal =
-        typeof data?.isVerifiedProfessional !== "boolean";
-      const needsPendingHeal =
-        typeof data?.hasPendingUpdate !== "boolean";
-      const needsReasonHeal =
-        typeof data?.rejectionReason !== "string" &&
-        typeof data?.rejectionReason !== "object";
-      if (
-        needsStatusHeal ||
-        needsProfessionalHeal ||
-        needsPendingHeal ||
-        needsReasonHeal
-      ) {
-        try {
-          await setDoc(
-            profileRef,
-            {
-              verificationStatus: status,
-              isVerifiedProfessional: status === "approved",
-              hasPendingUpdate: data?.hasPendingUpdate ?? false,
-              rejectionReason: data?.rejectionReason ?? null,
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          );
-        } catch (healErr) {
-          // Non-fatal. The next login will retry.
-          console.warn(
-            "RootLayout: failed to backfill tutor verification fields",
-            healErr,
-          );
-        }
-      }
-    } catch (err) {
-      console.warn(
-        "RootLayout: failed to read tutorProfile/{default}",
-        err,
-      );
-      setTutorVerificationStatus(null);
-    }
-  }
-
-  /**
-   * For an admin user, read `users/{uid}/adminProfile/default` and
-   * write `hasAdminProfile` to the store. The routing guard uses
-   * this flag to decide between /admin-profile (first-time setup)
-   * and /admin-home (dashboard).
-   *
-   * "Has a profile" = the doc exists AND has a non-empty `fullName`.
-   * The full-name check is defensive: a half-written doc (e.g.
-   * created by a third party or a botched client migration) should
-   * still trigger the setup flow rather than landing the admin on an
-   * empty dashboard.
-   *
-   * Read failures are non-fatal — we leave the flag at its previous
-   * value so the admin isn't bounced to a profile screen when the
-   * real problem is a transient network blip. The next auth-state
-   * change will retry.
-   */
-  async function checkAdminProfileFlag(uid: string): Promise<void> {
-    try {
-      const app = getApp();
-      const firebaseDb = getFirestore(app);
-      const profileRef = doc(firebaseDb, "users", uid, "adminProfile", "default");
-      const profileSnap = await getDoc(profileRef);
-      const data = profileSnap.data() as
-        | { fullName?: string | null }
-        | undefined;
-      const fullName =
-        typeof data?.fullName === "string" ? data.fullName.trim() : "";
-      setHasAdminProfile(profileSnap.exists() && fullName.length > 0);
-    } catch (err) {
-      console.warn("RootLayout: failed to read adminProfile/{default}", err);
-    }
-  }
 
   // CRITICAL: always render the Stack, even while loading. Conditionally
   // returning a different tree from the same component (the loading View
@@ -839,19 +908,29 @@ export default function RootLayout() {
           <Stack.Screen name="AI-chat" />
           <Stack.Screen name="enrollment" />
           <Stack.Screen name="stu-profile" />
+          <Stack.Screen name="saved-tutors" />
+          <Stack.Screen name="enroll" />
+          <Stack.Screen name="browse-batches" />
+          <Stack.Screen name="help-support" />
           {/* Tutor sub-screens (TutorBottomBar targets) */}
           <Stack.Screen name="batches" />
           <Stack.Screen name="tutor-inbox" />
           <Stack.Screen name="tutor_edit_profile" />
+          <Stack.Screen name="tutor-capacity" />
           <Stack.Screen name="tutor_edit_teaching_details" />
           {/* Tutor under-review screen. Reached via the layout guard
               when `tutorVerificationStatus === "pending"`. */}
           <Stack.Screen name="tutor-pending" />
           {/* Tutor details — student-facing profile page */}
           <Stack.Screen name="tutor/[id]" />
+          {/* Batch detail — shared tutor roster / student join view */}
+          <Stack.Screen name="batch/[tutorUid]/[batchId]" />
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />
+          {/* 1:1 messaging */}
+          <Stack.Screen name="messages" />
+          <Stack.Screen name="chat" />
           {/*Admin sub-screens*/}
           <Stack.Screen name="platform-statistics" />
           <Stack.Screen name="verification-queue" />

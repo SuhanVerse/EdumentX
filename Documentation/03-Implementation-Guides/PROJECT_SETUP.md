@@ -205,7 +205,7 @@ The starting Firebase config files are:
 firebase.json
 firebase/firestore.rules
 firebase/storage.rules
-firebase/indexes.json
+firebase/firestore.indexes.json (the live indexes file; the legacy firebase/indexes.json is empty/unused)
 ```
 
 The current rules are intentionally minimal and safe. They allow each signed-in user to access their own `users/{userId}` document only when the document ID matches the Firebase Auth UID. Everything else is denied until we design the full data model.

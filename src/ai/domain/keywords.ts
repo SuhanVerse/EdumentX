@@ -193,7 +193,6 @@ export const PROXIMITY_PATTERN = /\b(nearby|near\s+me|close\s+to|walking\s+dista
 //
 // CANONICAL budget patterns. Imported by:
 //   - lib/ai/clientConstraintParser.ts (mock pipeline)
-//   - ai/agents/constraintExtractor.ts (root server copy)
 //   - supabase/ai/agents/constraintExtractor.ts (deployed copy — INLINE MIRROR,
 //     keep in sync)
 //

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import { ScreenLayout, ScreenSheet } from "@/components/shared/ScreenLayout";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -29,12 +29,19 @@ import { useAuthStore } from "@/store/authStore";
 // Firestore notification categories (see `lib/verification/notifications.ts`).
 // These are the values written by the admin queue and stored on
 // `notifications/{uid}/{autoId}.type`.
+//
+// Verification (5) — admin decisions on a tutor's signup / profile edit.
+// Enrollment (4)   — tutor decisions on a student's enrollment request.
 type FirestoreNotifType =
   | "verification_approved"
   | "verification_rejected"
   | "verification_more_info"
   | "edit_approved"
-  | "edit_rejected";
+  | "edit_rejected"
+  | "enrollment_accepted"
+  | "enrollment_declined"
+  | "enrollment_removed"
+  | "enrollment_completed";
 
 // The on-screen category union — slightly broader than the Firestore
 // one because the original mock included `ai`, `enrollment`, etc.
@@ -145,12 +152,24 @@ const TYPE_META: Record<NotifType, NotifMeta> = {
 
 /**
  * Map a Firestore notification `type` to the on-screen `NotifType`.
- * Right now every Firestore type maps to `verification` — they're all
- * admin decisions from the verification queue. If we add enrollment
- * / message streams later they can land under their own `NotifType`.
+ * Verification types land in the "Verification" tab; enrollment
+ * notifications land in the "Enrollments" tab. Any unknown type
+ * falls back to "system" so an unknown doc doesn't crash the feed.
  */
 function mapFirestoreNotifType(t: FirestoreNotifType): NotifType {
-  return "verification";
+  switch (t) {
+    case "verification_approved":
+    case "verification_rejected":
+    case "verification_more_info":
+    case "edit_approved":
+    case "edit_rejected":
+      return "verification";
+    case "enrollment_accepted":
+    case "enrollment_declined":
+    case "enrollment_removed":
+    case "enrollment_completed":
+      return "enrollment";
+  }
 }
 
 /** Pull a `Date` out of a Firestore `Timestamp` / `Date` / ISO string. */
@@ -189,7 +208,7 @@ function formatRelative(date: Date | null): string {
   return `${months} mo ago`;
 }
 
-const TABS = ["All", "Unread", "Verification"] as const;
+const TABS = ["All", "Unread", "Verification", "Enrollments"] as const;
 type Tab = (typeof TABS)[number];
 
 /* ----------------------------- screen ----------------------------- */
@@ -227,7 +246,7 @@ export function NotificationsCenter() {
       return;
     }
     const db = getFirestore(getApp());
-    const q = collection(db, "notifications", user.uid);
+    const q = collection(db, "notifications", user.uid, "items");
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -282,6 +301,7 @@ export function NotificationsCenter() {
       if (tab === "All") return true;
       if (tab === "Unread") return !n.read;
       if (tab === "Verification") return n.type === "verification";
+      if (tab === "Enrollments") return n.type === "enrollment";
       return true;
     });
   }, [rows, tab, prefs]);
@@ -300,7 +320,7 @@ export function NotificationsCenter() {
     );
     try {
       const db = getFirestore(getApp());
-      await updateDoc(doc(db, "notifications", user.uid, row.id), {
+      await updateDoc(doc(db, "notifications", user.uid, "items", row.id), {
         read: true,
         readAt: serverTimestamp(),
       });
@@ -330,7 +350,7 @@ export function NotificationsCenter() {
             onPress={() => router.back()}
             className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} className="text-white" />
           </Pressable>
           <View className="flex-1">
             <Text className="text-body text-white/70 mb-0.5">Inbox</Text>
@@ -344,11 +364,14 @@ export function NotificationsCenter() {
             onPress={() => setShowPrefs(true)}
             className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
           >
-            <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+            <Ionicons name="settings-outline" size={20} className="text-white" />
           </Pressable>
         </View>
       </View>
 
+      {/* Light content — tabs + list overlapping the dark hero
+          (premium dark→light seam, shared `ScreenSheet` pattern) */}
+      <ScreenSheet>
       {/* Tabs */}
       <ScrollView
         horizontal
@@ -400,6 +423,7 @@ export function NotificationsCenter() {
           ))
         )}
       </ScrollView>
+      </ScreenSheet>
 
       {/* Preferences overlay — kept inline (no separate file). Owns
           no business logic beyond toggling the `prefs` map. */}
@@ -471,7 +495,7 @@ function LoadingState() {
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-sand items-center justify-center mb-3">
-        <Ionicons name="sync" size={26} color="#6B7268" />
+        <Ionicons name="sync" size={26} className="text-text-muted" />
       </View>
       <Text className="text-body text-text-secondary">Loading your inbox…</Text>
     </View>
@@ -479,6 +503,10 @@ function LoadingState() {
 }
 
 function EmptyState({ tab }: { tab: Tab }) {
+  // Per-tab copy. The four buckets get distinct titles so the empty
+  // state never reads as "No all notifications" / "No enrollments
+  // notifications" (the previous `No ${tab.toLowerCase()} notifications`
+  // template rendered exactly that for the All / Enrollments tabs).
   const { title, body } = (() => {
     if (tab === "Unread") {
       return {
@@ -486,15 +514,27 @@ function EmptyState({ tab }: { tab: Tab }) {
         body: "You've read everything in your inbox. Nice.",
       };
     }
+    if (tab === "Verification") {
+      return {
+        title: "No verification updates",
+        body: "Tutor verification and edit-request decisions will appear here.",
+      };
+    }
+    if (tab === "Enrollments") {
+      return {
+        title: "No enrollment updates",
+        body: "Session confirmations and tutor decisions will appear here.",
+      };
+    }
     return {
-      title: `No ${tab.toLowerCase()} notifications`,
+      title: "No notifications yet",
       body: "We'll let you know when something new arrives.",
     };
   })();
   return (
     <View className="items-center justify-center px-8 pt-20">
       <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
-        <Ionicons name="sparkles" size={26} color="#E5A03B" />
+        <Ionicons name="sparkles" size={26} className="text-accent" />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {title}
@@ -560,7 +600,7 @@ function NotificationPreferences({
               onPress={onClose}
               className="w-9 h-9 items-center justify-center rounded-pill bg-sand active:opacity-70"
             >
-              <Ionicons name="close" size={18} color="#6B7268" />
+              <Ionicons name="close" size={18} className="text-text-muted" />
             </Pressable>
           </View>
 

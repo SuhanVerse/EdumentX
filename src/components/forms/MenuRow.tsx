@@ -57,7 +57,7 @@ export function MenuRow({
       <Ionicons
         name={icon}
         size={20}
-        color={disabled ? "#6B7268" : "#26302B"}
+        color={disabled ? "#6B7280" : "#0F172A"}
       />
       <Text
         className={

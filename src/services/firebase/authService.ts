@@ -5,6 +5,9 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
+  signInWithCredential,
+  signOut,
+  fetchSignInMethodsForEmail,
 } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -35,9 +38,9 @@ const auth = getAuth(getApp());
  * the cache forces the picker to appear every time.
  *
  * This only touches the **Google SDK's** session — Firebase Auth's
- * session is independent and is set / cleared by
- * `auth.signInWithCredential` / `auth.signOut` (see `logout()`).
- * The two are not interchangeable.
+ * session is independent and is set / cleared by the modular
+ * `signInWithCredential` / `signOut` helpers (see `logout()`). The
+ * two are not interchangeable.
  */
 export const signInWithGoogle = async (): Promise<FirebaseAuthTypes.UserCredential> => {
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -57,7 +60,9 @@ export const signInWithGoogle = async (): Promise<FirebaseAuthTypes.UserCredenti
     throw new Error('No ID token returned by Google Sign-In.');
   }
   const googleCredential = GoogleAuthProvider.credential(data.idToken);
-  return await auth.signInWithCredential(googleCredential);
+  // Modular API — the namespaced `auth.signInWithCredential(cred)`
+  // form is deprecated in RNFirebase v22+ and logs a warning per call.
+  return await signInWithCredential(auth, googleCredential);
 };
 
 /**
@@ -100,7 +105,7 @@ export const getSignInMethodsForEmail = async (
   email: string,
 ): Promise<string[]> => {
   try {
-    return await auth.fetchSignInMethodsForEmail(email);
+    return await fetchSignInMethodsForEmail(auth, email);
   } catch {
     return [];
   }
@@ -152,5 +157,5 @@ export const loginWithEmail = async (
  * routes to the auth screen.
  */
 export const logout = async (): Promise<void> => {
-  await auth.signOut();
+  await signOut(auth);
 };
