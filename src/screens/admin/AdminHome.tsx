@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -25,8 +26,7 @@ import { useAuthStore } from "@/store/authStore";
  * Landing page for admin users. Shows quick access to the three
  * main admin sections: Platform Statistics, Verification Queue,
  * and User Management. Each card surfaces a live count badge so
- * the admin can see the work backlog at a glance (Phase 5 will
- * replace the mock counts with real Firestore aggregations).
+ * the admin can see the work backlog at a glance.
  *
  * The hero greets the admin by name — we read
  * `users/{uid}/adminProfile/default.fullName` via `onSnapshot`
@@ -73,7 +73,6 @@ export function AdminHome() {
   // while loading or on error.
   const [totalUsers, setTotalUsers] = useState(0);
   const [suspendedUsers, setSuspendedUsers] = useState(0);
-  const pendingTutorReviews = null;
 
   useEffect(() => {
     let cancelled = false;
@@ -128,13 +127,12 @@ export function AdminHome() {
       color: "text-verification",
       bgClass: "bg-verification-light",
       route: "/verification-queue",
-      // Surface the full work backlog (verifications + edits + info
-      // requests) so the admin knows there's a queue before they
-      // tap in. Goes red when >0 to draw the eye.
-      count: pendingTutorReviews,
-      countLabel: `${pendingTutorReviews} pending`,
-      countBg: "bg-danger",
-      countFg: "text-text-inverse",
+      // The queue screen owns its live counts; the home card keeps
+      // the tap-through clean without a backlog badge.
+      count: null as number | null,
+      countLabel: "",
+      countBg: "",
+      countFg: "",
     },
     {
       title: "User Management",
@@ -162,17 +160,20 @@ export function AdminHome() {
           pattern. The right-hand slot is intentionally empty; profile
           is reachable from the bottom nav. */}
       <ScreenHeader>
-        <View>
-          <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
-          <Text
-            className="text-screen-title font-medium text-white"
-            numberOfLines={1}
-          >
-            {displayName}
-          </Text>
-          <Text className="text-caption text-white/70 mt-1">
-            Manage platform, verifications & users
-          </Text>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
+            <Text
+              className="text-screen-title font-medium text-white"
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+            <Text className="text-caption text-white/70 mt-1">
+              Manage platform, verifications & users
+            </Text>
+          </View>
+          <NotificationBell tone="dark" />
         </View>
       </ScreenHeader>
 
@@ -217,7 +218,7 @@ export function AdminHome() {
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#6B7268" />
+            <Ionicons name="chevron-forward" size={20} className="text-text-muted" />
           </Pressable>
         ))}
       </ScreenScroll>

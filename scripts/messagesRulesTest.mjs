@@ -1,0 +1,187 @@
+/**
+ * Rules-emulation test for the 1:1 messaging paths
+ * (`match /conversations/{conversationId}` + `messages`).
+ *
+ * Covers: participant-gated conversation create/read/update, message
+ * create with `senderId == auth.uid` + non-empty bounded text, and
+ * stranger denials on every path.
+ *
+ * Run via: firebase emulators:exec --only firestore --project demo-edumentx
+ * "node scripts/messagesRulesTest.mjs"
+ */
+import { Buffer } from "node:buffer";
+
+const PROJECT = process.env.RULES_TEST_PROJECT ?? "demo-edumentx";
+const HOST = process.env.RULES_TEST_HOST ?? "http://127.0.0.1:8080";
+const BASE = `${HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
+
+function b64url(obj) {
+  return Buffer.from(JSON.stringify(obj)).toString("base64url");
+}
+function tokenFor(uid) {
+  return `${b64url({ alg: "none", typ: "JWT" })}.${b64url({ sub: uid })}.`;
+}
+
+function field(v) {
+  if (typeof v === "number") return { integerValue: String(v) };
+  if (typeof v === "boolean") return { booleanValue: v };
+  return { stringValue: String(v) };
+}
+function payload(obj, arrays = []) {
+  const fields = Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, field(v)]));
+  for (const key of arrays) {
+    fields[key] = {
+      arrayValue: { values: obj[key].map((item) => ({ stringValue: String(item) })) },
+    };
+  }
+  return { fields };
+}
+
+async function req(method, path, uid, body, query = "") {
+  const res = await fetch(`${BASE}${path}${query}`, {
+    method,
+    headers: { Authorization: `Bearer ${tokenFor(uid)}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: (await res.text()).slice(0, 300) };
+}
+
+let pass = 0;
+let fail = 0;
+function check(name, actual, expected, extra = "") {
+  const ok = actual === expected;
+  console.log(`${ok ? "✅" : "❌"} ${name} — expected ${expected}, got ${actual}${extra ? ` ${extra}` : ""}`);
+  if (ok) pass++;
+  else fail++;
+}
+
+const STUDENT = "msg-student-1";
+const TUTOR = "msg-tutor-1";
+const STRANGER = "msg-stranger-1";
+const CONV = `${[STUDENT, TUTOR].sort().join("__")}`;
+
+// ── 1. Participant creates the conversation (2 participants, self in) ──
+{
+  const r = await req("PATCH", `/conversations/${CONV}`, STUDENT, payload(
+    {
+      participants: [STUDENT, TUTOR],
+      participantA: STUDENT,
+      participantB: TUTOR,
+      meta: { [STUDENT]: { name: "Student One", avatar: null } },
+      lastMessage: null,
+    },
+    ["participants"],
+  ));
+  check("participant creates conversation (deterministic id)", r.status, 200);
+  if (r.status !== 200) console.log("   ", r.body);
+}
+
+// ── 2. Stranger tries to create a conversation they're not in ──
+{
+  const r = await req("PATCH", `/conversations/${CONV}`, STRANGER, payload(
+    {
+      participants: [STUDENT, TUTOR],
+      participantA: STUDENT,
+      participantB: TUTOR,
+      meta: {},
+      lastMessage: null,
+    },
+    ["participants"],
+  ));
+  check("stranger cannot create a conversation they're not in", r.status, 403);
+}
+
+// ── 3. Participant reads / stranger read denied ──
+{
+  const ok = await req("GET", `/conversations/${CONV}`, STUDENT);
+  check("participant reads conversation", ok.status, 200);
+  const denied = await req("GET", `/conversations/${CONV}`, STRANGER);
+  check("stranger cannot read conversation", denied.status, 403);
+}
+
+// ── 3b. Missing conversation (chat opened before first message) ──
+// The read rule now allows nonexistent docs (the client subscribes
+// before the first message). A 404 (not 403) proves rules permitted
+// the read and the doc simply doesn't exist — the SDK sees an empty
+// snapshot instead of permission-denied.
+{
+  const MISSING = "missing-conv-a__missing-conv-b";
+  const ok = await req("GET", `/conversations/${MISSING}`, "missing-conv-a");
+  check("read of NOT-YET-EXISTING conversation is permitted (404, not 403)", ok.status, 404);
+  const msgs = await req("GET", `/conversations/${MISSING}/messages`, "missing-conv-a");
+  check("messages list on NOT-YET-EXISTING conversation is permitted (200 empty)", msgs.status, 200);
+}
+
+// ── 4. Participant sends a message (senderId == auth.uid, non-empty) ──
+{
+  const r = await req("POST", `/conversations/${CONV}/messages`, STUDENT, payload({
+    senderId: STUDENT,
+    text: "Hello! When can we start?",
+  }));
+  check("participant sends a message", r.status, 200);
+  if (r.status !== 200) console.log("   ", r.body);
+}
+
+// ── 5. Message forged with a different senderId ──
+{
+  const r = await req("POST", `/conversations/${CONV}/messages`, STUDENT, payload({
+    senderId: TUTOR,
+    text: "Forged as the tutor",
+  }));
+  check("senderId must equal auth.uid (forgery denied)", r.status, 403);
+}
+
+// ── 6. Empty / over-long text ──
+{
+  const empty = await req("POST", `/conversations/${CONV}/messages`, STUDENT, payload({
+    senderId: STUDENT,
+    text: "",
+  }));
+  check("empty message text denied", empty.status, 403);
+  const long = await req("POST", `/conversations/${CONV}/messages`, STUDENT, payload({
+    senderId: STUDENT,
+    text: "x".repeat(2001),
+  }));
+  check(">2000-char message text denied", long.status, 403);
+}
+
+// ── 7. Non-participant message create ──
+{
+  const r = await req("POST", `/conversations/${CONV}/messages`, STRANGER, payload({
+    senderId: STRANGER,
+    text: "Sneaking in",
+  }));
+  check("non-participant cannot send a message", r.status, 403);
+}
+
+// ── 8. Participant bumps lastMessage (update allowed) ──
+{
+  const r = await req(
+    "PATCH",
+    `/conversations/${CONV}?updateMask.fieldPaths=lastMessage&updateMask.fieldPaths=updatedAt`,
+    TUTOR,
+    payload({
+      lastMessage: { senderId: TUTOR, text: "Reply!", sentAt: "2026-08-15T00:00:00Z" },
+      updatedAt: "2026-08-15T00:00:01Z",
+    }),
+  );
+  check("participant updates lastMessage", r.status, 200);
+  if (r.status !== 200) console.log("   ", r.body);
+}
+
+// ── 9. Non-participant update denied ──
+{
+  const r = await req(
+    "PATCH",
+    `/conversations/${CONV}?updateMask.fieldPaths=lastMessage&updateMask.fieldPaths=updatedAt`,
+    STRANGER,
+    payload({
+      lastMessage: { senderId: STRANGER, text: "Hijack", sentAt: "2026-08-15T00:00:00Z" },
+      updatedAt: "2026-08-15T00:00:01Z",
+    }),
+  );
+  check("non-participant cannot update conversation", r.status, 403);
+}
+
+console.log(`\n${pass} passed / ${fail} failed`);
+process.exit(fail === 0 ? 0 : 1);

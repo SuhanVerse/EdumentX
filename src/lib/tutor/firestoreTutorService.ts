@@ -25,6 +25,8 @@ import {
   getDoc,
   onSnapshot,
   query,
+  serverTimestamp,
+  setDoc,
   where,
   type Unsubscribe,
 } from "@react-native-firebase/firestore";
@@ -32,6 +34,13 @@ import {
 import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 import type { TutorDocument } from "@/lib/verification/documents";
 import { createDefaultTutorProfile, type TutorProfile } from "@/lib/tutor/types";
+import {
+  DAY_KEYS,
+  TIME_SLOT_KEYS,
+  makeEmptyAvailability,
+  type WeeklyAvailability,
+  type SlotStatus,
+} from "@/services/enrollments/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +61,12 @@ export type TutorListing = {
   verificationStatus: string;
   isVerifiedProfessional: boolean;
   hasPendingUpdate: boolean;
+  /** Tutor-driven search visibility. `false` hides the tutor from
+   *  discovery (StudentHome / MapSearch) without touching their
+   *  `verificationStatus`. The tutor toggles this on their own
+   *  `tutors/{uid}` doc — the only field the rules let them write
+   *  there (see the `differsOnlyFrom` carve-out in firestore.rules). */
+  isAvailableForNewStudents: boolean;
   rating: number;
   reviewCount: number;
   yearsExperience: number;
@@ -73,6 +88,10 @@ const DEFAULT_TUTOR_LISTING: TutorListing = {
   verificationStatus: "pending",
   isVerifiedProfessional: false,
   hasPendingUpdate: false,
+  // Default visible — legacy `tutors/{uid}` docs predate the flag
+  // and the backfill script defaults them to `true`, so a strict
+  // `== true` discovery filter must not hide them.
+  isAvailableForNewStudents: true,
   rating: 0,
   reviewCount: 0,
   yearsExperience: 0,
@@ -100,6 +119,10 @@ export function subscribeTutors(
     tutorsRef,
     where("verificationStatus", "==", "approved"),
     where("hasPendingUpdate", "==", false),
+    // Tutor-driven search visibility — the dashboard toggle writes
+    // this field on the tutor's own `tutors/{uid}` doc (rules
+    // carve-out), and discovery hides tutors who flipped it off.
+    where("isAvailableForNewStudents", "==", true),
   );
 
   return onSnapshot(
@@ -148,6 +171,7 @@ export function subscribeTutors(
               : "pending",
           isVerifiedProfessional: data.isVerifiedProfessional === true,
           hasPendingUpdate: data.hasPendingUpdate === true,
+          isAvailableForNewStudents: data.isAvailableForNewStudents !== false,
           rating: typeof data.rating === "number" ? data.rating : 0,
           reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : 0,
           yearsExperience:
@@ -323,6 +347,31 @@ async function tryEnhanceFromProfile(
 // ─── Mappers ─────────────────────────────────────────────────────────────────
 
 /**
+ * Parse the `availability` field on a profile subdoc into a typed
+ * `WeeklyAvailability` grid. The field is an object with day keys
+ * (`mon`, `tue`, …) mapping to slot-key maps with `"off"` or
+ * `"available"` values. A malformed doc (missing keys, wrong types,
+ * extra slots) falls back to `null` so the student-facing
+ * AvailabilitySection renders its "Tutor hasn't shared their
+ * schedule yet." empty state rather than crashing.
+ */
+function parseAvailability(raw: unknown): WeeklyAvailability | null {
+  if (!raw || typeof raw !== "object") return null;
+  const grid = makeEmptyAvailability();
+  const source = raw as Record<string, unknown>;
+  for (const day of DAY_KEYS) {
+    const dayRow = source[day];
+    if (!dayRow || typeof dayRow !== "object") return null;
+    for (const slot of TIME_SLOT_KEYS) {
+      const value = (dayRow as Record<string, unknown>)[slot];
+      if (value !== "off" && value !== "available") return null;
+      grid[day][slot] = value as SlotStatus;
+    }
+  }
+  return grid;
+}
+
+/**
  * Map a `users/{uid}/tutorProfile/default` doc to TutorProfile.
  * This path has the richest data including the `documents` array
  * with the demo video.
@@ -394,6 +443,12 @@ function profileDocToTutorProfile(
       data.tutoringMode === "both"
         ? (data.tutoringMode as TutorProfile["tutoringMode"])
         : "both",
+    // Phase 5 — availability grid + enrolledCount. Parse
+    // `availability` defensively (only valid keys, only valid slot
+    // values) — a malformed doc shouldn't crash the screen.
+    availability: parseAvailability(data.availability),
+    enrolledCount:
+      typeof data.enrolledCount === "number" ? data.enrolledCount : 0,
   });
 }
 
@@ -415,6 +470,7 @@ function tutorsDocToTutorProfile(
     fullName: (data.fullName as string) ?? "",
     username: (data.username as string) ?? "",
     headline: (data.headline as string) ?? "",
+    bio: (data.bio as string) ?? "",
     subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : [],
     monthlyRateNpr: (data.monthlyRateNpr as number) ?? 0,
     location: {
@@ -453,5 +509,39 @@ function tutorsDocToTutorProfile(
       data.tutoringMode === "both"
         ? (data.tutoringMode as TutorProfile["tutoringMode"])
         : "both",
+    // Phase 5 — the public `tutors/{uid}` directory doc mirrors a
+    // subset of the profile data and does NOT carry availability /
+    // enrolledCount today (those live only on
+    // `users/{uid}/tutorProfile/default`). Leaving them at the
+    // defaults is fine — the student-facing flow resolves to the
+    // richer profile doc when it exists.
+    availability: null,
+    enrolledCount: 0,
   });
+}
+
+// ─── Search-visibility write ─────────────────────────────────────────────────
+
+/**
+ * Flip the tutor's own `isAvailableForNewStudents` flag on the
+ * `tutors/{uid}` discovery doc. This is the ONLY field a tutor may
+ * write on that doc — the Firestore rules carve-out allows an owner
+ * update only when `request.resource.data` differs from the existing
+ * doc solely in `isAvailableForNewStudents` (+ `updatedAt`). Any
+ * other field change is rejected by the rules.
+ */
+export async function setTutorAvailability(
+  tutorUid: string,
+  available: boolean,
+): Promise<void> {
+  const db = getFirestore(getApp());
+  const tutorRef = doc(db, "tutors", tutorUid);
+  await setDoc(
+    tutorRef,
+    {
+      isAvailableForNewStudents: available,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }

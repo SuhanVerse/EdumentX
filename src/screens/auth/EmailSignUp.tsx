@@ -285,7 +285,8 @@ export function EmailSignUp() {
     if (isGoogleLoading) return;
     setIsGoogleLoading(true);
     try {
-      const credential = await signInWithGoogle();
+      await signInWithGoogle();
+      // (The returned credential is intentionally not consumed here.)
       // Same rationale as handleSubmit: do NOT call setUser() here.
       // The auth listener in app/_layout.tsx is the single source of
       // truth and will set the user, fetch the role, and only then

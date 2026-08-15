@@ -56,6 +56,10 @@ export type Review = {
   rating: number;
   timestamp: string;
   comment: string;
+  /** Per-axis scores (1–5), present on reviews submitted through the
+   *  review flow. Absent on legacy reviews — consumers must treat it
+   *  as optional when averaging category ratings. */
+  categoryRatings?: CategoryRatings;
 };
 
 // ─── Category ratings ────────────────────────────────────────────────────────
@@ -128,6 +132,23 @@ export interface TutorProfile {
   currentStudents: number;
   studentCapacity: number;
 
+  // ── Enrollment (added Phase 5) ────────────────────────────────────────────
+  /**
+   * Authoritative count of `enrollments/{tutorUid}/roster/*` where
+   * status == "active". Mirrored via `runTransaction` on
+   * accept/remove/expire. Defaults to 0 when absent (pre-migration
+   * docs). New UI should read this; `currentStudents` is legacy.
+   */
+  enrolledCount: number;
+  /**
+   * Weekly availability grid — `mon`/`tue`/`wed`/`thu`/`fri` →
+   * `Record<TimeSlotKey, "off" | "available">`. Owned by
+   * `services/enrollments/types.ts`. Null when the tutor has never
+   * opened the capacity screen — UI surfaces a "Set your weekly
+   * availability" empty state.
+   */
+  availability: import("@/services/enrollments/types").WeeklyAvailability | null;
+
   // ── Reviews ──
   reviewBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
   categoryRatings: CategoryRatings;
@@ -169,6 +190,8 @@ export function createDefaultTutorProfile(overrides?: Partial<TutorProfile>): Tu
     sessions: [],
     currentStudents: 0,
     studentCapacity: 0,
+    enrolledCount: 0,
+    availability: null,
     reviewBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     categoryRatings: {
       teaching: 0,

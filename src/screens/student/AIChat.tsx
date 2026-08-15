@@ -3,6 +3,7 @@ import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
+  ScreenSheet,
 } from "@/components/shared/ScreenLayout";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { Ionicons } from "@expo/vector-icons";
@@ -197,6 +198,9 @@ export function AIChat() {
         </View>
       </ScreenHeader>
 
+      {/* Chat + input bar — light sheet overlapping the dark hero
+          (premium dark→light seam, shared `ScreenSheet` pattern) */}
+      <ScreenSheet>
       <KeyboardAvoidingView
         behavior="padding"
         keyboardVerticalOffset={0}
@@ -242,37 +246,58 @@ export function AIChat() {
               value={input}
               onChangeText={setInput}
               placeholder="Ask about tutors, subjects, rates"
-              placeholderTextColor="#6B7268"
+              placeholderTextColor="#6B7280"
               onSubmitEditing={() => handleSend(input)}
               editable={!isLoading}
               returnKeyType="send"
               className="flex-1 text-body-lg text-text-primary"
             />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
+          <ChatSendButton
+            enabled={!!input.trim() && !isLoading}
             onPress={() => handleSend(input)}
-            disabled={!input.trim() || isLoading}
-            className={
-              input.trim() && !isLoading
-                ? "w-11 h-11 rounded-pill bg-accent items-center justify-center"
-                : "w-11 h-11 rounded-pill bg-border items-center justify-center"
-            }
-          >
-            <Ionicons
-              name="send"
-              size={18}
-              color={input.trim() ? "#FFFFFF" : "#6B7268"}
-            />
-          </Pressable>
+          />
         </View>
       </View>
 
       </KeyboardAvoidingView>
+      </ScreenSheet>
 
       <BottomNav role="student" current="/AI-chat" />
     </ScreenLayout>
+  );
+}
+
+function ChatSendButton({
+  enabled,
+  onPress,
+}: {
+  enabled: boolean;
+  onPress: () => void;
+}) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Send message"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={!enabled}
+      style={animatedStyle}
+      className={
+        enabled
+          ? "w-11 h-11 rounded-pill bg-accent items-center justify-center"
+          : "w-11 h-11 rounded-pill bg-border items-center justify-center"
+      }
+    >
+      <Ionicons
+        name="send"
+        size={18}
+        color={enabled ? "#FFFFFF" : "#6B7280"}
+      />
+    </AnimatedPressable>
   );
 }
 

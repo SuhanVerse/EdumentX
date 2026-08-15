@@ -387,7 +387,7 @@ Keep Firestore mostly empty initially. App code should create documents such as 
 
 `firebase/storage.rules` contains Storage security rules for files such as profile images and future verification documents.
 
-`firebase/indexes.json` stores Firestore indexes needed by queries. Add indexes when the app or Firebase Console says a query requires one.
+`firebase/firestore.indexes.json` stores Firestore indexes needed by queries (this is the file `firebase.json` points at — the legacy empty `firebase/indexes.json` is unused). Add indexes when the app or Firebase Console says a query requires one.
 
 Deploy Firebase rules only after checking them:
 

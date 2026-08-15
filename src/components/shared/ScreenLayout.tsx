@@ -88,7 +88,9 @@ export function ScreenLayout({ children, variant }: ScreenLayoutProps) {
 //     <BottomNav />                                      // in-flow, never overlaps
 //   </ScreenLayout>
 //
-// All values come from the 4px spacing scale in tailwind.config.js.
+// All values come from the 8px spacing grid (Phase 2 “double
+// whitespace” pass): screen gutters are px-6 (24) like BasoBas, hero
+// cushion pb-8 (32), body top pt-8 (32), end-of-scroll pb-12 (48).
 
 /**
  * Dark hero header (matches the "slate" surface used by every
@@ -97,7 +99,7 @@ export function ScreenLayout({ children, variant }: ScreenLayoutProps) {
  * `ScreenLayout`'s `SafeAreaView` — screens must NOT add their own
  * `pt-*` on top.
  */
-export const SCREEN_HERO_CLASSES = "bg-night px-5 pb-6 shrink-0";
+export const SCREEN_HERO_CLASSES = "bg-night px-6 pb-8 shrink-0";
 
 /**
  * Light header variant for surfaces that sit on a light background
@@ -105,15 +107,15 @@ export const SCREEN_HERO_CLASSES = "bg-night px-5 pb-6 shrink-0";
  * dark fill, bottom hairline instead.
  */
 export const SCREEN_HERO_LIGHT_CLASSES =
-  "px-5 pb-6 shrink-0 bg-surface border-b border-border";
+  "px-6 pb-8 shrink-0 bg-surface border-b border-border";
 
 /**
- * Canonical scroll-body padding: `px-5` gutters, `pt-6` (24) below
- * the header, `pb-8` (32) end-of-scroll cushion. The bottom nav is an
- * in-flow sibling (never overlapping), so no nav-height padding is
- * needed here.
+ * Canonical scroll-body padding: `px-6` (24) gutters, `pt-8` (32)
+ * below the header, `pb-12` (48) end-of-scroll cushion (Phase 2
+ * “double whitespace”). The bottom nav is an in-flow sibling (never
+ * overlapping), so no nav-height padding is needed here.
  */
-export const SCREEN_CONTENT_CLASSES = "px-5 pt-6 pb-8";
+export const SCREEN_CONTENT_CLASSES = "px-6 pt-8 pb-12";
 
 /**
  * Fixed header slot. Renders the standard hero wrapper and the
@@ -137,6 +139,41 @@ export function ScreenHeader({
       }
     >
       <View className="pt-2">{children}</View>
+    </View>
+  );
+}
+
+/**
+ * Light sheet body — the premium "dark hero → light sheet" seam.
+ *
+ * Screens with a dark (`bg-night`) hero and a light body used to have
+ * a hard color edge where the hero ended. This wrapper is the shared
+ * fix: the light content overlaps the dark hero by 16px (`-mt-4`)
+ * with a `rounded-t-3xl` top, so the hero reads as a backdrop behind
+ * a floating sheet instead of two stacked rectangles. `overflow-hidden`
+ * makes the rounded corners actually clip the first child (tab bars,
+ * cards, etc.).
+ *
+ * Structure:
+ *
+ *   <ScreenLayout variant="night">
+ *     <ScreenHeader>…dark hero…</ScreenHeader>
+ *     <ScreenSheet>{…light content…}</ScreenSheet>
+ *     <BottomNav />
+ *   </ScreenLayout>
+ */
+export function ScreenSheet({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <View
+      className={`bg-background rounded-t-3xl -mt-4 flex-1 overflow-hidden ${className ?? ""}`}
+    >
+      {children}
     </View>
   );
 }

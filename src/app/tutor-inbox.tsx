@@ -1,4 +1,4 @@
-import { EnrollmentInbox } from "@/screens/tutor/tutor_inbox";
+import { EnrollmentInbox } from "@/screens/tutor/TutorInbox";
 
 export default function TutorInboxRoute() {
   return <EnrollmentInbox />;

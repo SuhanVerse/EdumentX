@@ -53,6 +53,7 @@ function profileToListing(t: TutorProfile): TutorListing {
     subjects: t.subjects,
     monthlyRateNpr: t.monthlyRateNpr,
     location: t.location,
+    coordinates: t.location.coordinates,
     photoUrl: t.photoUrl,
     verificationStatus: t.verificationStatus,
     isVerifiedProfessional: t.isVerifiedProfessional,

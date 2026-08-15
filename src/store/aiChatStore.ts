@@ -20,7 +20,7 @@
  *     both pipelines agree (W15).
  *   - Sessions auto-reset after 30 minutes of inactivity — the same
  *     TTL as the server-side `SESSION_TTL_MINUTES` in
- *     `ai/memory/sessionStore.ts` (W16).
+ *     `supabase/ai/memory/sessionStore.ts` (W16).
  */
 
 import { create } from "zustand";

@@ -198,8 +198,10 @@ async function readLocalBytes(uri: string): Promise<ArrayBuffer> {
 }
 
 async function pickImageUri(): Promise<string | null> {
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
+  // `granted` is true for iOS "Full Access" AND "Select More
+  // Photos…" (limited) — the picker works either way.
+  const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!granted) {
     return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -212,8 +214,8 @@ async function pickImageUri(): Promise<string | null> {
 }
 
 async function pickVideoUri(): Promise<string | null> {
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
+  const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!granted) {
     return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({

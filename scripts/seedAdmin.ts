@@ -37,6 +37,7 @@
 
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import * as fs from "fs";
 
 const ADMIN_EMAILS = ["asimdkt63@gmail.com","khsuhan100@gmail.com"];
 const GRANTED_BY = "seed-script";
@@ -80,7 +81,9 @@ function initAdmin() {
   // `initializeApp()` reads GOOGLE_APPLICATION_CREDENTIALS and pulls
   // projectId from the key file automatically.
   initializeApp({
-    credential: cert(require(process.env.GOOGLE_APPLICATION_CREDENTIALS)),
+    credential: cert(
+      JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS!, "utf8")),
+    ),
   });
 }
 

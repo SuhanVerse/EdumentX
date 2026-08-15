@@ -5,6 +5,18 @@
 > **Scope:** Every file in `screens/`, `services/`, `lib/`, `components/`, `store/`, `constants/`, `data/`, `app/`, and all configuration files.
 > **TypeScript Health:** ✅ **0 errors** (`tsc --noEmit` passes clean)
 
+> ⚠️ **STATUS UPDATE (Aug 15, 2026):** This audit predates the
+> live-data wiring pass. Everything the audit lists as a
+> "placeholder" or "mock data" below is **now live**: MapSearch
+> renders a real `expo-maps` map with clustered teardrop pins,
+> Enrollment/TutorInbox/BatchCreation run on live Firestore
+> (`enrollmentRequests`, `enrollments`, `batches` collections),
+> PlatformStatistics aggregates with `getCountFromServer`, the AI
+> chat calls the deployed Supabase Edge Function (Groq) — the
+> client mock pipeline only runs when `EXPO_PUBLIC_USE_MOCK_DATA=true`
+> — and 1:1 messaging (`conversations` + `messages`) is shipped.
+> See `01-Architecture/ARCHITECTURE.md` §10 for the live phase table.
+
 ---
 
 ## 1. Inventory Summary
@@ -48,13 +60,13 @@
 
 ### 🔴 Placeholder / Stub Screens
 
-| Screen | File | Issue |
+| Screen | File | Status (Aug 15, 2026) |
 |---|---|---|
-| **Map Search** | `screens/student/MapSearch.tsx` | Renders "Google Maps integration coming soon" placeholder with skeleton cards. No map tiles, no pins. |
-| **Enrollment** | `screens/student/Enrollment.tsx` | UI complete but uses `data/mockData.ts` — no Firestore enrollment collection yet. |
-| **Batch Creation** | `screens/tutor/batch_creation.tsx` | Uses mock data — no Firestore batch collection yet. |
-| **AI Chat Backend** | `screens/student/AIChat.tsx` | Full UI but client-side constraint parser only — no LLM API calls. |
-| **Platform Statistics** | `screens/admin/PlatformStatistics.tsx` | Mock bar chart data from `data/adminStats.ts`. |
+| **Map Search** | `screens/student/MapSearch.tsx` | ✅ Live — `expo-maps` native map, clustered teardrop/avatar pins, GPS + Nepal camera lock, live `subscribeTutors`. |
+| **Enrollment** | `screens/student/Enrollment.tsx` | ✅ Live — `subscribeEnrollmentsByStudent` / `subscribeRequestsByStudent`, reviews via `reviews/{tutorUid}/reviews`, message CTA → `/chat`. |
+| **Batch Creation** | `screens/tutor/BatchCreation.tsx` | ✅ Live — `services/batches/` domain, roster-backed student picker, 3-step wizard, member add/remove. |
+| **AI Chat Backend** | `screens/student/AIChat.tsx` | ✅ Live — Supabase Edge Function (Groq) via `chatService`; client mock only when `USE_MOCK_DATA=true`. |
+| **Platform Statistics** | `screens/admin/PlatformStatistics.tsx` | ✅ Live — `getCountFromServer` aggregations with loading/error/retry; `adminStats.ts` mock deleted. |
 
 ---
 

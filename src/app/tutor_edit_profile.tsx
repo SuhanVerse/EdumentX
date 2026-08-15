@@ -1,4 +1,4 @@
-import { EditTutorProfile } from "@/screens/tutor/edit_profile";
+import { EditTutorProfile } from "@/screens/tutor/EditProfile";
 
 export default function TutorEditRoute() {
   return <EditTutorProfile></EditTutorProfile>;

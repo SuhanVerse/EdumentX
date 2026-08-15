@@ -17,13 +17,43 @@ service cloud.firestore {
       );
     }
 
+    // The single source of truth for which notification `type` values
+    // a client is allowed to write. Used by BOTH the parent
+    // `notifications/{uid}` create rule and the nested
+    // `notifications/{uid}/items/{itemId}` create rule — keeping the
+    // enum in one function means the two lists can never drift.
+    function isValidNotificationType(type) {
+      return type in [
+        "verification_approved",
+        "verification_rejected",
+        "verification_more_info",
+        "edit_approved",
+        "edit_rejected",
+        "enrollment_accepted",
+        "enrollment_declined",
+        "enrollment_removed",
+        "enrollment_completed"
+      ];
+    }
+
     // The root user doc — created by `RoleSelection` and read by
     // `app/_layout.tsx` to decide which dashboard to show.
+    //
+    // Admin write grants (Phase "user lifecycle", Aug 2026):
+    //   - `update` — lets an admin soft-delete a user (marking
+    //     `status: "deleted" + deletedAt`) without an Admin SDK.
+    //   - `delete` — lets an admin permanently remove the doc once
+    //     the account's data has been purged by `lib/admin/
+    //     userLifecycle.ts`. The matching Firebase Auth identity
+    //     cannot be deleted from the client (Auth.delete() is
+    //     current-user only) — that step runs on a dev laptop via
+    //     `scripts/deleteUser.ts` (see ARCHITECTURE.md §11).
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
       allow read: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) && request.resource.data.uid == userId;
-      allow delete: if false;
+      allow update: if (isOwner(userId) && request.resource.data.uid == userId)
+                    || isAdmin();
+      allow delete: if isAdmin();
 
       // Profile subcollection docs (one per role). The screens write
       // these from `StudentProfileScreen` / `TutorProfileScreen` and
@@ -74,7 +104,17 @@ service cloud.firestore {
     match /tutors/{uid} {
       allow read: if true;
       allow create, update: if isAdmin();
-      allow delete: if false;
+      // Tutor-driven search visibility: the owner may update ONLY
+      // their own `isAvailableForNewStudents` flag (plus the
+      // `updatedAt` sibling) on the discovery doc.
+      // `diff(...).affectedKeys().hasOnly([...])` rejects any write
+      // that touches any other field — the admin approval mirror is
+      // the only other writer.
+      allow update: if isOwner(uid) && request.resource.data
+        .diff(resource.data).affectedKeys()
+        .hasOnly(['isAvailableForNewStudents', 'updatedAt']);
+      // Admin can purge the discovery copy when the user is deleted.
+      allow delete: if isAdmin();
     }
 
     // Admins collection — bootstrap is locked to the Firebase Admin SDK
@@ -113,7 +153,7 @@ service cloud.firestore {
                       && request.resource.data.status == "pending")
                     || (isAdmin() && request.resource.data.status in
                       ["pending", "approved", "rejected", "more_info"]);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Pending edit queue — when a verified tutor edits their profile
@@ -143,24 +183,47 @@ service cloud.firestore {
       allow create: if isOwner(uid) && request.resource.data.status == "pending";
       allow update: if (isOwner(uid) && request.resource.data.status == "pending")
                     || isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // Notifications — one document per notification, addressed to a
     // user. The notification center reads them via `onSnapshot`.
     //
-    // Two writers:
+    // The actual notification docs live in the `items` SUBCOLLECTION
+    // (`notifications/{uid}/items/{itemId}`) — see the nested match
+    // below. The parent-doc match above it only covers the anchor doc
+    // itself. Firestore rules do NOT cascade from a parent match to
+    // its subcollections; without the nested block every notification
+    // read/write fell through to the catch-all deny at the bottom
+    // (the Aug 9 [firestore/permission-denied] storm).
+    //
+    // Writers:
     //   - Admins can `create` (e.g. when a verification decision is
     //     made, the admin's batch handler writes a doc here so the
     //     tutor sees it in their inbox).
+    //   - Tutors can `create` enrollment_* notifications for their
+    //     students (Phase 5 enrollment management). The alternative
+    //     (every student subscribing to every tutor's
+    //     enrollmentRequests subcollection) is N×M listeners. The
+    //     trade-off is bounded: a malicious client can spam another
+    //     user's inbox, but the `type` enum + `recipientUid == path`
+    //     guards mean they cannot impersonate a different source of
+    //     notifications or sneak a doc into someone else's folder.
+    //     The admin can scrub via the Firebase Console.
     //   - The owning user can `update` only the `read` flag (a
     //     client-side tap on a notification). Everything else is
     //     server-only — no client can mutate the title / body /
     //     timestamp of a notification it didn't author.
+    // NOTE: the app reads/writes the `items` SUBCOLLECTION, not this
+    // parent doc. The parent block below exists for the anchor doc
+    // itself (userLifecycle.ts deletes it on account purge); the
+    // nested `items/{itemId}` block is the one that guards the real
+    // notification rows.
     match /notifications/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create: if isAdmin() &&
-        request.resource.data.recipientUid == uid;
+      allow create: if isSignedIn()
+        && request.resource.data.recipientUid == uid
+        && isValidNotificationType(request.resource.data.type);
       allow update: if isOwner(uid) &&
         // The only mutable field on a notification is `read`.
         // The diff check below is the closest Firestore gets to
@@ -168,7 +231,332 @@ service cloud.firestore {
         // field must round-trip to its current value.
         request.resource.data.diff(resource.data).changedKeys()
           .hasOnly(["read", "readAt"]);
+      // Admin purges recipient notifications on account deletion.
+      allow delete: if isAdmin();
+
+      // The real notification docs — `notifications/{uid}/items/*`.
+      // Mirrors the parent-doc intent one level down. Required for
+      // NotificationBell / NotificationsCenter reads and the
+      // writeNotification create (lib/verification/notifications.ts).
+      match /items/{itemId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && request.resource.data.recipientUid == uid
+          && isValidNotificationType(request.resource.data.type);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["read", "readAt"]);
+        // Admin purges a recipient's notification rows on account
+        // deletion (lib/admin/userLifecycle.ts).
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Phase 5 — Tutor enrollment management
+    // ────────────────────────────────────────────────────────────────────
+    //
+    // The four collections below power the tutor's "Capacity &
+    // schedule" screen and the inbox / batch / dashboard flows.
+    // They sit at the project root (not under `users/{uid}`) so a
+    // student can read a tutor's batch + enrollment + availability
+    // data via direct path navigation, and so the security rules
+    // can enforce a count-based capacity invariant in O(1) by
+    // reading the denormalized `enrolledCount` on the tutor's
+    // profile subdoc.
+    //
+    // `enrollmentRequests/{tutorUid}/requests/{requestId}` — a
+    // student's ask to study with a tutor. Hard-deleted on decline
+    // (the row vanishes from the inbox permanently).
+    //
+    // The path is 3 levels deep because Firestore's `collection()` SDK
+    // call requires an even-segment path (collection → doc → collection
+    // → doc…). `enrollmentRequests` is a top-level collection,
+    // `{tutorUid}` is the doc id, and `requests` is the named
+    // subcollection that holds the auto-id'd request docs. A flat
+    // top-level `enrollmentRequests/{requestId}` would have required
+    // a composite index on `tutorUid`, which the plan avoided.
+    match /enrollmentRequests/{tutorUid} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(["_namespaceAnchor"]);
+      allow update, delete: if false;
+    }
+    match /enrollmentRequests/{tutorUid}/requests/{requestId} {
+      allow get, list: if isSignedIn();
+      // Create: any signed-in user can write a request, but ONLY
+      // with `studentUid == auth.uid` and `status == "pending"`.
+      allow create: if isSignedIn()
+        && request.resource.data.tutorUid == tutorUid
+        && request.resource.data.studentUid == request.auth.uid
+        && request.resource.data.status == "pending";
+      // Update: the tutor (recipient) can flip status between
+      // pending/accepted/declined. The student can only update
+      // their own pending requests.
+      allow update: if isSignedIn() && (
+        resource.data.tutorUid == request.auth.uid
+        || resource.data.studentUid == request.auth.uid
+      );
+      // Delete: tutors can drop rejected / pending requests to
+      // clean their inbox. Students can drop their own pending
+      // request.
+      allow delete: if isSignedIn() && (
+        resource.data.tutorUid == request.auth.uid
+        || resource.data.studentUid == request.auth.uid
+      );
+    }
+
+    // `reviews/{tutorUid}/reviews/{reviewId}` — student-written
+    // reviews of a tutor. Reads are public; writes require a
+    // signed-in student whose `studentUid == auth.uid` and
+    // `status == "active"`.
+    match /reviews/{tutorUid} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(["_namespaceAnchor"]);
+      allow update, delete: if false;
+    }
+    match /reviews/{tutorUid}/reviews/{reviewId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.tutorUid == tutorUid
+        && request.resource.data.studentUid == request.auth.uid
+        && request.resource.data.status == "active";
+      allow update: if isSignedIn()
+        && resource.data.studentUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["score", "comment", "updatedAt"]);
+      allow delete: if isSignedIn()
+        && (resource.data.studentUid == request.auth.uid || isAdmin());
+    }
+
+    // `enrollments/{tutorUid}/roster/{enrollmentId}` — the active
+    // roster. Capacity is enforced by reading the denormalized
+    // `enrolledCount` on the tutor's profile subdoc; the rule rejects
+    // any create that would push the count above the cap.
+    //
+    // The subcollection is named `roster` (not `active`) so that
+    // `collectionGroup(db, "roster")` does not collide with the
+    // `classes` subcollection under `batches/{tutorUid}/`.
+    match /enrollments/{tutorUid} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(["_namespaceAnchor"]);
+      allow update, delete: if false;
+    }
+    match /enrollments/{tutorUid}/roster/{enrollmentId} {
+      allow get, list: if isSignedIn();
+      // Create: enforced by the tutor's own transaction in
+      // `FirebaseEnrollmentRepository.acceptRequest`. Gates on the
+      // denormalized `enrolledCount` against the 6-student cap
+      // (`max(profile.studentCapacity, 6)` so a tutor who left the
+      // legacy default `studentCapacity = 0` still gets a safety net).
+      //
+      // Legacy profiles may predate the denormalized counters and
+      // have NO `enrolledCount` / `studentCapacity` field at all — a
+      // strict `int >= int` comparison would then evaluate against
+      // `undefined` and hard-deny every create (the "acceptRequest
+      // permission-denied" bug, Aug 2026). Coerce missing values to
+      // 0 so the cap defaults to 6, mirroring the client-side
+      // `num()` / `MAX_CAPACITY` defaults in
+      // `FirebaseEnrollmentRepository.acceptRequest`.
+      allow create: if isSignedIn()
+        && request.resource.data.tutorUid == request.auth.uid
+        && request.resource.data.tutorUid == tutorUid
+        && request.resource.data.status == "active"
+        && (
+          'enrolledCount' in get(
+            /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+          ).data
+            ? get(
+              /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+            ).data.enrolledCount
+            : 0
+        )
+          < (
+            (
+              'studentCapacity' in get(
+                /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+              ).data
+                ? get(
+                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                ).data.studentCapacity
+                : 0
+            ) >= 6
+              ? (
+                'studentCapacity' in get(
+                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                ).data
+                  ? get(
+                    /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                  ).data.studentCapacity
+                  : 0
+              )
+              : 6
+          );
+      // Update: the tutor can flip status / removedAt / removeReason
+      // (the three fields touched by `removeEnrollment`).
+      allow update: if isSignedIn()
+        && resource.data.tutorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["status", "removedAt", "removeReason"]);
+      // Delete: the tutor can hard-delete (used by the cascade
+      // handler in `removeEnrollment` when the existing
+      // `status: "removed"` is not enough).
+      allow delete: if isSignedIn() && resource.data.tutorUid == request.auth.uid;
+    }
+
+    // `batches/{tutorUid}/classes/{batchId}` — a tutor's group class.
+    // `members/{memberId}` is a subcollection under the batch.
+    match /batches/{tutorUid} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(["_namespaceAnchor"]);
+      allow update, delete: if false;
+    }
+    match /batches/{tutorUid}/classes/{batchId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.tutorUid == request.auth.uid
+        && request.resource.data.tutorUid == tutorUid
+        && request.resource.data.status == "active"
+        && request.resource.data.slotKeys is list
+        && request.resource.data.slotKeys.size() > 0;
+      allow update: if isSignedIn()
+        && resource.data.tutorUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.tutorUid == request.auth.uid;
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+          && get(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && get(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // 1:1 messaging — conversations/{conversationId} + messages
+    // ────────────────────────────────────────────────────────────────────
+    //
+    // Deterministic conversation ids (sorted participant pair joined
+    // with `__` — see services/messages/types.ts), so either side
+    // addresses the same doc without a query. Membership is checked
+    // via two SCALAR fields (`participantA` / `participantB` = the
+    // sorted pair) — scalar equality against `request.auth.uid` is the
+    // battle-tested operator in this file, and list-membership ops
+    // (`in` / `hasAny` / index access) fail the local rules emulator
+    // with "Null value error" for doc-sourced lists (firebase-tools
+    // 15.18 emulator quirk). The `participants` ARRAY still exists
+    // for the SDK's `where participants array-contains uid` hub query.
+    //
+    // NOTE: bare `auth.uid` also hits that emulator null-value bug —
+    // every check here uses `request.auth.uid`, matching the rest of
+    // this rules file.
+    match /conversations/{conversationId} {
+      // `resource == null` matters: the chat screen subscribes to a
+      // conversation doc that does NOT exist yet (before the first
+      // message). Accessing `resource.data.X` on a missing doc THROWS
+      // in rules, which surfaces as `permission-denied` instead of an
+      // empty snapshot. Allow the (empty) read of a nonexistent doc;
+      // existing docs still require participant membership.
+      allow read: if isSignedIn()
+        && (resource == null
+            || resource.data.participantA == request.auth.uid
+            || resource.data.participantB == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && (request.resource.data.participantA == request.auth.uid
+            || request.resource.data.participantB == request.auth.uid);
+      // Participants may bump lastMessage / their own meta entry;
+      // non-participants can never touch the thread.
+      allow update: if isSignedIn()
+        && (resource.data.participantA == request.auth.uid
+            || resource.data.participantB == request.auth.uid);
       allow delete: if false;
+
+      match /messages/{messageId} {
+        // Same missing-parent guard: the messages subcollection query
+        // runs while the conversation doc may not exist yet.
+        allow read: if isSignedIn() && (
+          !exists(/databases/$(database)/documents/conversations/$(conversationId))
+          || get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.participantA == request.auth.uid
+          || get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.participantB == request.auth.uid
+        );
+        allow create: if isSignedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantA == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantB == request.auth.uid);
+        allow update, delete: if false;
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Collection-group query access (student dashboard + repo lookups)
+    // ────────────────────────────────────────────────────────────────────
+    //
+    // Firestore security rules do NOT authorize a `collectionGroup()`
+    // query via path-specific match blocks. A path-specific rule such
+    // as `match /enrollments/{tutorUid}/roster/{enrollmentId}` only
+    // guards DIRECT-path reads (collection(db, "enrollments", uid,
+    // "roster")) — a `collectionGroup(db, "roster")` query over every
+    // tutor's roster fails with permission-denied even when the
+    // path-specific rule allows it (the Aug 11 log showed exactly
+    // this for subscribeEnrollmentsByStudent / subscribeRequestsByStudent).
+    //
+    // A collectionGroup query requires a match with a RECURSIVE parent
+    // wildcard: `match /{path=**}/roster/{doc}`. Each block below
+    // binds that wildcard as `{prefix=**}` — the literal collection
+    // name in the match declaration (e.g. `/roster/{enrollmentId}`)
+    // scopes the rule to that exact collection ID wherever it appears
+    // in the document tree.
+    //
+    // IMPORTANT: `{prefix=**}` captures the ENTIRE matched path as a
+    // single string (per the rules-behavior docs:
+    // https://firebase.google.com/docs/rules/rules-behavior), so
+    // `prefix[0]` returns the first CHARACTER, not the first SEGMENT.
+    // Earlier code used `prefix.size() >= 2 && prefix[0] == "enrollments"`
+    // which always evaluated false (prefix[0] was `"e"`, not
+    // `"enrollments"`), short-circuiting the `&&` chain before
+    // `resource.data.studentUid == auth.uid` was ever checked. The
+    // fix: rely on resource-data identity instead. Every write path
+    // populates `studentUid` and/or `tutorUid` on each row (verified
+    // in FirebaseEnrollmentRepository.ts:620 / :768), so checking
+    // those fields is sufficient. Read-only — all writes stay on the
+    // direct-path rules above.
+    match /{prefix=**}/roster/{enrollmentId} {
+      allow get, list: if isSignedIn()
+        && (resource.data.studentUid == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
+            || isAdmin());
+    }
+    match /{prefix=**}/requests/{requestId} {
+      allow get, list: if isSignedIn()
+        && (resource.data.studentUid == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
+            || isAdmin());
+    }
+    match /{prefix=**}/members/{memberId} {
+      allow get, list: if isSignedIn()
+        && (resource.data.studentUid == request.auth.uid
+            || resource.data.tutorUid == request.auth.uid
+            || isAdmin());
+    }
+    match /{prefix=**}/classes/{batchId} {
+      allow get, list: if isSignedIn()
+        && (resource.data.tutorUid == request.auth.uid || isAdmin());
+    }
+    match /{prefix=**}/reviews/{reviewId} {
+      allow get, list: if isSignedIn()
+        && (resource.data.studentUid == request.auth.uid || isAdmin());
     }
 
     // Everything else stays locked down. The app's MVP only touches

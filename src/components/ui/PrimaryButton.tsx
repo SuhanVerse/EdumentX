@@ -21,13 +21,15 @@
  *   - heights via `min-h-btn` (52) or `min-h-btn-lg` (56)
  *   - radii via `rounded-card` (14)
  *   - colors via `bg-primary` / `bg-accent` / `bg-surface`
+ *
+ * Press feedback comes from the shared `usePressScale` hook — the
+ * same ~100ms stiff spring + light haptic impact every tactile surface
+ * in the app uses (Phase 2). No local `active:opacity` fallback.
  */
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { usePressScale } from '@/components/motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -107,11 +109,7 @@ export function PrimaryButton({
   accessibilityLabel,
   className = '',
 }: PrimaryButtonProps) {
-  const pressed = useSharedValue(0);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.04 }],
-  }));
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
 
   const isInactive = disabled || loading;
 
@@ -122,18 +120,12 @@ export function PrimaryButton({
       accessibilityState={{ disabled: isInactive, busy: loading }}
       disabled={isInactive}
       onPress={onPress}
-      onPressIn={() => {
-        pressed.value = withSpring(1, { damping: 18, stiffness: 320 });
-      }}
-      onPressOut={() => {
-        pressed.value = withSpring(0, { damping: 18, stiffness: 320 });
-      }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={animatedStyle}
       className={`${SIZE[size]} ${
         isInactive ? VARIANT_DISABLED_BG[variant] : VARIANT_BG[variant]
-      } rounded-card flex-row items-center justify-center gap-2 ${
-        isInactive ? '' : 'active:opacity-90'
-      } ${className}`}
+      } rounded-card flex-row items-center justify-center gap-2 ${className}`}
     >
       {loading ? (
         <ActivityIndicator

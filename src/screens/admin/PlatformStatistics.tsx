@@ -1,26 +1,72 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
 import {
+  collection,
   doc,
+  getCountFromServer,
   getFirestore,
   onSnapshot,
+  query,
+  where,
 } from "@react-native-firebase/firestore";
 import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
 } from "@/components/shared/ScreenLayout";
-import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 import { AdminNav } from "@/components/shared/AdminNav";
-import { MOCK_ADMIN_STATS } from "@/data/adminStats";
 import { useAuthStore } from "@/store/authStore";
+
+/** Live KPI counts, aggregated with `getCountFromServer` (server-side
+ *  count queries — no doc payloads cross the wire). */
+interface PlatformCounts {
+  totalUsers: number;
+  totalTutors: number;
+  verifiedTutors: number;
+  pendingRequests: number;
+}
+
+const EMPTY_COUNTS: PlatformCounts = {
+  totalUsers: 0,
+  totalTutors: 0,
+  verifiedTutors: 0,
+  pendingRequests: 0,
+};
+
+/** Fetch all four KPIs in parallel. Each is a server-side count
+ *  query, so the cost is O(1) documents regardless of dataset size. */
+async function fetchPlatformCounts(): Promise<PlatformCounts> {
+  const db = getFirestore(getApp());
+  const [totalUsers, totalTutors, verifiedTutors, pendingRequests] =
+    await Promise.all([
+      getCountFromServer(collection(db, "users")),
+      getCountFromServer(collection(db, "tutors")),
+      getCountFromServer(
+        query(collection(db, "tutors"), where("verificationStatus", "==", "approved")),
+      ),
+      getCountFromServer(
+        query(
+          collection(db, "enrollmentRequests"),
+          where("status", "==", "pending"),
+        ),
+      ),
+    ]);
+  return {
+    totalUsers: totalUsers.data().count,
+    totalTutors: totalTutors.data().count,
+    verifiedTutors: verifiedTutors.data().count,
+    pendingRequests: pendingRequests.data().count,
+  };
+}
 
 /**
  * EdumentX — Platform Statistics (`/platform-statistics`)
  *
- * Admin-only read-only metrics surface. Renders a 2x2 KPI grid, a
+ * Admin-only read-only metrics surface. Renders a 2x2 KPI grid fed
+ * by live Firestore count aggregations (`getCountFromServer`), a
  * weekly enrollment bar list, and a subject-demand bar list.
  *
  * **Why no chart library:** the project doesn't ship a chart
@@ -31,6 +77,13 @@ import { useAuthStore } from "@/store/authStore";
  * module. If the project ever needs a real chart lib, swap the
  * `<BarList>` instances for a chart — the rest of the screen is
  * already shaped for it.
+ *
+ * **What's live vs static:** the four KPI tiles read real counts
+ * (users, tutors, approved tutors, pending enrollment requests).
+ * The weekly-trend and subject-demand bars are static sample data —
+ * Firestore has no time-series or subject-demand collection to
+ * aggregate yet, so fabricating them would be worse than showing
+ * them as-is until a data source exists.
  *
  * **Why the greeting is live:** admins want to land on a screen
  * that feels personal. We read `adminProfile.fullName` via
@@ -73,8 +126,8 @@ export function PlatformStatistics() {
 
       {/* Hero — mirrors StudentHome.tsx's "Good morning, {name}"
           pattern. The admin's live display name is the dominant
-          element, with a small "EdumentX · July 2026" caption for
-          context. */}
+          element, with a small "EdumentX · Platform statistics"
+          caption for context. */}
       <ScreenHeader>
         <View>
           <Text className="text-body text-white/70 mb-0.5">Good to see you,</Text>
@@ -85,7 +138,7 @@ export function PlatformStatistics() {
             {displayName}
           </Text>
           <Text className="text-caption text-white/70 mt-1">
-            EdumentX · July 2026 · Platform statistics
+            EdumentX · Platform statistics
           </Text>
         </View>
       </ScreenHeader>
@@ -106,74 +159,119 @@ export function PlatformStatistics() {
 /**
  * 2x2 KPI grid. Each tile is a `bg-surface` card with an icon
  * disc, a big number, an uppercase label, and a "+X this week"
- * delta. The data is sourced from `MOCK_ADMIN_STATS` (Phase 5
- * will replace this with a Firestore aggregation).
+ * delta. The numbers come from live Firestore count queries
+ * (`getCountFromServer`) — loading shows skeleton dashes, and a
+ * fetch failure shows a compact error tile with a Retry action.
  */
 function KpiGrid() {
+  const [counts, setCounts] = useState<PlatformCounts>(EMPTY_COUNTS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const next = await fetchPlatformCounts();
+      setCounts(next);
+    } catch (err) {
+      console.warn("PlatformStatistics: failed to fetch counts", err);
+      setError("Couldn't load live counts");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const verifiedPct =
+    counts.totalTutors > 0
+      ? `${Math.round((counts.verifiedTutors / counts.totalTutors) * 100)}%`
+      : "0%";
+
   const tiles = [
     {
       icon: "people" as keyof typeof Ionicons.glyphMap,
       label: "Registered users",
-      value: formatNumber(MOCK_ADMIN_STATS.totalUsers * 200 + 48),
-      delta: "+14%",
+      value: loading ? "—" : formatNumber(counts.totalUsers),
+      delta: "+0%",
       tintBg: "bg-accent-light",
       tintFg: "text-accent",
     },
     {
       icon: "book" as keyof typeof Ionicons.glyphMap,
-      label: "Active enrollments",
-      value: formatNumber(MOCK_ADMIN_STATS.totalUsers * 60 + 87),
-      delta: "+8%",
+      label: "Tutors on platform",
+      value: loading ? "—" : formatNumber(counts.totalTutors),
+      delta: "+0%",
       tintBg: "bg-verification-light",
       tintFg: "text-verification",
     },
     {
       icon: "shield-checkmark" as keyof typeof Ionicons.glyphMap,
       label: "Verified tutors",
-      value: "68%",
-      delta: "+5%",
+      value: loading ? "—" : verifiedPct,
+      delta: "+0%",
       tintBg: "bg-ai-light",
       tintFg: "text-ai",
     },
     {
-      icon: "star" as keyof typeof Ionicons.glyphMap,
-      label: "Platform rating",
-      value: "4.7",
-      delta: "+0.1",
+      icon: "mail-unread" as keyof typeof Ionicons.glyphMap,
+      label: "Pending requests",
+      value: loading ? "—" : formatNumber(counts.pendingRequests),
+      delta: "+0%",
       tintBg: "bg-accent-light",
       tintFg: "text-accent",
     },
   ];
 
   return (
-    <View className="flex-row flex-wrap gap-3">
-      {tiles.map((t) => (
-        <View
-          key={t.label}
-          className="flex-1 min-w-[45%] bg-surface border border-border-subtle rounded-card p-4"
-        >
-          <View
-            className={`w-10 h-10 rounded-pill items-center justify-center mb-3 ${t.tintBg}`}
-          >
-            <Ionicons name={t.icon} size={20} className={t.tintFg} />
-          </View>
-          <Text className="text-screen-title font-medium text-text-primary">
-            {t.value}
+    <View className="gap-3">
+      {error ? (
+        <View className="flex-row items-center gap-3 bg-danger-bg border border-border-subtle rounded-card p-4">
+          <Ionicons name="alert-circle" size={20} className="text-danger" />
+          <Text className="flex-1 text-caption text-danger-text">
+            {error}
           </Text>
-          <Text
-            className="text-overline text-text-muted uppercase mt-0.5"
-            numberOfLines={1}
+          <Pressable
+            onPress={() => void load()}
+            className="bg-danger px-3 py-1.5 rounded-pill active:opacity-80"
+            accessibilityRole="button"
           >
-            {t.label}
-          </Text>
-          <View className="flex-row items-center gap-1 mt-2">
-            <Ionicons name="trending-up" size={12} color="#16A34A" />
-            <Text className="text-micro font-semibold text-success-text">
-              {t.delta} this week
-            </Text>
-          </View>
+            <Text className="text-micro font-semibold text-white">Retry</Text>
+          </Pressable>
         </View>
-      ))}
+      ) : null}
+      <View className="flex-row flex-wrap gap-3">
+        {tiles.map((t) => (
+          <View
+            key={t.label}
+            className="flex-1 min-w-[45%] bg-surface border border-border-subtle rounded-card p-4"
+          >
+            <View
+              className={`w-10 h-10 rounded-pill items-center justify-center mb-3 ${t.tintBg}`}
+            >
+              <Ionicons name={t.icon} size={20} className={t.tintFg} />
+            </View>
+            <Text className="text-screen-title font-medium text-text-primary">
+              {t.value}
+            </Text>
+            <Text
+              className="text-overline text-text-muted uppercase mt-0.5"
+              numberOfLines={1}
+            >
+              {t.label}
+            </Text>
+            <View className="flex-row items-center gap-1 mt-2">
+              <Ionicons name="trending-up" size={12} className="text-success-text" />
+              <Text className="text-micro font-semibold text-success-text">
+                {t.delta} this week
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -183,6 +281,9 @@ function KpiGrid() {
  * inside a `bg-surface` card. No chart lib required: each row is
  * a flex row of (day, bar track, value). The bar fill width is
  * `(value / max) * 100%`.
+ *
+ * Static sample data: there is no enrollment time-series collection
+ * to aggregate yet, so this stays illustrative until one exists.
  */
 function WeeklyEnrollmentCard() {
   const data = [
@@ -235,6 +336,9 @@ function WeeklyEnrollmentCard() {
  * Subject demand — same bar-list pattern, with the subject name
  * on the left of the bar instead of a weekday. Sorted by demand
  * (descending) so the most-requested subject is always at the top.
+ *
+ * Static sample data: subject demand isn't aggregated anywhere in
+ * Firestore yet — illustrative until a data source exists.
  */
 function SubjectDemandCard() {
   const data = [

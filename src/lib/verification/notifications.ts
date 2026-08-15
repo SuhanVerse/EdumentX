@@ -31,7 +31,11 @@ export type NotificationType =
   | "verification_rejected"
   | "verification_more_info"
   | "edit_approved"
-  | "edit_rejected";
+  | "edit_rejected"
+  | "enrollment_accepted"
+  | "enrollment_declined"
+  | "enrollment_removed"
+  | "enrollment_completed";
 
 export type NotificationDoc = {
   recipientUid: string;
@@ -39,8 +43,8 @@ export type NotificationDoc = {
   title: string;
   body: string;
   /** Free-form reason text captured by the admin (rejection
-   *  notes, missing document details, etc.). Empty string when not
-   *  applicable. */
+   *  notes, missing document details, etc.). Empty string when
+   *  not applicable. */
   reason?: string;
   createdAt: unknown; // serverTimestamp
   read: boolean;
@@ -48,13 +52,26 @@ export type NotificationDoc = {
 };
 
 /**
- * Write a notification doc to `notifications/{uid}/{autoId}`. Returns the
- * generated id so the caller can navigate to it (e.g. open the
- * notification center and scroll to the row).
+ * Write a notification doc to `notifications/{uid}/items/{autoId}`.
+ * Returns the generated id so the caller can navigate to it (e.g. open
+ * the notification center and scroll to the row).
  *
  * We use `doc(collection(...))` to generate an auto-id — the
  * notification center renders in chronological order, and the
  * id is only used for `key` props in a list.
+ *
+ * The `items` subcollection is named so the SDK's `collection()`
+ * helper resolves to a real CollectionReference (it requires odd
+ * path segments: collection → doc → collection). The parent doc
+ * (`notifications/{uid}`) is auto-created by Firestore the first
+ * time a child is written.
+ *
+ * Security note: Firestore rules do NOT cascade from a parent match
+ * (`match /notifications/{uid}`) to its subcollections. The rules
+ * file therefore has a dedicated `match /notifications/{uid}/items/
+ * {itemId}` block (added Aug 9 2026) — without it every read/write
+ * to this path fell through to the catch-all deny and the
+ * notification bell + center failed with `permission-denied`.
  */
 export async function writeNotification(
   recipientUid: string,
@@ -64,7 +81,7 @@ export async function writeNotification(
   >,
 ): Promise<string> {
   const db = getFirestore(getApp());
-  const ref = doc(collection(db, "notifications", recipientUid));
+  const ref = doc(collection(db, "notifications", recipientUid, "items"));
   await setDoc(ref, {
     recipientUid,
     type: payload.type,
@@ -117,5 +134,30 @@ export const notificationCopy = {
     body:
       "Your recent changes were not applied. Your profile still shows the previous values.",
     reason,
+  }),
+  enrollmentAccepted: (tutorName: string) => ({
+    type: "enrollment_accepted" as const,
+    title: "You're enrolled",
+    body: `${tutorName} accepted your request. Check the schedule for your first session.`,
+    reason: "",
+  }),
+  enrollmentDeclined: (tutorName: string, reason: string) => ({
+    type: "enrollment_declined" as const,
+    title: "Request not accepted",
+    body: `${tutorName} couldn't accept your enrollment request.`,
+    reason,
+  }),
+  enrollmentRemoved: (tutorName: string, reason: string) => ({
+    type: "enrollment_removed" as const,
+    title: `Removed by ${tutorName}`,
+    body:
+      "Your tutor has ended your enrollment. You can request a different tutor from the marketplace.",
+    reason,
+  }),
+  enrollmentCompleted: (tutorName: string) => ({
+    type: "enrollment_completed" as const,
+    title: "Enrollment completed",
+    body: `Your enrollment with ${tutorName} has finished. Hope you had a great experience!`,
+    reason: "",
   }),
 };

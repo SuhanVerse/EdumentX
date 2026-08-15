@@ -12,15 +12,18 @@
 
 ```
 Phase 1.5: Foundation (NativeWind)    ✅ COMPLETE (June 8, 2026)
-Phase 2:   Babel fix + RNFirebase     ⏳ NEXT — see Phase B
-Phase 3:   Backend (Firebase Auth)     ⏳ see Phase C
-Phase 4:   Dashboards (role landing)  ✅ UI shipped (mock data) — wire to Firestore in Phase D
-Phase 5:   Map + Search + Bookings    ⏳ see Phase E
-Phase 6:   Admin + Verification       ⏳ see Phase F
-Phase 7:   Polish + Beta launch       ⏳ see Phase G
+Phase 2:   Babel fix + RNFirebase     ✅ COMPLETE (June 21, 2026)
+Phase 3:   Backend (Firebase Auth)     ✅ COMPLETE (June 21, 2026)
+Phase 4:   Dashboards (role landing)  ✅ COMPLETE — live Firestore (Aug 2026)
+Phase 5:   Map + Search + Bookings    ✅ COMPLETE (Aug 2026)
+Phase 6:   Admin + Verification       ✅ COMPLETE (Aug 2026)
+Phase 7:   Polish + Beta launch       ✅ COMPLETE — remaining: EAS dev-client rebuild (Aug 2026)
 ```
 
-**Last updated**: June 12, 2026 — Phase 1.5 (NativeWind) is **complete**, Phase 2 (babel + RNFirebase native deps) is **next** and unblocks Phase 3 (Firebase). The plan in `05-Build-and-Deploy/firebase-auth-plan.md` has been audited, corrected, and rewritten to use `@react-native-firebase/*` (the native SDK) — see `05-Build-and-Deploy/firebase-auth-plan-audit.md` for the full diff, in particular **finding #14** which describes the SDK override.
+**Last updated**: Aug 15, 2026 — the sprint-by-sprint detail below
+is a historical planning record; `ARCHITECTURE.md` §10 is the live
+status table (auth, dashboards, map, enrollments, batches,
+statistics, messaging, AI chat are all wired to real backends).
 
 > **Architectural correction (June 12, 2026)**: the original roadmap described Phase B as a "Tamagui foundation" sprint. That work was started, then **reverted on June 8, 2026 in favor of NativeWind 4.2 + Tailwind CSS 3.4**. All Tamagui packages and config files have been removed. If you see `@tamagui/*` references anywhere in the docs, they are stale. The only token source of truth is now `tailwind.config.js`.
 

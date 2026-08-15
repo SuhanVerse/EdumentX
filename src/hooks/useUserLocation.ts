@@ -2,7 +2,7 @@
  * @file useUserLocation.ts
  * @description Hook to fetch and track user's device location using expo-location.
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
 
 export interface LocationData {
@@ -71,10 +71,10 @@ export function useUserLocation(): UseUserLocationResult {
     };
   }, []);
 
-  const memoizedLocation = useMemo(() => location, [location.latitude, location.longitude]);
-
+  // `location` is already stable state (only replaced when a fresh GPS
+  // fix arrives), so no memoization is needed here.
   return {
-    location: memoizedLocation,
+    location,
     loading,
     error,
   };
