@@ -601,7 +601,7 @@ export function EditTutorProfile() {
           </View>
         </View>
 
-        {/* More — Availability / My batches / Payouts / Help. */}
+        {/* More — Availability / My batches / Help. */}
         <View className="mt-7">
           <Text className="text-label text-ink-muted mb-2">
             More
@@ -616,11 +616,6 @@ export function EditTutorProfile() {
               icon="people-outline"
               label="My batches"
               onPress={() => router.push("/batches")}
-            />
-            <MenuRow
-              icon="card-outline"
-              label="Payouts"
-              onPress={() => router.push("/payouts" as never)}
             />
             <MenuRow
               icon="help-circle-outline"

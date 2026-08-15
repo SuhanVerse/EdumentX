@@ -27,7 +27,7 @@
  * confirmation footer is hidden.
  */
 
-import { Check, ChevronDown, ChevronUp, ShieldCheck, X } from "lucide-react-native";
+import { Check, ChevronDown, ChevronUp, Lock, ShieldCheck, X } from "lucide-react-native";
 import { Image, Pressable, Text, View } from "react-native";
 
 import type { EnrollmentRequest } from "@/services/enrollments/types";
@@ -134,9 +134,39 @@ export function EnrollmentRequestCard({
             </View>
           ) : null}
 
-          {/* Plan / Schedule / Start / Distance grid */}
+          {/* Join request — private batch via session code (S-12
+              form's session-code mode). Rendered front-and-center
+              with the code so the tutor knows exactly what's being
+              asked, before the structured grid below. */}
+          {request.mode === "session-code" ? (
+            <View className="flex-row items-center gap-2.5 bg-ai-light border border-ai-border rounded-card p-3 mb-3">
+              <View className="w-9 h-9 rounded-pill bg-ai items-center justify-center">
+                <Lock size={15} color="#FFFFFF" />
+              </View>
+              <View className="flex-1 min-w-0">
+                <Text className="text-micro font-semibold text-ai uppercase tracking-wider">
+                  Join request — private batch
+                </Text>
+                <Text
+                  className="text-body font-semibold text-text-primary mt-0.5 tracking-[0.12em]"
+                  numberOfLines={1}
+                >
+                  {request.sessionCode ?? request.schedule}
+                </Text>
+                <Text className="text-caption text-text-muted mt-0.5">
+                  Student wants to join a batch with this code
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Plan / Schedule / Start / Distance grid. For
+              session-code requests the code is shown in the block
+              above, so the free-form schedule field is skipped. */}
           <View className="bg-background rounded-md p-3 flex-row flex-wrap">
-            <DetailField label="Schedule" value={request.schedule} />
+            {request.mode !== "session-code" ? (
+              <DetailField label="Schedule" value={request.schedule} />
+            ) : null}
             <DetailField label="Start" value={request.startDate} />
             <DetailField label="End" value={request.endDate} />
           </View>

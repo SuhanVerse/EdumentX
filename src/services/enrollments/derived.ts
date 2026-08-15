@@ -19,6 +19,7 @@ import {
   type DayKey,
   type TimeSlotKey,
   DAY_KEYS,
+  MAX_BATCH_MEMBERS,
   TIME_SLOT_KEYS,
   TIME_SLOT_LABELS,
   parseSlotKey,
@@ -350,4 +351,24 @@ export function deriveTodaySessions(
   // before evening ones.
   rows.sort((a, b) => a.slotIndex - b.slotIndex);
   return rows.map(({ slotIndex: _slotIndex, ...rest }) => rest);
+}
+
+/**
+ * Sort the marketplace batch list for students: batches with seats
+ * left float to the top (full classes sink), newest first within
+ * each group. `memberCount` is denormalized on the batch doc; legacy
+ * docs without it count as 0 members → seats available (matches the
+ * browse UI's `memberCount ?? 0` everywhere). Pure — never mutates
+ * the input.
+ */
+export function sortBatchesForBrowse(
+  batches: readonly Batch[],
+  maxMembers = MAX_BATCH_MEMBERS,
+): Batch[] {
+  return [...batches].sort((a, b) => {
+    const aHas = (a.memberCount ?? 0) < maxMembers ? 1 : 0;
+    const bHas = (b.memberCount ?? 0) < maxMembers ? 1 : 0;
+    if (aHas !== bHas) return bHas - aHas;
+    return b.createdAt - a.createdAt;
+  });
 }

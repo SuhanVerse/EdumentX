@@ -361,11 +361,6 @@ export function StudentProfile() {
               onPress={() => router.push("/saved-tutors" as never)}
             />
             <MenuRow
-              icon="card-outline"
-              label="Payment methods"
-              onPress={() => router.push("/payment-methods" as never)}
-            />
-            <MenuRow
               icon="help-circle-outline"
               label="Help & support"
               onPress={() => router.push("/help-support" as never)}

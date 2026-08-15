@@ -20,7 +20,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -59,7 +58,6 @@ import {
 } from "@/services/enrollments/types";
 import { computeBookedMap } from "@/services/enrollments/derived";
 import { computePendingMap, type PendingMap } from "@/services/enrollments/pending";
-import { RequestEnrollmentSheet } from "@/components/domain/RequestEnrollmentSheet";
 import { StudentAvailabilityGrid } from "@/components/domain/StudentAvailabilityGrid";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -210,7 +208,6 @@ export function TutorDetailsScreen() {
   }
   const [bioExpanded, setBioExpanded] = useState(false);
   const [demoVideoVisible, setDemoVideoVisible] = useState(false);
-  const [enrollSheetVisible, setEnrollSheetVisible] = useState(false);
 
   // Live availability + bookedMap for the new "Weekly availability"
   // section between the Session Board and the About section.
@@ -428,28 +425,17 @@ export function TutorDetailsScreen() {
     setSelectedSlotKeys(new Set());
   }, []);
 
-  const openSheet = useCallback(() => {
-    setEnrollSheetVisible(true);
-  }, []);
-
-  const handleSheetClose = useCallback(() => {
-    setEnrollSheetVisible(false);
-    // Dismissal clears the grid selection — the student didn't
-    // commit, so the highlight shouldn't linger on the page.
-    setSelectedSlotKeys(new Set());
-  }, []);
-
-  const handleSheetSubmitted = useCallback(() => {
-    setEnrollSheetVisible(false);
-    // Clear the grid selection — the request is now in flight,
-    // the visual map of "candidates" is no longer the student's
-    // current decision.
-    setSelectedSlotKeys(new Set());
-    Alert.alert(
-      "Request sent",
-      `Your request to ${tutor?.fullName.split(" ")[0] ?? "the tutor"} is in. You'll see it under My Enrollments → Pending until they decide.`,
-    );
-  }, [tutor?.fullName]);
+  // Enroll intent → the full-screen S-12 enrollment form. The
+  // grid selection above is purely visual (the student typed their
+  // candidate slots into the form), so tapping Enroll just carries
+  // the tutor id and lets the form own the request.
+  const openEnrollForm = useCallback(() => {
+    if (!id) return;
+    router.push({
+      pathname: "/enroll",
+      params: { tutorId: id },
+    } as never);
+  }, [id, router]);
 
   // ── Loading state ──
   if (profileLoading) {
@@ -536,7 +522,7 @@ export function TutorDetailsScreen() {
         <View className={SECTION_GAP}>
           <SessionBoardSection
             tutor={effectiveTutor}
-            onRequestSlot={openSheet}
+            onRequestSlot={openEnrollForm}
           />
         </View>
 
@@ -575,7 +561,7 @@ export function TutorDetailsScreen() {
       <StickyFooter
         tutor={effectiveTutor}
         insets={insets}
-        openSheet={openSheet}
+        openSheet={openEnrollForm}
       />
 
       {/* ═══ Demo Video Modal ═══ */}
@@ -586,13 +572,6 @@ export function TutorDetailsScreen() {
         onClose={() => setDemoVideoVisible(false)}
       />
 
-      {/* ═══ Enroll Request Sheet ═══ */}
-      <RequestEnrollmentSheet
-        visible={enrollSheetVisible}
-        tutor={effectiveTutor}
-        onClose={handleSheetClose}
-        onSubmitted={handleSheetSubmitted}
-      />
     </ScreenLayout>
   );
 }
@@ -999,15 +978,23 @@ function SessionCard({
 
   return (
     <View className="bg-surface border border-border rounded-card p-4">
-      {/* Top row: type + status */}
+      {/* Top row: type badge + status pill */}
       <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center gap-1.5">
+        <View
+          className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-pill ${
+            isPrivate ? "bg-ai-light" : "bg-verification-light"
+          }`}
+        >
           {isPrivate ? (
-            <Ionicons name="lock-closed" size={14} color={colors.brand.primary} />
+            <Ionicons name="lock-closed" size={13} color={colors.brand.ai} />
           ) : (
-            <Ionicons name="people" size={14} color={colors.brand.primary} />
+            <Ionicons name="people" size={13} color={colors.brand.verification} />
           )}
-          <Text className="text-caption text-text-secondary font-medium uppercase tracking-wider">
+          <Text
+            className={`text-micro font-semibold uppercase tracking-wider ${
+              isPrivate ? "text-ai" : "text-success"
+            }`}
+          >
             {isPrivate ? "Private Batch" : "Public Batch"}
           </Text>
         </View>

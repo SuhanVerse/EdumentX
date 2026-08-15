@@ -1,35 +1,39 @@
-# Figma Make Prompt Guide — EdumentX
+# Figma AI Master Prompt — EdumentX
 
-> Ready-to-paste prompts for regenerating EdumentX screens in **Figma Make**.
-> Every prompt = **Design-System anchor** (paste verbatim, locks the theme) +
-> **task block** (paste the one matching your target). Full field-level specs
-> for every screen live in the five exports listed in [the README](./README.md)
-> — paste the relevant export *instead of* the anchor whenever you need exact
-> element lists, copy, or loading/empty/error states.
-
----
-
-## 0. How to use this guide
-
-1. **Figma Make cannot read your repo.** Always paste markdown *content* into
-   the prompt — never file paths.
-2. **Keep the anchor identical every time.** The theme only locks in if the
-   token block doesn't change between generations.
-3. **One screen per generation** (a tightly-coupled pair like dashboard +
-   inbox is the maximum). Do NOT bundle whole flows — Figma Make drifts and
-   loses the palette.
-4. **Paste order:** anchor → task block → one drift rule (from §3).
-5. **If a screen has unusual states** (loading skeleton, empty state, error
-   banner), append "include the loading, empty, and error states" to the task.
+> **One pasteable prompt that self-directs the entire redesign, phase by phase.**
+> Paste the block in `## THE MASTER PROMPT` once. The AI detects the current
+> state of the app from the context you give it, executes only the phases that
+> still have gaps, verifies each phase against its done-criteria, and advances
+> to the next phase automatically — no manual step-by-step instructions.
+>
+> Supporting files (paste their *content*, never their paths):
+> - `FIGMA_AI_CONTEXT.md` — global tokens + component anatomy + hex→class QA checklist
+> - `FIGMA_AI_AUTH_CONTEXT.md`, `FIGMA_AI_STUDENT_CONTEXT.md`,
+>   `FIGMA_AI_TUTOR_CONTEXT.md`, `FIGMA_AI_ADMIN_CONTEXT.md` — field-level specs
+> - `README.md` — reading order + how the exports fit together
 
 ---
 
-## 1. Design-System anchor (paste first, always)
+## THE MASTER PROMPT
 
 ```text
-DESIGN SYSTEM (EdumentX):
+ROLE:
+You are a senior product designer executing a full, brand-compliant redesign of
+EdumentX (a React Native tutoring marketplace, Expo SDK 54 + NativeWind). You
+have the complete design system and the current state of the app. Your job is
+to regenerate every screen that does not yet match the spec, in the phase order
+below, WITHOUT stopping to ask for permission between phases.
+
+CONTEXT (paste the exports whose content you were given; if only this block was
+provided, use the DESIGN SYSTEM below as the complete source of truth):
+- Design tokens, component anatomy, screen inventory: FIGMA_AI_CONTEXT.md
+- Field-level specs, per role: AUTH / STUDENT / TUTOR / ADMIN exports
+- Current app state (paste screenshots, descriptions, or "no context given —
+  assume nothing is done yet and start at Phase 1").
+
+DESIGN SYSTEM (lock-in anchor — apply to EVERY screen you generate):
 Canvas: warm paper #FBF8F2 on light screens; deep slate #0F172A for dark heroes and the AI chat.
-Cards: white #FFFFFF, 1px #E7E1D3 hairline border, radius 14px (rounded-card). NO drop shadows — hairlines do the separation.
+Cards: white #FFFFFF, 1px #E7E1D3 hairline border, radius 14px. NO drop shadows — hairlines do the separation.
 Brand: amber #E5A03B = the ONE primary CTA per screen; chalkboard green #2F5D50 = secondary CTAs, active tabs, links; verification green #3F8A5A = verified/success states; danger #C1503D = destructive; AI blue #4A7FA5 = AI assistant + group-batch family.
 Status pills: amber = pending, green = active/approved, red = rejected, blue = info/edit.
 Text: primary #0F172A, secondary/muted #6B7280, inverse #FFFFFF. Placeholder gray #9CA3AF.
@@ -38,105 +42,132 @@ Spacing: 4px grid — 8/16/24px gaps, 24px page gutters, 16px card padding.
 Type: display 28/700, hero 28/500, screen-title 22/500, section-title 15/500, card-title 14/500, body 15/400, caption 13/500, micro 10/500.
 Avatars: circle, 1px #E7E1D3 border, initials fallback on tinted fills, verified = green checkmark-circle badge.
 
-TASK: ...
-```
+PHASE ENGINE — how to run:
+1. START: read the current state context. Classify every screen as
+   [DONE = matches spec] / [PARTIAL = on-palette but layout differs] /
+   [UNDONE = missing or old palette]. You may generate a screen marked DONE
+   only if you spot a real violation of the DESIGN SYSTEM.
+2. Run the phases below IN ORDER. A phase's screens marked DONE in step 1 are
+   skipped automatically.
+3. After each phase, check its DONE-CRITERIA. If any fail, fix them before
+   moving on. When they all pass, print one line: "PHASE N COMPLETE — next:
+   PHASE N+1." Then proceed immediately. Do not wait for a reply.
+4. If you lack the field-level spec for a screen, fall back to the DESIGN
+   SYSTEM anchor plus the screen's one-line description below, and flag it in
+   your phase report.
 
-> **Heavier context:** for screens with many elements (tutor dashboard,
-> verification queue), paste the matching role export (`FIGMA_AI_TUTOR_CONTEXT.md`
-> etc.) *instead of* the anchor — it contains the anchor plus the full
-> field-level spec. For quick one-off screens, the anchor alone suffices.
+PHASE 1 — Auth & onboarding
+Screens: splash, onboarding carousel, email sign-up/login (form + "check your
+inbox" + Google), role selection, student profile setup, tutor profile setup.
+Spec: FIGMA_AI_AUTH_CONTEXT.md.
+Key rules: warm paper, no dark hero except the splash; amber appears ONLY in
+the heading underline and the terminal "Finish setup" CTA; all other CTAs green;
+Google button = white with 2px hairline.
+DONE-CRITERIA: every screen present; segmented toggle + password strength bar
+on signup; role cards with selected checkmark pill; profile steppers with the
+tint per step; zero old palette hexes.
+
+PHASE 2 — Student marketplace
+Screens: home, map search (+ filters + tutor preview), tutor details (+ enroll
+sheet + review modal), my enrollments, AI chat, saved tutors.
+Spec: FIGMA_AI_STUDENT_CONTEXT.md.
+Key rules: home = light header "Good day," + amber-underlined name, white
+search bar, ONE amber CTA ("Explore tutors on the map"), vertical TutorCard
+list; map = dark slate hero + teardrop pins (slate ring standard, amber ring +
+amber shield verified, wide white ring selected) + floating "N tutors on map"
+pill + horizontal snap carousel of 200px cards over the map; details = fixed
+top bar, 72px avatar with 2px amber/30 border, dashed "Request an empty slot",
+amber sticky "Enroll with {name}"; enrollments = sliding green pill segmented
+tabs, 60px avatars, "Rate & Review" (amber tint) + "Message tutor" (sand),
+empty state = 56px amber icon well; chat = dark slate hero, 40px AI-blue avatar,
+user bubbles green #2F5D50/white text, AI bubbles white with 28px avatar,
+sand composer + circular amber send.
+DONE-CRITERIA: all seven screens match the field-level spec; no drop shadows;
+one amber CTA per screen; pins are teardrops not flat circles; carousel snaps.
+
+PHASE 3 — Tutor surfaces
+Screens: dashboard, enrollment inbox (+ accept slot-picker), capacity &
+schedule, group batches (+ 3-step wizard), edit-profile & teaching
+details.
+Spec: FIGMA_AI_TUTOR_CONTEXT.md.
+Key rules: dashboard = light header "Good to see you," + availability toggle
+card + 3×2 metric grid + segmented "New enrollments / Batch requests"; inbox =
+4px amber left-stripe cards, green Accept + red Decline; capacity = weekly
+7×6 grid with sticky amber save bar; batches = AI-blue family (the one place
+blue is a primary CTA).
+DONE-CRITERIA: every screen present; the AI-blue batch family distinct from
+green/amber; save bar appears only while editing; no old palette hexes.
+
+PHASE 4 — Admin console
+Screens: admin home, platform statistics, verification queue (+ reject dialog
++ document viewers), user management.
+Spec: FIGMA_AI_ADMIN_CONTEXT.md.
+Key rules: dark slate heroes on all four; body on warm paper; cards = white +
+hairline; Approve = green, Reject = red, Info = blue — amber is NOT a CTA in
+the console; charts are plain filled-View rows, not chart components.
+DONE-CRITERIA: all four screens; green/red/blue decision buttons; count pills;
+no chart components or new libraries.
+
+PHASE 5 — Shared components & sheets
+Screens: TutorCard, BottomNav / TutorBottomBar, SubjectChip, BlueTick (verified
+badge), StatusBadge, StatusBar, RequestEnrollmentSheet, EditRequestSheet,
+ReviewModal, StudentPickerSheet, CalendarDatePicker, AvailabilityTimeList,
+RemoveEnrollmentDialog.
+Spec: FIGMA_AI_CONTEXT.md §2 + the ADMIN export §5.
+Key rules: these are reused by every flow — they must match the tokens exactly
+so downstream screens inherit compliance; subject pills = amber-tinted, verified
+badge = green checkmark-circle, bottom-nav active tab = green pill + amber
+underline.
+DONE-CRITERIA: every component token-compliant; no component hardcodes an old
+palette hex; variants (light + dark glass) both present where the app uses them.
+
+PHASE 6 — Final QA sweep
+Walk every screen you generated in this run and check:
+1. Amber #E5A03B appears exactly ONCE per screen (the single primary action).
+2. No drop shadows — separation is the 1px #E7E1D3 hairline.
+3. No old blue/teal/purple hexes anywhere.
+4. Status colors keep their meaning: amber=pending, green=active, red=rejected,
+   blue=info.
+5. Charts/bars are plain filled-width rows — no chart components.
+6. Spacing snaps to the 4px grid; type uses the scale above.
+Fix every violation you find, then print the final report:
+"REDESIGN COMPLETE — {N} screens regenerated, {M} verified already-compliant,
+0 violations remaining."
+```
 
 ---
 
-## 2. Task blocks (append to the anchor)
+## How to run it (user notes — not part of the prompt)
 
-### 2.1 Auth flow
-
-```text
-TASK: Design the signup screen. Warm paper background (no dark hero), heading "Create your account" with a 2px amber underline, a Sign up / Log in segmented toggle (sand track, active = white pill with hairline), email + password fields with a 5-segment password strength bar, a green full-width "Create account" button, an "or" divider, then a white Google button with 2px hairline border. Amber appears only in the heading underline — the CTA is green.
-```
-
-```text
-TASK: Design the role selection screen. Warm paper canvas with a Back link, a "Step 1 of 2" caption, the title "How will you use EdumentX?" with a 2px amber underline, then two 92px-tall role cards (Student / Tutor) — white fill, hairline border, 52px icon well; the selected card gets a brand-colored border and a pop-in 24px checkmark pill, the unselected one shows a chevron. Finish with a green full-width "Continue" button.
-```
-
-### 2.2 Student flow
-
-```text
-TASK: Design the student home screen: light header with "Good day," + name (amber underline), a white rounded search bar, ONE amber CTA "Explore tutors on the map" (all other CTAs green), a vertical list of tutor cards (36px avatar, name + green verified badge, amber-tinted subject pills, amber star + rating, "Rs X,XXX /mo"). Then the map search screen: dark slate hero header with search + an amber filter button, an OpenStreetMap canvas with teardrop pins (slate ring for standard tutors, amber ring + amber shield for verified, wide white ring when selected), a floating "N tutors on map" pill, and a horizontal snap carousel of 200px tutor cards floating over the map bottom.
-```
-
-```text
-TASK: Design the tutor details screen: a fixed top bar (back chevron, heart save, native share), a profile header (72px avatar with a 2px amber/30 border, name + green shield badge, headline, subject pills, 3-stat row: rating / years / reviews), a pricing row of two cards (1-to-1 rate + group-batch "Message to ask about rates"), a session board with slot cards and a dashed "Request an empty slot" CTA, a student availability grid (green available cells, amber ring when selected, blue booked cells), an expandable About section, a demo-lesson tile, a live reviews section (score + star breakdown bars + review cards), and a sticky amber "Enroll with {name}" footer button.
-```
-
-```text
-TASK: Design the my-enrollments screen: a light header with segmented Active / Pending / Past tabs (sliding green pill), then a list of enrollment cards — 60px avatar, tutor name, status pill (green Active / neutral Past), amber subject chips, a start → end date row, and for active enrollments two 40px buttons: "Rate & Review" (amber tint) and "Message tutor" (sand). Include the empty state: a 56px amber icon well + "No enrollments yet".
-```
-
-```text
-TASK: Design the AI chat screen: a dark slate hero with a 40px AI-blue avatar pill + online dot + title "AI Assistant" (amber underline), a row of removable constraint pills (AI-blue tint with 1px blue border), an inverted message thread (user bubbles right in green #2F5D50 with white text, AI bubbles left on white cards with a 28px avatar), a typing indicator, and a sand-colored composer bar with a circular amber send button.
-```
-
-### 2.3 Tutor flow
-
-```text
-TASK: Design the tutor dashboard: light header with "Good to see you," + name (amber underline), a verified-professional green pill, an availability toggle card (44×24 switch, sand track → green when on), a 3×2 grid of white metric tiles (icon well + label + big number), a capacity card with a progress bar (green, amber ≥80%, red at 100%), today's sessions rows, a segmented "New enrollments / Batch requests" control with a sliding green pill, and a 4-tab bottom bar with an amber underline on the active tab and a red count badge on the inbox icon.
-```
-
-```text
-TASK: Design the enrollment inbox: a light header reading "Enrollment inbox" with a live "N pending requests" count in green, then a vertical stack of request cards — white card with a 4px amber left stripe, 40px student avatar, name + amber Pending pill, subject chips, a sand "FROM THE STUDENT" message block, a 2-column detail grid (Schedule / Start / End), and a green Accept + red Decline button row. Include the accept slot-picker: a bottom sheet with a day-grouped list of time rows, green "Available" pills tappable, blue "Booked" pills disabled, and a green "Accept enrollment" confirm button.
-```
-
-```text
-TASK: Design the capacity & schedule screen: a light header ("Manage your" + "Capacity & schedule" with amber underline, "X / Y filled · N slots available"), a capacity progress card, a weekly availability grid (7 day-rows × 6 time slots; green check cells = available, blue people cells = booked/disabled, sand dots = off, legend below), an AI-blue info banner, and a sticky save bar that appears only while editing — amber "Save changes (N)" button + "Discard" text button.
-```
-
-```text
-TASK: Design the group batches screen: a light header ("Group Batches"), a full-width AI-blue "Create New Batch" CTA card with a white plus icon, a list of active batch cards (name + "Subject • Rs X/student/mo" + green Active pill, a seats progress bar in AI blue, day chips like "Mon · 5–7 PM", overlapping member avatars), and a 3-step creation wizard bottom sheet — step indicator with amber-filled segments, a roster picker (2–6 students, amber radio check rows), a details step (name input, subject pills with "Other…", numeric fee input, day pills), and a review step ending in one amber "Save Batch" button.
-```
-
-```text
-TASK: Design the payouts screen: a light header ("Payouts" with amber underline) containing a payout-method card — 40px amber icon well + provider name + identifier + Change/Remove pills, or a dashed amber "Add payout method" CTA when empty — and a live earnings card showing a big display number "Rs X,XXX", a "N enrolled students × Rs X,XXX/mo" caption, and a green "No commission — you keep 100%" row.
-```
-
-### 2.4 Admin flow
-
-```text
-TASK: Design the admin home: a dark slate hero ("Dashboard" + live admin name + "Manage platform, verifications & users"), then three white section cards on warm paper — 48px pill icon wells (blue analytics / green shield / amber people) with title + subtitle + chevron, and a count pill on the User Management card. No other sections.
-```
-
-```text
-TASK: Design the verification queue screen: a dark slate hero with "Moderation" overline + an open/decided count, then a warm-paper body with section cards for New Tutor Verifications / Pending Edits / Info Requested. Each verification card: 48px avatar, name + email + submitted time, a status pill (amber Pending Review / blue Info Requested), a 2-column detail grid, a horizontal rail of 128px document thumbnails, and three equal 40px buttons — green Approve, red Reject, blue Info. The "Pending Edits" card shows struck-through old values → amber new values in a sand diff box. Include the reject dialog: a centered white card with a red close-circle icon, "Reject {name}?", a sand textarea, a red Reject button and a sand Cancel button.
-```
-
-```text
-TASK: Design the user management screen: a dark slate hero with "Management" + "User Management" title + a white search bar inside the hero, a filter card below (two horizontal pill groups — status and role — separated by a hairline divider, active pill = AI blue), then a list of user cards: 48px avatar with a green verified badge, name + role chip (blue Admin / green Tutor / amber Student), email + joined date, a status chip (green Active / amber Suspended / red Deleted), and action pills (Suspend + Delete for active users, green Restore for suspended/deleted).
-```
-
-### 2.5 Shared sheets
-
-```text
-TASK: Design a bottom sheet for sending an enrollment request: white sheet, 24px top radius, drag handle, header with tutor avatar + name, a 48px schedule input, two inline month calendars (disabled past days, amber selected day, green today ring), an 88px optional message box with an n/280 counter, and one amber "Send request" button. Respect bottom safe-area padding.
-```
-
-```text
-TASK: Design a review modal: white bottom sheet, 24px top radius, "Rate & review" header, five 32px amber stars for the overall rating, a white card with four sub-score rows (Teaching / Punctuality / Communication / Knowledge) each with five 20px stars, a 100px comment box with n/500 counter, and one amber "Submit review" button.
-```
+1. **First run:** paste the master prompt block, then paste `FIGMA_AI_CONTEXT.md`
+   content, then the role exports for the phases you care about, then your
+   current-state description (screenshots or "assume nothing done"). The AI
+   classifies and starts at the first phase with gaps.
+2. **Resuming after a partial run:** paste the master prompt block again + the
+   AI's last phase report (or just "continue from Phase N"). The phase engine
+   re-detects DONE screens from the state you supply and skips them.
+3. **State detection beats trust:** the prompt is designed around the "audit
+   first" rule — it never blindly regenerates a screen that already matches;
+   it reports DONE/PARTIAL/UNDONE before touching anything.
+4. **Verified disk state (Aug 2026):** the full palette migration is committed
+   and live — zero old blue/teal/purple hexes remain anywhere in `src/`, all
+   ~28 screens and shared components are on the warm-paper/amber/green system,
+   and StudentHome is already rebuilt to its exact spec (light header,
+   "Good day," + amber underline, white search, single amber map CTA, vertical
+   TutorCard list). The remaining gaps are layout-depth items on MapSearch
+   (snap carousel), TutorDetails, MyEnrollments, and AIChat — which Phase 2
+   will re-drive. Feed this as your current-state context so Phases 1/3/4/5
+   classify as DONE and the run starts at Phase 2.
+5. **Figma Make context limits:** if the AI reports it can't hold the full
+   exports, keep the DESIGN SYSTEM anchor + one role export per run, and add
+   "only execute Phase N" — the phase engine still self-verifies.
 
 ---
 
-## 3. Drift rules (append one per prompt)
+## Drift rules (quick reference, also embedded in Phase 6)
 
-- Amber `#E5A03B` appears **exactly once per screen** — the single primary action. Everything else is green.
-- **No drop shadows** anywhere — separation comes from the 1px `#E7E1D3` hairline.
-- Charts/bars are plain rows with filled `View` widths — **no chart components**, no new libraries.
-- Status colors never change meaning: amber = pending, green = active/approved, red = rejected/danger, blue = info/edit.
-
----
-
-## 4. If a generation drifts
-
-1. **Re-anchor:** paste the full role export (not the short anchor) at the top of the *next* prompt — the drift usually comes from the token block being dropped from context.
-2. **Narrow scope:** split the drifted screen into its halves (e.g. "only the header + metric grid" then "only the requests section").
-3. **Name the violation:** explicitly tell it what to fix ("remove the drop shadow on the cards", "the CTA must be green, not amber").
+- Amber `#E5A03B` appears **exactly once per screen** — the single primary action.
+- **No drop shadows** — separation comes from the 1px `#E7E1D3` hairline.
+- Charts/bars are plain filled-`View` rows — **no chart components**, no new libraries.
+- Status colors never change meaning: amber = pending, green = active/approved,
+  red = rejected/danger, blue = info/edit.

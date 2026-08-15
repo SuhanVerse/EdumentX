@@ -12,9 +12,11 @@
 import {
   MockEnrollmentRepository,
   addMockBatchMember,
+  mockTutorName,
   removeMockBatchMember,
+  subscribeAllBatches,
 } from "@/services/enrollments/MockEnrollmentRepository";
-import type { BatchMember } from "@/services/batches/types";
+import type { Batch, BatchMember } from "@/services/batches/types";
 
 import type {
   AddMemberInput,
@@ -50,6 +52,21 @@ export const MockBatchesRepository: BatchesRepository = {
       },
       onError,
     );
+  },
+
+  subscribePublicBatches(onData, onError) {
+    return subscribeAllBatches((batches) => {
+      // Marketplace list: active only + enrich with the tutor's
+      // display name from the mock tutor store.
+      const active = batches.filter((b) => b.status === "active");
+      onData(
+        active.map((b: Batch) => ({
+          ...b,
+          tutorName: mockTutorName(b.tutorUid),
+          tutorAvatar: null,
+        })),
+      );
+    }, onError);
   },
 
   createBatch(input) {

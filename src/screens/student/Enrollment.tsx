@@ -85,6 +85,9 @@ export function MyEnrollments() {
   const [reviewModalFor, setReviewModalFor] = useState<{
     tutorUid: string;
     tutorName: string;
+    tutorAvatar?: string | null;
+    subjects?: string[];
+    sessionsCompleted?: number;
   } | null>(null);
   // The request the student has tapped "Edit" on. The sheet
   // pre-fills from this and writes back via the repo on save.
@@ -284,7 +287,15 @@ export function MyEnrollments() {
                   onRate={() =>
                     setReviewModalFor({
                       tutorUid: e.tutorUid,
-                      tutorName: e.studentName || `Tutor ${e.tutorUid.slice(0, 4)}`,
+                      tutorName: e.tutorName || `Tutor ${e.tutorUid.slice(0, 4)}`,
+                      tutorAvatar: e.tutorAvatar,
+                      subjects: e.subjects,
+                      // Confirmed-session proxy: any active/past
+                      // enrollment with this tutor counts toward the
+                      // Figma S-14 lock gate (≥ 2 sessions).
+                      sessionsCompleted: enrollments.filter(
+                        (x) => x.tutorUid === e.tutorUid,
+                      ).length,
                     })
                   }
                   onMessage={() =>
@@ -311,7 +322,12 @@ export function MyEnrollments() {
                   onRate={() =>
                     setReviewModalFor({
                       tutorUid: e.tutorUid,
-                      tutorName: e.studentName || `Tutor ${e.tutorUid.slice(0, 4)}`,
+                      tutorName: e.tutorName || `Tutor ${e.tutorUid.slice(0, 4)}`,
+                      tutorAvatar: e.tutorAvatar,
+                      subjects: e.subjects,
+                      sessionsCompleted: enrollments.filter(
+                        (x) => x.tutorUid === e.tutorUid,
+                      ).length,
                     })
                   }
                 />
@@ -330,14 +346,11 @@ export function MyEnrollments() {
           visible
           tutorUid={reviewModalFor.tutorUid}
           tutorName={reviewModalFor.tutorName}
+          tutorAvatar={reviewModalFor.tutorAvatar}
+          subjects={reviewModalFor.subjects}
+          sessionsCompleted={reviewModalFor.sessionsCompleted ?? 0}
           onClose={() => setReviewModalFor(null)}
-          onSubmitted={() => {
-            setReviewModalFor(null);
-            Alert.alert(
-              "Thanks for your review",
-              "Your rating helps other students find the right tutor.",
-            );
-          }}
+          onSubmitted={() => setReviewModalFor(null)}
         />
       ) : null}
 
@@ -497,6 +510,7 @@ function EnrollmentCard({
   onFastForward?: () => void;
   past?: boolean;
 }) {
+  const router = useRouter();
   const status = past
     ? enrollment.status === "expired"
       ? "past"
@@ -544,6 +558,35 @@ function EnrollmentCard({
             </View>
             <StatusBadge status={status} />
           </View>
+
+          {/* Group batch membership — populated by
+              `subscribeEnrollmentsByStudent` when the tutor accepted
+              a session-code join request. Tap through to the batch
+              detail screen. */}
+          {enrollment.batchName ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${enrollment.batchName} batch details`}
+              onPress={() =>
+                enrollment.batchId &&
+                router.push({
+                  pathname: `/batch/${enrollment.tutorUid}/${enrollment.batchId}`,
+                } as never)
+              }
+              className="flex-row items-center gap-1.5 mb-2 active:opacity-70"
+            >
+              <View className="w-5 h-5 rounded-md bg-ai-light items-center justify-center">
+                <Ionicons name="people-outline" size={11} color="#4A7FA5" />
+              </View>
+              <Text
+                className="text-caption font-medium text-ai flex-1"
+                numberOfLines={1}
+              >
+                Joined batch · {enrollment.batchName}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#4A7FA5" />
+            </Pressable>
+          ) : null}
 
           {/* Subject chips */}
           {enrollment.subjects.length > 0 && (
@@ -784,8 +827,13 @@ function EnrollmentTabs({
   const [width, setWidth] = useState(0);
   const activeIndex = Math.max(0, TABS_ORDER.indexOf(active));
   return (
+    // Figma S-13 segmented control: sand track with the green pill
+    // inset, matching the Active/Ended control on the tutor batch
+    // screens. The pill's width/position come from `style` (applied
+    // now that ActivePill forwards it) so the white label always
+    // sits on the green fill.
     <View
-      className="flex-row bg-surface border-b border-border shrink-0 relative"
+      className="flex-row bg-sand rounded-card relative h-11 overflow-hidden"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
@@ -793,13 +841,8 @@ function EnrollmentTabs({
           count={TABS_ORDER.length}
           activeIndex={activeIndex}
           itemWidth={width / TABS_ORDER.length}
-          pillClassName="absolute top-0 h-12 bg-primary"
-          style={{
-            top: 0,
-            height: 48,
-            width: width / TABS_ORDER.length,
-            backgroundColor: "#2F5D50",
-          }}
+          pillClassName="absolute top-1 bottom-1 bg-primary rounded-lg"
+          style={{ width: width / TABS_ORDER.length, borderRadius: 10 }}
         />
       ) : null}
       {TABS_ORDER.map((t, i) => {
@@ -812,7 +855,7 @@ function EnrollmentTabs({
             accessibilityLabel={TAB_LABELS[t]}
             accessibilityState={{ selected: isActive }}
             onPress={() => onChange(t)}
-            className="flex-1 h-12 flex-row items-center justify-center gap-1.5 active:opacity-70 z-10"
+            className="flex-1 h-11 flex-row items-center justify-center gap-1.5 active:opacity-70 z-10"
           >
             <Text
               className={
@@ -832,7 +875,7 @@ function EnrollmentTabs({
                 className={
                   isActive
                     ? "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/25 items-center justify-center"
-                    : "min-w-[20px] h-5 px-1.5 rounded-pill bg-sand items-center justify-center"
+                    : "min-w-[20px] h-5 px-1.5 rounded-pill bg-white/60 items-center justify-center"
                 }
               >
                 <Text

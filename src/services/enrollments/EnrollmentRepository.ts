@@ -89,6 +89,10 @@ export type AcceptRequestInput = {
   slotKey: string;
   startDate: string;
   endDate: string;
+  /** Batch to add the student to on accept — present on session-code
+   *  join requests. When set, `acceptRequest` also writes the
+   *  member doc + bumps the batch's `memberCount`. */
+  batchId?: string;
 };
 
 export type CreateBatchInput = {
@@ -140,6 +144,23 @@ export type WriteEnrollmentRequestInput = {
   startDate: string;
   endDate: string;
   message: string;
+  /** Figma S-12 — enrollment mode (one-to-one vs session-code join). */
+  mode?: "one-to-one" | "session-code";
+  /** Plan duration in months (one-to-one mode). */
+  planMonths?: number;
+  /** Chosen `day:slot` keys from the tutor's availability grid. */
+  pickedSlotKeys?: string[];
+  /** Teaching address (one-to-one mode). */
+  address?: string;
+  /** Trial-week discount (one-to-one mode). */
+  trial?: boolean;
+  /** Uppercase session code (session-code mode). */
+  sessionCode?: string;
+  /** Cost summary snapshot (one-to-one mode). */
+  costNpr?: number;
+  /** Target batch for a session-code join request. On accept, the
+   *  student is added to this batch's `members` subcollection. */
+  batchId?: string;
 };
 
 /**

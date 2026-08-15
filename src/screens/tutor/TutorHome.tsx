@@ -367,15 +367,12 @@ export function TutorDashboard() {
         : "bg-verification";
 
   // Live-derived metrics. Rating + count come straight from the
-  // reviews collection; "Monthly revenue" is the current roster ×
-  // the per-month rate — the honest zero-budget proxy for earnings
-  // (no session-level billing data exists).
+  // reviews collection.
   const reviewCount = reviews.length;
   const avgRating =
     reviewCount > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
       : 0;
-  const monthlyRevenue = roster.length * data.monthlyRateNpr;
 
   // When the underlying verification status changes (e.g. admin
   // approval, a new edit goes pending, or a fresh "more_info"
@@ -517,8 +514,7 @@ export function TutorDashboard() {
         {/* Metric cards — all live. Active students + capacity come
             from the profile doc (maintained by acceptRequest); Avg
             rating + Reviews from the reviews collection; Response
-            rate from the full request history; Monthly revenue from
-            roster × rate. */}
+            rate from the full request history. */}
         <View className="flex-row flex-wrap justify-between mb-3.5">
           <Metric
             iconName="people"
@@ -552,16 +548,6 @@ export function TutorDashboard() {
             iconName="time"
             label="Pending requests"
             value={String(pendingRequests.length)}
-          />
-          <Metric
-            iconName="cash"
-            label="Monthly revenue"
-            value={
-              monthlyRevenue > 0
-                ? `Rs ${monthlyRevenue.toLocaleString("en-IN")}`
-                : "Rs 0"
-            }
-            trend="Roster × monthly rate"
           />
         </View>
 

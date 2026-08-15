@@ -243,6 +243,31 @@ export function StudentHome() {
           </Pressable>
         </View>
 
+        {/* Browse batches — secondary entry into the group-class
+            marketplace. AI blue is the batch-family brand (amber is
+            already spent on the map CTA above). */}
+        <View className="mb-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Browse open batches"
+            onPress={() => router.push("/browse-batches" as never)}
+            className="flex-row items-center gap-3 bg-surface border border-border rounded-card p-3.5 active:opacity-80"
+          >
+            <View className="w-10 h-10 rounded-pill bg-ai-light items-center justify-center">
+              <Ionicons name="people-outline" size={19} color="#4A7FA5" />
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text className="text-card-title font-medium text-text-primary">
+                Browse open batches
+              </Text>
+              <Text className="text-caption text-text-muted mt-0.5">
+                Join an existing group class near you
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+          </Pressable>
+        </View>
+
         {/* Tutor list section header */}
         <View className="pb-3">
           <View className="flex-row items-center justify-between">

@@ -156,6 +156,55 @@ export async function uploadAvatar(
 }
 
 // ---------------------------------------------------------------------------
+// Review photos (public bucket, review-attached)
+// ---------------------------------------------------------------------------
+
+/**
+ * Uploads an optional photo attached to a student's tutor review into
+ * `public-avatars` (the existing public image bucket — image/* only,
+ * no card required, matches the zero-budget rule).
+ *
+ * Path convention: `reviews/{tutorUid}/{timestamp}.{ext}` so review
+ * photos are grouped per tutor and never collide. Upsert is off —
+ * each photo is a distinct object.
+ *
+ * @param tutorUid The tutor the review is about (path namespace).
+ * @param uri      Local URI from `expo-image-picker` (q 0.8 re-encode).
+ */
+export async function uploadReviewPhoto(
+  tutorUid: string,
+  uri: string,
+): Promise<UploadAvatarResult> {
+  if (!tutorUid) throw new Error("[uploadReviewPhoto] tutorUid is required");
+
+  const bytes = await readBytes(uri);
+  const path = `reviews/${tutorUid}/${Date.now()}.jpg`;
+  const contentType = mimeFromUri(uri);
+
+  const supabase = getSupabase();
+  const { error } = await supabase.storage.from(BUCKET.AVATARS).upload(path, bytes, {
+    contentType,
+    upsert: false,
+    cacheControl: "3600",
+  });
+
+  if (error) {
+    if (__DEV__) {
+      console.warn("[uploadReviewPhoto] full error", error);
+    }
+    throw new Error(
+      `[uploadReviewPhoto] ${error.message} (bucket=${BUCKET.AVATARS}, path=${path})`,
+    );
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET.AVATARS).getPublicUrl(path);
+
+  return { publicUrl, path };
+}
+
+// ---------------------------------------------------------------------------
 // Verification docs (private bucket, RLS-protected)
 // ---------------------------------------------------------------------------
 

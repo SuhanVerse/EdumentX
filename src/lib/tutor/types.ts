@@ -60,6 +60,12 @@ export type Review = {
    *  review flow. Absent on legacy reviews — consumers must treat it
    *  as optional when averaging category ratings. */
   categoryRatings?: CategoryRatings;
+  /** Optional quick-pick tags (e.g. "Very clear explanations").
+   *  Present only on reviews submitted through the upgraded flow. */
+  tags?: string[];
+  /** Optional photo attached to the review. Absent on legacy
+   *  reviews and when the student skips the optional photo. */
+  photoUrl?: string | null;
 };
 
 // ─── Category ratings ────────────────────────────────────────────────────────

@@ -352,10 +352,10 @@
 - **stu-profile:** Dark hero ("Your account") → light sheet: identity card
   (AvatarBubble 96 editable, name, verified email row) → editable fields
   (name, phone, read-only email) → Notifications row (badge) → More menu
-  (Saved tutors / Payment methods / Help & support) → Logout (white card,
+  (Saved tutors / Help & support) → Logout (white card,
   red text) → version footer → BottomNav.
-- **saved-tutors / payment-methods / help-support / messages / chat:**
-  Light header + back button → list of TutorCards / payment-method rows /
+- **saved-tutors / help-support / messages / chat:**
+  Light header + back button → list of TutorCards /
   FAQ accordion / conversation rows / chat bubbles + composer.
 
 ### Tutor Flow
@@ -364,7 +364,7 @@
   notifications bell → availability toggle card (switch + status line) →
   optional review banner (pending = amber / rejected = red / more-info =
   blue, dismissible) → **2-column metric grid** (Active students, Avg
-  rating, Reviews, Response rate, Pending requests, Monthly revenue) →
+  rating, Reviews, Response rate, Pending requests) →
   Capacity card (progress bar, tappable → capacity screen) → Profile
   completion bar (amber) → Today's sessions card (derived, time + student
   rows) → Pending requests (2-tab segmented: New enrollments / Batch
@@ -379,14 +379,11 @@
   details 3: review) → create CTA → TutorBottomBar.
 - **tutor_edit_profile:** Hero header → document/review banner if pending
   → live-editable fields (name, phone, photo) → teaching details row →
-  verification documents list → More menu (Capacity / Batches / Payouts /
+  verification documents list → More menu (Capacity / Batches /
   Help & support) → Logout.
 - **tutor-capacity:** Hero header → capacity counters (enrolled/cap,
   editable) → **weekly availability grid** (day columns × time rows,
   tap-to-toggle draft) → sticky "Save changes (N)" amber bar + Discard.
-- **payouts:** Light header → payout method card (provider + identifier,
-  Change/Remove; add form with provider chips) → monthly earnings card
-  (roster × rate, "No commission" note).
 - **tutor-pending:** Dark review screen — status + "under admin review"
   messaging.
 
