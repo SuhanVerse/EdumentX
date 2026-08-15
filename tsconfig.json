@@ -20,6 +20,10 @@
     "supabase/**",
     "Documentation/98-Reference-BasoBas/**",
     "Documentation/99-Archive/**",
-    "_ragbot_reference/**"
+    "_ragbot_reference/**",
+    // Extracted Figma AI reference bundle — a standalone Vite web app
+    // with its own deps (lucide-react, react-router) that aren't part
+    // of the RN app. Metro already excludes it; the typecheck must too.
+    "Documentation/02-Design-System/Asim_EdumentX_Design/**"
   ]
 }

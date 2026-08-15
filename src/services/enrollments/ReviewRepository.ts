@@ -47,6 +47,10 @@ export type SubmitReviewInput = {
   categoryRatings: CategoryRatings;
   /** Free-text comment. May be empty (1–5 stars only). */
   comment: string;
+  /** Optional quick-pick tags ("Very clear explanations", …). */
+  tags?: string[];
+  /** Optional public photo URL attached to the review. */
+  photoUrl?: string | null;
 };
 
 // ─── Repository contract ────────────────────────────────────────────────────

@@ -15,6 +15,9 @@ module.exports = defineConfig([
       'supabase/**',
       'Documentation/98-Reference-BasoBas/**',
       'Documentation/99-Archive/**',
+      // Extracted Figma AI reference bundle — standalone Vite web app
+      // (own deps, own eslint needs). Not part of the RN app.
+      'Documentation/02-Design-System/Asim_EdumentX_Design/**',
     ],
   },
   {

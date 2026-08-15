@@ -6,6 +6,8 @@
  *   1. update `users/{tutor}/tutorProfile/default` (enrolledCount bump)
  *   2. create `enrollments/{tutor}/roster/{id}` (status active)
  *   3. update `enrollmentRequests/{tutor}/requests/{id}` (status accepted)
+ *   4. SESSION-CODE JOIN: create `batches/{tutor}/classes/{batchId}/members`
+ *      + bump the batch's memberCount (accepting a batch-join request)
  * Plus the post-commit student notification create.
  *
  * Run via: firebase emulators:exec --only firestore --project demo-edumentx
@@ -64,6 +66,7 @@ const TUTOR = "tutor-accept-1";
 const STUDENT = "student-accept-1";
 const REQ_ID = "req-1";
 const ENR_ID = "enr-1";
+const BATCH_ID = "batch-join-1";
 
 // ── Seed via emulator admin channel ("Bearer owner") ──
 async function seed(path, data, arrays = []) {
@@ -134,6 +137,113 @@ await seed(`/enrollmentRequests/${TUTOR}/requests/${REQ_ID}`, {
   );
   check("tutor accepts the request (status flip)", r.status, 200);
   if (r.status !== 200) console.log("   ", r.body);
+}
+
+// ── 3b. SESSION-CODE JOIN: seed the target batch, then tutor creates
+//        the member doc (keyed by enrollmentId) + bumps memberCount —
+//        exactly what acceptRequest does when input.batchId is set.
+{
+  await seed(`/batches/${TUTOR}`, { _namespaceAnchor: "true" });
+  await seed(`/batches/${TUTOR}/classes/${BATCH_ID}`, {
+    batchId: BATCH_ID,
+    tutorUid: TUTOR,
+    name: "Join Batch",
+    subject: "Math",
+    monthlyRateNpr: 2200,
+    slotKeys: ["mon:5-7"],
+    status: "active",
+    memberCount: 0,
+  }, ["slotKeys"]);
+
+  const memberCreate = await req(
+    "POST",
+    `/batches/${TUTOR}/classes/${BATCH_ID}/members`,
+    TUTOR,
+    payload({
+      memberId: ENR_ID,
+      enrollmentId: ENR_ID,
+      studentUid: STUDENT,
+      studentName: "Student One",
+      studentAvatar: "",
+    }),
+  );
+  check("tutor adds accepted student to batch members", memberCreate.status, 200);
+
+  const bump = await req(
+    "PATCH",
+    `/batches/${TUTOR}/classes/${BATCH_ID}?updateMask.fieldPaths=memberCount&updateMask.fieldPaths=updatedAt`,
+    TUTOR,
+    payload({ memberCount: 1, updatedAt: "2026-08-15T00:00:00Z" }),
+  );
+  check("tutor bumps batch memberCount", bump.status, 200);
+
+  // The member doc's id is the enrollmentId — re-adding the same
+  // student is a new doc id, so this can't be idempotent-tested here,
+  // but the create-rule's parent-batch `tutorUid == auth.uid` gate is.
+}
+
+// ── 3c. FULL BATCH: the rules deliberately do NOT gate on capacity
+//        (Firestore can't count subcollection docs transactionally —
+//        that's the accept transaction's job, and `BatchFullError`
+//        throws BEFORE these writes, rolling everything back). At
+//        `memberCount: 6` the tutor's writes stay PERMITTED, and a
+//        NON-TUTOR student stays BLOCKED regardless of fullness.
+{
+  const FULL_BATCH = "batch-full-1";
+  await seed(`/batches/${TUTOR}/classes/${FULL_BATCH}`, {
+    batchId: FULL_BATCH,
+    tutorUid: TUTOR,
+    name: "Full Batch",
+    subject: "Math",
+    monthlyRateNpr: 2200,
+    slotKeys: ["mon:5-7"],
+    status: "active",
+    memberCount: 6,
+  }, ["slotKeys"]);
+
+  const tutorCreate = await req(
+    "POST",
+    `/batches/${TUTOR}/classes/${FULL_BATCH}/members`,
+    TUTOR,
+    payload({
+      memberId: "enr-full-1",
+      enrollmentId: "enr-full-1",
+      studentUid: STUDENT,
+      studentName: "Student One",
+      studentAvatar: "",
+    }),
+  );
+  check(
+    "full batch: tutor member create stays permitted (cap is the transaction's job)",
+    tutorCreate.status,
+    200,
+  );
+
+  const tutorBump = await req(
+    "PATCH",
+    `/batches/${TUTOR}/classes/${FULL_BATCH}?updateMask.fieldPaths=memberCount&updateMask.fieldPaths=updatedAt`,
+    TUTOR,
+    payload({ memberCount: 7, updatedAt: "2026-08-15T00:00:00Z" }),
+  );
+  check("full batch: tutor memberCount bump stays permitted", tutorBump.status, 200);
+
+  const studentCreate = await req(
+    "POST",
+    `/batches/${TUTOR}/classes/${FULL_BATCH}/members`,
+    STUDENT,
+    payload({
+      memberId: "enr-sneak",
+      enrollmentId: "enr-sneak",
+      studentUid: STUDENT,
+      studentName: "Sneaky Student",
+      studentAvatar: "",
+    }),
+  );
+  check(
+    "full batch: student member create still denied (ownership gate)",
+    studentCreate.status,
+    403,
+  );
 }
 
 // ── 4. Post-commit: notification to the student ──

@@ -24,6 +24,16 @@
  */
 export const MAX_CAPACITY = 6;
 
+/**
+ * Maximum students in one group batch. The single source of truth
+ * for the seat cap: batch creation (wizard min/max), the accept
+ * transaction's `BatchFullError` guard, the student marketplace
+ * capacity meter + seats ring, and the enrollment form's full-batch
+ * block all read this. Mirrors the product's "2-6 students per
+ * batch" contract.
+ */
+export const MAX_BATCH_MEMBERS = 6;
+
 // ─── Weekly availability grid ───────────────────────────────────────────────
 
 export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -167,6 +177,28 @@ export type EnrollmentRequest = {
   status: "pending" | "accepted" | "declined";
   submittedAt: number;
   decidedAt: number | null;
+  /** Figma S-12 — the enrollment mode the student picked. Absent on
+   *  legacy requests written by the old sheet. */
+  mode?: "one-to-one" | "session-code";
+  /** Plan duration in months (one-to-one mode: 1/3/6/12). */
+  planMonths?: number;
+  /** Chosen slot keys (`day:slot`) from the tutor's availability
+   *  grid (one-to-one mode). The `schedule` string is derived from
+   *  these for the inbox card. */
+  pickedSlotKeys?: string[];
+  /** Teaching address (one-to-one mode). */
+  address?: string;
+  /** Trial-week discount applied (one-to-one mode). */
+  trial?: boolean;
+  /** Uppercase session code (session-code mode). */
+  sessionCode?: string;
+  /** Cost summary snapshot shown to the tutor (one-to-one mode). */
+  costNpr?: number;
+  /** The batch the student wants to join (session-code mode). When
+   *  the tutor accepts the request, the student is added to
+   *  `batches/{tutorUid}/classes/{batchId}/members`. Absent on
+   *  legacy requests and one-to-one requests. */
+  batchId?: string;
 };
 
 // ─── Enrollments (active roster) ────────────────────────────────────────────
@@ -195,6 +227,12 @@ export type Enrollment = {
    *  tutor's own roster subscription (not needed there). */
   tutorName?: string;
   tutorAvatar?: string | null;
+  /** The batch this enrollment belongs to — set on session-code
+   *  joins when the tutor accepts. Written onto the enrollment doc
+   *  by `acceptRequest` (batchId), then enriched with the batch's
+   *  display name during `subscribeEnrollmentsByStudent`. */
+  batchId?: string;
+  batchName?: string;
 };
 
 // ─── Batches ────────────────────────────────────────────────────────────────
@@ -210,6 +248,21 @@ export type Batch = {
   endDate: string | null;
   status: "active" | "ended";
   createdAt: number;
+  /** Denormalized member count, maintained by the batches repo
+   *  (create / add / remove member). Students read batch docs
+   *  directly (rules allow it) so the marketplace capacity bar
+   *  works without exposing the members subcollection. Absent on
+   *  legacy docs → treated as 0. */
+  memberCount?: number;
+  /** When the tutor ended the batch (`status: "ended"`), in epoch
+   *  ms. Set by `endBatch`; absent on active/legacy docs. */
+  endedAt?: number;
+  /** Enriched display info for the STUDENT's "Browse Batches"
+   *  screen: resolved from the tutor's public profile during
+   *  `subscribePublicBatches`. Undefined on the tutor's own
+   *  batch subscriptions (not needed there). */
+  tutorName?: string;
+  tutorAvatar?: string | null;
 };
 
 export type BatchMember = {
@@ -246,5 +299,20 @@ export class RequestAlreadyDecidedError extends Error {
   constructor(message = "This request has already been decided.") {
     super(message);
     this.name = "RequestAlreadyDecidedError";
+  }
+}
+
+/**
+ * Thrown by `acceptRequest` when the target batch is at full
+ * capacity (`memberCount >= MAX_BATCH_MEMBERS`) — a session-code
+ * join cannot add another student. The transaction rolls back, so
+ * neither the enrollment nor the member doc is created.
+ */
+export class BatchFullError extends Error {
+  constructor(
+    message = "This batch is already full — no more seats are available.",
+  ) {
+    super(message);
+    this.name = "BatchFullError";
   }
 }

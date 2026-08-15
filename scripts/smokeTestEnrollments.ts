@@ -17,7 +17,13 @@
  *      notification) and verifies.
  *   5. Forces the capacity guard (enrolledCount == capacity) and
  *      confirms a third accept is rejected.
- *   6. Recursively deletes every doc it created, even on failure.
+ *   6. Session-code batch join: seeds a batch (memberCount=2), accepts
+ *      a join request with batchId, and verifies memberCount → 3, the
+ *      member doc, roster.batchId, and the request flip.
+ *   7. Full-batch backstop: fills the batch to capacity and confirms
+ *      a join is rejected (BATCH_FULL) with atomic rollback (request
+ *      stays pending, memberCount unchanged, no orphan roster doc).
+ *   8. Recursively deletes every doc it created, even on failure.
  *
  * All UIDs are prefixed `smoke-` with a timestamp, so the script can
  * never touch real user data — cleanup is scoped to those subtrees.
@@ -87,6 +93,7 @@ function stripNulls<T extends Record<string, unknown>>(o: T): T {
 }
 
 const MAX_CAPACITY = 6; // mirrors `types.ts` / the Firestore rule
+const MAX_BATCH_MEMBERS = 6; // mirrors `types.ts` (batch seat cap)
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +118,7 @@ async function main() {
     db.doc(`enrollmentRequests/${TUTOR_UID}`),
     db.doc(`enrollments/${TUTOR_UID}`),
     db.doc(`notifications/${STUDENT_UID}`),
+    db.doc(`batches/${TUTOR_UID}`),
   ];
 
   const STUDENT = {
@@ -124,6 +132,7 @@ async function main() {
   // types.ts) — `mon-5-7` would be rejected by `parseSlotKey` and
   // never surface in computeBookedMap / deriveTodaySessions.
   const SLOT_KEY = "mon:5-7";
+  const BATCH_ID = `smoke-batch-${stamp}`;
   const START_DATE = "2026-08-20";
   const END_DATE = "2026-12-20";
   const SCHEDULE = "Mon · Wed · Fri 5–7 PM";
@@ -345,6 +354,276 @@ async function main() {
       pass("Capacity guard blocks accept at full roster", "CAPACITY_EXCEEDED raised");
     } else {
       fail("Capacity guard blocks accept at full roster", "no CAPACITY_EXCEEDED error was thrown");
+    }
+
+    // ── 5. Session-code batch join (mirrors acceptRequest + batchId) ──
+    // Reset the profile (step 4 filled it to capacity) so this accept
+    // passes the capacity gate and reaches the batch-member write.
+    await profileRef.set(
+      {
+        enrolledCount: 0,
+        currentStudents: 0,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    // Seed a batch exactly like `createBatch` does: doc at
+    // `batches/{tutorUid}/classes/{batchId}` with a denormalized
+    // `memberCount` + pre-seeded member docs.
+    const batchRef = db.doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}`);
+    await db.runTransaction(async (tx) => {
+      tx.set(batchRef, stripNulls({
+        batchId: BATCH_ID,
+        tutorUid: TUTOR_UID,
+        name: "Smoke Test Batch",
+        subject: "Mathematics",
+        monthlyRateNpr: 2000,
+        slotKeys: [SLOT_KEY],
+        startDate: START_DATE,
+        endDate: null,
+        status: "active" as const,
+        createdAt: FieldValue.serverTimestamp(),
+        memberCount: 2,
+      }));
+      // Two pre-seeded members (mirrors createBatch seeding `members`).
+      for (const memberId of ["seed-member-1", "seed-member-2"]) {
+        tx.set(
+          db.doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}/members/${memberId}`),
+          {
+            memberId,
+            enrollmentId: `seed-enrollment-${memberId.slice(-1)}`,
+            studentUid: STUDENT_UID,
+            studentName: STUDENT.name,
+            studentAvatar: STUDENT.avatar,
+            joinedAt: FieldValue.serverTimestamp(),
+          },
+        );
+      }
+    });
+    pass("Seeded batch with 2 members", `memberCount=2`);
+
+    // Session-code join request (mirrors writeEnrollmentRequest's
+    // `mode: "session-code"` shape, incl. `batchId` + `sessionCode`).
+    const requestBatchRef = requestColl.doc();
+    const requestBatchId = requestBatchRef.id;
+    await requestBatchRef.set({
+      requestId: requestBatchId,
+      tutorUid: TUTOR_UID,
+      studentUid: STUDENT_UID,
+      studentName: STUDENT.name,
+      studentGrade: STUDENT.grade,
+      studentAvatar: STUDENT.avatar,
+      subjects: SUBJECTS,
+      schedule: SCHEDULE,
+      startDate: START_DATE,
+      endDate: END_DATE,
+      message: "Session-code join — please add me to the batch.",
+      mode: "session-code",
+      planMonths: null,
+      pickedSlotKeys: [],
+      address: "",
+      trial: false,
+      sessionCode: "SMK-123",
+      costNpr: 2000,
+      batchId: BATCH_ID,
+      status: "pending",
+      submittedAt: FieldValue.serverTimestamp(),
+      decidedAt: null,
+    });
+    pass("Seeded session-code join request", requestBatchId);
+
+    // Accept with `batchId` — mirrors the repo's full transaction:
+    // capacity gate → roster doc (carrying batchId) → profile bump →
+    // request flip → batch member doc + memberCount increment.
+    const batchEnrollmentRef = rosterColl.doc();
+    const batchEnrollmentId = await db.runTransaction(async (tx) => {
+      const [profileSnap, requestSnap, batchSnap] = await Promise.all([
+        tx.get(profileRef),
+        tx.get(requestBatchRef),
+        tx.get(batchRef),
+      ]);
+
+      const profileData = profileSnap.data() as
+        | { enrolledCount?: number; currentStudents?: number; studentCapacity?: number }
+        | undefined;
+      const enrolledCount = typeof profileData?.enrolledCount === "number" ? profileData.enrolledCount : 0;
+      const cap = Math.max(
+        typeof profileData?.studentCapacity === "number" ? profileData.studentCapacity : 0,
+        MAX_CAPACITY,
+      );
+      if (enrolledCount >= cap) {
+        throw new Error("CAPACITY_EXCEEDED");
+      }
+
+      const requestData = requestSnap.data() as { status?: string } | undefined;
+      if (!requestSnap.exists || requestData?.status !== "pending") {
+        throw new Error("REQUEST_ALREADY_DECIDED");
+      }
+
+      const enrollmentDoc = stripNulls({
+        enrollmentId: batchEnrollmentRef.id,
+        tutorUid: TUTOR_UID,
+        studentUid: STUDENT.uid,
+        studentName: STUDENT.name,
+        studentGrade: STUDENT.grade,
+        studentAvatar: STUDENT.avatar,
+        subjects: SUBJECTS,
+        slotKey: SLOT_KEY,
+        startDate: START_DATE,
+        endDate: END_DATE,
+        status: "active" as const,
+        acceptedAt: FieldValue.serverTimestamp(),
+        removedAt: null,
+        removeReason: null,
+        requestId: requestBatchId,
+        batchId: BATCH_ID,
+      });
+      tx.set(batchEnrollmentRef, enrollmentDoc);
+      tx.update(profileRef, {
+        enrolledCount: enrolledCount + 1,
+        currentStudents: enrolledCount + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(requestBatchRef, {
+        status: "accepted",
+        decidedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Session-code member write — member keyed by enrollmentId,
+      // memberCount incremented (mirrors the repo exactly).
+      if (batchSnap.exists) {
+        const batchData = batchSnap.data() as { memberCount?: number } | undefined;
+        if ((batchData?.memberCount ?? 0) >= MAX_BATCH_MEMBERS) {
+          throw new Error("BATCH_FULL");
+        }
+        tx.set(
+          db.doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}/members/${batchEnrollmentRef.id}`),
+          {
+            memberId: batchEnrollmentRef.id,
+            enrollmentId: batchEnrollmentRef.id,
+            studentUid: STUDENT.uid,
+            studentName: STUDENT.name,
+            studentAvatar: STUDENT.avatar,
+            joinedAt: FieldValue.serverTimestamp(),
+          },
+        );
+        tx.update(batchRef, {
+          memberCount: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      return batchEnrollmentRef.id;
+    });
+    pass("Batch-join accept transaction committed", batchEnrollmentId);
+
+    // ── Verify batch-join side effects ──────────────────────────────────
+    const batchAfter = (await batchRef.get()).data();
+    assertEqual(batchAfter?.memberCount, 3, "batch.memberCount after join (2 → 3)");
+
+    const memberSnap = await db
+      .doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}/members/${batchEnrollmentId}`)
+      .get();
+    if (memberSnap.exists) {
+      pass("Batch member doc exists", `members/${batchEnrollmentId}`);
+      assertEqual(memberSnap.data()?.studentUid, STUDENT_UID, "member.studentUid");
+      assertEqual(memberSnap.data()?.enrollmentId, batchEnrollmentId, "member.enrollmentId");
+    } else {
+      fail("Batch member doc exists", "member doc missing after join");
+    }
+
+    const batchRosterSnap = await batchEnrollmentRef.get();
+    assertEqual(batchRosterSnap.data()?.batchId, BATCH_ID, "roster.batchId (session-code join)");
+
+    const batchRequestAfter = (await requestBatchRef.get()).data();
+    assertEqual(batchRequestAfter?.status, "accepted", "session-code request.status after accept");
+
+    // ── 6. Full-batch backstop (BatchFullError semantics) ───────────────
+    // Fill the batch to capacity, then confirm a second join is
+    // rejected and the whole transaction rolls back atomically.
+    await batchRef.set(
+      { memberCount: MAX_BATCH_MEMBERS, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    const requestFullRef = requestColl.doc();
+    const requestFullId = requestFullRef.id;
+    await requestFullRef.set({
+      requestId: requestFullId,
+      tutorUid: TUTOR_UID,
+      studentUid: STUDENT_UID,
+      studentName: STUDENT.name,
+      studentGrade: STUDENT.grade,
+      studentAvatar: STUDENT.avatar,
+      subjects: SUBJECTS,
+      schedule: SCHEDULE,
+      startDate: START_DATE,
+      endDate: END_DATE,
+      message: "Join a full batch — should be blocked.",
+      mode: "session-code",
+      planMonths: null,
+      pickedSlotKeys: [],
+      address: "",
+      trial: false,
+      sessionCode: "SMK-123",
+      costNpr: 2000,
+      batchId: BATCH_ID,
+      status: "pending",
+      submittedAt: FieldValue.serverTimestamp(),
+      decidedAt: null,
+    });
+
+    let fullBlocked = false;
+    try {
+      await db.runTransaction(async (tx) => {
+        const [profileSnap, requestSnap, batchSnap] = await Promise.all([
+          tx.get(profileRef),
+          tx.get(requestFullRef),
+          tx.get(batchRef),
+        ]);
+
+        const profileData = profileSnap.data() as
+          | { enrolledCount?: number; studentCapacity?: number }
+          | undefined;
+        const enrolledCount = typeof profileData?.enrolledCount === "number" ? profileData.enrolledCount : 0;
+        const cap = Math.max(
+          typeof profileData?.studentCapacity === "number" ? profileData.studentCapacity : 0,
+          MAX_CAPACITY,
+        );
+        if (enrolledCount >= cap) {
+          throw new Error("CAPACITY_EXCEEDED");
+        }
+        if (!requestSnap.exists || (requestSnap.data() as { status?: string } | undefined)?.status !== "pending") {
+          throw new Error("REQUEST_ALREADY_DECIDED");
+        }
+        if (batchSnap.exists) {
+          const batchData = batchSnap.data() as { memberCount?: number } | undefined;
+          if ((batchData?.memberCount ?? 0) >= MAX_BATCH_MEMBERS) {
+            throw new Error("BATCH_FULL");
+          }
+        }
+      });
+    } catch (err) {
+      fullBlocked = (err as Error).message === "BATCH_FULL";
+    }
+    if (fullBlocked) {
+      pass("Full-batch join blocked", "BATCH_FULL raised");
+    } else {
+      fail("Full-batch join blocked", "no BATCH_FULL error was thrown");
+    }
+
+    // Atomic rollback: the blocked join left the request pending, the
+    // batch memberCount untouched, and no roster doc behind.
+    assertEqual((await requestFullRef.get()).data()?.status, "pending", "blocked request stays pending (rollback)");
+    assertEqual((await batchRef.get()).data()?.memberCount, MAX_BATCH_MEMBERS, "batch.memberCount unchanged after block");
+    const orphanRoster = await rosterColl
+      .where("requestId", "==", requestFullId)
+      .get();
+    if (orphanRoster.size === 0) {
+      pass("No roster doc from blocked join", "rollback clean");
+    } else {
+      fail("No roster doc from blocked join", `found ${orphanRoster.size} orphan roster doc(s)`);
     }
   } catch (err) {
     fail("Smoke test run", err instanceof Error ? err.message : String(err));

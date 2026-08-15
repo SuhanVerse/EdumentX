@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,8 +9,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Plus } from "lucide-react-native";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
+import { ActivePill } from "@/components/motion";
 import {
   ScreenLayout,
   ScreenHeader,
@@ -18,7 +21,13 @@ import {
 
 import { getBatchesRepository } from "@/services/batches/dataSource";
 import type { Batch, RosterStudent } from "@/services/batches/types";
-import { DAY_KEYS, DAY_LABELS, TIME_SLOT_LABELS, parseSlotKey } from "@/services/enrollments/types";
+import {
+  DAY_KEYS,
+  DAY_LABELS,
+  MAX_BATCH_MEMBERS,
+  TIME_SLOT_LABELS,
+  parseSlotKey,
+} from "@/services/enrollments/types";
 import { useAuthStore } from "@/store/authStore";
 
 /** Derive a display label from a canonical slot key ("mon:5-7" →
@@ -31,21 +40,41 @@ function formatSlotKey(slotKey: string): string {
   return `${DAY_LABELS[parsed.day]} · ${TIME_SLOT_LABELS[parsed.slot]}`;
 }
 
+/** Epoch ms → "Aug 15, 2026" — when the tutor ended the batch. */
+function formatEnded(ts: number): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 const COMMON_SUBJECTS = ["Mathematics", "Science", "English", "Physics", "Chemistry", "Computer Science"];
 
-/** Enforce the "Select 2-6 enrolled students" contract from the UI copy. */
+/** Enforce the "Select 2-6 enrolled students" contract from the UI copy.
+ *  The cap is the shared `MAX_BATCH_MEMBERS` (see types.ts). */
 const MIN_MEMBERS = 2;
-const MAX_MEMBERS = 6;
 
 export function BatchesScreen() {
   const user = useAuthStore((state) => state.user);
   const tutorUid = user?.uid ?? "";
+  const router = useRouter();
   const repo = useMemo(() => getBatchesRepository(), []);
 
   // ── Live batches + per-batch members ──
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [membersByBatch, setMembersByBatch] = useState<Record<string, unknown[]>>({});
+  // Active / Ended segmented control. Ended classes stay viewable
+  // here (the repo returns both — the tabs just filter them).
+  const [tab, setTab] = useState<"active" | "ended">("active");
+  const [tabsWidth, setTabsWidth] = useState(0);
+  const visibleBatches = useMemo(
+    () => batches.filter((b) => b.status === tab),
+    [batches, tab],
+  );
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [rosterLoading, setRosterLoading] = useState(true);
 
@@ -127,7 +156,7 @@ export function BatchesScreen() {
     setSelectedEnrollments((prev) =>
       prev.includes(enrollmentId)
         ? prev.filter((id) => id !== enrollmentId)
-        : prev.length >= MAX_MEMBERS
+        : prev.length >= MAX_BATCH_MEMBERS
           ? prev
           : [...prev, enrollmentId],
     );
@@ -146,11 +175,41 @@ export function BatchesScreen() {
     Number(feeText) > 0 &&
     slotKeys.length > 0;
 
+  // Slots already claimed by the tutor's active enrollments or
+  // another ACTIVE batch. A new batch must not double-book them —
+  // `computeBookedMap` lets enrollments win on overlap, which would
+  // silently break batch members' bookings.
+  const occupiedSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of roster) if (s.slotKey) set.add(s.slotKey);
+    for (const b of batches) {
+      if (b.status !== "active") continue;
+      for (const k of b.slotKeys) set.add(k);
+    }
+    return set;
+  }, [roster, batches]);
+
+  const conflictingSlots = useMemo(
+    () => slotKeys.filter((k) => occupiedSlots.has(k)),
+    [slotKeys, occupiedSlots],
+  );
+
   const finalSubject = batchSubject === "__other" ? customSubject.trim() : batchSubject;
 
   const handleCreate = async () => {
     if (!tutorUid) return;
     if (!canSubmit) return;
+    // Hard block: the batch must not claim slots already held by an
+    // active enrollment or another active batch.
+    if (conflictingSlots.length > 0) {
+      Alert.alert(
+        "Slot conflict",
+        `${conflictingSlots.map(formatSlotKey).join(", ")} ${
+          conflictingSlots.length === 1 ? "is" : "are"
+        } already booked. Pick different days for this batch.`,
+      );
+      return;
+    }
     setCreating(true);
     try {
       await repo.createBatch({
@@ -227,33 +286,95 @@ export function BatchesScreen() {
           </Text>
         </Pressable>
 
-        {/* Active Batches */}
+        {/* Active / Ended segmented control */}
+        <View
+          className="flex-row bg-sand rounded-card relative h-11 overflow-hidden mb-4"
+          onLayout={(e) => setTabsWidth(e.nativeEvent.layout.width)}
+        >
+          {tabsWidth > 0 && (
+            <ActivePill
+              count={2}
+              activeIndex={tab === "active" ? 0 : 1}
+              itemWidth={tabsWidth / 2}
+              pillClassName="absolute top-1 bottom-1 bg-primary rounded-lg"
+              style={{ width: tabsWidth / 2, borderRadius: 10 }}
+            />
+          )}
+          {(["active", "ended"] as const).map((t, i) => {
+            const isActive = t === tab;
+            const count = batches.filter((b) => b.status === t).length;
+            return (
+              <Pressable
+                key={t}
+                accessibilityRole="tab"
+                accessibilityLabel={`${t} batches`}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => setTab(t)}
+                className="flex-1 h-11 flex-row items-center justify-center gap-1.5 active:opacity-70 z-10"
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isActive ? "text-white" : "text-text-secondary"
+                  }`}
+                >
+                  {t === "active" ? "Active" : "Ended"}
+                </Text>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full ${
+                    isActive ? "bg-white/20" : "bg-surface"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs ${
+                      isActive ? "text-white" : "text-text-muted"
+                    }`}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Batches (filtered by tab) */}
         <View className="mb-6">
           <Text className="text-text-primary font-semibold text-lg mb-4">
-            Active Batches
+            {tab === "active" ? "Active Batches" : "Ended Batches"}
           </Text>
 
           {batchesLoading ? (
             <View className="items-center py-8">
               <ActivityIndicator color="#4A7FA5" />
             </View>
-          ) : batches.length === 0 ? (
+          ) : visibleBatches.length === 0 ? (
             <View className="bg-surface border border-border rounded-card p-6 items-center">
               <Text className="text-text-secondary text-center">
-                No batches yet. Create one to combine students into a shared class.
+                {batches.length === 0
+                  ? "No batches yet. Create one to combine students into a shared class."
+                  : tab === "active"
+                    ? "No active batches right now."
+                    : "No ended batches yet. Ended classes will appear here."}
               </Text>
             </View>
           ) : (
-            batches.map((batch) => {
+            visibleBatches.map((batch) => {
               const members = (membersByBatch[batch.batchId] ?? []) as {
                 memberId: string;
                 studentName: string;
                 studentAvatar: string | null;
               }[];
               return (
-                <View
+                <Pressable
                   key={batch.batchId}
-                  className="bg-surface border border-border rounded-card p-5 mb-4"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${batch.name} details`}
+                  onPress={() =>
+                    router.push({
+                      pathname: `/batch/${batch.tutorUid}/${batch.batchId}`,
+                    } as never)
+                  }
+                  className="bg-surface border border-border rounded-card p-5 mb-4 active:opacity-80"
                 >
                   {/* Header row */}
                   <View className="flex-row justify-between items-start mb-3">
@@ -264,6 +385,11 @@ export function BatchesScreen() {
                       <Text className="text-text-secondary">
                         {batch.subject} • Rs {batch.monthlyRateNpr.toLocaleString()}/student/mo
                       </Text>
+                      {batch.status === "ended" && batch.endedAt ? (
+                        <Text className="text-text-muted text-xs mt-0.5">
+                          Ended {formatEnded(batch.endedAt)}
+                        </Text>
+                      ) : null}
                     </View>
                     {batch.status === "active" ? (
                       <View className="bg-success/10 px-3 py-1 rounded-full">
@@ -287,7 +413,7 @@ export function BatchesScreen() {
                     <View className="h-1.5 bg-border rounded-full overflow-hidden">
                       <View
                         className="h-1.5 bg-ai rounded-full"
-                        style={{ width: `${Math.min(100, (members.length / MAX_MEMBERS) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (members.length / MAX_BATCH_MEMBERS) * 100)}%` }}
                       />
                     </View>
                   </View>
@@ -338,7 +464,7 @@ export function BatchesScreen() {
                       </Pressable>
                     )}
                   </View>
-                </View>
+                </Pressable>
               );
             })
           )}
@@ -373,10 +499,10 @@ export function BatchesScreen() {
             {wizardStep === 1 && (
               <>
                 <Text className="text-text-secondary mb-1">
-                  Step 1 of 3 — select {MIN_MEMBERS}-{MAX_MEMBERS} enrolled students.
+                  Step 1 of 3 — select {MIN_MEMBERS}-{MAX_BATCH_MEMBERS} enrolled students.
                 </Text>
                 <Text className="text-text-muted text-xs mb-4">
-                  {selectedStudents.length}/{MAX_MEMBERS} selected
+                  {selectedStudents.length}/{MAX_BATCH_MEMBERS} selected
                 </Text>
 
                 <ScrollView className="flex-1">
@@ -393,7 +519,7 @@ export function BatchesScreen() {
                   ) : (
                     roster.map((student) => {
                       const selected = selectedEnrollments.includes(student.enrollmentId);
-                      const atCap = !selected && selectedEnrollments.length >= MAX_MEMBERS;
+                      const atCap = !selected && selectedEnrollments.length >= MAX_BATCH_MEMBERS;
                       return (
                         <Pressable
                           key={student.enrollmentId}
@@ -549,6 +675,16 @@ export function BatchesScreen() {
                     ))}
                   </View>
                 )}
+                {conflictingSlots.length > 0 && (
+                  <View className="bg-danger/10 border border-danger/30 rounded-card p-3 flex-row items-start gap-2 mb-2">
+                    <Ionicons name="warning-outline" size={16} color="#C1503D" />
+                    <Text className="flex-1 text-xs text-danger leading-relaxed">
+                      {conflictingSlots.map(formatSlotKey).join(", ")}{" "}
+                      {conflictingSlots.length === 1 ? "overlaps" : "overlap"} a slot
+                      that&apos;s already booked. Pick different days.
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             )}
 
@@ -574,6 +710,13 @@ export function BatchesScreen() {
                     {" "}
                     {selectedStudents.map((s) => s.studentName).join(", ")}
                   </Text>
+                  {conflictingSlots.length > 0 && (
+                    <Text className="text-danger text-xs mt-2">
+                      ⚠ {conflictingSlots.map(formatSlotKey).join(", ")}{" "}
+                      {conflictingSlots.length === 1 ? "overlaps" : "overlap"} a
+                      booked slot — this batch can&apos;t be saved yet.
+                    </Text>
+                  )}
                 </View>
                 <Pressable
                   onPress={() => setWizardStep(2)}

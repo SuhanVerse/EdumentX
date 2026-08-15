@@ -56,6 +56,8 @@ function mapReviewDoc(
     timestamp: formatTimestamp(raw.createdAt),
     comment: typeof raw.comment === "string" ? raw.comment : "",
     categoryRatings: mapCategoryRatings(raw.categoryRatings),
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((t) => typeof t === "string") : undefined,
+    photoUrl: typeof raw.photoUrl === "string" ? raw.photoUrl : null,
   };
 }
 
@@ -169,6 +171,8 @@ export const FirebaseReviewRepository: ReviewRepository = {
         score: input.score,
         categoryRatings: input.categoryRatings,
         comment: input.comment,
+        tags: input.tags ?? [],
+        photoUrl: input.photoUrl ?? null,
         status: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

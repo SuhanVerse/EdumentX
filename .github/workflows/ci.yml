@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Typecheck, lint & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Zero errors expected: `Documentation/02-Design-System/**` (the
+      # extracted Figma reference bundle) is excluded in tsconfig +
+      # eslint.config.js.
+      - run: npm run typecheck
+      - run: npm run lint
+      # node:test runner — derived helpers + mock repo behavior.
+      - run: npm run test:derived
+
+  rules:
+    name: Firestore rules emulator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Runs the 5 rules suites against the LOCAL emulator with the
+      # `demo-edumentx` project — no Firebase credentials needed (the
+      # emulator is fully offline). The Java runtime the emulator needs
+      # is preinstalled on ubuntu-latest.
+      #
+      # The deployed-vs-local drift check runs separately in the
+      # `rules-deployed` job (it needs real project credentials).
+      - run: >
+          npx firebase emulators:exec --only firestore --project demo-edumentx
+          "node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs
+          && node scripts/acceptRequestRulesTest.mjs
+          && node scripts/messagesRulesTest.mjs
+          && node scripts/reviewsListRulesTest.mjs"
+
+  # Credentialed drift check: compares the DEPLOYED ruleset (via the
+  # Firebase Rules API) against the local firebase/firestore.rules.
+  # Requires the `GCP_SA_KEY` repo secret — a Google service-account
+  # JSON with the `cloud-platform` scope (see
+  # scripts/checkDeployedRules.mjs).
+  #
+  # Runs on main pushes + manual dispatch only, NOT on PRs: a PR that
+  # legitimately changes rules would show drift until the rules are
+  # deployed, so this would fail every rules-changing PR by design.
+  rules-deployed:
+    name: Deployed-rules drift check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && secrets.GCP_SA_KEY != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Write service-account key
+        env:
+          SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "$SA_KEY" > /tmp/gcp-sa-key.json
+      - name: Check deployed rules vs local
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
+        run: npm run test:rules:deployed

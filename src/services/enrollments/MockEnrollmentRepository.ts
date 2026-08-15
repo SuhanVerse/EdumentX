@@ -24,7 +24,9 @@
 import type { Unsubscribe } from "@react-native-firebase/firestore";
 
 import {
+  BatchFullError,
   CapacityExceededError,
+  MAX_BATCH_MEMBERS,
   MAX_CAPACITY,
   RequestAlreadyDecidedError,
   makeEmptyAvailability,
@@ -279,6 +281,8 @@ function seed(s: Store) {
       endDate: null,
       status: "active",
       createdAt: Date.now() - 7 * 24 * 60 * 60_000,
+      // Mirrors the Firebase doc — 2 seeded members below.
+      memberCount: 2,
     },
   ];
   s.members["batch-1"] = [
@@ -336,9 +340,12 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     _onError?: ErrorCallback,
   ): Unsubscribe {
     const s = getStore(tutorUid);
-    // Push synchronously so the first render has data.
+    // Register FIRST, then emit — the synchronous emit delivers the
+    // current state to the fresh subscriber. The emitter has no
+    // replay, so emit-before-register dropped the initial data.
+    const unsub = s.emitter.on<EnrollmentRequest[]>("requests", onData);
     emitRequests(s);
-    return s.emitter.on<EnrollmentRequest[]>("requests", onData);
+    return unsub;
   },
 
   subscribeEnrollments(
@@ -356,9 +363,13 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
         : e,
     );
     s.enrolledCount = s.enrollments.filter((e) => e.status === "active").length;
+    // Register FIRST so the synchronous emits below deliver the
+    // current enrollments (and wake availability listeners) to the
+    // fresh subscriber.
+    const unsub = s.emitter.on<Enrollment[]>("enrollments", onData);
     emitEnrollments(s);
     emitAvailability(s);
-    return s.emitter.on<Enrollment[]>("enrollments", onData);
+    return unsub;
   },
 
   subscribeBatches(
@@ -367,8 +378,9 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     _onError?: ErrorCallback,
   ): Unsubscribe {
     const s = getStore(tutorUid);
+    const unsub = s.emitter.on<Batch[]>("batches", onData);
     emitBatches(s);
-    return s.emitter.on<Batch[]>("batches", onData);
+    return unsub;
   },
 
   subscribeBatchMembers(
@@ -396,8 +408,9 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     _onError?: ErrorCallback,
   ): Unsubscribe {
     const s = getStore(tutorUid);
+    const unsub = s.emitter.on<AvailabilitySnapshot>("availability", onData);
     emitAvailability(s);
-    return s.emitter.on<AvailabilitySnapshot>("availability", onData);
+    return unsub;
   },
 
   subscribeRequestsByStudent(
@@ -408,8 +421,12 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     // Aggregate from every store keyed by studentUid. In mock
     // mode the stores are seeded lazily on demand.
     const all = STUDENT_STORES.get(studentUid) ?? createStudentStore(studentUid);
+    const unsub = all.emitter.on<EnrollmentRequest[]>(
+      "requestsByStudent",
+      onData,
+    );
     emitRequestsForStudent(all);
-    return all.emitter.on<EnrollmentRequest[]>("requestsByStudent", onData);
+    return unsub;
   },
 
   subscribeEnrollmentsByStudent(
@@ -418,8 +435,26 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     _onError?: ErrorCallback,
   ): Unsubscribe {
     const all = STUDENT_STORES.get(studentUid) ?? createStudentStore(studentUid);
+    // Enrich with batch display names — mirror of the Firebase repo's
+    // batchName resolution. Looks up the tutor's store for the batch
+    // doc so the card can show which group class the student joined.
+    const enrich = (list: Enrollment[]) => {
+      const enriched = list.map((e) => {
+        if (!e.batchId) return e;
+        const tutorStore = STORE.get(e.tutorUid);
+        const batch = tutorStore?.batches.find((b) => b.batchId === e.batchId);
+        if (!batch) return e;
+        return { ...e, batchName: batch.name };
+      });
+      onData(enriched);
+    };
+    const unsub = all.emitter.on<Enrollment[]>("enrollmentsByStudent", (list) => {
+      enrich(list);
+    });
+    // Emit AFTER registering so the fresh subscriber receives the
+    // current (enriched) list immediately.
     emitEnrollmentsForStudent(all);
-    return all.emitter.on<Enrollment[]>("enrollmentsByStudent", onData);
+    return unsub;
   },
 
   async writeEnrollmentRequest(input) {
@@ -436,6 +471,14 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
       startDate: input.startDate,
       endDate: input.endDate,
       message: input.message,
+      mode: input.mode ?? "one-to-one",
+      planMonths: input.planMonths,
+      pickedSlotKeys: input.pickedSlotKeys ?? [],
+      address: input.address ?? "",
+      trial: input.trial ?? false,
+      sessionCode: input.sessionCode,
+      costNpr: input.costNpr,
+      batchId: input.batchId,
       status: "pending",
       submittedAt: Date.now(),
       decidedAt: null,
@@ -509,6 +552,13 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     const cap = Math.max(s.studentCapacity, MAX_CAPACITY);
     if (s.enrolledCount >= cap) throw new CapacityExceededError();
 
+    // Hard cap mirror — checked BEFORE any state mutates so the
+    // failure is atomic like the Firebase transaction (which rolls
+    // back enrollment + request on a full batch).
+    if (input.batchId && (s.members[input.batchId] ?? []).length >= MAX_BATCH_MEMBERS) {
+      throw new BatchFullError();
+    }
+
     const request = s.requests.find((r) => r.requestId === input.requestId);
     if (!request || request.status !== "pending") {
       throw new RequestAlreadyDecidedError();
@@ -531,6 +581,7 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
       removedAt: null,
       removeReason: null,
       requestId: input.requestId,
+      batchId: input.batchId,
     };
     s.enrollments = [...s.enrollments, newEnrollment];
     s.enrolledCount = s.enrollments.filter((e) => e.status === "active").length;
@@ -539,7 +590,40 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
         ? { ...r, status: "accepted", decidedAt: Date.now() }
         : r,
     );
+
+    // Session-code join: mirror the member-add into the target
+    // batch (same convention as the Firebase repo — keyed by
+    // enrollmentId, idempotent per enrollment).
+    if (input.batchId) {
+      const existing = s.members[input.batchId] ?? [];
+      if (!existing.some((m) => m.enrollmentId === enrollmentId)) {
+        s.members[input.batchId] = [
+          ...existing,
+          {
+            memberId: enrollmentId,
+            enrollmentId,
+            studentUid: input.student.uid,
+            studentName: input.student.name,
+            studentAvatar: input.student.avatar,
+            joinedAt: Date.now(),
+          },
+        ];
+        // Keep memberCount in sync (mirrors the Firebase accept
+        // transaction's increment).
+        s.batches = s.batches.map((b) =>
+          b.batchId === input.batchId
+            ? { ...b, memberCount: (b.memberCount ?? 0) + 1 }
+            : b,
+        );
+        s.emitter.emit("members", {
+          batchId: input.batchId,
+          members: s.members[input.batchId],
+        });
+      }
+    }
+
     emitEnrollments(s);
+    emitBatches(s);
     emitRequests(s);
     emitAvailability(s);
     return { enrollmentId };
@@ -625,6 +709,8 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
       endDate: input.endDate,
       status: "active",
       createdAt: Date.now(),
+      // Mirrors the Firebase createBatch doc (memberCount: members.length).
+      memberCount: input.members.length,
     };
     s.batches = [...s.batches, newBatch];
     s.members[batchId] = input.members.map((m, i) => ({
@@ -641,9 +727,10 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
   },
 
   async endBatch(batchId: string): Promise<void> {
+    const now = Date.now();
     for (const s of STORE.values()) {
       s.batches = s.batches.map((b) =>
-        b.batchId === batchId ? { ...b, status: "ended" } : b,
+        b.batchId === batchId ? { ...b, status: "ended", endedAt: now } : b,
       );
       emitBatches(s);
       return;
@@ -653,6 +740,44 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
 
 // Helpers exposed for component tests.
 export { computeBookedMap, parseSlotKey, buildSlotKey };
+
+/**
+ * Aggregate live feed of every store's batches — the mock behind
+ * `BatchesRepository.subscribePublicBatches`. Merges all tutor
+ * stores, sorts newest-first, and re-emits on any store's
+ * `batches` event. Tutor display names are resolved from the seed
+ * names (the mock doesn't track users), falling back to a uid-based
+ * name.
+ */
+export function subscribeAllBatches(
+  onData: (batches: Batch[]) => void,
+  _onError?: ErrorCallback,
+): Unsubscribe {
+  const collect = () => {
+    const all: Batch[] = [];
+    for (const s of STORE.values()) {
+      all.push(...s.batches);
+    }
+    all.sort((a, b) => b.createdAt - a.createdAt);
+    onData(all);
+  };
+  collect();
+  const offs: Unsubscribe[] = [];
+  for (const s of STORE.values()) {
+    offs.push(s.emitter.on<Batch[]>("batches", collect));
+  }
+  return () => offs.forEach((off) => off());
+}
+
+/** Mock tutor display name — the mock store doesn't track users. */
+export function mockTutorName(tutorUid: string): string {
+  const known: Record<string, string> = {
+    "tutor-self": "Bishal Acharya",
+    "tutor-1": "Aarav Sharma",
+    "tutor-2": "Riya Shrestha",
+  };
+  return known[tutorUid] ?? `Tutor ${tutorUid.slice(0, 6)}`;
+}
 
 /**
  * In-memory batch-member mutations for the batches domain
@@ -668,9 +793,18 @@ export function addMockBatchMember(
 ): void {
   const s = getStore(tutorUid);
   const existing = s.members[batchId] ?? [];
+  // Idempotent per enrollment — mirrors the Firebase repo's
+  // member doc keyed by enrollmentId (re-adding is a no-op).
   if (existing.some((m) => m.enrollmentId === member.enrollmentId)) return;
   s.members[batchId] = [...existing, member];
+  // Keep the denormalized memberCount in sync (marketplace seats).
+  s.batches = s.batches.map((b) =>
+    b.batchId === batchId
+      ? { ...b, memberCount: (b.memberCount ?? 0) + 1 }
+      : b,
+  );
   s.emitter.emit("members", { batchId, members: s.members[batchId] });
+  emitBatches(s);
 }
 
 export function removeMockBatchMember(
@@ -681,5 +815,12 @@ export function removeMockBatchMember(
   const s = getStore(tutorUid);
   const existing = s.members[batchId] ?? [];
   s.members[batchId] = existing.filter((m) => m.memberId !== memberId);
+  // Decrement (floored at 0) — mirrors Firebase's increment(-1).
+  s.batches = s.batches.map((b) =>
+    b.batchId === batchId
+      ? { ...b, memberCount: Math.max(0, (b.memberCount ?? 0) - 1) }
+      : b,
+  );
   s.emitter.emit("members", { batchId, members: s.members[batchId] });
+  emitBatches(s);
 }

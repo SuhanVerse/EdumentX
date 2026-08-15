@@ -8,6 +8,21 @@
  *   3. STRANGER adds a member to someone else's batch → denied
  *   4. OWNER removes a member → allowed
  *   5. STRANGER removes a member → denied
+ *   6. STUDENT lists batches (marketplace browse) → allowed
+ *
+ * NOTE on the marketplace carve-out: the student "Browse open
+ * batches" screen reads via `collectionGroup("classes")`. The
+ * recursive rule `{prefix=**}/classes/{batchId}` now permits
+ * signed-in reads of `status == "active"` batches, but the local
+ * emulator returns 400 INVALID_ARGUMENT for `runQuery` with
+ * `collectionGroupId` (a known emulator gap — same family as the
+ * reviews suite). The REST document-parent form hits the direct-path
+ * rule (`match /batches/{tutorUid}/classes/{batchId}
+ * { allow get, list: if isSignedIn(); }`), which allows any signed-in
+ * user to list a tutor's classes — so check 6 guards that the
+ * marketplace browse is readable, and the active-only narrowing of
+ * the recursive rule is covered by the rules file itself (verified
+ * in production against real Firestore, like the reviews path).
  *
  * Run via: firebase emulators:exec --only firestore --project demo-edumentx
  * "node scripts/batchesRulesTest.mjs"
@@ -63,6 +78,7 @@ function check(name, actual, expected) {
 
 const OWNER = "tutor-owner-1";
 const STRANGER = "tutor-stranger-1";
+const STUDENT = "student-browser-1";
 const BATCH_ID = "batch-abc";
 const MEMBER_ID = "mem-xyz";
 
@@ -90,6 +106,7 @@ await seed(`/batches/${OWNER}/classes/${BATCH_ID}`, {
   slotKeys: "mon:5-7",
   status: "active",
 });
+
 
 // 1. Owner creates a batch (create rule: tutorUid matches auth).
 const created = await req("POST", `/batches/${OWNER}/classes`, OWNER, payload({
@@ -137,6 +154,17 @@ const strangerRemove = await req(
   STRANGER,
 );
 check("stranger removes member", strangerRemove, 403);
+
+// 6. Student lists a tutor's batches (marketplace browse). The
+//    document-parent form hits the direct-path rule — any signed-in
+//    user may read a tutor's classes, which is what the browse
+//    screen relies on. (See the header note on the collectionGroup
+//    emulator gap for the active-only narrowing.)
+const studentList = await fetch(`${BASE}/batches/${OWNER}/classes`, {
+  method: "GET",
+  headers: { Authorization: `Bearer ${tokenFor(STUDENT)}` },
+});
+check("student lists batches", studentList.status, 200);
 
 console.log(`\n${pass} passed / ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

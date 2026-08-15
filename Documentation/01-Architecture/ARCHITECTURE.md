@@ -43,6 +43,7 @@ been working since Phase 2.
 | **Illustrations** | `react-native-svg` (onboarding scenes) — the 3D stack (`expo-gl`/R3F/`three`) was **removed** in Phase 3.5 after a device crash (`WebGLCapabilities.getMaxPrecision`) | MIT, on-device only | No |
 | **UX / Haptics** | `expo-haptics` (Phase 2 UI overhaul: tactile 100ms press micro-interactions) | MIT, keyless, on-device only | No |
 | **Map Markers** | `expo-image` + `react-native-view-shot` + bundled cluster PNGs (Aug 2026: teardrop pins with the tutor avatar are rasterized offscreen via `captureRef`, loaded through `Image.loadAsync` into `SharedRef<'image'>` Google Map markers) | MIT, keyless, on-device only | No |
+| **Dev / CI tooling** | `firebase-tools` (devDependency — the `firebase` CLI for `emulators:exec` rules testing and `deploy:rules`; runs headlessly on GitHub Actions runners) | Free, open-source (Apache-2.0), no card | No |
 
 If a future feature needs a service not on this list, **stop and add a
 row to this table before writing any code**. Do not introduce a paid
@@ -91,11 +92,8 @@ users/{uid}                        # structural metadata (uid, email,
                                    #   updatedAt)
 users/{uid}/studentProfile/default # student-only profile fields
                                    #   (incl. `savedTutors` uid-key
-                                   #   map §7.5 + `paymentMethods` map
-                                   #   §7.6)
+                                   #   map §7.5)
 users/{uid}/tutorProfile/default   # tutor-only profile fields
-                                   #   (incl. single `payoutMethod`
-                                   #   object §7.6)
 ```
 
 When we add tutor-discovery in Phase 5, the candidate collection will be
@@ -128,6 +126,32 @@ batches/{tutorUid}/classes/{batchId}/members/{memberId}
 conversations/{conversationId}        # 1:1 messaging (deterministic id)
 conversations/{conversationId}/messages/{messageId}
 ```
+
+**Batch `memberCount` — denormalized capacity contract.** The batch
+doc carries a denormalized `memberCount` (cap `MAX_BATCH_MEMBERS` =
+6 — the single source of truth in `services/enrollments/types.ts`).
+Every seat-visible surface reads this field: the marketplace capacity
+meter + `SeatsRing`, the browse sort (`sortBatchesForBrowse`), the
+enrollment form's full-batch block, and the tutor inbox/capacity
+cards. This is because students CAN read batch docs (the marketplace
+carve-out) but CANNOT read the tutor-gated `members` subcollection.
+The field is maintained on every mutation:
+
+- `createBatch` → `members.length` (the transaction seeds the members)
+- `addBatchMember` / the accept-transaction member write →
+  `increment(1)` — accepts are idempotent per `enrollmentId`, so the
+  counter only bumps when the member doc is new
+- `removeBatchMember` → `increment(-1)`
+
+Capacity itself is enforced by the **accept transaction** (`BatchFullError`
+thrown before any write → full rollback), NOT by Firestore rules:
+rules can't count subcollection docs transactionally, and a
+rules-level check would race under concurrent accepts. The emulator
+suite (`scripts/acceptRequestRulesTest.mjs`) locks that boundary — the
+tutor's member write stays PERMITTED at capacity, non-tutors stay
+BLOCKED — while the mock repo maintains the field identically
+(unit-tested in `scripts/testDerived.ts`). Legacy docs without the
+field read as 0 members → seats available.
 
 The messaging layout deserves a note: `conversationId` is the **sorted
 participant pair joined by `__`** (`conversationKey(uidA, uidB)` in
@@ -561,7 +585,7 @@ npm run test:derived              # tsc → node --test
 | 7.3 Group Batches | ✅ Done | `services/batches/` domain (`BatchesRepository` interface + Firebase/Mock impls + `dataSource` selector). `BatchCreation.tsx` live: roster-backed student picker, 3-step wizard, member add/remove, `endBatch`. Rules + `test:rules` checks cover all batch paths. |
 | 7.4 In-app messaging | ✅ Done | `services/messages/` domain — `conversations/{id}` + `messages` subcollection with deterministic sorted-pair ids, participant-gated rules (scalar `participantA/B` checks — see §2). `/chat` (inverted FlatList, composer, peer identity from `meta`/tutor profile) + `/messages` hub; wired from the student enrollment card's "Message" CTA and both dashboards' headers. Rules deployed + 13 `test:rules` checks. |
 | 7.5 Saved tutors | ✅ Done | `services/savedTutors/` domain — `savedTutors` uid-key map on `users/{uid}/studentProfile/default` (owner subcollection rules already cover it; no rules change). Toggle via `deleteField()` in one `setDoc(merge)`. Heart on `TutorDetailsScreen` + `/saved-tutors` list (TutorCard, live feed) replace the old "Coming soon" alert. |
-| 7.6 Payments, Payouts, Help | ✅ Done | `services/paymentMethods/` domain — student `paymentMethods` map + tutor single `payoutMethod` on the profile docs, zero-commission direct-payment model (eSewa/Khalti/IME Pay/bank, shared `PaymentMethodForm`). `/payment-methods` (list + add/remove), `/payouts` (method + live roster × `monthlyRateNpr` earnings), `/help-support` (FAQ + mailto). Share on `TutorDetailsScreen` now uses the native `Share.share`; group-batch pricing card messages the tutor; session CTAs open the enroll sheet. All "Coming soon" alerts removed from student/tutor profiles. |
+| 7.6 Help & support | ✅ Done | `/help-support` (FAQ + mailto). Share on `TutorDetailsScreen` now uses the native `Share.share`; group-batch pricing card messages the tutor; session CTAs open the enroll sheet. All "Coming soon" alerts removed from student/tutor profiles. Payouts + payment-methods screens were **removed (Aug 15)** — direct-bank/eWallet payment is a feature the demo doesn't need; the payment domain (`services/paymentMethods/`, `PaymentMethodForm`, `/payouts`, `/payment-methods`) is deleted. |
 | 8 Admin user lifecycle | ✅ Done | Lifecycle: suspend / soft delete / **restore** (`status: active`, `deletedAt: null`) from `UserManagement.tsx`; "Delete permanently" (`lib/admin/userLifecycle.ts`) purges Firestore via `isAdmin()` rules grants + best-effort Supabase object removal. **Auth guard**: `src/app/_layout.tsx` reads `users/{uid}.status` inside `onAuthStateChanged` and signs out `deleted`/`suspended` accounts with an "Access Denied" alert — they can't reach any app screen. Firebase Auth identity deletion is server-side only: `scripts/deleteUser.ts` (`npm run delete:user`) — needs `GOOGLE_APPLICATION_CREDENTIALS` + service-role key, ends with a "cannot be undone" confirmation. |
 
 See `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`

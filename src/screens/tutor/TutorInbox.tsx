@@ -24,10 +24,12 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -37,29 +39,65 @@ import {
 
 import { AvailabilityTimeList } from "@/components/domain/AvailabilityTimeList";
 import { EnrollmentRequestCard } from "@/components/domain/EnrollmentRequestCard";
+import { SeatsRing } from "@/components/domain/SeatsRing";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
+import { ActivePill } from "@/components/motion";
 import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
 } from "@/components/shared/ScreenLayout";
+import { getBatchesRepository } from "@/services/batches/dataSource";
 import { computeBookedMap } from "@/services/enrollments/derived";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import {
+  BatchFullError,
   CapacityExceededError,
   DEFAULT_AVAILABILITY,
+  DAY_LABELS,
+  MAX_BATCH_MEMBERS,
+  parseSlotKey,
   RequestAlreadyDecidedError,
+  TIME_SLOT_LABELS,
   type Batch,
+  type BatchMember,
   type Enrollment,
   type EnrollmentRequest,
   type WeeklyAvailability,
 } from "@/services/enrollments/types";
 import { useAuthStore } from "@/store/authStore";
 
+/** Format a `day:slot` key as a short schedule fragment. */
+function formatSlotKey(key: string): string {
+  const parsed = parseSlotKey(key);
+  if (!parsed) return key;
+  return `${DAY_LABELS[parsed.day]} ${TIME_SLOT_LABELS[parsed.slot]}`;
+}
+
+/** "2026-08-15T..."-style join timestamps → "Aug 15" short label. */
+function formatJoined(ts: number): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Epoch ms → "Aug 15, 2026" — when the tutor ended the batch. */
+function formatEnded(ts: number): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function EnrollmentInbox() {
   const user = useAuthStore((state) => state.user);
   const tutorUid = user?.uid ?? null;
+  const router = useRouter();
   const repo = getEnrollmentRepository();
+  const batchesRepo = useMemo(() => getBatchesRepository(), []);
 
   // Live requests (pending + decided history). The UI filters to
   // pending so decided rows vanish from the list automatically.
@@ -87,6 +125,19 @@ export function EnrollmentInbox() {
   );
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  // Per-batch member rosters, keyed by batchId — live so the tutor
+  // sees who joined each class the moment a request is accepted.
+  const [membersByBatch, setMembersByBatch] = useState<
+    Record<string, BatchMember[]>
+  >({});
+  // Active / Ended tabs on the batch roster section — ended classes
+  // stay viewable (the repo returns both; the tabs filter them).
+  const [batchTab, setBatchTab] = useState<"active" | "ended">("active");
+  const [batchTabsWidth, setBatchTabsWidth] = useState(0);
+  const visibleBatches = useMemo(
+    () => batches.filter((b) => b.status === batchTab),
+    [batches, batchTab],
+  );
   const bookedMap = useMemo(
     () => computeBookedMap(enrollments, batches),
     [enrollments, batches],
@@ -141,6 +192,32 @@ export function EnrollmentInbox() {
     return unsub;
   }, [tutorUid, repo]);
 
+  // Per-batch member subscriptions — one live feed per batch
+  // (active AND ended, so the Ended tab still shows who was in the
+  // class; members stay readable after a batch closes — see
+  // firestore.rules). Roster rows appear as soon as a session-code
+  // join is accepted (the accept transaction writes the member doc
+  // + bumps count).
+  useEffect(() => {
+    if (!tutorUid) return;
+    const subs: (() => void)[] = [];
+    for (const b of batches) {
+      const unsub = batchesRepo.subscribeBatchMembers(
+        tutorUid,
+        b.batchId,
+        (members) =>
+          setMembersByBatch((prev) => ({ ...prev, [b.batchId]: members })),
+        (err) =>
+          console.warn(
+            `EnrollmentInbox: members ${b.batchId} failed`,
+            err,
+          ),
+      );
+      subs.push(unsub);
+    }
+    return () => subs.forEach((u) => u());
+  }, [tutorUid, batches, batchesRepo]);
+
   const pending = useMemo(
     () => requests.filter((r) => r.status === "pending"),
     [requests],
@@ -179,6 +256,9 @@ export function EnrollmentInbox() {
         slotKey: selectedSlotKey,
         startDate: req.startDate,
         endDate: req.endDate,
+        // Session-code join requests carry the target batch — the
+        // accept transaction adds the student to its members.
+        batchId: req.batchId,
       });
       setSlotPickerFor(null);
       setSelectedSlotKey(null);
@@ -186,6 +266,11 @@ export function EnrollmentInbox() {
       console.warn("EnrollmentInbox: acceptRequest failed", err);
       if (err instanceof CapacityExceededError) {
         Alert.alert("Capacity full", err.message);
+      } else if (err instanceof BatchFullError) {
+        Alert.alert(
+          "Batch is full",
+          err.message + " The request stays pending — you can decline it.",
+        );
       } else if (err instanceof RequestAlreadyDecidedError) {
         Alert.alert(
           "Already decided",
@@ -221,6 +306,31 @@ export function EnrollmentInbox() {
           style: "destructive",
           onPress: () => {
             void doDecline(req);
+          },
+        },
+      ],
+    );
+  }
+
+  function handleRemoveMember(batch: Batch, memberId: string) {
+    const member = (membersByBatch[batch.batchId] ?? []).find(
+      (m) => m.memberId === memberId,
+    );
+    Alert.alert(
+      "Remove student from batch?",
+      `${member?.studentName ?? "This student"} will leave "${batch.name}". They stay enrolled for one-to-one sessions.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            if (!tutorUid) return;
+            batchesRepo
+              .removeBatchMember(tutorUid, batch.batchId, memberId)
+              .catch((err) =>
+                console.warn("EnrollmentInbox: removeBatchMember failed", err),
+              );
           },
         },
       ],
@@ -301,6 +411,272 @@ export function EnrollmentInbox() {
             ))}
           </View>
         )}
+
+        {/* ── Your batches — live member rosters so the tutor can
+            see who joined each class and remove students. Active /
+            Ended tabs keep closed classes viewable. ── */}
+        <View className="mt-8">
+          <Text className="text-section-title font-semibold text-text-primary mb-3">
+            Your batches
+          </Text>
+
+          {/* Active / Ended segmented control */}
+          <View
+            className="flex-row bg-sand rounded-card relative h-11 overflow-hidden mb-4"
+            onLayout={(e) => setBatchTabsWidth(e.nativeEvent.layout.width)}
+          >
+            {batchTabsWidth > 0 && (
+              <ActivePill
+                count={2}
+                activeIndex={batchTab === "active" ? 0 : 1}
+                itemWidth={batchTabsWidth / 2}
+                pillClassName="absolute top-1 bottom-1 bg-primary rounded-lg"
+                style={{ width: batchTabsWidth / 2, borderRadius: 10 }}
+              />
+            )}
+            {(["active", "ended"] as const).map((t) => {
+              const isActive = t === batchTab;
+              const count = batches.filter((b) => b.status === t).length;
+              return (
+                <Pressable
+                  key={t}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`${t} batches`}
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => setBatchTab(t)}
+                  className="flex-1 h-11 flex-row items-center justify-center gap-1.5 active:opacity-70 z-10"
+                >
+                  <Text
+                    className={`text-sm font-medium ${
+                      isActive ? "text-white" : "text-text-secondary"
+                    }`}
+                  >
+                    {t === "active" ? "Active" : "Ended"}
+                  </Text>
+                  <View
+                    className={`px-1.5 py-0.5 rounded-full ${
+                      isActive ? "bg-white/20" : "bg-surface"
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs ${
+                        isActive ? "text-white" : "text-text-muted"
+                      }`}
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {visibleBatches.length === 0 ? (
+            <View className="bg-surface border border-border rounded-card p-6 items-center">
+              <View className="w-12 h-12 rounded-pill bg-ai-light items-center justify-center mb-3">
+                <Ionicons name="people-outline" size={22} color="#4A7FA5" />
+              </View>
+              <Text className="text-card-title font-medium text-text-primary text-center">
+                {batches.length === 0
+                  ? "No batches yet"
+                  : batchTab === "active"
+                    ? "No active batches"
+                    : "No ended batches yet"}
+              </Text>
+              <Text className="text-body text-text-secondary text-center mt-1.5">
+                {batches.length === 0
+                  ? "Students who join your private batches will appear here."
+                  : batchTab === "active"
+                    ? "Batches you create or accept join requests for show here."
+                    : "Classes you end will appear here."}
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-col gap-3.5">
+              {visibleBatches.map((batch) => {
+                const members = membersByBatch[batch.batchId] ?? [];
+                return (
+                  <Pressable
+                    key={batch.batchId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${batch.name} details`}
+                    onPress={() =>
+                      router.push({
+                        pathname: `/batch/${batch.tutorUid}/${batch.batchId}`,
+                      } as never)
+                    }
+                    className="bg-surface border border-border rounded-card p-4 active:opacity-80"
+                  >
+                    {/* Header — active batches carry the same
+                        seats-remaining ring as the student-facing
+                        screens (live from the member subscription). */}
+                    <View className="flex-row justify-between items-center mb-3">
+                      <View className="flex-1 pr-3">
+                        <Text className="text-card-title font-medium text-text-primary" numberOfLines={1}>
+                          {batch.name}
+                        </Text>
+                        <Text className="text-caption text-text-muted mt-0.5">
+                          {batch.subject} · Rs{" "}
+                          {batch.monthlyRateNpr.toLocaleString()}
+                          /student/mo
+                        </Text>
+                        {batch.status === "ended" && batch.endedAt ? (
+                          <Text className="text-caption text-text-muted mt-0.5">
+                            Ended {formatEnded(batch.endedAt)}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {batch.status === "ended" ? (
+                        <View className="px-2.5 py-1 rounded-pill bg-surface-muted">
+                          <Text className="text-micro font-medium text-text-muted">
+                            Ended
+                          </Text>
+                        </View>
+                      ) : (
+                        <View className="flex-row items-center gap-1.5">
+                          <Text className="text-caption font-medium text-text-primary">
+                            {members.length}/{MAX_BATCH_MEMBERS}
+                          </Text>
+                          <SeatsRing
+                            seatsLeft={Math.max(
+                              0,
+                              MAX_BATCH_MEMBERS - members.length,
+                            )}
+                            max={MAX_BATCH_MEMBERS}
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Schedule — occupancy dots mark who holds each
+                        slot in the weekly grid (green = this batch,
+                        amber = a 1-to-1 enrollment overlaps). */}
+                    {batch.slotKeys.length > 0 && (
+                      <View className="mb-3">
+                        <View className="flex-row gap-1.5 flex-wrap">
+                          {batch.slotKeys.map((slotKey) => {
+                            const cell = bookedMap.get(slotKey);
+                            const own =
+                              batch.status === "active" &&
+                              cell?.source === "batch" &&
+                              cell.refId === batch.batchId;
+                            const taken =
+                              batch.status === "active" && !!cell && !own;
+                            return (
+                              <View
+                                key={slotKey}
+                                className={`flex-row items-center gap-1.5 px-2.5 py-1 rounded-pill ${
+                                  batch.status === "active"
+                                    ? own
+                                      ? "bg-verification/10 border border-verification/30"
+                                      : taken
+                                        ? "bg-amber/10 border border-amber/30"
+                                        : "bg-background"
+                                    : "bg-background"
+                                }`}
+                              >
+                                {batch.status === "active" && (
+                                  <View
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      own
+                                        ? "bg-verification"
+                                        : taken
+                                          ? "bg-amber"
+                                          : "bg-border"
+                                    }`}
+                                  />
+                                )}
+                                <Text className="text-micro text-text-secondary">
+                                  {formatSlotKey(slotKey)}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        {batch.status === "active" && (
+                          <View className="flex-row items-center gap-3 mt-1.5">
+                            <View className="flex-row items-center gap-1">
+                              <View className="w-1.5 h-1.5 rounded-full bg-verification" />
+                              <Text className="text-micro text-text-muted">
+                                Batch slot
+                              </Text>
+                            </View>
+                            <View className="flex-row items-center gap-1">
+                              <View className="w-1.5 h-1.5 rounded-full bg-amber" />
+                              <Text className="text-micro text-text-muted">
+                                Overlaps 1-to-1
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Roster */}
+                    {members.length === 0 ? (
+                      <Text className="text-caption text-text-muted py-1">
+                        {batch.status === "ended"
+                          ? "This batch ended with no students."
+                          : "No students joined yet — accept a batch-join request to add them here."}
+                      </Text>
+                    ) : (
+                      <View className="flex-col border-t border-border">
+                        {members.map((member, i) => (
+                          <View
+                            key={member.memberId}
+                            className={`flex-row items-center py-2.5 ${
+                              i < members.length - 1
+                                ? "border-b border-border"
+                                : ""
+                            }`}
+                          >
+                            <View className="w-9 h-9 rounded-pill bg-ai-light border border-ai-border items-center justify-center overflow-hidden">
+                              {member.studentAvatar ? (
+                                <Image
+                                  source={{ uri: member.studentAvatar }}
+                                  className="w-full h-full"
+                                />
+                              ) : (
+                                <Text className="text-button font-semibold text-ai">
+                                  {member.studentName.slice(0, 1)}
+                                </Text>
+                              )}
+                            </View>
+                            <View className="flex-1 ml-3 min-w-0">
+                              <Text
+                                className="text-body font-medium text-text-primary"
+                                numberOfLines={1}
+                              >
+                                {member.studentName}
+                              </Text>
+                              <Text className="text-micro text-text-muted">
+                                Joined {formatJoined(member.joinedAt) || "recently"}
+                              </Text>
+                            </View>
+                            {batch.status === "active" && (
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove ${member.studentName} from batch`}
+                                onPress={() =>
+                                  handleRemoveMember(batch, member.memberId)
+                                }
+                                className="px-2.5 py-1.5 active:opacity-70"
+                              >
+                                <Text className="text-micro font-medium text-danger">
+                                  Remove
+                                </Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ScreenScroll>
 
       <TutorBottomBar inboxBadgeCount={pending.length} />

@@ -19,7 +19,6 @@ tutor-inbox     → (Accept) slot-picker Modal → acceptRequest
                 → (Decline) confirm Alert
 tutor-capacity  → (save bar) bulk saveAvailability
 batches         → (Create New Batch) 3-step wizard → createBatch
-payouts         → (Change/Remove) payment method · live earnings
 ```
 
 **Tutor tab dock — `TutorBottomBar`** (4 tabs, no hero on inbox/capacity/batches):
@@ -363,51 +362,13 @@ has **no dark hero** — a plain header + `Create New Batch` CTA.
 
 ---
 
-## 5. Payouts (`/payouts`)
-
-Canvas `bg-background`, light header, **no bottom bar** (pushed from
-the tutor profile's "More" section).
-
-### 5.1 Header
-- Row: "Payouts" (display 28/500, 2px amber underline) + trailing
-  36×36 `pill` back button (`bg-background` + hairline, 20px
-  chevron `#2F5D50`) + sub-line "How you receive payments"
-  (secondary).
-
-### 5.2 Payout method card
-- Section label "Payout method" (`text-label` muted, uppercase).
-- **Set state:** white card (hairline, radius 14, `p-4`) — 40×40
-  `bg-accent-soft` icon well (provider icon, amber) + provider name
-  (card-title) + identifier (caption muted, 1 line) + **Change** /
-  **Remove** pills (radius pill, `bg-surface-muted` + hairline,
-  micro/600; Remove is danger text).
-- **Empty state:** dashed **"Add payout method"** CTA — full-width
-  min-48px, radius 14, `border-2 border-dashed border-border`,
-  amber `add` icon + amber semibold text.
-- Helper caption: "Students pay you directly — EdumentX never holds
-  your money."
-- **Edit state:** `PaymentMethodForm` — provider **chip row** (4
-  providers, `bg-accent` selected) + identifier TextInput (radius
-  14, hairline) + "Save payout method" amber button + Cancel.
-  Providers: eSewa / Khalti / IME Pay / Bank.
-
-### 5.3 Monthly earnings card (live)
-- Section label "Monthly earnings".
-- White card (hairline, radius 14, `p-5`): **display 28/700**
-  "Rs X,XXX" → caption "N enrolled students × Rs X,XXX/mo" (live
-  roster count × live `monthlyRateNpr`) → green
-  `shield-checkmark-outline` 14px + caption "No commission — you
-  keep 100%".
-
----
-
-## 6. Cross-screen Interaction Spec
+## 5. Cross-screen Interaction Spec
 
 - **Tabs** push (`router.push`) rather than replace — the dock keeps
   its active state via the pathname; inbox badge = live pending
   count.
 - **Live everywhere:** dashboard metrics, requests, roster, reviews,
-  availability, batches, and payment method all subscribe to
+  availability, and batches all subscribe to
   Firestore; every surface has a first-class loading (spinner or
   skeleton) and empty state.
 - **Draft-then-save on capacity:** cell taps never touch Firestore;
@@ -416,9 +377,8 @@ the tutor profile's "More" section).
 - **Amber usage (one per surface):** dashboard = map-less, so amber
   lives in the today-sessions icon + See all link + empty-state CTA
   (no single amber button); capacity = the "Save changes" button;
-  batches = the step-indicator fill + "Save Batch"; payouts = the
-  "Add payout method" CTA. Green `#2F5D50` owns all confirm actions
-  (Accept enrollment, sub-tab pill).
+  batches = the step-indicator fill + "Save Batch". Green `#2F5D50`
+  owns all confirm actions (Accept enrollment, sub-tab pill).
 - **AI blue** `#4A7FA5` is the *secondary brand* on tutor surfaces:
   the group-batch CTA, wizard continue buttons, and batch avatar
   fills — it signals the shared-class feature family.

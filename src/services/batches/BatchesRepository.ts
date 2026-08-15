@@ -14,7 +14,7 @@
 
 import type { Unsubscribe } from "@react-native-firebase/firestore";
 
-import type { RosterStudent } from "@/services/batches/types";
+import type { Batch, RosterStudent } from "@/services/batches/types";
 import type {
   BatchCallback,
   BatchMemberCallback,
@@ -26,6 +26,13 @@ export type { CreateBatchInput };
 
 /** Callback for the tutor's active-roster feed (student picker). */
 export type RosterCallback = (students: RosterStudent[]) => void;
+
+/** Live feed of every ACTIVE batch across all tutors — the
+ *  student-facing "Browse open batches" list (S-15). Batches are
+ *  enriched with the tutor's display name + avatar (resolved from
+ *  the public tutor profile) so the marketplace card renders
+ *  without N extra reads. */
+export type PublicBatchCallback = (batches: Batch[]) => void;
 
 /** Input for adding a member to an existing batch. */
 export type AddMemberInput = {
@@ -60,6 +67,13 @@ export interface BatchesRepository {
   subscribeRoster(
     tutorUid: string,
     onData: RosterCallback,
+    onError?: (err: Error) => void,
+  ): Unsubscribe;
+
+  /** Live list of all active batches across tutors (student
+   *  marketplace browse screen). */
+  subscribePublicBatches(
+    onData: PublicBatchCallback,
     onError?: (err: Error) => void,
   ): Unsubscribe;
 

@@ -909,8 +909,8 @@ export default function RootLayout() {
           <Stack.Screen name="enrollment" />
           <Stack.Screen name="stu-profile" />
           <Stack.Screen name="saved-tutors" />
-          <Stack.Screen name="payment-methods" />
-          <Stack.Screen name="payouts" />
+          <Stack.Screen name="enroll" />
+          <Stack.Screen name="browse-batches" />
           <Stack.Screen name="help-support" />
           {/* Tutor sub-screens (TutorBottomBar targets) */}
           <Stack.Screen name="batches" />
@@ -923,6 +923,8 @@ export default function RootLayout() {
           <Stack.Screen name="tutor-pending" />
           {/* Tutor details — student-facing profile page */}
           <Stack.Screen name="tutor/[id]" />
+          {/* Batch detail — shared tutor roster / student join view */}
+          <Stack.Screen name="batch/[tutorUid]/[batchId]" />
           {/* Shared */}
           <Stack.Screen name="notification" />
           <Stack.Screen name="filters-sheet" />

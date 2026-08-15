@@ -20,6 +20,7 @@ import {
   deriveTodaySessions,
   nextOccurrenceIsoInKtm,
   slotDurationMinutes,
+  sortBatchesForBrowse,
   todayDayKeyInKtm,
   todayIsoInKtm,
 } from "../src/services/enrollments/derived";
@@ -29,9 +30,24 @@ import {
   parseSlotKey,
   slotKey as buildSlotKey,
   TIME_SLOT_KEYS,
+  BatchFullError,
+  RequestAlreadyDecidedError,
+  type AvailabilitySnapshot,
   type Batch,
+  type BatchMember,
   type Enrollment,
+  type EnrollmentRequest,
 } from "../src/services/enrollments/types";
+import {
+  MockEnrollmentRepository,
+  addMockBatchMember,
+  removeMockBatchMember,
+} from "../src/services/enrollments/MockEnrollmentRepository";
+import {
+  seatsRingColorKey,
+  seatsRingFrac,
+  seatsRingLabel,
+} from "../src/components/domain/seatsRingMath";
 
 // Deterministic fixtures. 2026-08-19T12:00:00Z is Wednesday in
 // Asia/Kathmandu (UTC+5:45) — verify in the test itself.
@@ -58,6 +74,423 @@ function activeEnrollment(overrides: Partial<Enrollment> = {}): Enrollment {
     ...overrides,
   };
 }
+
+function makeBatch(overrides: Partial<Batch> = {}): Batch {
+  return {
+    batchId: "b1",
+    tutorUid: "tutor-1",
+    name: "Maths Batch A",
+    subject: "Mathematics",
+    monthlyRateNpr: 2200,
+    slotKeys: ["mon:5-7"],
+    startDate: "2026-08-01",
+    endDate: null,
+    status: "active",
+    createdAt: 1_752_000_000_000,
+    ...overrides,
+  };
+}
+
+function batchMember(i: number) {
+  return {
+    enrollmentId: `enr-full-${i}`,
+    studentUid: `stu-full-${i}`,
+    studentName: `Student ${i}`,
+    studentAvatar: null,
+  };
+}
+
+const ACCEPT_STUDENT = {
+  uid: "stu-1",
+  name: "Aarav Tamang",
+  grade: "Grade 10",
+  avatar: null,
+};
+
+describe("BatchFullError (mock accept flow)", () => {
+  it("rejects an accept into a batch at capacity", async () => {
+    const tutorUid = "tutor-batch-full-a";
+    const repo = MockEnrollmentRepository;
+    const { batchId } = await repo.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Full Batch",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      // 6 members = the seat cap (mirrors BatchCreation MAX_MEMBERS).
+      members: Array.from({ length: 6 }, (_, i) => batchMember(i)),
+    });
+    await assert.rejects(
+      repo.acceptRequest({
+        tutorUid,
+        authorUid: tutorUid,
+        requestId: "req-1", // every seeded store has a pending req-1
+        student: ACCEPT_STUDENT,
+        subjects: ["Mathematics"],
+        slotKey: "mon:5-7",
+        startDate: "2026-08-01",
+        endDate: "2026-12-20",
+        batchId,
+      }),
+      BatchFullError,
+    );
+  });
+
+  it("leaves the request pending after a full-batch rejection (atomic)", async () => {
+    const tutorUid = "tutor-batch-full-b";
+    const repo = MockEnrollmentRepository;
+    const fullBatch = await repo.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Full Batch",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: Array.from({ length: 6 }, (_, i) => batchMember(i)),
+    });
+    await assert.rejects(
+      repo.acceptRequest({
+        tutorUid,
+        authorUid: tutorUid,
+        requestId: "req-1",
+        student: ACCEPT_STUDENT,
+        subjects: ["Mathematics"],
+        slotKey: "mon:5-7",
+        startDate: "2026-08-01",
+        endDate: "2026-12-20",
+        batchId: fullBatch.batchId,
+      }),
+      BatchFullError,
+    );
+    // The failed attempt must not have flipped the request or created
+    // an enrollment — accepting the SAME request into a batch with
+    // room now succeeds.
+    const openBatch = await repo.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Open Batch",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["wed:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: [batchMember(0), batchMember(1)],
+    });
+    const result = await repo.acceptRequest({
+      tutorUid,
+      authorUid: tutorUid,
+      requestId: "req-1",
+      student: ACCEPT_STUDENT,
+      subjects: ["Mathematics"],
+      slotKey: "wed:5-7",
+      startDate: "2026-08-01",
+      endDate: "2026-12-20",
+      batchId: openBatch.batchId,
+    });
+    assert.ok(result.enrollmentId.length > 0);
+  });
+
+  it("accepts normally into a batch below capacity (control)", async () => {
+    const tutorUid = "tutor-batch-full-c";
+    const repo = MockEnrollmentRepository;
+    const { batchId } = await repo.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Open Batch",
+      subject: "Physics",
+      monthlyRateNpr: 2500,
+      slotKeys: ["fri:9-12"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: [batchMember(1), batchMember(2)],
+    });
+    const result = await repo.acceptRequest({
+      tutorUid,
+      authorUid: tutorUid,
+      requestId: "req-1",
+      student: ACCEPT_STUDENT,
+      subjects: ["Physics"],
+      slotKey: "fri:9-12",
+      startDate: "2026-08-01",
+      endDate: "2026-12-20",
+      batchId,
+    });
+    assert.ok(result.enrollmentId.length > 0);
+    // Re-accepting the same (now accepted) request fails with the
+    // already-decided error — proving the first accept committed.
+    await assert.rejects(
+      repo.acceptRequest({
+        tutorUid,
+        authorUid: tutorUid,
+        requestId: "req-1",
+        student: ACCEPT_STUDENT,
+        subjects: ["Physics"],
+        slotKey: "fri:9-12",
+        startDate: "2026-08-01",
+        endDate: "2026-12-20",
+        batchId,
+      }),
+      RequestAlreadyDecidedError,
+    );
+  });
+});
+
+/** A batch member with `memberId === enrollmentId` — the mock's
+ *  add/remove convention (mirrors the Firebase member doc id). */
+function batchMemberRecord(enrollmentId: string): BatchMember {
+  return {
+    memberId: enrollmentId,
+    enrollmentId,
+    studentUid: `stu-${enrollmentId}`,
+    studentName: "Test Student",
+    studentAvatar: null,
+    joinedAt: Date.now(),
+  };
+}
+
+describe("mock batch memberCount denormalization", () => {
+  // subscribeBatches delivers the current list synchronously on
+  // subscribe (and re-emits on every mutation), so the helper just
+  // tracks the latest list for post-mutation assertions.
+  function observeBatches(tutorUid: string) {
+    let latest: Batch[] = [];
+    const unsub = MockEnrollmentRepository.subscribeBatches(tutorUid, (list) => {
+      latest = list;
+    });
+    return {
+      unsub,
+      read: () => latest,
+    };
+  }
+
+  it("delivers initial data immediately to fresh subscribers (no replay quirk)", () => {
+    const tutorUid = "tutor-initial-a";
+    const captured: {
+      batches: Batch[] | null;
+      requests: EnrollmentRequest[] | null;
+      availability: AvailabilitySnapshot | null;
+    } = { batches: null, requests: null, availability: null };
+    const unsubs = [
+      MockEnrollmentRepository.subscribeBatches(
+        tutorUid,
+        (l) => (captured.batches = l),
+      ),
+      MockEnrollmentRepository.subscribeRequests(
+        tutorUid,
+        (l) => (captured.requests = l),
+      ),
+      MockEnrollmentRepository.subscribeAvailability(
+        tutorUid,
+        (s) => (captured.availability = s),
+      ),
+    ];
+    // Subscribing alone must deliver the seeded state synchronously —
+    // no mutation required. (Regression: emit-before-register used to
+    // drop the initial push entirely.)
+    assert.ok(
+      captured.batches !== null && captured.batches.length >= 1,
+      "batches initial data",
+    );
+    assert.ok(
+      captured.requests !== null && captured.requests.length >= 2,
+      "requests initial data (seeded pending)",
+    );
+    assert.ok(captured.availability !== null, "availability initial data");
+    unsubs.forEach((u) => u());
+  });
+
+  it("createBatch seeds memberCount from its members", async () => {
+    const tutorUid = "tutor-count-a";
+    const obs = observeBatches(tutorUid);
+    const { batchId } = await MockEnrollmentRepository.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Count Batch A",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: Array.from({ length: 3 }, (_, i) => batchMember(i)),
+    });
+    const b = obs.read().find((x) => x.batchId === batchId);
+    assert.equal(b?.memberCount, 3);
+    obs.unsub();
+  });
+
+  it("addMockBatchMember bumps memberCount, idempotent per enrollment", async () => {
+    const tutorUid = "tutor-count-b";
+    const obs = observeBatches(tutorUid);
+    const { batchId } = await MockEnrollmentRepository.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Count Batch B",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: [],
+    });
+    const count = () =>
+      obs.read().find((x) => x.batchId === batchId)?.memberCount;
+    addMockBatchMember(tutorUid, batchId, batchMemberRecord("enr-x"));
+    assert.equal(count(), 1);
+    // Re-adding the same enrollmentId is a no-op (idempotent).
+    addMockBatchMember(tutorUid, batchId, batchMemberRecord("enr-x"));
+    assert.equal(count(), 1);
+    addMockBatchMember(tutorUid, batchId, batchMemberRecord("enr-y"));
+    assert.equal(count(), 2);
+    obs.unsub();
+  });
+
+  it("removeMockBatchMember decrements memberCount and floors at 0", async () => {
+    const tutorUid = "tutor-count-c";
+    const obs = observeBatches(tutorUid);
+    const { batchId } = await MockEnrollmentRepository.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Count Batch C",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: [],
+    });
+    const count = () =>
+      obs.read().find((x) => x.batchId === batchId)?.memberCount;
+    addMockBatchMember(tutorUid, batchId, batchMemberRecord("enr-a"));
+    addMockBatchMember(tutorUid, batchId, batchMemberRecord("enr-b"));
+    assert.equal(count(), 2);
+    removeMockBatchMember(tutorUid, batchId, "enr-a");
+    assert.equal(count(), 1);
+    removeMockBatchMember(tutorUid, batchId, "enr-b");
+    assert.equal(count(), 0);
+    // Removing an already-gone member stays at 0 (no negative count).
+    removeMockBatchMember(tutorUid, batchId, "enr-a");
+    assert.equal(count(), 0);
+    obs.unsub();
+  });
+
+  it("acceptRequest bumps memberCount for a session-code join", async () => {
+    const tutorUid = "tutor-count-d";
+    const obs = observeBatches(tutorUid);
+    const { batchId } = await MockEnrollmentRepository.createBatch({
+      tutorUid,
+      authorUid: tutorUid,
+      name: "Count Batch D",
+      subject: "Mathematics",
+      monthlyRateNpr: 2000,
+      slotKeys: ["mon:5-7"],
+      startDate: "2026-08-01",
+      endDate: null,
+      members: [batchMember(1)],
+    });
+    await MockEnrollmentRepository.acceptRequest({
+      tutorUid,
+      authorUid: tutorUid,
+      requestId: "req-1", // seeded pending request
+      student: ACCEPT_STUDENT,
+      subjects: ["Mathematics"],
+      slotKey: "mon:5-7",
+      startDate: "2026-08-01",
+      endDate: "2026-12-20",
+      batchId,
+    });
+    const b = obs.read().find((x) => x.batchId === batchId);
+    assert.equal(b?.memberCount, 2);
+    obs.unsub();
+  });
+});
+
+describe("seatsRing math", () => {
+  it("clamps the arc fraction to [0, 1]", () => {
+    // Half the seats → half the ring.
+    assert.equal(seatsRingFrac(3, 6), 0.5);
+    // No seats → empty arc; full seats → complete ring.
+    assert.equal(seatsRingFrac(0, 6), 0);
+    assert.equal(seatsRingFrac(6, 6), 1);
+    // Over-capacity / negative seats can't exceed the bounds.
+    assert.equal(seatsRingFrac(-2, 6), 0);
+    assert.equal(seatsRingFrac(99, 6), 1);
+    // Degenerate max is treated as empty, not NaN/Infinity.
+    assert.equal(seatsRingFrac(4, 0), 0);
+  });
+
+  it("labels the center with the count or Full", () => {
+    assert.equal(seatsRingLabel(4), "4");
+    assert.equal(seatsRingLabel(1), "1");
+    assert.equal(seatsRingLabel(0), "Full");
+    assert.equal(seatsRingLabel(-1), "Full");
+  });
+
+  it("picks the status color key by seat count", () => {
+    assert.equal(seatsRingColorKey(0), "danger");
+    assert.equal(seatsRingColorKey(-1), "danger");
+    assert.equal(seatsRingColorKey(1), "accent");
+    assert.equal(seatsRingColorKey(2), "verification");
+    assert.equal(seatsRingColorKey(6), "verification");
+  });
+});
+
+describe("sortBatchesForBrowse", () => {
+  it("puts batches with seats left before full batches", () => {
+    const full = makeBatch({ batchId: "full", memberCount: 6, createdAt: 1 });
+    const open = makeBatch({ batchId: "open", memberCount: 2, createdAt: 2 });
+    const sorted = sortBatchesForBrowse([full, open]).map((b) => b.batchId);
+    assert.deepEqual(sorted, ["open", "full"]);
+  });
+
+  it("treats legacy docs without memberCount as having seats", () => {
+    const legacy = makeBatch({ batchId: "legacy" }); // no memberCount key
+    const full = makeBatch({ batchId: "full", memberCount: 6, createdAt: 2 });
+    const sorted = sortBatchesForBrowse([full, legacy]).map((b) => b.batchId);
+    assert.deepEqual(sorted, ["legacy", "full"]);
+  });
+
+  it("keeps newest-first ordering within the same availability group", () => {
+    const older = makeBatch({ batchId: "older", memberCount: 2, createdAt: 100 });
+    const newer = makeBatch({ batchId: "newer", memberCount: 3, createdAt: 200 });
+    const sorted = sortBatchesForBrowse([older, newer]).map((b) => b.batchId);
+    assert.deepEqual(sorted, ["newer", "older"]);
+  });
+
+  it("sinks a newer full batch below an older open one", () => {
+    const fullNewer = makeBatch({
+      batchId: "fullNewer",
+      memberCount: 6,
+      createdAt: 300,
+    });
+    const openOlder = makeBatch({
+      batchId: "openOlder",
+      memberCount: 1,
+      createdAt: 100,
+    });
+    const sorted = sortBatchesForBrowse([fullNewer, openOlder]).map(
+      (b) => b.batchId,
+    );
+    assert.deepEqual(sorted, ["openOlder", "fullNewer"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const a = makeBatch({ batchId: "a", memberCount: 6 });
+    const b = makeBatch({ batchId: "b", memberCount: 1 });
+    const input = [a, b];
+    sortBatchesForBrowse(input);
+    assert.equal(input[0].batchId, "a");
+    assert.equal(input[1].batchId, "b");
+  });
+
+  it("handles empty input", () => {
+    assert.deepEqual(sortBatchesForBrowse([]), []);
+  });
+});
 
 describe("todayIsoInKtm / todayDayKeyInKtm", () => {
   it("resolves the KTM date for a known instant", () => {

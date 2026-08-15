@@ -73,6 +73,8 @@ export const MockReviewRepository: ReviewRepository = {
       timestamp: new Date().toISOString(),
       comment: input.comment,
       categoryRatings: input.categoryRatings,
+      tags: input.tags,
+      photoUrl: input.photoUrl,
     };
     s.reviews = [review, ...s.reviews];
     s.emitter.emit("reviews", s.reviews);

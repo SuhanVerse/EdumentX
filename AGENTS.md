@@ -199,16 +199,14 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   `setDoc(merge)`. No rules change was needed — the owner
   subcollection wildcard (`match /users/{userId}/{subcollection}/
   {document=**}`) already covers it.
-- **Payments / Payouts / Help are live** — `services/paymentMethods/`
-  domain (student `paymentMethods` map + tutor single `payoutMethod`
-  on the profile docs, zero-commission direct-payment model).
-  Screens: `/payment-methods` (list + add/remove via shared
-  `PaymentMethodForm`), `/payouts` (payout method + live earnings =
-  roster count × `monthlyRateNpr`), `/help-support` (FAQ + mailto).
+- **Help & support is live** — `/help-support` (FAQ + mailto).
   TutorDetailsScreen share uses the native `Share.share`; the group
   batch pricing card routes to `/chat`; session CTAs open the
   enroll sheet. All "Coming soon" alerts in student/tutor profiles
-  are gone.
+  are gone. The payouts + payment-methods feature was **removed
+  (Aug 15)** — `services/paymentMethods/`, `PaymentMethodForm`,
+  `/payouts`, and `/payment-methods` were deleted; the "Monthly
+  revenue" dashboard metric (roster × rate) went with it.
 
 **Search-visibility flag (Aug 2026):**
 - The tutor dashboard's "Available for new students / Hidden from

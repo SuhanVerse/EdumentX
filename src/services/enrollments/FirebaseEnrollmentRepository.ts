@@ -30,6 +30,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   query,
   serverTimestamp,
@@ -47,7 +48,9 @@ import {
 } from "@/lib/verification/notifications";
 
 import {
+  BatchFullError,
   CapacityExceededError,
+  MAX_BATCH_MEMBERS,
   MAX_CAPACITY,
   RequestAlreadyDecidedError,
   type AvailabilitySnapshot,
@@ -159,6 +162,17 @@ function mapRequest(
         : "pending",
     submittedAt: tsToMs(raw.submittedAt),
     decidedAt: raw.decidedAt == null ? null : tsToMs(raw.decidedAt),
+    // Figma S-12 fields — absent on legacy requests.
+    mode: raw.mode === "session-code" ? "session-code" : raw.mode === "one-to-one" ? "one-to-one" : undefined,
+    planMonths: typeof raw.planMonths === "number" ? raw.planMonths : undefined,
+    pickedSlotKeys: Array.isArray(raw.pickedSlotKeys)
+      ? raw.pickedSlotKeys.filter((k) => typeof k === "string")
+      : undefined,
+    address: typeof raw.address === "string" ? raw.address : undefined,
+    trial: raw.trial === true,
+    sessionCode: typeof raw.sessionCode === "string" ? raw.sessionCode : undefined,
+    costNpr: typeof raw.costNpr === "number" ? raw.costNpr : undefined,
+    batchId: typeof raw.batchId === "string" ? raw.batchId : undefined,
   };
 }
 
@@ -186,6 +200,7 @@ function mapEnrollment(
     removedAt: raw.removedAt == null ? null : tsToMs(raw.removedAt),
     removeReason: strOrNull(raw.removeReason),
     requestId: str(raw.requestId),
+    batchId: typeof raw.batchId === "string" ? raw.batchId : undefined,
   };
 }
 
@@ -201,6 +216,8 @@ function mapBatch(id: string, raw: Record<string, unknown>): Batch {
     endDate: strOrNull(raw.endDate),
     status: raw.status === "ended" ? "ended" : "active",
     createdAt: tsToMs(raw.createdAt),
+    memberCount: num(raw.memberCount),
+    endedAt: raw.endedAt ? tsToMs(raw.endedAt) : undefined,
   };
 }
 
@@ -334,6 +351,24 @@ function applyTutorDisplay(list: Enrollment[]): Enrollment[] {
     const info = tutorDisplayCache.get(e.tutorUid);
     if (!info) return e;
     return { ...e, tutorName: info.name, tutorAvatar: info.avatar };
+  });
+}
+
+/**
+ * Cache of batch display names (`batches/{tutorUid}/classes/{batchId}`
+ * → `name`), resolved for the student's "My Enrollments" cards.
+ * Batch docs are readable by any signed-in user (direct-path rule),
+ * so the student subscription can read them the same way it reads
+ * the tutor's public profile.
+ */
+const batchNameCache = new Map<string, string>();
+
+function applyBatchDisplay(list: Enrollment[]): Enrollment[] {
+  return list.map((e) => {
+    if (!e.batchId) return e;
+    const name = batchNameCache.get(e.batchId);
+    if (!name) return e;
+    return { ...e, batchName: name };
   });
 }
 
@@ -608,11 +643,12 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         });
         // Newest first
         enrollments.sort((a, b) => b.acceptedAt - a.acceptedAt);
-        // Emit immediately with whatever tutor identity is already
-        // cached, then backfill the missing tutors (public profile
-        // read) and emit again — the card flips from the generic
-        // placeholder to the real name/photo as soon as it lands.
-        onData(applyTutorDisplay(enrollments));
+        // Emit immediately with whatever identity is already cached,
+        // then backfill the missing tutors (public profile read) and
+        // batch names (batch doc read) and emit again — the card
+        // flips from the generic placeholder to the real info as
+        // soon as it lands.
+        onData(applyBatchDisplay(applyTutorDisplay(enrollments)));
         const missingTutorUids = [
           ...new Set(
             enrollments
@@ -620,32 +656,59 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
               .filter((uid) => uid.length > 0 && !tutorDisplayCache.has(uid)),
           ),
         ];
-        if (missingTutorUids.length > 0) {
+        const missingBatchKeys = [
+          ...new Set(
+            enrollments
+              .filter((e) => e.batchId && !batchNameCache.has(e.batchId))
+              .map((e) => ({ tutorUid: e.tutorUid, batchId: e.batchId! })),
+          ),
+        ];
+        if (missingTutorUids.length > 0 || missingBatchKeys.length > 0) {
           void (async () => {
-            await Promise.all(
-              missingTutorUids.map(async (tutorUid) => {
-                try {
-                  const tutorSnap = await getDoc(
-                    doc(db, "users", tutorUid, "tutorProfile", "default"),
-                  );
-                  const d = tutorSnap.data() as
-                    | { fullName?: unknown; photoUrl?: unknown }
-                    | undefined;
-                  tutorDisplayCache.set(tutorUid, {
-                    name:
-                      typeof d?.fullName === "string" ? d.fullName : "",
-                    avatar:
-                      typeof d?.photoUrl === "string" ? d.photoUrl : null,
-                  });
-                } catch {
-                  tutorDisplayCache.set(tutorUid, {
-                    name: "",
-                    avatar: null,
-                  });
-                }
-              }),
-            );
-            onData(applyTutorDisplay(enrollments));
+            await Promise.all([
+              Promise.all(
+                missingTutorUids.map(async (tutorUid) => {
+                  try {
+                    const tutorSnap = await getDoc(
+                      doc(db, "users", tutorUid, "tutorProfile", "default"),
+                    );
+                    const d = tutorSnap.data() as
+                      | { fullName?: unknown; photoUrl?: unknown }
+                      | undefined;
+                    tutorDisplayCache.set(tutorUid, {
+                      name:
+                        typeof d?.fullName === "string" ? d.fullName : "",
+                      avatar:
+                        typeof d?.photoUrl === "string" ? d.photoUrl : null,
+                    });
+                  } catch {
+                    tutorDisplayCache.set(tutorUid, {
+                      name: "",
+                      avatar: null,
+                    });
+                  }
+                }),
+              ),
+              Promise.all(
+                missingBatchKeys.map(async ({ tutorUid, batchId }) => {
+                  try {
+                    const batchSnap = await getDoc(
+                      doc(db, "batches", tutorUid, "classes", batchId),
+                    );
+                    const b = batchSnap.data() as
+                      | { name?: unknown }
+                      | undefined;
+                    batchNameCache.set(
+                      batchId,
+                      typeof b?.name === "string" ? b.name : "",
+                    );
+                  } catch {
+                    batchNameCache.set(batchId, "");
+                  }
+                }),
+              ),
+            ]);
+            onData(applyBatchDisplay(applyTutorDisplay(enrollments)));
           })();
         }
       },
@@ -720,6 +783,14 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
       startDate: input.startDate,
       endDate: input.endDate,
       message: input.message,
+      mode: input.mode ?? "one-to-one",
+      planMonths: input.planMonths ?? null,
+      pickedSlotKeys: input.pickedSlotKeys ?? [],
+      address: input.address ?? "",
+      trial: input.trial ?? false,
+      sessionCode: input.sessionCode ?? null,
+      costNpr: input.costNpr ?? null,
+      batchId: input.batchId ?? null,
       status: "pending",
       submittedAt: serverTimestamp(),
       decidedAt: null,
@@ -872,6 +943,10 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         removedAt: null,
         removeReason: null,
         requestId: input.requestId,
+        // Session-code join — the roster doc carries the batch so
+        // the student's "My Enrollments" card can show which group
+        // class they joined without an extra lookup.
+        batchId: input.batchId ?? null,
       });
       tx.set(enrollmentRef, enrollmentDoc);
       tx.update(profileRef, {
@@ -883,6 +958,60 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         status: "accepted",
         decidedAt: serverTimestamp(),
       });
+
+      // Session-code join: add the student to the target batch's
+      // `members` subcollection + bump its denormalized memberCount.
+      // Member docs are keyed by enrollmentId (same convention as
+      // the batches repo's addBatchMember and the removeEnrollment
+      // cascade), so re-accepting the same request is idempotent.
+      if (input.batchId) {
+        const batchRef = doc(
+          db,
+          "batches",
+          input.tutorUid,
+          "classes",
+          input.batchId,
+        );
+        const memberRef = doc(
+          db,
+          "batches",
+          input.tutorUid,
+          "classes",
+          input.batchId,
+          "members",
+          enrollmentRef.id,
+        );
+        // Read the batch inside the transaction so the member create
+        // rule's `get(...).data.tutorUid` check sees a consistent doc,
+        // and so we don't bump memberCount for a batch that vanished.
+        const batchSnap = await tx.get(batchRef);
+        if (batchSnap.exists()) {
+          // Hard cap: a session-code join must not push the batch past
+          // its seat limit. Throwing inside the transaction rolls back
+          // the enrollment + request updates too.
+          const batchData = batchSnap.data() as
+            | { memberCount?: number }
+            | undefined;
+          if ((batchData?.memberCount ?? 0) >= MAX_BATCH_MEMBERS) {
+            throw new BatchFullError(
+              "This batch is already full (" +
+                `${(batchData?.memberCount ?? 0)}/${MAX_BATCH_MEMBERS} seats taken).`,
+            );
+          }
+          tx.set(memberRef, {
+            memberId: memberRef.id,
+            enrollmentId: enrollmentRef.id,
+            studentUid: input.student.uid,
+            studentName: input.student.name,
+            studentAvatar: input.student.avatar,
+            joinedAt: serverTimestamp(),
+          });
+          tx.update(batchRef, {
+            memberCount: increment(1),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
 
       return enrollmentRef.id;
     });
@@ -1122,6 +1251,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         endDate: input.endDate ?? null,
         status: "active" as const,
         createdAt: serverTimestamp(),
+        memberCount: input.members.length,
       });
       tx.set(batchRef, batchDoc);
 
@@ -1182,5 +1312,5 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
 };
 
 // Allow other modules to import the helper for testing.
-export { computeBookedMap };
+export { computeBookedMap, mapBatch, mapBatchMember };
 export type { BookedMap };

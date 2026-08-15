@@ -551,8 +551,17 @@ service cloud.firestore {
             || isAdmin());
     }
     match /{prefix=**}/classes/{batchId} {
+      // The marketplace "Browse open batches" screen lists every
+      // ACTIVE batch via a collectionGroup query. Public batches
+      // are discoverable by design — any signed-in user may list
+      // active classes (the direct-path rule already allows
+      // signed-in reads of `batches/{tutorUid}/classes/*`); the
+      // tutor/admin restriction applies to non-active (ended)
+      // batches only.
       allow get, list: if isSignedIn()
-        && (resource.data.tutorUid == request.auth.uid || isAdmin());
+        && (resource.data.tutorUid == request.auth.uid
+            || resource.data.status == "active"
+            || isAdmin());
     }
     match /{prefix=**}/reviews/{reviewId} {
       allow get, list: if isSignedIn()
