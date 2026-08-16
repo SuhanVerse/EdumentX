@@ -81,7 +81,7 @@ function mimeFromUri(uri: string): string {
  *   const b64 = await FileSystem.readAsStringAsync(uri, {
  *     encoding: FileSystem.EncodingType.Base64,
  *   });
- *   return decode(b64);   // from "base64-arraybuffer"
+ *   return base64ToBytes(b64);  // tiny local atob()-based helper
  */
 async function readBytes(uri: string): Promise<ArrayBuffer> {
   return await new File(uri).arrayBuffer();

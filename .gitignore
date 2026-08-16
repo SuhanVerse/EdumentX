@@ -85,3 +85,10 @@ graphify-out/
 # Firebase Admin SDK service-account key (never commit)
 service-account-*.json
 *-firebase-adminsdk-*.json
+
+# Freebuff desktop app local data (agent tooling — not project content)
+.freebuff/
+
+# macOS zip-extraction artifacts (AppleDouble metadata — binary junk)
+__MACOSX/
+._*
