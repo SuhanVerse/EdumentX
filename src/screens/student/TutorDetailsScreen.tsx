@@ -845,7 +845,7 @@ function PricingSection({
         Pricing
       </Text>
 
-      <View className="flex-row gap-3">
+      <View className="flex-row gap-4">
         {/* 1-to-1 card */}
         <View className="flex-1 bg-surface border border-border rounded-card p-4">
           <View className="w-10 h-10 rounded-lg bg-accent-soft items-center justify-center mb-3">
@@ -1213,12 +1213,18 @@ function AboutSection({
 
       <View className="bg-surface border border-border rounded-card p-4">
         {/* Bio */}
-        <Text
-          className="text-body-sm text-text-secondary leading-relaxed"
-          numberOfLines={expanded ? undefined : COLLAPSED_LINES}
-        >
-          {tutor.bio || "No bio yet."}
-        </Text>
+        {tutor.bio ? (
+          <Text
+            className="text-body-sm text-text-secondary leading-relaxed"
+            numberOfLines={expanded ? undefined : COLLAPSED_LINES}
+          >
+            {tutor.bio}
+          </Text>
+        ) : (
+          <Text className="text-body-sm italic text-text-muted leading-relaxed">
+            This tutor hasn&apos;t added a bio yet.
+          </Text>
+        )}
 
         {/* Expand / collapse */}
         {tutor.bio && tutor.bio.length > 100 && (
@@ -1315,19 +1321,16 @@ function DemoLessonSection({
           accessibilityRole="button"
           accessibilityLabel="Play demo lesson"
           onPress={onPlay}
-          className="bg-surface border border-border rounded-card overflow-hidden active:opacity-80"
+          className="bg-surface border border-border rounded-xl overflow-hidden active:opacity-80"
         >
-          {/* Video preview area — clean dark background with centered play button.
-              Real video thumbnails were dropped along with the native
-              expo-video-thumbnails module (it required a dev-client rebuild).
-              The play button is layered for visual depth. */}
-          <View className="w-full h-40 items-center justify-center relative overflow-hidden bg-night">
-            {/* Dim overlay */}
-            <View className="absolute inset-0 bg-black/20" />
-
+          {/* Video preview area — soft light placeholder with the
+              amber play CTA (no harsh black box; real video
+              thumbnails were dropped along with the native
+              expo-video-thumbnails module). */}
+          <View className="w-full h-40 items-center justify-center relative overflow-hidden bg-surface-muted">
             {/* Play button — layered circles with a central play arrow */}
-            <View className="w-16 h-16 rounded-pill bg-white/20 items-center justify-center">
-              <View className="w-14 h-14 rounded-pill bg-white/30 items-center justify-center">
+            <View className="w-16 h-16 rounded-pill bg-surface border border-border items-center justify-center">
+              <View className="w-14 h-14 rounded-pill bg-accent items-center justify-center">
                 <Ionicons name="play" size={30} color={colors.text.inverse} />
               </View>
             </View>

@@ -171,16 +171,21 @@ function RangeSlider({
 
 function Section({
   title,
+  trailing,
   children,
 }: {
   title: string;
+  /** Optional live value chip rendered on the right of the header
+   *  row (sliders pass the current value so it updates on drag). */
+  trailing?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <View className="py-4 border-b border-border">
-      <Text className="text-overline text-text-muted uppercase mb-3">
-        {title}
-      </Text>
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-overline text-text-muted uppercase">{title}</Text>
+        {trailing}
+      </View>
       {children}
     </View>
   );
@@ -195,13 +200,16 @@ function Pill({
   label: string;
   active: boolean;
   onPress: () => void;
-  variant?: "neutral" | "subject";
+  variant?: "neutral" | "subject" | "mode";
 }) {
-  // Two visual languages: subjects get a teal outline when inactive
-  // (the legacy behavior, kept for recognition), level/mode get a
-  // simpler outlined-pill treatment.
+  // Two visual languages: subjects and class-mode chips get the amber
+  // active fill (mode chips: distinct, tactile `bg-accent`), level
+  // chips keep the primary green. Subjects get a teal outline when
+  // inactive (the legacy behavior, kept for recognition), level/mode
+  // get a simpler outlined-pill treatment.
+  const isAccent = variant === "subject" || variant === "mode";
   const classes =
-    active && variant === "subject"
+    active && isAccent
       ? "bg-accent border-accent"
       : active
         ? "bg-primary border-primary"
@@ -209,7 +217,7 @@ function Pill({
           ? "bg-verification-light border-verification-light"
           : "bg-surface border-border";
   const textClasses =
-    active && variant === "subject"
+    active && isAccent
       ? "text-text-inverse"
       : active
         ? "text-white"
@@ -446,12 +454,22 @@ export function FiltersSheet({
                     label={m}
                     active={local.mode === m}
                     onPress={() => set("mode", local.mode === m ? "" : m)}
+                    variant="mode"
                   />
                 ))}
               </View>
             </Section>
 
-            <Section title={`Distance · within ${local.distance} km`}>
+            <Section
+              title="Distance"
+              trailing={
+                <View className="px-2.5 py-1 rounded-pill bg-accent-soft">
+                  <Text className="text-micro font-semibold text-accent">
+                    {local.distance} km
+                  </Text>
+                </View>
+              }
+            >
               <RangeSlider
                 min={1}
                 max={20}
@@ -461,7 +479,14 @@ export function FiltersSheet({
             </Section>
 
             <Section
-              title={`Budget · up to Rs ${local.budget.toLocaleString()}/mo`}
+              title="Budget"
+              trailing={
+                <View className="px-2.5 py-1 rounded-pill bg-accent-soft">
+                  <Text className="text-micro font-semibold text-accent">
+                    Rs {local.budget.toLocaleString()}/mo
+                  </Text>
+                </View>
+              }
             >
               <RangeSlider
                 min={3000}

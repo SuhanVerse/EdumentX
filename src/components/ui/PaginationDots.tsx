@@ -3,7 +3,8 @@
  *
  * Each dot is a `<Pressable>` wrapping an `<Animated.View>` whose
  * `width` springs between 8 (inactive) and 24 (active). The active
- * dot also gets the `bg-night` fill; inactive dots get `bg-border-strong`.
+ * dot gets the amber `bg-accent` fill; inactive dots get
+ * `bg-surface-muted`.
  *
  * Tapping any dot (active or inactive) jumps the carousel to that
  * index via the `onPress(index)` callback.
@@ -72,7 +73,7 @@ function Dot({
       <AnimatedView
         style={style}
         className={`h-2 rounded-pill ${
-          active ? 'bg-primary' : 'bg-surface-muted'
+          active ? 'bg-accent' : 'bg-surface-muted'
         }`}
       />
     </Pressable>

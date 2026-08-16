@@ -124,7 +124,7 @@ export function OnboardingScreen() {
   }
 
   return (
-    <ScreenLayout variant="surface">
+    <ScreenLayout variant="background">
       {/* ── Header: title mark left, Skip right ── */}
       <View className="h-14 flex-row items-center justify-between px-6">
         <View className="flex-row items-center gap-2">
@@ -158,7 +158,7 @@ export function OnboardingScreen() {
         <View className="mt-2 self-start border-b-2 border-accent pb-0.5 mb-3">
           <Text className="text-display text-ink">{slide.title}</Text>
         </View>
-        <Text className="text-body text-ink-muted">{slide.subtitle}</Text>
+        <Text className="text-body text-text-secondary">{slide.subtitle}</Text>
       </Animated.View>
 
       {/* ── Footer: dots + full-width CTA ── */}

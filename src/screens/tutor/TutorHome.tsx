@@ -1227,7 +1227,7 @@ function RequestsSubTabs<TKey extends string>({
   );
   return (
     <View
-      className="flex-row bg-surface border border-border rounded-card p-1 mb-2.5 relative"
+      className="flex-row bg-surface-muted rounded-pill p-1 mb-2.5 relative"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
@@ -1235,7 +1235,7 @@ function RequestsSubTabs<TKey extends string>({
           count={tabs.length}
           activeIndex={activeIndex}
           itemWidth={width / tabs.length}
-          pillClassName="absolute top-1 h-9 rounded-lg bg-primary"
+          pillClassName="absolute top-1 h-9 rounded-pill bg-primary"
           style={{
             top: 4,
             height: 36,
