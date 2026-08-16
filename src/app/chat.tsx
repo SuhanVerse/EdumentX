@@ -250,7 +250,17 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* Messages */}
+      {/* Messages + composer — anchored above the keyboard. The
+          KeyboardAvoidingView wraps the list AND the composer so the
+          whole thread lifts (and the composer rides the keyboard)
+          instead of the keyboard covering the newest message. iOS
+          pads by the keyboard height; Android re-sizes (the app's
+          adjustResize). */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+        className="flex-1"
+      >
       <FlatList
         className="flex-1"
         contentContainerClassName="px-4 py-4 gap-2"
@@ -335,52 +345,48 @@ export default function ChatScreen() {
       )}
 
       {/* Composer */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
+      <View
+        className="border-t border-border bg-surface px-3 pt-2 flex-row items-end gap-2"
+        style={{ paddingBottom: Math.max(insets.bottom, 10) }}
       >
-        <View
-          className="border-t border-border bg-surface px-3 pt-2 flex-row items-end gap-2"
-          style={{ paddingBottom: Math.max(insets.bottom, 10) }}
+        <TextInput
+          value={draftText}
+          onChangeText={(text) => {
+            setDraftText(text);
+            if (text.length > 0) {
+              publishTyping(true);
+              if (typingTimer.current) clearTimeout(typingTimer.current);
+              typingTimer.current = setTimeout(
+                () => publishTyping(false),
+                1200,
+              );
+            } else {
+              if (typingTimer.current) clearTimeout(typingTimer.current);
+              publishTyping(false);
+            }
+          }}
+          placeholder="Type a message…"
+          placeholderTextColor={colors.text.muted}
+          multiline
+          maxLength={MAX_LEN}
+          className="flex-1 min-h-[42px] max-h-[120px] bg-background border border-border rounded-card px-4 py-2.5 text-body text-text-primary"
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          onPress={() => void handleSend()}
+          disabled={!canSend}
+          className={`w-11 h-11 rounded-pill items-center justify-center ${
+            canSend ? "bg-accent active:opacity-90" : "bg-surface-muted"
+          }`}
         >
-          <TextInput
-            value={draftText}
-            onChangeText={(text) => {
-              setDraftText(text);
-              if (text.length > 0) {
-                publishTyping(true);
-                if (typingTimer.current) clearTimeout(typingTimer.current);
-                typingTimer.current = setTimeout(
-                  () => publishTyping(false),
-                  1200,
-                );
-              } else {
-                if (typingTimer.current) clearTimeout(typingTimer.current);
-                publishTyping(false);
-              }
-            }}
-            placeholder="Type a message…"
-            placeholderTextColor={colors.text.muted}
-            multiline
-            maxLength={MAX_LEN}
-            className="flex-1 min-h-[42px] max-h-[120px] bg-background border border-border rounded-card px-4 py-2.5 text-body text-text-primary"
+          <Ionicons
+            name="send"
+            size={18}
+            color={canSend ? "#FFFFFF" : colors.text.muted}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-            onPress={() => void handleSend()}
-            disabled={!canSend}
-            className={`w-11 h-11 rounded-pill items-center justify-center ${
-              canSend ? "bg-accent active:opacity-90" : "bg-surface-muted"
-            }`}
-          >
-            <Ionicons
-              name="send"
-              size={18}
-              color={canSend ? "#FFFFFF" : colors.text.muted}
-            />
-          </Pressable>
-        </View>
+        </Pressable>
+      </View>
       </KeyboardAvoidingView>
     </ScreenLayout>
   );

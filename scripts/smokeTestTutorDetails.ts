@@ -184,15 +184,22 @@ async function main() {
   if (req.status === 200) pass("list: enrollmentRequests/{tutor}/requests");
   else fail("list: enrollmentRequests/{tutor}/requests", `HTTP ${req.status}: ${req.body.slice(0, 200)}`);
 
-  // Cleanup
-  for (const ref of cleanupRefs) {
-    try {
-      const snap = await ref.get();
-      if (snap.exists) await ref.delete();
-    } catch {
-      /* ignore */
+  // Cleanup — recursiveDelete on each parent (NOT a plain
+  // `delete()`): the seeded docs live in SUBcollections
+  // (`classes/seed-1`, `roster/seed-1`, `reviews/seed-1`, …), and a
+  // parent-only delete leaves them behind — which is exactly how
+  // the marketplace kept accumulating `seed-1` classes across runs
+  // (the BrowseBatchesScreen duplicate-key crash, Aug 2026).
+  const cleanResults = await Promise.allSettled(
+    cleanupRefs.map((ref) => db.recursiveDelete(ref)),
+  );
+  cleanResults.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.error(
+        `  ⚠️  cleanup of ${cleanupRefs[i].path} failed: ${String(r.reason)}`,
+      );
     }
-  }
+  });
   try {
     await getAuth(getApps()[0]).deleteUser(STUDENT);
   } catch {

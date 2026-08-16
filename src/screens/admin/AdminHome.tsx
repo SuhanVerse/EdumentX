@@ -71,8 +71,10 @@ async function fetchPlatformCounts(): Promise<PlatformCounts> {
       // collectionGroup across every tutor's `requests` subcollection.
       // The rules allow any signed-in user to list them (matching the
       // `match /enrollmentRequests/{tutorUid}/requests/{requestId}`
-      // read rule), and the single-field collectionGroup index is
-      // already deployed (see firebase/firestore.indexes.json).
+      // read rule). The status-only collectionGroup query needs the
+      // single-field COLLECTION_GROUP index on `requests.status`
+      // (declared in firebase/firestore.indexes.json and deployed
+      // via `firebase deploy --only firestore:indexes`).
       getCountFromServer(
         query(
           collectionGroup(db, "requests"),
@@ -124,23 +126,27 @@ export function AdminHome() {
     <ScreenLayout variant="background">
 
       {/* Hero header — mirrors StudentHome.tsx's "Good morning, {name}"
-          pattern. The right-hand slot hosts the notification bell;
-          Profile is reachable from the bottom nav. */}
-      <ScreenHeader>
+          pattern, on the standard LIGHT hero (the admin theme purge:
+          no more legacy dark-navy admin headers). The right-hand slot
+          hosts the notification bell; Profile is reachable from the
+          bottom nav. */}
+      <ScreenHeader variant="light">
         <View className="flex-row items-start justify-between">
           <View className="flex-1 pr-3">
-            <Text className="text-body text-white/70 mb-0.5">Dashboard</Text>
+            <Text className="text-body text-text-secondary mb-0.5">
+              Dashboard
+            </Text>
             <Text
-              className="text-screen-title font-medium text-white"
+              className="text-screen-title font-medium text-text-primary"
               numberOfLines={1}
             >
               {displayName}
             </Text>
-            <Text className="text-caption text-white/70 mt-1">
+            <Text className="text-caption text-text-muted mt-1">
               Platform overview · verifications & users
             </Text>
           </View>
-          <NotificationBell tone="dark" />
+          <NotificationBell tone="light" />
         </View>
       </ScreenHeader>
 

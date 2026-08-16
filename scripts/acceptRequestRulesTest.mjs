@@ -349,5 +349,47 @@ await seed(`/enrollmentRequests/${TUTOR}/requests/${REQ_ID}`, {
   check("full capacity (6 >= 6) still denies roster create", r.status, 403);
 }
 
+// ── 7. LEGACY ROSTER ROW (no `tutorUid` field): the auto-expiry sweep
+//       (`sweepExpiredEnrollments`) flips `status` on rows the tutor's
+//       OWN subscription sees. Rows created before `tutorUid` was a
+//       required field lack it — the update rule now keys the tutor
+//       clause on the PATH owner (`request.auth.uid == tutorUid`), so
+//       the tutor can still expire them and the sweep batch doesn't
+//       die on permission-denied. Students stay blocked.
+{
+  await seed(`/enrollments/tutor-legacy-sweep-1/roster/enr-legacy-sweep`, {
+    enrollmentId: "enr-legacy-sweep",
+    studentUid: "student-11",
+    studentName: "Student Eleven",
+    status: "active",
+    startDate: "2026-01-01",
+    endDate: "2026-07-01",
+  });
+  const r = await req(
+    "PATCH",
+    `/enrollments/tutor-legacy-sweep-1/roster/enr-legacy-sweep?updateMask.fieldPaths=status&updateMask.fieldPaths=removedAt&updateMask.fieldPaths=removeReason`,
+    "tutor-legacy-sweep-1",
+    payload({
+      status: "expired",
+      removedAt: "2026-08-16T00:00:00Z",
+      removeReason: "Enrollment period ended",
+    }),
+  );
+  check("tutor expires legacy roster row (no tutorUid field)", r.status, 200);
+  if (r.status !== 200) console.log("   ", r.body);
+
+  // NOTE: the student's write must be a REAL mutation — a no-op
+  // (same status value) produces an empty `changedKeys()` set, and
+  // `hasOnly([...])` is vacuously true on an empty set, which would
+  // let the write through. `removed` is a real change → denied.
+  const studentSweep = await req(
+    "PATCH",
+    `/enrollments/tutor-legacy-sweep-1/roster/enr-legacy-sweep?updateMask.fieldPaths=status`,
+    "student-11",
+    payload({ status: "removed" }),
+  );
+  check("student cannot flip a legacy roster row status", studentSweep.status, 403);
+}
+
 console.log(`\n${pass} passed / ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

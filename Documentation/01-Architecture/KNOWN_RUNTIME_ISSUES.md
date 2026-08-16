@@ -34,7 +34,7 @@ Verification: `tsc` 0 errors, `eslint` 0 problems, `test:rules`
 
 ## 2. Known runtime errors (from the Aug 16 on-device log)
 
-### A. `AdminHome: failed to fetch counts [firestore/failed-precondition]`
+### A. `AdminHome: failed to fetch counts [firestore/failed-precondition]` — FIXED (needs deploy)
 
 - **Where:** `src/screens/admin/AdminHome.tsx` → `fetchPlatformCounts`.
 - **Root cause:** the pending-requests KPI uses
@@ -43,23 +43,27 @@ Verification: `tsc` 0 errors, `eslint` 0 problems, `test:rules`
   **single-field COLLECTION_GROUP index on `requests.status`**. The
   existing `firebase/firestore.indexes.json` entry for `requests`
   (`studentUid ASC, status ASC`) does NOT serve a status-only query.
-- **Fix pointer:** add a `fieldOverrides` entry for
-  `requests.status` with `"queryScope": "COLLECTION_GROUP"` in
-  `firebase/firestore.indexes.json`, then deploy indexes
-  (`firebase deploy --only firestore:indexes`). The `tutors`
-  verificationStatus query is a plain collection query and needs
-  nothing.
+- **Fix:** `requests.status` COLLECTION_GROUP override added to
+  `firebase/firestore.indexes.json`. **Deploy required** for the live
+  KPI to come up:
+  ```
+  firebase deploy --only firestore:indexes
+  ```
 
 ### B. `Text strings must be rendered within a <Text> component`
 
-- **Two reported sites:** `MapSearch.tsx:415` (inside `ScreenLayout`)
-  and `VerificationQueue.tsx:1660` (`PendingEditCard` Approve
-  `Pressable`).
-- **Investigation already done:** both lines were read from live disk
-  and are **provably clean** — the Approve `Pressable`'s only children
-  are `<Ionicons>` + `<Text>`, and a Babel AST scan of the entire
-  MapSearch tree found zero raw-string children under non-`Text` hosts.
-  RN 0.81 logs this error non-fatally.
+- **Reported sites:** `MapSearch.tsx:415` (inside `ScreenLayout`),
+  `VerificationQueue.tsx:1660` (`PendingEditCard` Approve
+  `Pressable`), and a re-captured log shows `ScreenLayout.tsx:65` —
+  the `SafeAreaView` render. All three point at a raw string child
+  of a non-`Text` host somewhere under the tree.
+- **Investigation (still valid):** every reported line was read from
+  live disk and is **provably clean** — the Approve `Pressable`'s
+  only children are `<Ionicons>` + `<Text>`, and a Babel AST scan
+  of the entire MapSearch tree found zero raw-string children under
+  non-`Text` hosts. RN 0.81 logs this error non-fatally, and the
+  shifting line numbers (`ScreenLayout.tsx:65` vs `MapSearch.tsx:415`)
+  match an OLD BUNDLE being served to the phone.
 - **Verdict:** stale Metro transform cache on the device (old module
   served to the phone). Fix: `npx expo start -c`, then fully reload
   the app on the device (kill + reopen). If it persists after a clean
@@ -76,44 +80,125 @@ Verification: `tsc` 0 errors, `eslint` 0 problems, `test:rules`
   `import { getIdToken } from "@react-native-firebase/auth";` then
   `getIdToken(currentUser, false)`.
 
-### D. `ReviewModal: submitReview failed [firestore/permission-denied]`
+### D. `ReviewModal: submitReview failed [firestore/permission-denied]` — FIXED
 
 - **Where:** `src/components/domain/ReviewModal.tsx` →
-  `src/services/enrollments/FirebaseReviewRepository.ts:116`
+  `src/services/enrollments/FirebaseReviewRepository.ts`
   (`submitReview`).
-- **Context:** the `smoke:reviews` live suite proves a client-created
-  review at `reviews/{tutorUid}/reviews/{reviewId}` with
-  `studentUid == auth.uid` passes the rules. So the failure is likely
-  a written field or path that differs from the rules' create
-  condition (or the transaction's aggregate write). Compare the app's
-  write against the `reviews` create rule before assuming a rule bug.
+- **Root cause (found Aug 16):** `submitReview` runs ONE transaction
+  that (1) creates the review doc AND (2) updates the TUTOR's
+  `users/{tutorUid}/tutorProfile/default` aggregates (rating /
+  reviewCount / categoryRatings / reviewBreakdown / updatedAt). The
+  reviewer is not the profile owner, so write #2 was denied and the
+  whole transaction rolled back. The `smoke:reviews` suite missed it
+  because it only wrote the review doc, never the profile update.
+- **Fix:** a narrow `allow update` carve-out on
+  `users/{userId}/tutorProfile/default` letting any signed-in user
+  change ONLY the five aggregate fields (`hasOnly` check). Personal
+  fields stay owner/admin-only. Locked in by `reviewsListRulesTest.mjs`
+  §4b (emulator) and `smoke:reviews` step 4 (now mirrors the real
+  transaction).
 
-### E. `sweepExpiredEnrollments: commit failed [permission-denied]` (log flood)
+### E. `sweepExpiredEnrollments: commit failed [permission-denied]` (log flood) — FIXED
 
 - **Where:** `src/services/enrollments/FirebaseEnrollmentRepository.ts`
-  (`sweepExpiredEnrollments`, ~line 272; called from
-  `subscribeEnrollments` ~line 455).
-- **What it writes:** `enrollments/{tutorUid}/roster/{id}` → `status:
-  "expired"`, plus `users/{tutorUid}/tutorProfile/default` →
-  `enrolledCount` / `currentStudents`. It fires on every
-  `subscribeEnrollments` callback, which is why the log floods.
-- **Fix pointer:** check the `roster` update rule — the tutor flipping
-  their own roster row's status to `expired` is likely not permitted,
-  or the profile-doc `enrolledCount` update conflicts with a
-  condition. The `acceptRequestRulesTest.mjs` comment at line 140
-  references this path, so the emulator suite may already encode the
-  intended rule.
+  (`sweepExpiredEnrollments`; called from `subscribeEnrollments`).
+- **Root cause (found Aug 16):** the STUDENT screens
+  (`TutorDetailsScreen.tsx`, `EnrollmentFormScreen.tsx`) subscribe to
+  a tutor's roster via `subscribeEnrollments(tutorUid)` to build the
+  BookedMap — and that subscription ran the expiry sweep AS THE
+  STUDENT, writing the tutor's roster rows + profile and getting
+  denied on every snapshot (hence the flood). Secondary hazard:
+  legacy roster rows predating the required `tutorUid` field would
+  also deny the tutor's own sweep.
+- **Fix:** `subscribeEnrollments` gained an options param
+  (`{ runSweep?: boolean }`, default true); the two student call
+  sites pass `{ runSweep: false }`. The roster update rule now keys
+  the tutor clause on the PATH owner (`request.auth.uid == tutorUid`)
+  so legacy rows without a `tutorUid` field still expire cleanly
+  (locked in by `acceptRequestRulesTest.mjs` §7). The sweep also
+  keeps `currentStudents` in sync with `enrolledCount` instead of
+  zeroing it.
 
-### F. Duplicate key `seed-1` in `BrowseBatchesScreen`
+### F. Duplicate key `seed-1` in `BrowseBatchesScreen` — FIXED (app + script)
 
-- **Where:** `src/screens/student/BrowseBatchesScreen.tsx:137`
+- **Where:** `src/screens/student/BrowseBatchesScreen.tsx`
   (`key={b.batchId}`).
 - **Root cause:** leftover smoke-test batch docs in the live project —
   `batches/{tutorUid}/classes/seed-1` exists under multiple smoke
   tutors, so the collection-group list yields duplicate `batchId`s.
-- **Fix pointer:** clean the seeded docs from the live project (or
-  key the list by `${b.tutorUid}-${b.batchId}`), and make the batch
-  smoke script use unique batch IDs / clean up in `finally`.
+- **Fix:** the list now keys by `${b.tutorUid}-${b.batchId}` (immune
+  to any future leftovers), and `scripts/smokeTestBatchesBrowse.ts`
+  now uses per-run timestamped batch IDs + guarantees cleanup via
+  `try/finally` so a crashed run can never reseed duplicates. If
+  `seed-1` docs still exist in the live project, delete them via the
+  Firebase Console (or `scripts/deleteUser.ts` per smoke tutor uid)
+  — the app no longer crashes either way.
+
+## 2.1. Fixes landed after this handoff (same-day session)
+
+- **submitReview + sweepExpiredEnrollments — ROOT CAUSES FOUND.**
+  `submitReview`'s transaction also updates the TUTOR's profile
+  aggregates (a write no reviewer is allowed to do) — fixed with a
+  narrow `hasOnly([...aggregate fields])` carve-out on
+  `users/{uid}/tutorProfile/default` update. The sweep storm was the
+  STUDENT screens (`TutorDetailsScreen`, `EnrollmentFormScreen`)
+  running `subscribeEnrollments`, which swept AS THE STUDENT — fixed
+  with `options.runSweep: false` on those call sites + a path-owner
+  roster-update clause for legacy rows. Both locked in by emulator
+  checks (`acceptRequestRulesTest.mjs` §7, `reviewsListRulesTest.mjs`
+  §4b) and live smoke mirrors (`smoke:reviews` step 4 now performs
+  the aggregate write).
+- **AdminHome KPI — index added, DEPLOY REQUIRED:**
+  `requests.status` COLLECTION_GROUP override in
+  `firebase/firestore.indexes.json`; run
+  `firebase deploy --only firestore:indexes`.
+- **Duplicate-key crash — fixed app-side + script-side:**
+  BrowseBatchesScreen keys by `${tutorUid}-${batchId}`;
+  `smokeTestBatchesBrowse` uses timestamped ids and cleans up in
+  `finally`. Leftover `seed-1` docs in the live project are harmless
+  to the app now but can be scrubbed via the console.
+- **Batch "404" — root cause:** the student detail screen read the
+  batch from the ACTIVE-only marketplace feed, so ENDED batches
+  (opened from My Enrollments) showed "Batch not found". Fixed with
+  a direct-path `subscribeBatch` (status-agnostic) + one-shot tutor
+  display enrichment.
+- **Blank student avatars:** the tutor-facing roster/request feeds now
+  backfill missing names/avatars from `users/{uid}/studentProfile/
+  default` (emit-then-backfill, same pattern as the student view's
+  tutor identity) — BatchCreation picker, TutorHome roster, and the
+  inbox cards fill in real photos.
+- **Admin light-theme purge:** all four admin screens switched to
+  `ScreenHeader variant="light"` + text tokens (no more dark-navy
+  heroes); StudentProfile skeleton unified to the plain `ScreenScroll`
+  body; MyEnrollments tab bar got 24px gutters to match the list.
+- **Chat keyboard handling:** the message list + composer now sit
+  inside one `KeyboardAvoidingView` (`padding` on iOS / `height` on
+  Android) so the thread anchors above the keyboard. Receipts ✓/✓✓,
+  debounced typing, and the header unread badges already existed.
+- **Microcopy:** help-support payment FAQ rewritten (monthly-rate
+  basis, no in-app payments); TutorDetails share text enriched
+  (verified · area · rating); all four profile footers already read
+  "EdumentX • Version 1.0.0"; SecondaryButton spinner hex → tokens.
+
+DEPLOYED (same day): `firebase deploy --only firestore:rules,
+firestore:indexes` pushed the new rules (review-aggregate carve-out +
+roster path-owner clause) and the `requests.status` COLLECTION_GROUP
+index to `edumentx-dev`. All five live smoke suites then passed
+against the deployed rules (`smoke:reviews` incl. the new aggregate
+write, `smoke:batches-browse`, `smoke:enrollments`, `smoke:tutor-details`,
+`smoke:messages`).
+
+Also found + fixed during the cleanup: `smokeTestTutorDetails.ts`
+was the ACTUAL source of the marketplace `seed-1` pollution — it
+seeded `classes/seed-1` but its cleanup did a parent-only `delete()`
+(which never touches subcollections), so EVERY CI run left a new
+`seed-1` behind. Its cleanup now uses `recursiveDelete`; the 8 legacy
+docs (6 × `seed-1`, `batch-active-1`, `batch-ended-1`) were scrubbed
+from the live project and a re-run confirms no leftovers regenerate.
+
+Still open: **C. `getIdToken` deprecation warning** (single call
+site, cosmetic).
 
 ## 3. Expected log noise (not bugs)
 

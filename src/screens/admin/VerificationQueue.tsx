@@ -1075,15 +1075,18 @@ export function VerificationQueue() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero header */}
-      <ScreenHeader>
-        <Text className="text-body text-white/70 mb-0.5">Moderation</Text>
-        <Text className="text-screen-title font-medium text-white">
+      {/* Hero header — standard LIGHT hero (the admin theme purge:
+          no more legacy dark-navy admin headers). */}
+      <ScreenHeader variant="light">
+        <Text className="text-body text-text-secondary mb-0.5">
+          Moderation
+        </Text>
+        <Text className="text-screen-title font-medium text-text-primary">
           Verification Queue
         </Text>
         <View className="flex-row items-center gap-2 mt-1">
           <View className="w-1.5 h-1.5 rounded-pill bg-warning" />
-          <Text className="text-caption text-white/70">
+          <Text className="text-caption text-text-muted">
             {loading
               ? "Loading queue…"
               : `${totalOpen} open · ${decided.length} decided`}

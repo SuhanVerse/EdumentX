@@ -64,6 +64,19 @@ export interface BatchesRepository {
     onError?: (err: Error) => void,
   ): Unsubscribe;
 
+  /** Live single batch read by DIRECT PATH
+   *  (`batches/{tutorUid}/classes/{batchId}`) — unlike
+   *  `subscribePublicBatches` it returns ENDED batches too, so the
+   *  detail screen doesn't show "not found" when a student opens a
+   *  batch that has since closed (e.g. from My Enrollments).
+   *  Emits `null` while the doc doesn't exist. */
+  subscribeBatch(
+    tutorUid: string,
+    batchId: string,
+    onData: (batch: Batch | null) => void,
+    onError?: (err: Error) => void,
+  ): Unsubscribe;
+
   /** Live active roster — the "Pick students" source. */
   subscribeRoster(
     tutorUid: string,

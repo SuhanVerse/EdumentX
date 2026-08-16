@@ -67,6 +67,18 @@ async function req(method, path, uid, body) {
   return { status: res.status, body: await res.text() };
 }
 
+async function seed(path, data) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+    body: JSON.stringify(payload(data)),
+  });
+  if (res.status !== 200) {
+    console.error("seed failed:", path, res.status, await res.text());
+    process.exit(1);
+  }
+}
+
 async function runListQuery(parentDocPath, uid) {
   // REST shape for listing a subcollection: parent = the parent
   // DOCUMENT path, `collectionId` = the subcollection name.
@@ -154,6 +166,45 @@ const REV_B = "review-bbb";
   const ok = r.status === 200 && r.body.includes(REV_B);
   check("signed-in user lists tutor B reviews", ok ? 200 : r.status, 200);
   if (r.status !== 200 || !ok) console.log("   ", r.body.slice(0, 200));
+}
+
+// ── 4b. REVIEW TRANSACTION WRITES: the app's `submitReview` creates
+//    the review AND updates the tutor's PROFILE aggregates
+//    (rating/reviewCount/categoryRatings/reviewBreakdown/updatedAt) in
+//    one transaction. The reviewer is not the profile owner, so the
+//    rules need a narrow carve-out for exactly those fields — without
+//    it the whole transaction rolls back with permission-denied (the
+//    Aug 16 submitReview bug). A reviewer must NOT be able to touch
+//    personal fields.
+{
+  await seed(`/users/${TUTOR_A}/tutorProfile/default`, {
+    fullName: "Tutor A",
+    rating: 0,
+    reviewCount: 0,
+  });
+  const agg = await req(
+    "PATCH",
+    `/users/${TUTOR_A}/tutorProfile/default?updateMask.fieldPaths=rating&updateMask.fieldPaths=reviewCount&updateMask.fieldPaths=categoryRatings&updateMask.fieldPaths=reviewBreakdown&updateMask.fieldPaths=updatedAt`,
+    STUDENT,
+    payload({
+      rating: 5,
+      reviewCount: 1,
+      categoryRatings: "{\"clarity\":5}",
+      reviewBreakdown: "{\"5\":1}",
+      updatedAt: "2026-08-16T00:00:00Z",
+    }),
+  );
+  check("reviewer updates tutor profile aggregates (submitReview tx)", agg.status, 200);
+  if (agg.status !== 200) console.log("   ", agg.body.slice(0, 200));
+
+  const personal = await req(
+    "PATCH",
+    `/users/${TUTOR_A}/tutorProfile/default?updateMask.fieldPaths=fullName`,
+    STUDENT,
+    payload({ fullName: "Hacked Name" }),
+  );
+  check("reviewer cannot touch tutor personal fields", personal.status, 403);
+  if (personal.status !== 403) console.log("   ", personal.body.slice(0, 200));
 }
 
 // ── 5. Unauthenticated list rejected ──

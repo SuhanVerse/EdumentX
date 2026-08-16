@@ -39,6 +39,9 @@ import {
   View,
 } from "react-native";
 
+import { getApp } from "@react-native-firebase/app";
+import { doc, getDoc, getFirestore } from "@react-native-firebase/firestore";
+
 import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { SeatsRing } from "@/components/domain/SeatsRing";
 import {
@@ -114,27 +117,64 @@ export function BatchDetailScreen() {
   const batchesRepo = useMemo(() => getBatchesRepository(), []);
   const enrollRepo = useMemo(() => getEnrollmentRepository(), []);
 
-  // Batch doc — the tutor reads their own list; the student reads
-  // the public active-batches feed (enriched with tutor display).
+  // Batch doc — read by DIRECT PATH so ended batches still render
+  // (the student marketplace feed filters to `active`, which made
+  // any closed batch opened from My Enrollments show "not found").
   useEffect(() => {
     if (!tutorUid || !batchId) return;
     let disposed = false;
-    const onData = (list: Batch[]) => {
-      if (disposed) return;
-      setBatch(list.find((b) => b.batchId === batchId) ?? null);
-      setLoaded(true);
-    };
-    const onError = () => {
-      if (!disposed) setLoaded(true);
-    };
-    const unsub = isTutor
-      ? batchesRepo.subscribeBatches(tutorUid, onData, onError)
-      : batchesRepo.subscribePublicBatches(onData, onError);
+    const unsub = batchesRepo.subscribeBatch(
+      tutorUid,
+      batchId,
+      (b) => {
+        if (disposed) return;
+        setBatch(b);
+        setLoaded(true);
+      },
+      () => {
+        if (!disposed) setLoaded(true);
+      },
+    );
     return () => {
       disposed = true;
       unsub();
     };
-  }, [batchesRepo, isTutor, tutorUid, batchId]);
+  }, [batchesRepo, tutorUid, batchId]);
+
+  // Student-side tutor attribution — the direct-path batch doc
+  // doesn't carry the tutor's display info (the marketplace feed
+  // enriched it), so resolve it from the public tutor profile once.
+  useEffect(() => {
+    if (isTutor || !tutorUid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const db = getFirestore(getApp());
+        const snap = await getDoc(
+          doc(db, "users", tutorUid, "tutorProfile", "default"),
+        );
+        const d = snap.data() as
+          | { fullName?: unknown; photoUrl?: unknown }
+          | undefined;
+        if (cancelled) return;
+        const name =
+          typeof d?.fullName === "string" && d.fullName.length > 0
+            ? d.fullName
+            : `Tutor ${tutorUid.slice(0, 6)}`;
+        const avatar =
+          typeof d?.photoUrl === "string" && d.photoUrl.length > 0
+            ? d.photoUrl
+            : null;
+        setBatch((cur) => (cur ? { ...cur, tutorName: name, tutorAvatar: avatar } : cur));
+      } catch {
+        // Non-tutor peer or unreadable — the attribution row is
+        // optional; the card still renders without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isTutor, tutorUid]);
 
   // Members — tutor only (rules gate the subcollection to the
   // owning tutor; students see memberCount on the batch doc).

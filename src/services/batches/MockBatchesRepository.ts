@@ -32,6 +32,15 @@ export const MockBatchesRepository: BatchesRepository = {
     return MockEnrollmentRepository.subscribeBatchMembers(tutorUid, batchId, onData, onError);
   },
 
+  subscribeBatch(tutorUid, batchId, onData, onError) {
+    return subscribeAllBatches((batches) => {
+      const b = batches.find(
+        (x) => x.tutorUid === tutorUid && x.batchId === batchId,
+      );
+      onData(b ? { ...b, tutorName: mockTutorName(tutorUid) } : null);
+    }, onError);
+  },
+
   subscribeRoster(tutorUid, onData, onError) {
     return MockEnrollmentRepository.subscribeEnrollments(
       tutorUid,

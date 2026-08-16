@@ -142,6 +142,25 @@ export const FirebaseBatchesRepository: BatchesRepository = {
     return enrollmentRepo.subscribeBatchMembers(tutorUid, batchId, onData, onError);
   },
 
+  subscribeBatch(tutorUid, batchId, onData, onError) {
+    const db = getFirestore(getApp());
+    // Direct-path doc read — the rules allow any signed-in user to
+    // GET `batches/{tutorUid}/classes/{batchId}` regardless of
+    // status, so ended batches render instead of "not found".
+    const ref = doc(db, "batches", tutorUid, "classes", batchId);
+    return onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists) {
+          onData(null);
+          return;
+        }
+        onData(mapBatch(snap.id, snap.data() as Record<string, unknown>));
+      },
+      (err) => onError?.(err as Error),
+    );
+  },
+
   subscribeRoster(tutorUid, onData, onError) {
     return enrollmentRepo.subscribeEnrollments(
       tutorUid,

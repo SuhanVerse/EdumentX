@@ -338,19 +338,20 @@ export function AdminProfile() {
         className="flex-1"
       >
         {/* Hero — mirrors StudentProfileScreen's "Set up your profile"
-            header. Dark navy bg, large white title, lighter caption.
-            No sign-out pill in the hero — it's moved to the bottom of
-            the form to match the Tutor Profile layout. */}
-        <ScreenHeader>
+            header, on the standard LIGHT hero (the admin theme purge:
+            no more legacy dark-navy admin headers). No sign-out pill
+            in the hero — it's moved to the bottom of the form to
+            match the Tutor Profile layout. */}
+        <ScreenHeader variant="light">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 min-w-0">
-              <Text className="text-overline text-white/70 uppercase">
+              <Text className="text-overline text-text-muted uppercase">
                 {isFirstTime ? "Welcome" : "Admin profile"}
               </Text>
-              <Text className="text-header-title text-white mt-0.5">
+              <Text className="text-header-title text-text-primary mt-0.5">
                 {isFirstTime ? "Set up your admin profile" : "Your details"}
               </Text>
-              <Text className="text-body text-white opacity-70 mt-1">
+              <Text className="text-body text-text-secondary mt-1">
                 {isFirstTime
                   ? "Tell the team who's behind this account."
                   : "Update your display name, role title, or phone."}

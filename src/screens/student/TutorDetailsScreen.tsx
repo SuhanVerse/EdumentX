@@ -78,6 +78,26 @@ function formatNprShort(amount: number): string {
   return `Rs ${amount}`;
 }
 
+/** Rich share payload — name, verified badge, headline, rate, area
+ *  and rating so the shared card reads like a real tutor referral
+ *  instead of a bare name+price line. */
+function buildShareMessage(tutor: TutorProfile): string {
+  const verified = tutor.isVerifiedProfessional ? " ✅ Verified" : "";
+  const rating =
+    tutor.rating > 0
+      ? ` · ${tutor.rating.toFixed(1)}★ (${tutor.reviewCount} review${tutor.reviewCount === 1 ? "" : "s"})`
+      : "";
+  const area =
+    tutor.location?.neighborhood || tutor.location?.city
+      ? ` · ${[tutor.location.neighborhood, tutor.location.city]
+          .filter(Boolean)
+          .join(", ")}`
+      : "";
+  return `${tutor.fullName}${verified} — ${tutor.headline} · ${formatNprShort(
+    tutor.monthlyRateNpr,
+  )}/month${area}${rating} on EdumentX`;
+}
+
 function StarIcon({ filled, size = 14 }: { filled: boolean; size?: number }) {
   return (
     <Ionicons
@@ -221,6 +241,12 @@ export function TutorDetailsScreen() {
   const [bookedMap, setBookedMap] = useState<ReturnType<
     typeof computeBookedMap
   > | null>(null);
+  // Whether the CURRENT student already has an ACTIVE enrollment
+  // with this tutor (one-to-one or batch). When true the sticky
+  // footer's "Enroll" CTA flips to a disabled "Already enrolled"
+  // state — no point sending the student to the request form for a
+  // tutor they're already studying with.
+  const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
 
   // Phase 1 grid redesign — track the student's selected slots
   // (multi-select) and the tutor's open requests so the grid can
@@ -329,9 +355,17 @@ export function TutorDetailsScreen() {
       (list) => {
         latestEnrollments = list;
         recompute();
+        setAlreadyEnrolled(
+          list.some(
+            (e) => e.studentUid === user?.uid && e.status === "active",
+          ),
+        );
       },
       (err) =>
         console.warn("TutorDetailsScreen: enrollments subscribe failed", err),
+      // Read-only roster — never run the expiry sweep as a student
+      // (it writes the tutor's docs and would permission-deny).
+      { runSweep: false },
     );
     const unsubB = repo.subscribeBatches(
       id,
@@ -346,7 +380,7 @@ export function TutorDetailsScreen() {
       unsubE();
       unsubB();
     };
-  }, [id, repo]);
+  }, [id, repo, user?.uid]);
 
   // Live enrollment requests — Phase 1 grid redesign. We need the
   // open requests to overlay an hourglass icon + count badge on
@@ -484,9 +518,7 @@ export function TutorDetailsScreen() {
         isSaved={isSaved}
         onSaveToggle={handleSaveToggle}
         onBack={() => router.back()}
-        shareMessage={`${effectiveTutor.fullName} — ${effectiveTutor.headline} · ${formatNprShort(
-          effectiveTutor.monthlyRateNpr,
-        )}/month on EdumentX`}
+        shareMessage={buildShareMessage(effectiveTutor)}
       />
 
       <ScrollView
@@ -562,6 +594,7 @@ export function TutorDetailsScreen() {
         tutor={effectiveTutor}
         insets={insets}
         openSheet={openEnrollForm}
+        enrolled={alreadyEnrolled}
       />
 
       {/* ═══ Demo Video Modal ═══ */}
@@ -1516,10 +1549,12 @@ function StickyFooter({
   tutor,
   insets,
   openSheet,
+  enrolled,
 }: {
   tutor: TutorProfile;
   insets: { bottom: number };
   openSheet: () => void;
+  enrolled: boolean;
 }) {
   return (
     <View
@@ -1536,19 +1571,34 @@ function StickyFooter({
           <Text className="text-micro text-text-muted">/month</Text>
         </View>
 
-        {/* Enroll button — always visible. The student may have
-            *  selected candidate slots on the grid above, but the
-            *  request itself is captured in the sheet (the
-            *  schedule + message + dates). The button is the
-            *  single entry point to the sheet. */}
+        {/* Enroll button — always visible unless the student is
+            *  already enrolled (then a disabled "Already enrolled"
+            *  state replaces it). The student may have selected
+            *  candidate slots on the grid above, but the request
+            *  itself is captured in the sheet (the schedule +
+            *  message + dates). The button is the single entry
+            *  point to the sheet. */}
         <View className="flex-1">
-          <PrimaryButton
-            label={`Enroll with ${tutor.fullName.split(" ")[0]}`}
-            onPress={openSheet}
-            variant="accent"
-            size="md"
-            className="w-full"
-          />
+          {enrolled ? (
+            <View className="min-h-btn rounded-card bg-surface-muted border border-border items-center justify-center flex-row gap-1.5">
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={colors.semantic.success}
+              />
+              <Text className="text-button font-medium text-text-muted">
+                Already enrolled
+              </Text>
+            </View>
+          ) : (
+            <PrimaryButton
+              label={`Enroll with ${tutor.fullName.split(" ")[0]}`}
+              onPress={openSheet}
+              variant="accent"
+              size="md"
+              className="w-full"
+            />
+          )}
         </View>
       </View>
     </View>

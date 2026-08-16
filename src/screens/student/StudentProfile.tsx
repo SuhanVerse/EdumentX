@@ -5,7 +5,6 @@ import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
-  ScreenSheet,
 } from "@/components/shared/ScreenLayout";
 import { useEffect, useState } from "react";
 import {
@@ -250,9 +249,9 @@ export function StudentProfile() {
         </View>
       </ScreenHeader>
 
-      {/* Profile body — light sheet overlapping the dark hero
-          (premium dark→light seam, shared `ScreenSheet` pattern) */}
-      <ScreenSheet>
+      {/* Profile body — plain scroll body with the standard gutters,
+          matching the Tutor + Admin profile skeletons (unified light
+          hero → scroll → identity card → rows). */}
       <ScreenScroll>
         {/* Identity card */}
         <View className="bg-surface border border-border rounded-card p-5 items-center">
@@ -417,7 +416,6 @@ export function StudentProfile() {
           EdumentX • Version 1.0.0
         </Text>
       </ScreenScroll>
-      </ScreenSheet>
 
       <BottomNav role="student" current="/stu-profile" />
 
