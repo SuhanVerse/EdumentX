@@ -10,6 +10,8 @@ This folder contains high-level, project-wide documents. Read these first.
 | [`README.md`](./README.md) | This file | Everyone |
 | [`FIGMA_AI_CONTEXT.md`](./FIGMA_AI_CONTEXT.md) **+ 4 companions** | Reverse-engineered design-system exports for Figma AI sync (see [Figma AI exports](#figma-ai-design-exports) below) | Design / Figma AI agents |
 | [`FIGMA_MAKE_PROMPT_GUIDE.md`](./FIGMA_MAKE_PROMPT_GUIDE.md) | One self-directing Figma Make master prompt: phase-driven (auth → student → tutor → admin → shared → QA), auto-detects done screens and continues | Design / Figma AI agents |
+| [`../05-Build-and-Deploy/install-guide.md`](../05-Build-and-Deploy/install-guide.md) | Installing the app on iOS & Android: local Xcode/Gradle builds, EAS cloud builds, free-vs-paid Apple accounts, APK sharing, common issues | Anyone running the app on a phone |
+| [`../05-Build-and-Deploy/borrowed-mac-checklist.md`](../05-Build-and-Deploy/borrowed-mac-checklist.md) | One-page checkbox runbook for running the app on a friend's Mac + iPhone (the zero-budget iOS path) | Anyone setting up a borrowed Mac session |
 
 ## What is EdumentX?
 

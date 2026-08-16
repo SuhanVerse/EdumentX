@@ -18,6 +18,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { logout } from "@/services/firebase/authService";
+import { colors } from "@/constants/colors";
 import { useAuthStore } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
 
@@ -220,12 +221,12 @@ export function TutorPendingReview() {
           preserved. */}
       <View className="px-5 pb-7 shrink-0">
         <View className="flex-row items-center gap-2 mb-2 mt-1">
-          <View className="w-2 h-2 rounded-full bg-warning" />
+          <View className="w-2 h-2 rounded-pill bg-warning" />
           <Text className="text-caption text-text-secondary uppercase tracking-wider">
             Under review
           </Text>
         </View>
-        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-screen-title font-medium text-text-primary">
             Your account is being reviewed
           </Text>
@@ -248,7 +249,7 @@ export function TutorPendingReview() {
             across the app. */}
         <View className="flex-row items-start gap-3 p-4 rounded-card bg-warning-bg border border-warning/30 mb-5">
           <View className="w-9 h-9 rounded-pill bg-warning/20 items-center justify-center mt-0.5">
-            <Ionicons name="time-outline" size={18} color="#E5A03B" />
+            <Ionicons name="time-outline" size={18} color={colors.brand.accent} />
           </View>
           <View className="flex-1 min-w-0">
             <Text className="text-card-title font-medium text-warning-text">
@@ -277,7 +278,7 @@ export function TutorPendingReview() {
               }`}
             >
               <View className="w-9 h-9 rounded-pill bg-accent-soft items-center justify-center mt-0.5">
-                <Ionicons name={item.icon} size={16} color="#E5A03B" />
+                <Ionicons name={item.icon} size={16} color={colors.brand.accent} />
               </View>
               <View className="flex-1 min-w-0">
                 <Text className="text-body font-medium text-text-primary">
@@ -299,7 +300,7 @@ export function TutorPendingReview() {
           className="flex-row items-center gap-3 p-4 rounded-card bg-surface border border-border active:opacity-70"
         >
           <View className="w-9 h-9 rounded-pill bg-ai-light items-center justify-center">
-            <Ionicons name="mail-outline" size={18} color="#4A7FA5" />
+            <Ionicons name="mail-outline" size={18} color={colors.brand.ai} />
           </View>
           <View className="flex-1 min-w-0">
             <Text className="text-body font-medium text-text-primary">
@@ -310,7 +311,7 @@ export function TutorPendingReview() {
               within 24 hours.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#6B7268" />
+          <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
         </Pressable>
 
         {/* Sign-out — last, visually separated. */}
@@ -320,7 +321,7 @@ export function TutorPendingReview() {
           onPress={() => setConfirmSignOut(true)}
           className="mt-7 min-h-btn rounded-card bg-danger-bg border border-danger/30 flex-row items-center justify-center gap-2 active:opacity-80"
         >
-          <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+          <Ionicons name="log-out-outline" size={18} color={colors.semantic.danger} />
           <Text className="text-button font-semibold text-danger">
             Sign out
           </Text>

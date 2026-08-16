@@ -14,6 +14,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Pressable, Text, View } from "react-native";
 
+import { colors } from "@/constants/colors";
+
 export type EnrolledStudentRowProps = {
   enrollment: {
     enrollmentId: string;
@@ -74,7 +76,7 @@ export function EnrolledStudentRow({
         disabled={pending}
         className="w-9 h-9 rounded-pill items-center justify-center bg-sand active:opacity-70 disabled:opacity-50"
       >
-        <Ionicons name="trash-outline" size={16} color="#6B7268" />
+        <Ionicons name="trash-outline" size={16} color={colors.text.muted} />
       </Pressable>
     </View>
   );
@@ -87,7 +89,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   const initial = (name?.charAt(0) ?? "?").toUpperCase();
   if (!hasImage) {
     return (
-      <View className="w-10 h-10 rounded-full bg-surface-muted items-center justify-center">
+      <View className="w-10 h-10 rounded-pill bg-surface-muted items-center justify-center">
         <Text className="text-card-title font-medium text-text-muted">{initial}</Text>
       </View>
     );
@@ -95,7 +97,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   return (
     <Image
       source={{ uri: uri as string }}
-      className="w-10 h-10 rounded-full bg-surface-muted"
+      className="w-10 h-10 rounded-pill bg-surface-muted"
     />
   );
 }

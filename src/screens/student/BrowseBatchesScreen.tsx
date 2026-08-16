@@ -108,7 +108,7 @@ export function BrowseBatchesScreen() {
       <ScreenScroll>
         {!loaded ? (
           <View className="items-center justify-center pt-16">
-            <ActivityIndicator size="small" color={colors.brand.primary ?? "#26302B"} />
+            <ActivityIndicator size="small" color={colors.brand.primary} />
             <Text className="text-caption text-text-muted mt-3">Loading batches…</Text>
           </View>
         ) : filtered.length === 0 ? (
@@ -181,9 +181,9 @@ export function BrowseBatchesScreen() {
                   </View>
 
                   {/* Capacity meter */}
-                  <View className="h-1.5 rounded-full bg-sand overflow-hidden mb-2">
+                  <View className="h-1.5 rounded-pill bg-sand overflow-hidden mb-2">
                     <View
-                      className={`h-full rounded-full ${
+                      className={`h-full rounded-pill ${
                         pct >= 80 ? "bg-accent" : "bg-verification"
                       }`}
                       style={{ width: `${pct}%` }}

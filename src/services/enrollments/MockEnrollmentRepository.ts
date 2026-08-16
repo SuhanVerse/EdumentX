@@ -640,36 +640,52 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     emitRequests(s);
   },
 
-  async removeEnrollment(enrollmentId: string, reason: string): Promise<void> {
-    for (const s of STORE.values()) {
-      const target = s.enrollments.find((e) => e.enrollmentId === enrollmentId);
-      if (!target) continue;
-      if (target.status !== "active") return;
-      s.enrollments = s.enrollments.map((e) =>
-        e.enrollmentId === enrollmentId
-          ? {
-              ...e,
-              status: "removed",
-              removedAt: Date.now(),
-              removeReason: reason,
-            }
-          : e,
+  async removeEnrollment(
+    tutorUid: string,
+    enrollmentId: string,
+    reason: string,
+  ): Promise<void> {
+    const s = getStore(tutorUid);
+    const target = s.enrollments.find((e) => e.enrollmentId === enrollmentId);
+    if (!target || target.status !== "active") return;
+    s.enrollments = s.enrollments.map((e) =>
+      e.enrollmentId === enrollmentId
+        ? {
+            ...e,
+            status: "removed",
+            removedAt: Date.now(),
+            removeReason: reason,
+          }
+        : e,
+    );
+    s.enrolledCount = s.enrollments.filter((e) => e.status === "active").length;
+    // Cascade to members (mirrors the Firebase direct-path cascade):
+    // drop the member doc from every batch that contains this
+    // enrollment and keep each batch's memberCount in sync.
+    for (const batchId of Object.keys(s.members)) {
+      const before = s.members[batchId].length;
+      s.members[batchId] = s.members[batchId].filter(
+        (m) => m.enrollmentId !== enrollmentId,
       );
-      s.enrolledCount = s.enrollments.filter((e) => e.status === "active").length;
-      // Cascade to members.
-      for (const batchId of Object.keys(s.members)) {
-        s.members[batchId] = s.members[batchId].filter(
-          (m) => m.enrollmentId !== enrollmentId,
+      const removedCount = before - s.members[batchId].length;
+      if (removedCount > 0) {
+        s.batches = s.batches.map((b) =>
+          b.batchId === batchId
+            ? {
+                ...b,
+                memberCount: Math.max(0, (b.memberCount ?? 0) - removedCount),
+              }
+            : b,
         );
         s.emitter.emit("members", {
           batchId,
           members: s.members[batchId],
         });
+        emitBatches(s);
       }
-      emitEnrollments(s);
-      emitAvailability(s);
-      return;
     }
+    emitEnrollments(s);
+    emitAvailability(s);
   },
 
   async setSlotStatus(
@@ -721,6 +737,14 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
       studentAvatar: m.studentAvatar,
       joinedAt: Date.now(),
     }));
+    // Stamp batchId onto each seeded enrollment (mirrors the Firebase
+    // createBatch roster stamp) so the removal cascade can find the
+    // batch from the roster row alone.
+    s.enrollments = s.enrollments.map((e) =>
+      input.members.some((m) => m.enrollmentId === e.enrollmentId)
+        ? { ...e, batchId }
+        : e,
+    );
     emitBatches(s);
     s.emitter.emit("members", { batchId, members: s.members[batchId] });
     return { batchId };

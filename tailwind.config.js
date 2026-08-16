@@ -117,6 +117,9 @@ module.exports = {
         splash: '#0F172A',
         'splash-text': '#FBF8F2',
         'splash-track': 'rgba(251, 248, 242, 0.20)',
+        // Logo tile on the splash canvas — one step off the night base
+        // (previously the raw Tailwind default `slate-800`).
+        'splash-tile': '#1E293B',
       },
       fontSize: {
         // ── New semantic scale ────────────────────────────────────────────────

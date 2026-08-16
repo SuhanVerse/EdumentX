@@ -7,16 +7,19 @@
  * `removeEnrollment` repository call. The Confirm button is
  * disabled when the reason is empty.
  *
- * `RemoveEnrollmentDialog` is screen-scoped — the confirmation flow
- * lives inline in `tutor_home.tsx` (the dashboard's active-students
- * row) and in `tutor_capacity.tsx`. This component is the
- * "shared parts" extraction so the two call sites stay in sync.
+ * `RemoveEnrollmentDialog` is mounted by BOTH tutor surfaces:
+ *   - `TutorHome.tsx` — the dashboard's "Active students" roster
+ *   - `TutorCapacityScreen.tsx` — the capacity screen's roster
+ * Each parent owns `removeTarget` + `removing` state and calls
+ * `removeEnrollment(tutorUid, enrollmentId, reason)` on confirm;
+ * the roster snapshot re-emits and the row drops off live.
  */
 
 import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { colors } from "@/constants/colors";
 
 export type RemoveEnrollmentDialogProps = {
   visible: boolean;
@@ -69,7 +72,7 @@ export function RemoveEnrollmentDialog({
               value={reason}
               onChangeText={setReason}
               placeholder="e.g. Class ended early"
-              placeholderTextColor="#6B7268"
+              placeholderTextColor={colors.text.muted}
               multiline
               numberOfLines={3}
               className="bg-background border border-border rounded-md px-3 py-2 text-body text-text-primary"

@@ -206,7 +206,7 @@ function WideCard({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className={`rounded-2xl ${surfaceClass} border overflow-hidden ${className}`}
+      className={`rounded-card ${surfaceClass} border overflow-hidden ${className}`}
     >
       {onSaveToggle ? (
         <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} dark={dark} />

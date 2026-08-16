@@ -18,9 +18,11 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FloatingEmptyIcon } from "@/components/motion/FloatingEmptyIcon";
 import { DiscoverIllustration } from "@/components/illustrations/DiscoverIllustration";
+import { colors } from "@/constants/colors";
 
 import type { Enrollment } from "@/services/enrollments/types";
 
@@ -45,6 +47,7 @@ export function StudentPickerSheet({
   minSelection = 2,
   maxSelection = 6,
 }: StudentPickerSheetProps) {
+  const insets = useSafeAreaInsets();
   const hasStudents = enrolledStudents.length > 0;
   const count = selectedIds.size;
   const canContinue = count >= minSelection && count <= maxSelection;
@@ -64,7 +67,8 @@ export function StudentPickerSheet({
       >
         <Pressable
           onPress={() => {}}
-          className="bg-surface rounded-t-[20px] pt-2.5 max-h-[85%]"
+          className="bg-surface rounded-t-xl pt-2.5 max-h-[85%]"
+          style={{ paddingBottom: 12 + insets.bottom }}
           accessibilityLabel="Student picker"
         >
           {/* Handle */}
@@ -88,7 +92,7 @@ export function StudentPickerSheet({
               onPress={onCancel}
               className="w-9 h-9 items-center justify-center rounded-pill bg-sand active:opacity-70"
             >
-              <Ionicons name="close" size={18} color="#6B7268" />
+              <Ionicons name="close" size={18} color={colors.text.muted} />
             </Pressable>
           </View>
 
@@ -174,7 +178,7 @@ function StudentRow({
       } ${disabled ? "opacity-50" : ""}`}
     >
       <View
-        className={`w-10 h-10 rounded-full items-center justify-center ${
+        className={`w-10 h-10 rounded-pill items-center justify-center ${
           selected ? "bg-ai" : "bg-surface-muted"
         }`}
       >
@@ -202,7 +206,7 @@ function StudentRow({
           selected ? "bg-ai border-ai" : "border-border bg-surface"
         }`}
       >
-        {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+        {selected ? <Ionicons name="checkmark" size={14} color={colors.text.inverse} /> : null}
       </View>
     </Pressable>
   );

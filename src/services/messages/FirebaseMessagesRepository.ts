@@ -14,6 +14,7 @@ import {
   getDoc,
   getFirestore,
   onSnapshot,
+  or,
   orderBy,
   query,
   serverTimestamp,
@@ -180,9 +181,19 @@ export const FirebaseMessagesRepository: MessagesRepository = {
 
   subscribeConversations(viewerUid, onData, onError) {
     const db = getFirestore(getApp());
+    // The rules gate conversations on the SORTED SCALAR pair
+    // (`participantA` / `participantB` — see firestore.rules §1:1
+    // messaging). A `where("participants", "array-contains", uid)`
+    // filter is NOT provable against those scalar checks, so the hub
+    // query was silently denied on every render (the Aug 2026
+    // permission-denied storm). Filtering on the scalars directly
+    // matches the rules exactly.
     const q = query(
       collection(db, "conversations"),
-      where("participants", "array-contains", viewerUid),
+      or(
+        where("participantA", "==", viewerUid),
+        where("participantB", "==", viewerUid),
+      ),
     );
     const unsub = onSnapshot(
       q,

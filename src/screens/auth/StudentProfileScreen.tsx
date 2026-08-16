@@ -21,7 +21,11 @@ import {
 
 import { AvatarUploader } from "@/components/forms/AvatarUploader";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenHeader,
+  ScreenLayout,
+  ScreenSheet,
+} from "@/components/shared/ScreenLayout";
 import { Card } from "@/components/ui/Card";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { motion } from "@/lib/motion";
@@ -264,7 +268,7 @@ export function StudentProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        <View className="gap-1 px-5 pt-4 pb-8 bg-night">
+        <ScreenHeader>
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
@@ -292,7 +296,7 @@ export function StudentProfileScreen() {
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
             <Text className="text-body text-white opacity-80">Back</Text>
           </Pressable>
-          <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
             <Text className="text-display text-white">
               Set up your profile
             </Text>
@@ -300,12 +304,13 @@ export function StudentProfileScreen() {
           <Text className="text-body text-white opacity-70 mt-0.5">
             This helps tutors understand your learning needs.
           </Text>
-        </View>
+        </ScreenHeader>
 
+        <ScreenSheet>
         <ScrollView
           ref={scrollRef}
           className="flex-1"
-          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
+          contentContainerClassName="flex-grow gap-6 px-6 pt-8 pb-12 bg-background"
           keyboardShouldPersistTaps="handled"
         >
           <View onLayout={registerField("avatar")}>
@@ -465,6 +470,7 @@ export function StudentProfileScreen() {
             ) : null}
           </View>
         </ScrollView>
+        </ScreenSheet>
       </KeyboardAvoidingView>
     </ScreenLayout>
   );

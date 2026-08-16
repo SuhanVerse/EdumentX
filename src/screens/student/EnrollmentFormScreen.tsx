@@ -287,7 +287,7 @@ export function EnrollmentFormScreen() {
     return (
       <ScreenLayout variant="background">
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.brand.primary ?? "#26302B"} />
+          <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text className="text-body text-text-muted mt-4">Loading…</Text>
         </View>
       </ScreenLayout>
@@ -361,7 +361,7 @@ export function EnrollmentFormScreen() {
       </ScreenHeader>
 
       <ScrollView
-        className="flex-1 px-5"
+        className="flex-1 px-6"
         contentContainerStyle={{ paddingBottom: 24 + insets.bottom + 90 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -516,7 +516,7 @@ export function EnrollmentFormScreen() {
                       }`}
                     >
                       {p.popular ? (
-                        <View className="absolute -top-2 right-2 px-1.5 py-0.5 rounded bg-verification">
+                        <View className="absolute -top-2 right-2 px-1.5 py-0.5 rounded-xs bg-verification">
                           <Text className="text-micro font-semibold text-white">
                             POPULAR
                           </Text>
@@ -661,7 +661,7 @@ export function EnrollmentFormScreen() {
           }`}
         >
           {submitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Text
               className={`text-button font-semibold ${

@@ -149,7 +149,7 @@ export function ScreenHeader({
  * Screens with a dark (`bg-night`) hero and a light body used to have
  * a hard color edge where the hero ended. This wrapper is the shared
  * fix: the light content overlaps the dark hero by 16px (`-mt-4`)
- * with a `rounded-t-3xl` top, so the hero reads as a backdrop behind
+ * with a `rounded-t-xl` top, so the hero reads as a backdrop behind
  * a floating sheet instead of two stacked rectangles. `overflow-hidden`
  * makes the rounded corners actually clip the first child (tab bars,
  * cards, etc.).
@@ -171,7 +171,7 @@ export function ScreenSheet({
 }) {
   return (
     <View
-      className={`bg-background rounded-t-3xl -mt-4 flex-1 overflow-hidden ${className ?? ""}`}
+      className={`bg-background rounded-t-xl -mt-4 flex-1 overflow-hidden ${className ?? ""}`}
     >
       {children}
     </View>

@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from "react-router";
-import { ShieldCheck, Users, BarChart3 } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Users, BarChart3 } from "lucide-react";
 
 const TABS = [
-  { label: "Stats", path: "/admin/stats", Icon: BarChart3 },
+  { label: "Home",         path: "/admin/home",         Icon: LayoutDashboard },
+  { label: "Stats",        path: "/admin/stats",        Icon: BarChart3 },
   { label: "Verification", path: "/admin/verification", Icon: ShieldCheck },
-  { label: "Users", path: "/admin/users", Icon: Users },
+  { label: "Users",        path: "/admin/users",        Icon: Users },
 ] as const;
 
 export function AdminNav() {
@@ -12,9 +13,9 @@ export function AdminNav() {
   const { pathname } = useLocation();
 
   return (
-    <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+    <div style={{ display: "flex", gap: 4, marginTop: 0 }}>
       {TABS.map(({ label, path, Icon }) => {
-        const active = pathname.startsWith(path);
+        const active = pathname === path || pathname.startsWith(path + "/");
         return (
           <button
             key={path}
@@ -22,22 +23,26 @@ export function AdminNav() {
             style={{
               flex: 1,
               height: 36,
-              background: active ? "#FFFFFF" : "rgba(255,255,255,0.15)",
-              color: active ? "#2F5D50" : "#FFFFFF",
+              background: active ? "#FFFFFF" : "rgba(255,255,255,0.12)",
+              color: active ? "#2F5D50" : "rgba(255,255,255,0.8)",
               border: "none",
               borderRadius: 8,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: 500,
               cursor: "pointer",
               fontFamily: "Inter, sans-serif",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 5,
+              gap: 4,
+              position: "relative",
             }}
           >
             <Icon size={13} />
             {label}
+            {active && (
+              <div style={{ position: "absolute", bottom: -4, left: "50%", transform: "translateX(-50%)", width: 32, height: 2, background: "#E5A03B", borderRadius: 1 }} />
+            )}
           </button>
         );
       })}

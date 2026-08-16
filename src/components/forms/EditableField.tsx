@@ -154,7 +154,7 @@ function DisplayRow({
       </Text>
       {trailing ?? (
         <View className="flex-row items-center gap-1 bg-sand rounded-pill px-2 py-1">
-          <Ionicons name="pencil" size={11} color="#6B7268" />
+          <Ionicons name="pencil" size={11} color={colors.text.muted} />
           <Text className="text-micro text-text-secondary font-medium">
             Edit
           </Text>
@@ -211,7 +211,7 @@ function EditView({
           autoCapitalize={autoCapitalize}
           autoFocus
           placeholder={placeholder}
-          placeholderTextColor="#6B7268"
+          placeholderTextColor={colors.text.muted}
           onFocus={() => {
             focus.value = withTiming(1, { duration: motion.duration.medium });
           }}

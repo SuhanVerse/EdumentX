@@ -1,4 +1,5 @@
 import { BottomNav } from "@/components/shared/BottomNav";
+import { colors } from "@/constants/colors";
 import {
   ScreenLayout,
   ScreenHeader,
@@ -161,36 +162,36 @@ export function AIChat() {
   const activePills = useMemo(() => buildPills(constraints), [constraints]);
 
   return (
-    <ScreenLayout variant="night">
-      <ScreenHeader>
+    <ScreenLayout variant="background">
+      <ScreenHeader variant="light">
         <View className="flex-row items-center gap-3">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.replace("/student-home")}
-            className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
+            className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
           </Pressable>
           <View className="w-10 h-10 rounded-pill bg-ai items-center justify-center">
-            <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+            <Ionicons name="sparkles" size={20} color={colors.text.inverse} />
           </View>
           <View className="flex-1">
             <View
               style={{
                 borderBottomWidth: 2,
-                borderBottomColor: "#E5A03B",
+                borderBottomColor: colors.brand.accent,
                 paddingBottom: 2,
                 alignSelf: "flex-start",
               }}
             >
-              <Text className="text-section-title font-medium text-white">
+              <Text className="text-section-title font-medium text-text-primary">
                 AI Assistant
               </Text>
             </View>
             <View className="flex-row items-center gap-1.5 mt-0.5">
               <View className="w-1.5 h-1.5 rounded-pill bg-success" />
-              <Text className="text-caption text-white/70">
+              <Text className="text-caption text-text-secondary">
                 Online - AI powered
               </Text>
             </View>
@@ -246,7 +247,7 @@ export function AIChat() {
               value={input}
               onChangeText={setInput}
               placeholder="Ask about tutors, subjects, rates"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={colors.text.muted}
               onSubmitEditing={() => handleSend(input)}
               editable={!isLoading}
               returnKeyType="send"
@@ -391,7 +392,7 @@ function ActivePillStrip({
           <Text className="text-caption text-primary-dark font-medium">
             {pill.label}
           </Text>
-          <Ionicons name="close" size={12} color="#2F5D50" />
+          <Ionicons name="close" size={12} color={colors.brand.primary} />
         </Pressable>
       ))}
     </View>
@@ -412,7 +413,7 @@ function Bubble({ message, router: navRouter }: { message: Message; router: Retu
     >
       {!isUser && (
         <View className="w-7 h-7 rounded-pill bg-ai items-center justify-center mt-1">
-          <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+          <Ionicons name="sparkles" size={14} color={colors.text.inverse} />
         </View>
       )}
       <View
@@ -465,7 +466,7 @@ function Bubble({ message, router: navRouter }: { message: Message; router: Retu
                   </Text>
                   {tutor.rating != null && (
                     <View className="flex-row items-center gap-1 mt-0.5">
-                      <Ionicons name="star" size={12} color="#E5A03B" />
+                      <Ionicons name="star" size={12} color={colors.brand.accent} />
                       <Text className="text-caption text-text-secondary">
                         {tutor.rating.toFixed(1)} - {tutor.reviewCount ?? 0} reviews
                       </Text>
@@ -485,10 +486,10 @@ function ThinkingBubble() {
   return (
     <View className="mb-3 flex-row justify-start gap-2">
       <View className="w-7 h-7 rounded-pill bg-ai items-center justify-center mt-1">
-        <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+        <Ionicons name="sparkles" size={14} color={colors.text.inverse} />
       </View>
       <View className="bg-surface border border-border rounded-card rounded-tl-sm px-3 py-3 flex-row items-center gap-2">
-        <ActivityIndicator size="small" color="#2F5D50" />
+        <ActivityIndicator size="small" color={colors.brand.primary} />
         <Text className="text-caption text-text-muted">Thinking</Text>
       </View>
     </View>

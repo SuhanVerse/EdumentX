@@ -101,10 +101,10 @@ export function SplashScreen() {
       <View className="flex-1 items-center justify-center">
         <Animated.View
           style={logoStyle}
-          className="w-16 h-16 items-center justify-center rounded-2xl mb-4 border-2 border-amber/40 bg-slate-800"
+          className="w-16 h-16 items-center justify-center rounded-card mb-4 border-2 border-amber/40 bg-splash-tile"
           // The tile + offset amber border use Design System tokens
-          // (slate-800 sits one step off the night base, amber/40 is
-          // the soft accent edge) — this reads as a stamp/seal
+          // (splash-tile sits one step off the night base, amber/40
+          // is the soft accent edge) — this reads as a stamp/seal
           // rather than a float surface chip.
           // Future: swap the two-letter mark for the real vector logo.
         >
@@ -133,7 +133,7 @@ export function SplashScreen() {
         <View className="w-splash-bar h-1 overflow-hidden rounded-pill bg-splash-track">
           <Animated.View
             style={progressStyle}
-            className="h-full rounded-full bg-white"
+            className="h-full rounded-pill bg-splash-text"
           />
         </View>
       </View>

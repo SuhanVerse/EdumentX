@@ -23,6 +23,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useMemo, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   Alert,
@@ -109,6 +110,7 @@ export function ReviewModal({
   onClose,
   onSubmitted,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const studentUid = useAuthStore((s) => s.user?.uid ?? null);
   const studentName = useAuthStore((s) => s.user?.displayName ?? "");
   const studentAvatar = useAuthStore((s) => s.user?.photoURL ?? null);
@@ -226,7 +228,7 @@ export function ReviewModal({
       onRequestClose={onClose}
     >
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-background rounded-t-3xl max-h-[92%]">
+        <View className="bg-background rounded-t-xl max-h-[92%]">
           <View className="items-center pt-2 pb-1">
             <View className="w-10 h-1 rounded-pill bg-border" />
           </View>
@@ -290,7 +292,7 @@ export function ReviewModal({
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 className="px-5"
-                contentContainerStyle={{ paddingBottom: 28 }}
+                contentContainerStyle={{ paddingBottom: 28 + insets.bottom }}
               >
                 {/* Tutor identity card */}
                 <View className="flex-row items-center gap-3 bg-surface border border-border rounded-card p-3.5 mb-4">
@@ -326,7 +328,7 @@ export function ReviewModal({
                   /* ── Locked state ── */
                   <View className="bg-warning-bg border border-warning/40 rounded-card p-5 items-center">
                     <View className="w-12 h-12 rounded-pill bg-warning items-center justify-center mb-3">
-                      <Ionicons name="lock-closed" size={20} color="#FFFFFF" />
+                      <Ionicons name="lock-closed" size={20} color={colors.text.inverse} />
                     </View>
                     <Text className="text-card-title font-medium text-warning-text text-center">
                       Review locked
@@ -503,7 +505,7 @@ export function ReviewModal({
                       }`}
                     >
                       {submitting ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size="small" color={colors.text.inverse} />
                       ) : (
                         <Text
                           className={`text-button font-semibold ${

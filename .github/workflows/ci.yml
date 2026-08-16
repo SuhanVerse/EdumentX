@@ -24,6 +24,10 @@ jobs:
       - run: npm run lint
       # node:test runner — derived helpers + mock repo behavior.
       - run: npm run test:derived
+      # node:test runner — the design-token lint rules themselves, so a
+      # regression in eslint-rules/design-tokens.js (e.g. missing a
+      # template-literal className) fails CI instead of slipping through.
+      - run: npm run test:lint-rules
 
   rules:
     name: Firestore rules emulator

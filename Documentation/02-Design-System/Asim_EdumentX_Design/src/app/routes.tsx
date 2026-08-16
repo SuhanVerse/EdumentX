@@ -29,6 +29,7 @@ import { CapacityManager } from "./screens/CapacityManager";
 import { VerificationQueue } from "./screens/VerificationQueue";
 import { UserManagement } from "./screens/UserManagement";
 import { PlatformStats } from "./screens/PlatformStats";
+import { AdminHome } from "./screens/AdminHome";
 import { EnrollmentDetail } from "./screens/EnrollmentDetail";
 import { SessionCode } from "./screens/SessionCode";
 
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
       { path: "tutor/batch", Component: GroupBatch },
       { path: "tutor/capacity", Component: CapacityManager },
       // Admin
+      { path: "admin/home", Component: AdminHome },
       { path: "admin/verification", Component: VerificationQueue },
       { path: "admin/users", Component: UserManagement },
       { path: "admin/stats", Component: PlatformStats },

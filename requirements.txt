@@ -13,7 +13,7 @@
 # Node.js >= 20.19.4 is required (see `package.json#engines`).
 #
 # Categorised by what the package does in the app. Versions match
-# `package.json` as of the date of the last review (2026-07-16).
+# `package.json` as of the date of the last review (2026-08-16).
 # If something is missing or out of date, update BOTH this file
 # and `package.json`.
 
@@ -45,6 +45,22 @@ react-native-gesture-handler@~2
 react-native-reanimated@~4
 react-native-worklets@~0.6
 
+# ── Maps & location (map discovery) ────────────────────────────
+expo-maps@~0.12.10                  # Apple Maps on iOS (keyless) / Google Maps on Android
+react-native-view-shot@4.0.3        # rasterizes photo map pins (avatar teardrops)
+supercluster@^8.0.1                 # map pin clustering
+@types/supercluster@^7.1.3          # (dev) types for supercluster
+expo-location@~19.0.8               # device geolocation for the tutor map
+
+# ── Media: video & images ──────────────────────────────────────
+expo-video@~3.0.16                  # tutor demo-video playback
+expo-video-thumbnails@~10.0.8       # video thumbnail generation
+expo-image-manipulator@~14.0.8      # avatar crop/resize before upload
+expo-asset@~12.0.13                 # static asset loading (registered plugin)
+
+# ── Motion & haptics ──────────────────────────────────────────
+expo-haptics@~15.0.8                # haptic feedback on taps/selection
+
 # ── Motion & interactivity layer (July 2026) ──────────────────
 # The micro-interactions pass added a shared motion toolkit
 # (lib/motion.ts + components/motion/*) on top of the
@@ -69,9 +85,7 @@ react-native-worklets@~0.6
 # Full design spec, hooks reference, and pattern catalogue:
 #   Documentation/02-Design-System/motion.md
 #
-# Haptics (`expo-haptics`) are intentionally NOT installed yet —
-# the follow-up that adds them requires a native rebuild.
-# See motion.md §11 (Out of scope).
+# Haptics (`expo-haptics`) — added August 2026 (see motion.md).
 
 # ── Native Firebase (auth + firestore) ─────────────────────────
 @react-native-firebase/app@~24.1
@@ -90,17 +104,19 @@ firebase-admin@~14
 # ── Supabase client (object storage, free tier) ────────────────
 @supabase/supabase-js@~2
 
-# ── 3D illustrations (onboarding / premium hero / discover) ───
-three@~0.171
-@react-three/fiber@~9
-@react-three/drei@~10
-expo-gl@~16
+# ── Illustrations (SVG-based; the 3D/GL stack was dropped) ────
+# The onboarding / premium-hero / discover illustrations are now
+# `react-native-svg` scenes (`src/components/illustrations/*`) —
+# zero GL, zero crash risk. `three`, `@react-three/fiber`,
+# `@react-three/drei` and `expo-gl` were removed from
+# `package.json` (August 2026) and must NOT be re-added.
 
 # ── Vector graphics ────────────────────────────────────────────
 react-native-svg@~16
 @expo/vector-icons@~15
 
 # ── Image / binary helpers ─────────────────────────────────────
+expo-image@~3.0.11                  # performant image component (Avatar, photos)
 base64-arraybuffer@~1
 
 # ── State management ───────────────────────────────────────────
@@ -124,6 +140,8 @@ babel-preset-expo@~14
 eslint@~9
 eslint-config-expo@~9
 prettier@~3
+prettier-plugin-tailwindcss@^0.5.14  # sorts/validates Tailwind classes in Prettier
+firebase-tools@^15.27.0             # rules deploy/test (`npm run test:rules`, deploy:rules)
 
 # ── Global tools (install once on the host) ────────────────────
 # Firebase CLI:
@@ -145,8 +163,12 @@ prettier@~3
 #     `google-services.json` (already in the repo, do not commit
 #     a different one).
 # iOS:
-#   - Xcode 15+ and CocoaPods (`sudo gem install cocoapods`)
+#   - Xcode 16+ and CocoaPods (`sudo gem install cocoapods`)
 #   - `npx expo run:ios` generates `ios/` and runs `pod install`.
+#   - Signing: a free Apple ID works for the simulator and 7-day
+#     device installs; permanent installs / TestFlight need the
+#     Apple Developer Program ($99/yr). See
+#     Documentation/05-Build-and-Deploy/install-guide.md.
 # Web:
 #   - Just `npx expo start --web`. No native modules run on web.
 
@@ -160,8 +182,11 @@ prettier@~3
 #   EXPO_PUBLIC_FIREBASE_APP_ID
 #   EXPO_PUBLIC_SUPABASE_URL
 #   EXPO_PUBLIC_SUPABASE_ANON_KEY
-#   EXPO_PUBLIC_GOOGLE_MAPS_API_KEY        # unused; zero-budget
-#   EXPO_PUBLIC_APP_ENV                    # 'develop' | 'production'
+#   EXPO_PUBLIC_GOOGLE_MAPS_API_KEY        # Android only (injected by withGoogleMapsApiKey); iOS uses keyless Apple Maps
+#   EXPO_PUBLIC_GROQ_API_KEY               # AI chat (RAG) — free dev tier
+#   EXPO_PUBLIC_HF_API_TOKEN               # AI embeddings (HuggingFace) — free dev tier
+#   EXPO_PUBLIC_USE_MOCK_DATA              # 'true' = mock repos, 'false' = live Firestore
+#   EXPO_PUBLIC_APP_ENV                    # 'development' | 'production'
 
 # ── Admin seed script (separate setup, see adminsetup.md) ─────
 # In addition to the npm packages above, granting a new admin

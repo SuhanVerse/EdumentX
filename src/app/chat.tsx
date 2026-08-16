@@ -15,6 +15,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
+import { colors } from "@/constants/colors";
 import {
   ActivityIndicator,
   FlatList,
@@ -179,7 +180,7 @@ export default function ChatScreen() {
           onPress={() => router.back()}
           className="w-9 h-9 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
         >
-          <Ionicons name="chevron-back" size={20} color="#2F5D50" />
+          <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
         </Pressable>
         <Avatar name={peerName} imageUri={peerAvatar} size={36} />
         <View className="flex-1 min-w-0">
@@ -204,7 +205,7 @@ export default function ChatScreen() {
           loaded ? (
             <View className="items-center justify-center pt-20 px-8">
               <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
-                <Ionicons name="chatbubble-ellipses-outline" size={26} color="#E5A03B" />
+                <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.brand.accent} />
               </View>
               <Text className="text-card-title font-medium text-text-primary text-center">
                 No messages yet
@@ -216,7 +217,7 @@ export default function ChatScreen() {
             </View>
           ) : (
             <View className="items-center justify-center pt-20">
-              <ActivityIndicator size="small" color="#2F5D50" />
+              <ActivityIndicator size="small" color={colors.brand.primary} />
             </View>
           )
         }
@@ -229,7 +230,7 @@ export default function ChatScreen() {
               }`}
             >
               <View
-                className={`rounded-2xl px-3.5 py-2.5 ${
+                className={`rounded-card px-3.5 py-2.5 ${
                   mine
                     ? "bg-verification border border-verification"
                     : "bg-surface border border-border"
@@ -264,10 +265,10 @@ export default function ChatScreen() {
             value={draftText}
             onChangeText={setDraftText}
             placeholder="Type a message…"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.text.muted}
             multiline
             maxLength={MAX_LEN}
-            className="flex-1 min-h-[42px] max-h-[120px] bg-background border border-border rounded-2xl px-4 py-2.5 text-body text-text-primary"
+            className="flex-1 min-h-[42px] max-h-[120px] bg-background border border-border rounded-card px-4 py-2.5 text-body text-text-primary"
           />
           <Pressable
             accessibilityRole="button"

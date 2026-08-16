@@ -337,7 +337,7 @@ export function AdminProfile() {
     (isFirstTime || (isEditing && hasChanges));
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -365,12 +365,12 @@ export function AdminProfile() {
         </ScreenHeader>
 
         <ScreenScroll
-          contentContainerClassName="flex-grow gap-6 px-5 pt-6 pb-10 bg-background"
+          contentContainerClassName="flex-grow gap-6 px-6 pt-8 pb-10 bg-background"
         >
           {/* Identity card — name + role title. The role title is what
               appears next to the admin's name on the moderation team
               page (future), so we treat it as required. */}
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          <View className="gap-4 p-5 border border-border-subtle rounded-card bg-surface shadow-sm">
             <Text className="text-overline text-text-muted uppercase">
               Your identity
             </Text>
@@ -459,7 +459,7 @@ export function AdminProfile() {
           </View>
 
           {/* Contact card — phone (optional) + email (read-only). */}
-          <View className="gap-4 p-5 border border-border-subtle rounded-2xl bg-surface shadow-sm">
+          <View className="gap-4 p-5 border border-border-subtle rounded-card bg-surface shadow-sm">
             <Text className="text-overline text-text-muted uppercase">
               Contact
             </Text>

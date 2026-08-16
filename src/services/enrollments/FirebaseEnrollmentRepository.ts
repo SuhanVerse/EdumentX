@@ -1057,42 +1057,39 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     }
   },
 
+  /**
+   * Soft-delete an enrollment by DIRECT PATH — no collectionGroup
+   * scans. The caller (the tutor, whose auth uid is `tutorUid`) pins
+   * the roster row to `enrollments/{tutorUid}/roster/{enrollmentId}`
+   * and the member cascade to `batches/{tutorUid}/classes/{batchId}`.
+   *
+   * Why direct paths: the old implementation located the row with an
+   * unfiltered `collectionGroup("roster")` scan and cascaded via
+   * `collectionGroup("members").where("enrollmentId", …)`. Firestore
+   * proves collectionGroup queries rule-safe from the QUERY SHAPE
+   * (not the data), and neither query can be proven against the
+   * ownership rules (`resource.data.studentUid == auth.uid || …`), so
+   * both 403'd for every caller — the removal was dead code against
+   * live rules (Aug 2026).
+   *
+   * The roster row carries the denormalized `batchId` written by
+   * `acceptRequest` (session-code join) or `createBatch` (member
+   * seed), which yields the exact member-doc path — member docs are
+   * keyed by enrollmentId:
+   *   batches/{tutorUid}/classes/{batchId}/members/{enrollmentId}
+   */
   async removeEnrollment(
+    tutorUid: string,
     enrollmentId: string,
     reason: string,
   ): Promise<void> {
     const db = getFirestore(getApp());
-    // We don't know the tutorUid from the id alone — scan the
-    // `roster` collectionGroup for a doc whose id OR whose
-    // `enrollmentId` field matches. This is the rare path; no
-    // need to keep an index.
-    let tutorUid: string | null = null;
-    let studentUid: string | null = null;
-    let currentEnrollment: Enrollment | null = null;
-    const allTutorsSnap = await getDocs(collectionGroup(db, "roster"));
-    for (const docSnap of allTutorsSnap.docs) {
-      const data = docSnap.data() as Record<string, unknown>;
-      if (data?.enrollmentId === enrollmentId || docSnap.id === enrollmentId) {
-        tutorUid = (docSnap.ref.parent.parent?.id as string) ?? null;
-        studentUid = str(data.studentUid) || null;
-        currentEnrollment = mapEnrollment(
-          docSnap.id,
-          data,
-        );
-        break;
-      }
-    }
-    if (!tutorUid || !currentEnrollment) {
-      console.warn("removeEnrollment: enrollment not found", enrollmentId);
-      return;
-    }
-
     const enrollmentRef = doc(
       db,
       "enrollments",
       tutorUid,
       "roster",
-      currentEnrollment.enrollmentId,
+      enrollmentId,
     );
     const profileRef = doc(
       db,
@@ -1101,6 +1098,9 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
       "tutorProfile",
       "default",
     );
+
+    let studentUid: string | null = null;
+    let batchIdToCascade: string | null = null;
 
     await runTransaction(db, async (tx) => {
       const [profileSnap, enrSnap] = await Promise.all([
@@ -1112,12 +1112,15 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         | undefined;
       const enrolledCount = num(profileData?.enrolledCount);
       const enr = enrSnap.data() as
-        | { status?: string }
+        | { status?: string; studentUid?: string; batchId?: string | null }
         | undefined;
-      if (enr?.status !== "active") {
-        // Already removed/expired — no-op.
+      if (!enr || enr.status !== "active") {
+        // Already removed/expired (or never existed) — no-op.
         return;
       }
+      studentUid = str(enr.studentUid) || null;
+      batchIdToCascade = str(enr.batchId) || null;
+
       tx.update(enrollmentRef, {
         status: "removed",
         removedAt: serverTimestamp(),
@@ -1128,26 +1131,45 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         currentStudents: Math.max(0, num(profileData?.currentStudents) - 1),
         updatedAt: serverTimestamp(),
       });
-    });
 
-    // Cascade: remove the member docs in any batch(es) that include
-    // this enrollment. The collectionGroup query requires the
-    // `enrollmentId` index (defined in firestore.indexes.json).
-    try {
-      const membersSnap = await getDocs(
-        query(
-          collectionGroup(db, "members"),
-          where("enrollmentId", "==", currentEnrollment.enrollmentId),
-        ),
-      );
-      const batch = writeBatch(db);
-      membersSnap.forEach((d) => {
-        batch.delete(d.ref);
-      });
-      await batch.commit();
-    } catch (err) {
-      console.warn("removeEnrollment: cascade failed", err);
-    }
+      // Cascade: if this enrollment was a batch member (session-code
+      // join or createBatch seed), delete its member doc by direct
+      // path and decrement the batch's memberCount. The member doc
+      // is keyed by the enrollmentId. The batch is read inside the
+      // transaction because the member delete rule `get()`s the
+      // batch for ownership, and deleting under a NON-EXISTENT batch
+      // is denied (not a no-op) — the exists() guard keeps the
+      // transaction from aborting on an already-deleted batch.
+      if (batchIdToCascade) {
+        const batchRef = doc(
+          db,
+          "batches",
+          tutorUid,
+          "classes",
+          batchIdToCascade,
+        );
+        const memberRef = doc(
+          db,
+          "batches",
+          tutorUid,
+          "classes",
+          batchIdToCascade,
+          "members",
+          enrollmentId,
+        );
+        const batchSnap = await tx.get(batchRef);
+        if (batchSnap.exists()) {
+          const batchData = batchSnap.data() as
+            | { memberCount?: number }
+            | undefined;
+          tx.delete(memberRef);
+          tx.update(batchRef, {
+            memberCount: Math.max(0, num(batchData?.memberCount) - 1),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+    });
 
     if (studentUid) {
       try {
@@ -1240,6 +1262,25 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         throw new Error("Tutor profile not found");
       }
 
+      // Filter the seed list to enrollments whose roster rows still
+      // exist (a student may have been removed while the picker was
+      // open). The batch's `memberCount` is derived from this
+      // filtered list so the denormalized counter always matches the
+      // seeded members — a stale picker entry can't abort the whole
+      // create or inflate the seat count.
+      const seedable: CreateBatchInput["members"][number][] = [];
+      for (const m of input.members) {
+        const rosterRef = doc(
+          db,
+          "enrollments",
+          input.tutorUid,
+          "roster",
+          m.enrollmentId,
+        );
+        const rosterSnap = await tx.get(rosterRef);
+        if (rosterSnap.exists()) seedable.push(m);
+      }
+
       const batchDoc = stripNulls({
         batchId,
         tutorUid: input.tutorUid,
@@ -1251,16 +1292,21 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         endDate: input.endDate ?? null,
         status: "active" as const,
         createdAt: serverTimestamp(),
-        memberCount: input.members.length,
+        memberCount: seedable.length,
       });
       tx.set(batchRef, batchDoc);
 
-      // Seed members. The enrolled students are linked by
-      // `enrollmentId` (not studentUid) so the cascade on
-      // `removeEnrollment` looks them up via the collection-group
-      // query. Members live at
+      // Seed members. Member docs are keyed by `enrollmentId` — the
+      // SAME convention as `addBatchMember` and the session-code join
+      // in `acceptRequest` — so the `removeEnrollment` cascade can
+      // reach a member doc by direct path
+      // (`batches/{tutorUid}/classes/{batchId}/members/{enrollmentId}`)
+      // instead of a rule-unprovable collectionGroup scan. Each
+      // seeded enrollment's roster row is stamped with `batchId` (the
+      // roster update rule allows that key) so the cascade knows
+      // which batch contains the member. Members live at
       // `batches/{tutorUid}/classes/{batchId}/members/{memberId}`.
-      for (const m of input.members) {
+      for (const m of seedable) {
         const memberRef = doc(
           collection(
             db,
@@ -1270,6 +1316,11 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
             batchId,
             "members",
           ),
+          m.enrollmentId,
+        );
+        tx.update(
+          doc(db, "enrollments", input.tutorUid, "roster", m.enrollmentId),
+          { batchId },
         );
         tx.set(memberRef, {
           memberId: memberRef.id,

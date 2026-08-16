@@ -3,6 +3,7 @@ import { Text } from "react-native";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
+import { colors } from "@/constants/colors";
 
 /**
  * One row in a "settings menu" group — an icon on the left, a label
@@ -71,7 +72,7 @@ export function MenuRow({
       <Ionicons
         name="chevron-forward"
         size={18}
-        color={disabled ? "#6B7268" : "#6B7268"}
+        color={disabled ? colors.text.muted : colors.text.muted}
       />
     </AnimatedPressable>
   );

@@ -36,14 +36,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 
 import {
   ScreenLayout,
   ScreenHeader,
   ScreenScroll,
 } from "@/components/shared/ScreenLayout";
+import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { SeatsRing } from "@/components/domain/SeatsRing";
+import { colors } from "@/constants/colors";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { WeeklyAvailabilityGrid } from "@/components/domain/WeeklyAvailabilityGrid";
 import { ActivePill } from "@/components/motion";
@@ -127,6 +136,12 @@ export function TutorCapacityScreen() {
   const [draft, setDraft] = useState<WeeklyAvailability | null>(null);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+
+  // Active-students removal — same RemoveEnrollmentDialog entry as
+  // the dashboard. Soft-deletes the enrollment by direct path,
+  // frees the capacity slot, and cascades to the batch member doc.
+  const [removeTarget, setRemoveTarget] = useState<Enrollment | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   // Subscribe to availability.
   useEffect(() => {
@@ -246,6 +261,25 @@ export function TutorCapacityScreen() {
     }
   }
 
+  async function handleRemoveEnrollment(reason: string) {
+    if (!tutorUid || !removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      await repo.removeEnrollment(tutorUid, removeTarget.enrollmentId, reason);
+      // The roster snapshot re-emits and the row drops off
+      // automatically; close the dialog on success.
+      setRemoveTarget(null);
+    } catch (err) {
+      console.warn("TutorCapacity: removeEnrollment failed", err);
+      Alert.alert(
+        "Couldn't remove",
+        "We couldn't remove this student. Try again in a moment.",
+      );
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   // ── Rendering ────────────────────────────────────────────────────────────
 
   return (
@@ -264,7 +298,7 @@ export function TutorCapacityScreen() {
         {/* Capacity progress card */}
         <View className="bg-surface border border-border rounded-card p-4 mb-3.5">
           <View className="flex-row items-center gap-2 mb-2.5">
-            <Ionicons name="people" size={16} color="#2F5D50" />
+            <Ionicons name="people" size={16} color={colors.brand.primary} />
             <Text className="flex-1 text-button-sm font-medium text-text-primary">
               Student capacity
             </Text>
@@ -272,9 +306,9 @@ export function TutorCapacityScreen() {
               {enrolledCount} / {cap} filled
             </Text>
           </View>
-          <View className="h-2 rounded-full bg-background overflow-hidden">
+          <View className="h-2 rounded-pill bg-background overflow-hidden">
             <View
-              className={`h-full rounded-full ${barColor}`}
+              className={`h-full rounded-pill ${barColor}`}
               style={{ width: `${Math.min(fillPct * 100, 100)}%` }}
             />
           </View>
@@ -302,7 +336,7 @@ export function TutorCapacityScreen() {
 
         {/* Info banner */}
         <View className="bg-ai-light border border-ai-border rounded-card p-3.5 flex-row gap-2.5 mb-3.5">
-          <Ionicons name="information-circle-outline" size={18} color="#4A7FA5" />
+          <Ionicons name="information-circle-outline" size={18} color={colors.brand.ai} />
           <Text className="flex-1 text-caption text-ai leading-relaxed">
             One student per 1-to-1 slot. Group batches occupy a full slot
             for all members. Students can request only your{" "}
@@ -310,6 +344,72 @@ export function TutorCapacityScreen() {
             are blocked automatically. Ended batches release their slots
             automatically.
           </Text>
+        </View>
+
+        {/* Active students — the live roster with per-row removal.
+            Removing frees the capacity slot and cascades to the
+            batch member doc when the enrollment is in a batch. */}
+        <View className="mb-2">
+          <Text className="text-card-title font-medium text-text-primary mb-3">
+            Active students
+          </Text>
+          {enrollments.filter((e) => e.status === "active").length === 0 ? (
+            <View className="bg-surface border border-border rounded-card p-6 items-center">
+              <View className="w-12 h-12 rounded-pill bg-background border border-border items-center justify-center mb-3">
+                <Ionicons name="person-outline" size={22} color={colors.text.muted} />
+              </View>
+              <Text className="text-card-title font-medium text-text-primary text-center">
+                No active students yet
+              </Text>
+              <Text className="text-body text-text-secondary text-center mt-1.5">
+                Students you accept from the inbox appear here.
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-col gap-3">
+              {enrollments
+                .filter((e) => e.status === "active")
+                .map((e) => (
+                  <View
+                    key={e.enrollmentId}
+                    className="bg-surface border border-border rounded-card p-3.5 flex-row items-center gap-3"
+                  >
+                    <RosterAvatar uri={e.studentAvatar} name={e.studentName} />
+                    <View className="flex-1">
+                      <Text
+                        className="text-card-title font-medium text-text-primary"
+                        numberOfLines={1}
+                      >
+                        {e.studentName}
+                      </Text>
+                      <Text className="text-caption text-text-muted mt-0.5">
+                        {e.studentGrade} · {formatSlotKey(e.slotKey)}
+                      </Text>
+                      <View className="flex-row items-center gap-2 mt-1">
+                        {e.batchId ? (
+                          <View className="px-2 py-0.5 rounded-sm bg-ai-light">
+                            <Text className="text-micro font-medium text-ai">
+                              In batch
+                            </Text>
+                          </View>
+                        ) : null}
+                        <Text className="text-micro text-text-muted">
+                          From {e.startDate}
+                        </Text>
+                      </View>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${e.studentName}`}
+                      onPress={() => setRemoveTarget(e)}
+                      className="w-9 h-9 rounded-pill bg-danger-bg items-center justify-center active:opacity-70"
+                    >
+                      <Ionicons name="close" size={18} color={colors.semantic.danger} />
+                    </Pressable>
+                  </View>
+                ))}
+            </View>
+          )}
         </View>
 
         {/* ── Batches — Active / Ended tabs. Ended classes stay
@@ -354,7 +454,7 @@ export function TutorCapacityScreen() {
                     {t === "active" ? "Active" : "Ended"}
                   </Text>
                   <View
-                    className={`px-1.5 py-0.5 rounded-full ${
+                    className={`px-1.5 py-0.5 rounded-pill ${
                       isActive ? "bg-white/20" : "bg-surface"
                     }`}
                   >
@@ -374,7 +474,7 @@ export function TutorCapacityScreen() {
           {visibleBatches.length === 0 ? (
             <View className="bg-surface border border-border rounded-card p-6 items-center">
               <View className="w-12 h-12 rounded-pill bg-ai-light items-center justify-center mb-3">
-                <Ionicons name="people-outline" size={22} color="#4A7FA5" />
+                <Ionicons name="people-outline" size={22} color={colors.brand.ai} />
               </View>
               <Text className="text-card-title font-medium text-text-primary text-center">
                 {batches.length === 0
@@ -479,7 +579,7 @@ export function TutorCapacityScreen() {
                               >
                                 {batch.status === "active" && (
                                   <View
-                                    className={`w-1.5 h-1.5 rounded-full ${
+                                    className={`w-1.5 h-1.5 rounded-pill ${
                                       own
                                         ? "bg-verification"
                                         : taken
@@ -498,13 +598,13 @@ export function TutorCapacityScreen() {
                         {batch.status === "active" && (
                           <View className="flex-row items-center gap-3 mt-1.5">
                             <View className="flex-row items-center gap-1">
-                              <View className="w-1.5 h-1.5 rounded-full bg-verification" />
+                              <View className="w-1.5 h-1.5 rounded-pill bg-verification" />
                               <Text className="text-micro text-text-muted">
                                 Batch slot
                               </Text>
                             </View>
                             <View className="flex-row items-center gap-1">
-                              <View className="w-1.5 h-1.5 rounded-full bg-amber" />
+                              <View className="w-1.5 h-1.5 rounded-pill bg-amber" />
                               <Text className="text-micro text-text-muted">
                                 Overlaps 1-to-1
                               </Text>
@@ -556,7 +656,7 @@ export function TutorCapacityScreen() {
               }`}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.text.inverse} />
               ) : (
                 <Text
                   className={`text-button font-semibold ${
@@ -571,8 +671,38 @@ export function TutorCapacityScreen() {
         </View>
       )}
 
+      <RemoveEnrollmentDialog
+        visible={removeTarget !== null}
+        studentName={removeTarget?.studentName ?? ""}
+        loading={removing}
+        onConfirm={(reason) => void handleRemoveEnrollment(reason)}
+        onCancel={() => setRemoveTarget(null)}
+      />
       <TutorBottomBar />
     </ScreenLayout>
+  );
+}
+
+/** Roster avatar with initial fallback (mirrors the dashboard's
+ *  `AvatarCircle` — the truthy guard is required because
+ *  `<Image source={{ uri: "" }}>` throws on Android). */
+function RosterAvatar({ uri, name }: { uri?: string | null; name?: string }) {
+  const hasImage = typeof uri === "string" && uri.length > 0;
+  const initial = (name?.charAt(0) ?? "?").toUpperCase();
+  if (!hasImage) {
+    return (
+      <View className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center">
+        <Text className="text-card-title font-medium text-text-muted">
+          {initial}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      className="w-10 h-10 rounded-pill bg-background border border-border"
+    />
   );
 }
 

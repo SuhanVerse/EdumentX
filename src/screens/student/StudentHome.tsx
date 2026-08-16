@@ -21,6 +21,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { TutorCard } from "@/components/domain/TutorCard";
+import { colors } from "@/constants/colors";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
@@ -179,7 +180,7 @@ export function StudentHome() {
               and the name reads "Su…" in the screenshots. */}
           <View className="flex-1 min-w-0">
             <Text className="text-body text-text-secondary mb-0.5">Good day,</Text>
-            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
               <Text
                 className="text-screen-title font-medium text-text-primary"
                 numberOfLines={1}
@@ -195,7 +196,7 @@ export function StudentHome() {
               onPress={() => router.push("/messages" as never)}
               className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={19} color="#2F5D50" />
+              <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
             </Pressable>
             <NotificationBell tone="light" />
           </View>
@@ -203,19 +204,19 @@ export function StudentHome() {
 
         {/* Location */}
         <View className="flex-row items-center gap-1.5 mb-3.5">
-          <Ionicons name="location-outline" size={14} color="#6B7280" />
+          <Ionicons name="location-outline" size={14} color={colors.text.muted} />
           <Text className="text-caption text-text-secondary">{profile.locationLabel}</Text>
         </View>
 
         {/* Search bar — white surface input on the warm-paper hero
             (hairline border separates it from the body) */}
-        <View className="bg-surface rounded-2xl h-input flex-row items-center px-4 gap-2.5 border border-border">
-          <Ionicons name="search-outline" size={18} color="#6B7280" />
+        <View className="bg-surface rounded-card h-input flex-row items-center px-4 gap-2.5 border border-border">
+          <Ionicons name="search-outline" size={18} color={colors.text.muted} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search subjects, tutors, locations…"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.text.muted}
             className="flex-1 text-body-lg text-text-primary"
           />
         </View>
@@ -232,10 +233,10 @@ export function StudentHome() {
             accessibilityRole="button"
             accessibilityLabel="Explore tutors on the map"
             onPress={() => router.replace("/map-search")}
-            className="min-h-btn rounded-2xl bg-amber items-center justify-center shadow-[0_10px_30px_rgba(229,160,59,0.25)] active:opacity-90"
+            className="min-h-btn rounded-card bg-amber items-center justify-center shadow-[0_10px_30px_rgba(229,160,59,0.25)] active:opacity-90"
           >
             <View className="flex-row items-center gap-2">
-              <Ionicons name="map-outline" size={18} color="#0F172A" />
+              <Ionicons name="map-outline" size={18} color={colors.text.primary} />
               <Text className="text-button font-semibold text-night">
                 Explore tutors on the map
               </Text>
@@ -254,7 +255,7 @@ export function StudentHome() {
             className="flex-row items-center gap-3 bg-surface border border-border rounded-card p-3.5 active:opacity-80"
           >
             <View className="w-10 h-10 rounded-pill bg-ai-light items-center justify-center">
-              <Ionicons name="people-outline" size={19} color="#4A7FA5" />
+              <Ionicons name="people-outline" size={19} color={colors.brand.ai} />
             </View>
             <View className="flex-1 min-w-0">
               <Text className="text-card-title font-medium text-text-primary">
@@ -264,7 +265,7 @@ export function StudentHome() {
                 Join an existing group class near you
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
           </Pressable>
         </View>
 
@@ -289,18 +290,18 @@ export function StudentHome() {
         <View className="gap-4">
           {tutorsLoading ? (
             <View className="items-center py-12">
-              <ActivityIndicator size="small" color="#2F5D50" />
+              <ActivityIndicator size="small" color={colors.brand.primary} />
               <Text className="text-caption text-text-muted mt-3">
                 Loading tutors…
               </Text>
             </View>
           ) : tutors.length === 0 ? (
             <View className="items-center py-12 px-6">
-              <View className="w-14 h-14 rounded-2xl bg-surface items-center justify-center mb-3 border border-border">
+              <View className="w-14 h-14 rounded-card bg-surface items-center justify-center mb-3 border border-border">
                 <Ionicons
                   name="search-outline"
                   size={26}
-                  color="#6B7280"
+                  color={colors.text.muted}
                 />
               </View>
               <Text className="text-card-title font-medium text-text-primary text-center">

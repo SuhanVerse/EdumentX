@@ -17,6 +17,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { colors } from '@/constants/colors';
 
 import type { TutorListing } from '@/lib/tutor/firestoreTutorService';
 import { Avatar } from '@/components/ui/Avatar';
@@ -35,6 +38,7 @@ interface TutorPreviewSheetProps {
 
 export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheetProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const translateY = useSharedValue(400);
 
   useEffect(() => {
@@ -70,8 +74,8 @@ export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheet
         <Pressable className="flex-1" onPress={onClose} />
 
         <Animated.View
-          className="bg-surface rounded-t-[20px] px-5 pt-5 pb-8 border-t border-border"
-          style={animatedStyle}
+          className="bg-surface rounded-t-xl px-5 pt-5 border-t border-border"
+          style={[animatedStyle, { paddingBottom: 32 + insets.bottom }]}
         >
           {/* ── Header: Avatar + Info + Close ── */}
           <View className="flex-row justify-between items-start">
@@ -96,7 +100,7 @@ export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheet
                   )}
                 </View>
                 <View className="flex-row items-center mt-0.5">
-                  <Ionicons name="location-outline" size={13} color="#6B7268" />
+                  <Ionicons name="location-outline" size={13} color={colors.text.muted} />
                   <Text
                     className="text-caption text-text-secondary ml-1"
                     numberOfLines={1}
@@ -111,7 +115,7 @@ export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheet
               className="p-1.5 active:opacity-70"
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
-              <Ionicons name="close" size={22} color="#6B7268" />
+              <Ionicons name="close" size={22} color={colors.text.muted} />
             </Pressable>
           </View>
 
@@ -145,7 +149,7 @@ export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheet
             </Text>
             {tutor.rating > 0 && (
               <View className="flex-row items-center gap-1">
-                <Ionicons name="star" size={14} color="#E5A03B" />
+                <Ionicons name="star" size={14} color={colors.brand.accent} />
                 <Text className="text-caption font-medium text-text-primary">
                   {tutor.rating.toFixed(1)}
                 </Text>
