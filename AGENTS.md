@@ -170,10 +170,14 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   wizard creates batches via the existing `createBatch` transaction.
   Member add/remove + `endBatch` use direct paths (no
   collectionGroup scans). Rules verified in `test:rules`.
-- **Platform Statistics is live** — `PlatformStatistics.tsx` aggregates
-  real counts with `getCountFromServer` (users, tutors, approved
-  tutors, pending enrollment requests) with loading/error/retry
-  states; the fabricated `MOCK_ADMIN_STATS` module was deleted.
+- **Platform Statistics is live** — the old `PlatformStatistics.tsx`
+  was merged into `AdminHome.tsx` (Aug 15): the admin Home screen
+  shows a live KPI grid via `getCountFromServer` (users, tutors,
+  approved tutors, pending enrollment requests) with
+  loading/error/retry states; the fabricated `MOCK_ADMIN_STATS`
+  module is deleted. The pending-requests KPI needs the
+  `requests.status` COLLECTION_GROUP index (deployed + READY,
+  verified Aug 16).
 - **In-app messaging is live** — `services/messages/` (messages
   domain: `MessagesRepository` interface + Firebase/Mock impls +
   `dataSource` selector). Schema: `conversations/{conversationId}`
@@ -248,8 +252,41 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   (`npm run backfill:tutor-availability`) defaults legacy docs to
   `true` so the strict filter doesn't hide them.
 
+**Aug 16, 2026 session (rules deploy + Phase 1–5 polish):**
+- **Deployed to `edumentx-dev`** (`firebase deploy --only
+  firestore:rules,firestore:indexes`, verified by all five live
+  smoke suites): the `reviews` aggregate carve-out (a reviewer may
+  update ONLY the tutor's `rating`/`reviewCount`/`categoryRatings`/
+  `reviewBreakdown`/`updatedAt` — `submitReview`'s transaction
+  writes those in the same tx as the review doc), the roster
+  update rule keyed on the PATH owner (legacy rows without a
+  `tutorUid` field expire cleanly), and the `requests.status`
+  COLLECTION_GROUP index (AdminHome pending-requests KPI).
+- **`sweepExpiredEnrollments` root cause:** the STUDENT screens
+  (`TutorDetailsScreen`, `EnrollmentFormScreen`) subscribed to a
+  tutor's roster and the sweep ran AS THE STUDENT. Those call
+  sites now pass `{ runSweep: false }` — the sweep only runs on
+  the tutor's own subscription.
+- **Batch "404" fixed:** the student detail screen now reads the
+  batch by DIRECT PATH (`subscribeBatch` — status-agnostic) instead
+  of the active-only marketplace feed, so ended batches opened from
+  My Enrollments render instead of "not found".
+- **Live student avatars:** the tutor-facing roster/request feeds
+  backfill blank names/avatars from
+  `users/{uid}/studentProfile/default` (emit-then-backfill, same
+  pattern as the student view's tutor identity).
+- **UI:** chat list + composer sit in one `KeyboardAvoidingView`;
+  TutorDetails CTA flips to a disabled "Already enrolled" state;
+  admin screens converted to the light theme; MyEnrollments tabs
+  got 24px gutters; BrowseBatches keys by `${tutorUid}-${batchId}`
+  (duplicate `seed-1` crash); smoke scripts use timestamped ids +
+  `try/finally` cleanup (and `smokeTestTutorDetails` now
+  `recursiveDelete`s — its parent-only cleanup was reseeding
+  `seed-1` every run; the 8 legacy leftovers were scrubbed from
+  live).
+
 **Test commands (Aug 2026):**
-- `npm run test:derived` — 47 unit tests over every pure helper in
+- `npm run test:derived` — 64 unit tests over every pure helper in
   `services/enrollments/derived.ts` + `types.ts` (KTM date helpers,
   slotKey parsing, today-sessions derivation, booked-map, capacity
   counts + availability-draft helpers, malformed-slotKey guard).
@@ -262,28 +299,35 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   and fails on drift vs local `firebase/firestore.rules` (needs
   `GOOGLE_APPLICATION_CREDENTIALS`); (2) boots the Firestore
   emulator with the LOCAL rules and exercises the security rules
-  via the REST API across SIX suites: the `tutors/{uid}`
+  via the REST API across SEVEN suites: the `tutors/{uid}`
   availability carve-out, the batches collections, the
   acceptRequest transaction paths (incl. the legacy no-counters
   profile carve-out + the student fast-forward `endDate`
-  carve-out for the dev QA helper), the conversations/messages
-  participant gates (incl. the hub `or()` scalar list query + the
-  message read-receipt `status`/`readAt` carve-out), the reviews
-  list rules, and the removeEnrollment cascade.
+  carve-out + the §7 legacy-roster-row sweep the auto-expiry
+  sweep needs), the conversations/messages participant gates
+  (incl. the hub `or()` scalar list query + the message
+  read-receipt `status`/`readAt` carve-out), the reviews list
+  rules (incl. the §4b reviewer-aggregate-write carve-out), the
+  removeEnrollment cascade, and the tutorDetails direct-path
+  reads.
 
 **CI (`.github/workflows/ci.yml`, green on develop):** `check`
   (typecheck, lint incl. the five design-token rules, test:derived,
-  test:lint-rules) → `rules` (six emulator suites, Java 21) →
-  `rules-deployed` (deployed-vs-local drift + FOUR live smoke
-  suites — enrollments, reviews, batches-browse, messages — that
-  act as real signed-in clients against the deployed rules,
-  gated on the `GCP_SA_KEY` + `FIREBASE_WEB_API_KEY` secrets).
-  Trigger on `main` pushes + manual dispatch; the credentialed job
-  intentionally skips PRs (rules-changing PRs would show drift
-  until deployed).
+  test:lint-rules) → `rules` (seven emulator suites, Java 21) →
+  `rules-deployed` (deployed-vs-local drift + FIVE live smoke
+  suites — enrollments, reviews, batches-browse, messages,
+  tutor-details — that act as real signed-in clients against the
+  deployed rules, gated on the `GCP_SA_KEY` + `FIREBASE_WEB_API_KEY`
+  secrets). Trigger on `main` pushes + manual dispatch; the
+  credentialed job intentionally skips PRs (rules-changing PRs
+  would show drift until deployed).
 
-**Pending deliverables (as of Aug 15, 2026):**
+**Pending deliverables (as of Aug 16, 2026):**
+- ✅ **Firestore rules + indexes deployed** (see the Aug 16 block
+  above — the review/sweep rule fixes and the `requests.status`
+  COLLECTION_GROUP index are LIVE and verified by all five smoke
+  suites).
 - Rebuild the EAS dev client with the updated native deps (Clerk
   packages removed, `@react-native-google-signin/google-signin`
-  restored).
+  restored) — the only remaining item.
 
