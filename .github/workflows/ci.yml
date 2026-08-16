@@ -69,15 +69,19 @@ jobs:
           && node scripts/reviewsListRulesTest.mjs
           && node scripts/removeEnrollmentRulesTest.mjs"
 
-  # Credentialed drift check: compares the DEPLOYED ruleset (via the
-  # Firebase Rules API) against the local firebase/firestore.rules.
-  # Requires the `GCP_SA_KEY` repo secret — a Google service-account
-  # JSON with the `cloud-platform` scope (see
-  # scripts/checkDeployedRules.mjs).
+  # Credentialed checks: deployed-vs-local drift + LIVE smoke tests.
+  # Requires two repo secrets:
+  #   - `GCP_SA_KEY` — a Google service-account JSON with the
+  #     `cloud-platform` scope (see scripts/checkDeployedRules.mjs).
+  #   - `FIREBASE_WEB_API_KEY` — the public Firebase web API key (the
+  #     same `EXPO_PUBLIC_FIREBASE_API_KEY` shipped in the app; the
+  #     smoke scripts mint real client tokens with it).
   #
   # Runs on main pushes + manual dispatch only, NOT on PRs: a PR that
   # legitimately changes rules would show drift until the rules are
   # deployed, so this would fail every rules-changing PR by design.
+  # The live smoke tests mutate real docs (seeded then cleaned up),
+  # so they're held to the same trigger.
   #
   # IMPORTANT: the `secrets` context is NOT available in ANY `if`
   # condition — not job-level and not step-level. GitHub's context
@@ -86,15 +90,16 @@ jobs:
   # "Unrecognized named-value: 'secrets'" (seen twice: job-level and
   # step-level variants). The fix: copy the secret into a JOB-LEVEL
   # `env` variable, then reference `env.GCP_SA_KEY` in the step `if`s.
-  # When the secret is unset the env var is the empty string, the
+  # When a secret is unset the env var is the empty string, the
   # `!= ''` checks fail, and the credential steps are skipped — the
   # job passes trivially instead of erroring.
   rules-deployed:
-    name: Deployed-rules drift check
+    name: Deployed-rules drift check + live smoke tests
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     env:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -111,3 +116,18 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npm run test:rules:deployed
+      # Live end-to-end smoke tests: each suite acts as REAL signed-in
+      # clients against the deployed rules (the exact queries/writes
+      # the app makes), seeds throwaway data, asserts, then cleans up.
+      # Order matters: the drift check above must pass first so a
+      # green run proves the CURRENT rules are correct — otherwise the
+      # smoke tests would silently exercise a stale deployed ruleset.
+      - name: Live smoke tests (enrollments, reviews, batches, messages)
+        if: env.GCP_SA_KEY != '' && env.FIREBASE_WEB_API_KEY != ''
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
+        run: |
+          npm run smoke:enrollments
+          npm run smoke:reviews
+          npm run smoke:batches-browse
+          npm run smoke:messages
