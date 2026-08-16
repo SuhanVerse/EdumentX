@@ -10,7 +10,7 @@
  * Key source: EXPO_PUBLIC_GOOGLE_MAPS_API_KEY (read from .env during
  * prebuild). Falls back to android.config.googleMaps.apiKey if set.
  */
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require('expo/config-plugins');
 
 const META_API_KEY = 'com.google.android.geo.API_KEY';
 
