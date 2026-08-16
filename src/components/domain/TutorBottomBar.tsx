@@ -78,9 +78,20 @@ export function TutorBottomBar({
 
   // Underline track — springs to the active tab's center minus
   // half the underline width so the bar stays visually centered.
+  // First-layout guard (same as BottomNav): the row mounts with
+  // `width = 0` then re-measures, and a spring on that first measure
+  // makes the underline slide in from tab 0 on every screen mount.
+  // Hard-jump to the measured position on first layout; animate only
+  // on subsequent tab changes.
   const underlineX = useSharedValue(0);
+  const firstLayout = React.useRef(true);
   React.useEffect(() => {
     const center = tabWidth * activeIndex + tabWidth / 2 - UNDERLINE_WIDTH / 2;
+    if (firstLayout.current) {
+      firstLayout.current = false;
+      underlineX.value = center;
+      return;
+    }
     underlineX.value = withSpring(center, motion.spring.indicator);
   }, [activeIndex, tabWidth, underlineX]);
   const underlineStyle = useAnimatedStyle(() => ({
@@ -192,7 +203,12 @@ function TutorTab({
   inboxBadgeCount: number;
   tone?: "light" | "dark";
 }) {
-  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  // Nav tabs don't fire haptics — the sliding pill/underline is the
+  // feedback and per-tap haptics add perceived lag on budget Android
+  // devices (see BottomNav).
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    haptic: false,
+  });
   const Icon = tab.icon;
   const color = active
     ? tone === "dark"

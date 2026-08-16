@@ -91,8 +91,13 @@ function TabButton({
   onPress: () => void;
   tone: "light" | "dark";
 }) {
+  // Nav tabs don't fire haptics — the sliding active pill is the
+  // feedback, and per-tap haptics add perceived lag on budget
+  // Android devices (the pill spring + router.replace already animate
+  // on the JS thread). The subtle 0.94 scale is kept for tactility.
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.chipPressed,
+    haptic: false,
   });
   // Light-tone active state is the amber accent (matches the admin
   // nav + tutor nav) so the "you are here" signal is uniform across
@@ -169,7 +174,19 @@ function TabRow({
   const pillLeft =
     tabWidth * activeIndex + Math.max(0, (tabWidth - PILL_SIZE) / 2);
   const pillX = useSharedValue(0);
+  // First-layout guard: the row mounts with `width = 0` (pillLeft = 0)
+  // and then re-renders once `onLayout` measures the real width. A
+  // spring on that first measure makes the pill visibly slide in from
+  // the Home position on every screen mount — the "bottom nav feels
+  // laggy / wrong" report. Hard-jump to the measured position on the
+  // first layout; animate only on subsequent tab changes.
+  const firstLayout = React.useRef(true);
   React.useEffect(() => {
+    if (firstLayout.current) {
+      firstLayout.current = false;
+      pillX.value = pillLeft;
+      return;
+    }
     pillX.value = withSpring(pillLeft, motion.spring.indicator);
   }, [pillLeft, pillX]);
   const pillStyle = useAnimatedStyle(() => ({

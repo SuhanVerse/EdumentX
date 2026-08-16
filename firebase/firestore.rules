@@ -568,36 +568,37 @@ service cloud.firestore {
     // in FirebaseEnrollmentRepository.ts:620 / :768), so checking
     // those fields is sufficient. Read-only — all writes stay on the
     // direct-path rules above.
+    // IMPORTANT — real Firestore applies a recursive rule's
+    // conditions to DIRECT-PATH list queries too (not just
+    // collectionGroup ones): a query on `enrollments/{tutorUid}/roster`
+    // matches BOTH the path-specific rule below AND this recursive
+    // rule, and the strictest wins. The TutorDetailsScreen (student
+    // facing) lists a tutor's roster / classes / requests by direct
+    // path to build the BookedMap, the pending-hourglass overlay, and
+    // the batch list — so these recursive rules MUST allow signed-in
+    // reads exactly like the path-specific rules do. That the direct
+    // path is already readable by any signed-in user means the
+    // collectionGroup surface exposes the same data, so there is no
+    // new privacy surface here. (The emulator does NOT reproduce this
+    // AND-ing — it accepts the path-specific allow alone — which is
+    // why the live smoke test, not the emulator, catches regressions.)
     match /{prefix=**}/roster/{enrollmentId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/requests/{requestId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/members/{memberId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/classes/{batchId} {
       // The marketplace "Browse open batches" screen lists every
-      // ACTIVE batch via a collectionGroup query. Public batches
-      // are discoverable by design — any signed-in user may list
-      // active classes (the direct-path rule already allows
-      // signed-in reads of `batches/{tutorUid}/classes/*`); the
-      // tutor/admin restriction applies to non-active (ended)
-      // batches only.
-      allow get, list: if isSignedIn()
-        && (resource.data.tutorUid == request.auth.uid
-            || resource.data.status == "active"
-            || isAdmin());
+      // ACTIVE batch via a collectionGroup query. Any signed-in user
+      // may list classes — active ones by design, ended ones because
+      // the tutor-details BookedMap reads them via direct path and
+      // the recursive rule must not be stricter than the direct-path
+      // rule (see the note above). The UI filters by status.
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/reviews/{reviewId} {
       // The marketplace overlays live per-tutor rating/reviewCount from

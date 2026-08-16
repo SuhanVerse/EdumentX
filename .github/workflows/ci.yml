@@ -122,7 +122,7 @@ jobs:
       # Order matters: the drift check above must pass first so a
       # green run proves the CURRENT rules are correct — otherwise the
       # smoke tests would silently exercise a stale deployed ruleset.
-      - name: Live smoke tests (enrollments, reviews, batches, messages)
+      - name: Live smoke tests (enrollments, reviews, batches, messages, tutor-details)
         if: env.GCP_SA_KEY != '' && env.FIREBASE_WEB_API_KEY != ''
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
@@ -131,3 +131,4 @@ jobs:
           npm run smoke:reviews
           npm run smoke:batches-browse
           npm run smoke:messages
+          npm run smoke:tutor-details
