@@ -203,6 +203,41 @@ async function runHubQuery(uid) {
   check("non-participant cannot send a message", r.status, 403);
 }
 
+// ── 7b. Read receipts — a participant flips an incoming message to
+//        `status: "read"` (markMessagesRead). Stranger flip denied.
+{
+  // Fetch the message id created in step 4 (auto-id).
+  const list = await req("GET", `/conversations/${CONV}/messages`, STUDENT);
+  const m = JSON.parse(list.body);
+  const msgId = m.documents?.[0]?.name?.split("/").pop();
+  if (msgId) {
+    const ok = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=status&updateMask.fieldPaths=readAt`,
+      TUTOR,
+      payload({ status: "read", readAt: "2026-08-16T00:00:00Z" }),
+    );
+    check("participant marks incoming message read (receipt)", ok.status, 200);
+    if (ok.status !== 200) console.log("   ", ok.body);
+
+    const tamper = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=text`,
+      TUTOR,
+      payload({ text: "Edited!" }),
+    );
+    check("participant cannot rewrite message text (receipt-only carve-out)", tamper.status, 403);
+
+    const denied = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=status&updateMask.fieldPaths=readAt`,
+      STRANGER,
+      payload({ status: "read", readAt: "2026-08-16T00:00:00Z" }),
+    );
+    check("stranger cannot flip message status", denied.status, 403);
+  }
+}
+
 // ── 8. Participant bumps lastMessage (update allowed) ──
 {
   const r = await req(
