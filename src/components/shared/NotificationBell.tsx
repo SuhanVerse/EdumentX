@@ -33,6 +33,7 @@ import {
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { useAuthStore } from "@/store/authStore";
+import { colors } from "@/constants/colors";
 
 export function NotificationBell({
   tone = "dark",
@@ -83,7 +84,7 @@ export function NotificationBell({
     tone === "dark"
       ? "w-10 h-10 rounded-pill bg-glass-strong border border-glass-border items-center justify-center"
       : "w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center";
-  const glyphColor = tone === "dark" ? "#FFFFFF" : "#1F2A24";
+  const glyphColor = tone === "dark" ? "#FFFFFF" : colors.text.primary;
 
   return (
     <AnimatedPressable

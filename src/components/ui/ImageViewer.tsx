@@ -25,6 +25,7 @@
  * iOS and Android via `maximumZoomScale` / `minimumZoomScale`.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/constants/colors";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
@@ -195,7 +196,7 @@ function ImageCloseButton({ onPress }: { onPress: () => void }) {
       style={animatedStyle}
       className="absolute top-12 right-4 w-10 h-10 rounded-pill bg-white/15 items-center justify-center"
     >
-      <Ionicons name="close" size={22} color="#FFFFFF" />
+      <Ionicons name="close" size={22} color={colors.text.inverse} />
     </AnimatedPressable>
   );
 }

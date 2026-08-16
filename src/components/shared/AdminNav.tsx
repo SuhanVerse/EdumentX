@@ -5,6 +5,8 @@ import { Text, View } from "react-native";
 
 import { ActivePill, AnimatedPressable, usePressScale } from "@/components/motion";
 import { useAuthStore } from "@/store/authStore";
+import { colors } from "@/constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * EdumentX — Admin Bottom Navigation
@@ -78,7 +80,7 @@ function TabButton({
         <Ionicons
           name={active ? tab.icon : (`${tab.icon}-outline` as any)}
           size={20}
-          color={active ? "#E5A03B" : "#6B7268"}
+          color={active ? colors.brand.accent : colors.text.muted}
         />
       </View>
       <Text
@@ -132,6 +134,7 @@ function TabRow({
 }
 
 export function AdminNav() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const role = useAuthStore((state) => state.role);
@@ -167,7 +170,7 @@ export function AdminNav() {
   return (
     <View
       className="bg-surface border-t border-border"
-      style={{ paddingBottom: 12, paddingTop: 8 }}
+      style={{ paddingBottom: 12 + insets.bottom, paddingTop: 8 }}
     >
       <TabRow
         tabs={ADMIN_TABS}

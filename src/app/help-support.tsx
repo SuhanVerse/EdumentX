@@ -62,7 +62,7 @@ export default function HelpSupportScreen() {
             onPress={() => router.back()}
             className="w-9 h-9 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#2F5D50" />
+            <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
           </Pressable>
         </View>
         <Text className="text-body text-text-secondary mt-0.5">
@@ -137,7 +137,7 @@ export default function HelpSupportScreen() {
                   We reply within 24 hours
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7268" />
+              <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
             </Pressable>
           </View>
 

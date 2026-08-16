@@ -2,14 +2,19 @@
 /**
  * generate-markers.mjs — EdumentX custom map pin generator.
  *
- * Renders the Slate/Night + Amber themed tutor map pins as PNGs into
- * `assets/markers/`. Pure Node — no canvas or image deps: a minimal
- * PNG encoder (zlib + CRC32) writes RGBA output. Pixels are
- * supersampled `SS x SS` for antialiasing, then box-downsampled.
+ * Renders the teardrop tutor map pins as PNGs into `assets/markers/`.
+ * Pure Node — no canvas or image deps: a minimal PNG encoder
+ * (zlib + CRC32) writes RGBA output. Pixels are supersampled
+ * `SS x SS` for antialiasing, then box-downsampled.
  *
- * The badge is a rounded-square locator with a stub tail; the map
- * anchor (bottom-center of the canvas) lands exactly on the tail tip,
- * matching expo-maps' default `bottom-center` marker anchor.
+ * Visual language (unified with `TutorAvatarPin`):
+ *   - white circular head (44 px — the 44 pt touch-target minimum)
+ *     with a 3 px colored ring + pointed tail; the tail tip sits at
+ *     bottom-center, matching expo-maps' default marker anchor.
+ *   - slate ring       → regular tutor
+ *   - green ring+shield→ verified tutor (verification token)
+ *   - amber ring+halo  → selected pin (amber = selection accent)
+ *   - pin-picker       → solid amber locator (location picker drop pin)
  *
  * Run:  node scripts/generate-markers.mjs
  */
@@ -30,10 +35,11 @@ const W = 64; // logical canvas width
 const H = 84; // logical canvas height (tail tip at y=80 ≈ anchor+breathe)
 const SS = 8; // supersample factor
 
+// Palette — mirrors `tailwind.config.js` / `constants/colors.ts`.
 const C = {
-  amber: [229, 160, 59, 255],
-  slate: [15, 23, 42, 255],
-  green: [63, 138, 90, 255],
+  slate: [15, 23, 42, 255], // #0F172A — default ring
+  amber: [229, 160, 59, 255], // #E5A03B — selection ring / picker fill
+  green: [63, 138, 90, 255], // #3F8A5A — verified ring
   white: [255, 255, 255, 255],
 };
 
@@ -56,7 +62,7 @@ function sdRoundRect(px, py, cx, cy, hw, hh, r) {
 /**
  * Signed distance inside an isoceles downward triangle (negative = inside).
  * Points above the base report +Infinity so `min(body, tail)` keeps the
- * badge’s distance there; points below the tip fall back to the corner
+ * head’s distance there; points below the tip fall back to the corner
  * distance.
  */
 function sdTriangle(px, py, cx, halfBase, topY, tipY) {
@@ -72,51 +78,124 @@ function sdTriangle(px, py, cx, halfBase, topY, tipY) {
   return sdX;
 }
 
+/**
+ * Person silhouette (head circle + shoulders), used as the center glyph
+ * for the PNG fallback pins — the avatar pins show the tutor photo, so
+ * the fallback shows a neutral person mark in the same position.
+ */
+function sdPerson(px, py) {
+  const head = sdCircle(px, py, 32, 23, 5);
+  const shoulders = sdRoundRect(px, py, 32, 35, 7, 4.5, 4);
+  return Math.min(head, shoulders);
+}
+
 function cover(dist) {
   return clamp01(0.5 - dist);
 }
 
 // ── Pin geometry (logical px) ────────────────────────────────────────────────
 
-const CY = 24; // badge center — badge spans y 9..39, tail 39..59
-const TAIL_TOP = 36;
-const TAIL_TIP = 74;
+const CX = 32; // head center
+const CY = 30;
+const HEAD_R = 22; // head radius → 44 px diameter (touch-target minimum)
+const RING_W = 3; // ring thickness
+const TAIL_TOP = 46; // tail base — overlaps the head bottom
+const TAIL_TIP = 80;
+const TAIL_HALF = 9;
+const HALO_OUT = 29; // selected white halo (annulus 25..29)
+const HALO_IN = 25;
+const DOT_R = 6; // picker / cluster center dot
+const SHIELD_CX = 45; // verified shield badge on the head rim
+const SHIELD_CY = 41;
+const SHIELD_R = 8;
+const SHIELD_DOT = 3.5;
 
 /**
  * Builds the per-pixel RGBA color for one pin shape.
- * Layers: badge+tail fill → white ring (outer disc minus inner disc) →
- * center dot. Composite via alpha lerp, clamp at the end.
- * Returns [r,g,b,a] floats 0..1.
- *
- * `shape.selected` widens the white ring into a selection halo — the
- * on-map "this pin is selected" state (used for the map's selected
- * tutor alongside the translucent service-radius Circle).
+ * Composite (painter’s order): halo → head → tail → ring → glyph →
+ * shield. Returns [r,g,b,a] floats, rgb in 0..255, alpha in 0..1.
  */
 function pinPixel(px, py, shape) {
-  const bodyDist = Math.min(
-    sdRoundRect(px, py, 32, CY, 17, 17, 10),
-    sdTriangle(px, py, 32, 15, TAIL_TOP, TAIL_TIP),
-  );
+  const wHalo = shape.halo
+    ? cover(sdCircle(px, py, CX, CY, HALO_OUT)) *
+      (1 - cover(sdCircle(px, py, CX, CY, HALO_IN)))
+    : 0;
 
-  // cover() on a signed distance → 1 deep inside, 0 far outside.
-  const wBody = cover(bodyDist);
+  const wHead = cover(sdCircle(px, py, CX, CY, HEAD_R));
+  const wTail = cover(sdTriangle(px, py, CX, TAIL_HALF, TAIL_TOP, TAIL_TIP));
+  const wRing =
+    cover(sdCircle(px, py, CX, CY, HEAD_R)) *
+    (1 - cover(sdCircle(px, py, CX, CY, HEAD_R - RING_W)));
+  const wGlyph =
+    shape.glyph === "person"
+      ? cover(sdPerson(px, py))
+      : cover(sdCircle(px, py, CX, CY, DOT_R));
+  const wShield = shape.shield
+    ? cover(sdCircle(px, py, SHIELD_CX, SHIELD_CY, SHIELD_R))
+    : 0;
+  const wShieldDot = shape.shield
+    ? cover(sdCircle(px, py, SHIELD_CX, SHIELD_CY, SHIELD_DOT))
+    : 0;
 
-  const ringOuter = shape.selected ? 20 : 13;
-  const ringInner = shape.selected ? 15 : ringOuter - 4;
-  // Annulus: inside outer disc, outside inner disc.
-  const wWhiteRing =
-    cover(sdCircle(px, py, 32, CY, ringOuter)) *
-    (1 - cover(sdCircle(px, py, 32, CY, ringInner)));
-
-  const wDot = cover(sdCircle(px, py, 32, CY, 5.5));
+  const headColor = shape.head ?? C.white;
+  const tailColor = shape.tail ?? shape.ring;
 
   const lerp = (t) => (u, x) => u * (1 - t) + x * t;
 
-  // rgb work in 0..255 scale (body/dot colors are raw hex bands), alpha in 0..1.
   let [r, g, b, a] = [0, 0, 0, 0];
-  [r, g, b, a] = [lerp(wBody)(r, shape.body[0]), lerp(wBody)(g, shape.body[1]), lerp(wBody)(b, shape.body[2]), lerp(wBody)(a, 1)];
-  [r, g, b, a] = [lerp(wWhiteRing)(r, 255), lerp(wWhiteRing)(g, 255), lerp(wWhiteRing)(b, 255), lerp(wWhiteRing)(a, 1)];
-  [r, g, b, a] = [lerp(wDot)(r, shape.dot[0]), lerp(wDot)(g, shape.dot[1]), lerp(wDot)(b, shape.dot[2]), lerp(wDot)(a, 1)];
+  // Selected halo — wide white ring (selection state).
+  [r, g, b, a] = [
+    lerp(wHalo)(r, C.white[0]),
+    lerp(wHalo)(g, C.white[1]),
+    lerp(wHalo)(b, C.white[2]),
+    lerp(wHalo)(a, 1),
+  ];
+  // Head — white disc (or solid amber for the picker).
+  [r, g, b, a] = [
+    lerp(wHead)(r, headColor[0]),
+    lerp(wHead)(g, headColor[1]),
+    lerp(wHead)(b, headColor[2]),
+    lerp(wHead)(a, headColor[3] / 255),
+  ];
+  // Tail — ring color, drawn over the head so the overlap is seamless.
+  [r, g, b, a] = [
+    lerp(wTail)(r, tailColor[0]),
+    lerp(wTail)(g, tailColor[1]),
+    lerp(wTail)(b, tailColor[2]),
+    lerp(wTail)(a, 1),
+  ];
+  // Ring — colored annulus on the head edge.
+  [r, g, b, a] = [
+    lerp(wRing)(r, shape.ring[0]),
+    lerp(wRing)(g, shape.ring[1]),
+    lerp(wRing)(b, shape.ring[2]),
+    lerp(wRing)(a, 1),
+  ];
+  // Center glyph — person silhouette (tutor/verified) or dot.
+  if (shape.glyph) {
+    const glyphColor = shape.glyphColor ?? shape.ring;
+    [r, g, b, a] = [
+      lerp(wGlyph)(r, glyphColor[0]),
+      lerp(wGlyph)(g, glyphColor[1]),
+      lerp(wGlyph)(b, glyphColor[2]),
+      lerp(wGlyph)(a, 1),
+    ];
+  }
+  // Verified shield — green badge + white center dot on the rim.
+  if (shape.shield) {
+    [r, g, b, a] = [
+      lerp(wShield)(r, C.green[0]),
+      lerp(wShield)(g, C.green[1]),
+      lerp(wShield)(b, C.green[2]),
+      lerp(wShield)(a, 1),
+    ];
+    [r, g, b, a] = [
+      lerp(wShieldDot)(r, C.white[0]),
+      lerp(wShieldDot)(g, C.white[1]),
+      lerp(wShieldDot)(b, C.white[2]),
+      lerp(wShieldDot)(a, 1),
+    ];
+  }
   return [r, g, b, a];
 }
 
@@ -199,26 +278,69 @@ function encodePng(width, height, rgba) {
 
 const PINS = [
   {
+    // Regular tutor — slate ring + slate person glyph.
     file: "pin-tutor.png",
-    shape: { body: C.amber, dot: C.slate },
+    shape: {
+      ring: C.slate,
+      tail: C.slate,
+      glyph: "person",
+      glyphColor: C.slate,
+    },
   },
   {
+    // Verified tutor — green ring + green person + green shield badge.
     file: "pin-verified.png",
-    shape: { body: C.green, dot: C.white },
+    shape: {
+      ring: C.green,
+      tail: C.green,
+      glyph: "person",
+      glyphColor: C.green,
+      shield: true,
+    },
   },
   {
+    // Cluster — slate ring + amber dot (the count badge reads amber).
     file: "pin-cluster.png",
-    shape: { body: C.slate, dot: C.amber },
+    shape: {
+      ring: C.slate,
+      tail: C.slate,
+      glyph: "dot",
+      glyphColor: C.amber,
+    },
   },
-  // Selection halo variants — swapped in when the student taps a pin;
-  // the white ring reads as the "selected" border.
+  // Selection halo variants — swapped in when the student taps a pin.
+  // Amber ring = selection accent; the wide white ring is the halo.
   {
     file: "pin-tutor-selected.png",
-    shape: { body: C.amber, dot: C.slate, selected: true },
+    shape: {
+      ring: C.amber,
+      tail: C.amber,
+      glyph: "person",
+      glyphColor: C.slate,
+      halo: true,
+    },
   },
   {
     file: "pin-verified-selected.png",
-    shape: { body: C.green, dot: C.white, selected: true },
+    shape: {
+      ring: C.amber,
+      tail: C.amber,
+      glyph: "person",
+      glyphColor: C.green,
+      shield: true,
+      halo: true,
+    },
+  },
+  {
+    // Location-picker drop pin — solid amber locator + white center dot.
+    file: "pin-picker.png",
+    shape: {
+      head: C.amber,
+      ring: C.amber,
+      tail: C.amber,
+      glyph: "dot",
+      glyphColor: C.white,
+    },
   },
 ];
 

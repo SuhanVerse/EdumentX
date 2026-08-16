@@ -24,8 +24,10 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/constants/colors";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +41,7 @@ import {
 
 import { AvailabilityTimeList } from "@/components/domain/AvailabilityTimeList";
 import { EnrollmentRequestCard } from "@/components/domain/EnrollmentRequestCard";
+import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { SeatsRing } from "@/components/domain/SeatsRing";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ActivePill } from "@/components/motion";
@@ -93,6 +96,7 @@ function formatEnded(ts: number): string {
 }
 
 export function EnrollmentInbox() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const tutorUid = user?.uid ?? null;
   const router = useRouter();
@@ -134,6 +138,14 @@ export function EnrollmentInbox() {
   // stay viewable (the repo returns both; the tabs filter them).
   const [batchTab, setBatchTab] = useState<"active" | "ended">("active");
   const [batchTabsWidth, setBatchTabsWidth] = useState(0);
+
+  // Full remove-student flow — same RemoveEnrollmentDialog as the
+  // dashboard + capacity screens. The dialog collects a reason and
+  // `removeEnrollment` soft-deletes the enrollment by direct path,
+  // freeing the capacity slot and cascading to the batch member doc
+  // via the roster's `batchId`.
+  const [removeTarget, setRemoveTarget] = useState<BatchMember | null>(null);
+  const [removing, setRemoving] = useState(false);
   const visibleBatches = useMemo(
     () => batches.filter((b) => b.status === batchTab),
     [batches, batchTab],
@@ -312,29 +324,31 @@ export function EnrollmentInbox() {
     );
   }
 
-  function handleRemoveMember(batch: Batch, memberId: string) {
-    const member = (membersByBatch[batch.batchId] ?? []).find(
-      (m) => m.memberId === memberId,
-    );
-    Alert.alert(
-      "Remove student from batch?",
-      `${member?.studentName ?? "This student"} will leave "${batch.name}". They stay enrolled for one-to-one sessions.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            if (!tutorUid) return;
-            batchesRepo
-              .removeBatchMember(tutorUid, batch.batchId, memberId)
-              .catch((err) =>
-                console.warn("EnrollmentInbox: removeBatchMember failed", err),
-              );
-          },
-        },
-      ],
-    );
+  function handleRemoveMember(member: BatchMember) {
+    setRemoveTarget(member);
+  }
+
+  async function handleRemoveEnrollment(reason: string) {
+    if (!tutorUid || !removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      await repo.removeEnrollment(
+        tutorUid,
+        removeTarget.enrollmentId,
+        reason,
+      );
+      // The member + roster subscriptions re-emit and the row drops
+      // off automatically; close the dialog on success.
+      setRemoveTarget(null);
+    } catch (err) {
+      console.warn("EnrollmentInbox: removeEnrollment failed", err);
+      Alert.alert(
+        "Couldn't remove",
+        "We couldn't remove this student. Try again in a moment.",
+      );
+    } finally {
+      setRemoving(false);
+    }
   }
 
   async function doDecline(req: EnrollmentRequest) {
@@ -379,7 +393,7 @@ export function EnrollmentInbox() {
       <ScreenScroll className="flex-1 bg-background">
         {loading ? (
           <View className="items-center justify-center pt-16">
-            <ActivityIndicator size="small" color="#2F5D50" />
+            <ActivityIndicator size="small" color={colors.brand.primary} />
             <Text className="text-caption text-text-muted mt-3">
               Loading requests…
             </Text>
@@ -387,7 +401,7 @@ export function EnrollmentInbox() {
         ) : pending.length === 0 ? (
           <View className="items-center justify-center pt-16 px-6">
             <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
-              <Ionicons name="mail-open-outline" size={26} color="#E5A03B" />
+              <Ionicons name="mail-open-outline" size={26} color={colors.brand.accent} />
             </View>
             <Text className="text-card-title font-medium text-text-primary text-center">
               No pending requests
@@ -454,7 +468,7 @@ export function EnrollmentInbox() {
                     {t === "active" ? "Active" : "Ended"}
                   </Text>
                   <View
-                    className={`px-1.5 py-0.5 rounded-full ${
+                    className={`px-1.5 py-0.5 rounded-pill ${
                       isActive ? "bg-white/20" : "bg-surface"
                     }`}
                   >
@@ -474,7 +488,7 @@ export function EnrollmentInbox() {
           {visibleBatches.length === 0 ? (
             <View className="bg-surface border border-border rounded-card p-6 items-center">
               <View className="w-12 h-12 rounded-pill bg-ai-light items-center justify-center mb-3">
-                <Ionicons name="people-outline" size={22} color="#4A7FA5" />
+                <Ionicons name="people-outline" size={22} color={colors.brand.ai} />
               </View>
               <Text className="text-card-title font-medium text-text-primary text-center">
                 {batches.length === 0
@@ -577,7 +591,7 @@ export function EnrollmentInbox() {
                               >
                                 {batch.status === "active" && (
                                   <View
-                                    className={`w-1.5 h-1.5 rounded-full ${
+                                    className={`w-1.5 h-1.5 rounded-pill ${
                                       own
                                         ? "bg-verification"
                                         : taken
@@ -596,13 +610,13 @@ export function EnrollmentInbox() {
                         {batch.status === "active" && (
                           <View className="flex-row items-center gap-3 mt-1.5">
                             <View className="flex-row items-center gap-1">
-                              <View className="w-1.5 h-1.5 rounded-full bg-verification" />
+                              <View className="w-1.5 h-1.5 rounded-pill bg-verification" />
                               <Text className="text-micro text-text-muted">
                                 Batch slot
                               </Text>
                             </View>
                             <View className="flex-row items-center gap-1">
-                              <View className="w-1.5 h-1.5 rounded-full bg-amber" />
+                              <View className="w-1.5 h-1.5 rounded-pill bg-amber" />
                               <Text className="text-micro text-text-muted">
                                 Overlaps 1-to-1
                               </Text>
@@ -657,9 +671,7 @@ export function EnrollmentInbox() {
                               <Pressable
                                 accessibilityRole="button"
                                 accessibilityLabel={`Remove ${member.studentName} from batch`}
-                                onPress={() =>
-                                  handleRemoveMember(batch, member.memberId)
-                                }
+                                onPress={() => handleRemoveMember(member)}
                                 className="px-2.5 py-1.5 active:opacity-70"
                               >
                                 <Text className="text-micro font-medium text-danger">
@@ -679,6 +691,13 @@ export function EnrollmentInbox() {
         </View>
       </ScreenScroll>
 
+      <RemoveEnrollmentDialog
+        visible={removeTarget !== null}
+        studentName={removeTarget?.studentName ?? ""}
+        loading={removing}
+        onConfirm={(reason) => void handleRemoveEnrollment(reason)}
+        onCancel={() => setRemoveTarget(null)}
+      />
       <TutorBottomBar inboxBadgeCount={pending.length} />
 
       {/* Slot picker — accept needs a concrete weekly slot to book.
@@ -692,7 +711,7 @@ export function EnrollmentInbox() {
         statusBarTranslucent
       >
         <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-surface rounded-t-3xl max-h-[88%]">
+          <View className="bg-surface rounded-t-xl max-h-[88%]">
             {/* Drag handle */}
             <View className="items-center pt-2 pb-1">
               <View className="w-10 h-1 rounded-pill bg-border" />
@@ -724,7 +743,10 @@ export function EnrollmentInbox() {
             </ScrollView>
 
             {/* Footer */}
-            <View className="px-5 pt-4 pb-6 border-t border-border">
+            <View
+              className="px-5 pt-4 border-t border-border"
+              style={{ paddingBottom: 24 + insets.bottom }}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Confirm slot and accept"
@@ -739,7 +761,7 @@ export function EnrollmentInbox() {
                 }`}
               >
                 {busyId !== null ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 ) : (
                   <Text
                     className={`text-button font-semibold ${

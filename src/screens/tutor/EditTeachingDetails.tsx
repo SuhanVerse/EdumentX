@@ -494,7 +494,7 @@ export function EditTeachingDetails() {
             onPress={() => router.back()}
             className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#2F5D50" />
+            <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
           </Pressable>
           <View className="flex-1">
             <Text className="text-body text-text-secondary mb-0.5">
@@ -518,7 +518,7 @@ export function EditTeachingDetails() {
       >
         {!loaded ? (
           <View className="items-center pt-12">
-            <ActivityIndicator color={colors.brand.primary ?? "#26302B"} />
+            <ActivityIndicator color={colors.brand.primary} />
           </View>
         ) : initial ? (
           <>
@@ -715,7 +715,7 @@ export function EditTeachingDetails() {
                 className="flex-1 h-btn rounded-card bg-accent border border-warning/20 items-center justify-center flex-row gap-2 active:opacity-90 disabled:opacity-60"
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
                 ) : null}
                 <Text className="text-button-sm font-semibold text-text-inverse">
                   {saving ? "Submitting…" : "Save changes"}

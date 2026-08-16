@@ -25,6 +25,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { colors } from "@/constants/colors";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -197,6 +199,8 @@ export function RoleSelectionScreen() {
     }
   }
 
+  const insets = useSafeAreaInsets();
+
   return (
     <ScreenLayout variant="background">
       <KeyboardAvoidingView
@@ -302,7 +306,10 @@ export function RoleSelectionScreen() {
           </View>   
         </ScrollView>
 
-        <View className="px-5 pt-3 pb-8 bg-background">
+        <View
+          className="px-5 pt-3 bg-background"
+          style={{ paddingBottom: 32 + insets.bottom }}
+        >
           <PrimaryButton
             label={isSaving ? "Saving..." : "Continue"}
             onPress={handleContinue}

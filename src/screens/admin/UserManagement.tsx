@@ -17,6 +17,7 @@ import {
 
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { AdminNav } from "@/components/shared/AdminNav";
+import { colors } from "@/constants/colors";
 import { purgeUserAccount } from "@/lib/admin/userLifecycle";
 
 /**
@@ -364,13 +365,13 @@ export function UserManagement() {
         </View>
 
         {/* Search */}
-        <View className="bg-surface rounded-xl h-11 flex-row items-center px-3 gap-2.5">
+        <View className="bg-surface rounded-card h-11 flex-row items-center px-3 gap-2.5">
           <Ionicons name="search-outline" size={18} className="text-text-muted" />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search users..."
-            placeholderTextColor="#6B7268"
+            placeholderTextColor={colors.text.muted}
             className="flex-1 text-body-lg text-text-primary"
           />
           {search.length > 0 && (
@@ -455,7 +456,7 @@ export function UserManagement() {
       {/* List */}
       <ScreenScroll>
         {loading ? (
-          <View className="items-center justify-center pt-20">
+          <View className="items-center justify-center pt-16">
             <Text className="text-body text-text-muted">Loading users…</Text>
           </View>
         ) : shownUsers.length === 0 ? (
@@ -645,7 +646,7 @@ function FilterPill({
       </Text>
       {count > 0 ? (
         <View
-          className={`px-1.5 py-0.5 rounded-full ${
+          className={`px-1.5 py-0.5 rounded-pill ${
             active ? "bg-white/20" : "bg-white/60"
           }`}
         >
@@ -689,7 +690,7 @@ function UserRow({
           items). */}
       <View className="flex-row gap-3 items-start">
         <View className="relative shrink-0">
-          <View className="w-12 h-12 rounded-full bg-sand items-center justify-center overflow-hidden">
+          <View className="w-12 h-12 rounded-pill bg-sand items-center justify-center overflow-hidden">
             {user.avatar ? (
               <Image
                 source={{ uri: user.avatar }}
@@ -717,7 +718,7 @@ function UserRow({
             >
               {user.name}
             </Text>
-            <View className={`px-2 py-0.5 rounded-full ${roleConfig.bgClass}`}>
+            <View className={`px-2 py-0.5 rounded-pill ${roleConfig.bgClass}`}>
               <Text className={`text-micro font-medium ${roleConfig.textClass}`}>
                 {roleConfig.label}
               </Text>
@@ -748,7 +749,7 @@ function UserRow({
           collide. */}
       <View className="flex-row flex-wrap items-center gap-2 pt-1 border-t border-border">
         <View
-          className={`${statusConfig.bgClass} px-2.5 py-1 rounded-full flex-row items-center gap-1`}
+          className={`${statusConfig.bgClass} px-2.5 py-1 rounded-pill flex-row items-center gap-1`}
         >
           <Ionicons
             name={statusConfig.icon}
@@ -818,7 +819,7 @@ function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <View className="items-center justify-center px-8 pt-20">
+    <View className="items-center justify-center px-8 pt-16">
       <View className="w-14 h-14 rounded-pill bg-amber-light items-center justify-center mb-3">
         <Ionicons name={icon} size={26} className="text-accent" />
       </View>

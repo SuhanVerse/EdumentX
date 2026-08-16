@@ -4,7 +4,8 @@
  * Baseline rhythm from BasoBas's `PropertyCard`/`PropertyMapPin`
  * (studied, not copied):
  *   - `bg-surface` body, 1px `border-border` (soft hairline, no hard ring),
- *   - radius `rounded-lg` (18px — the composed-card token),
+ *   - radius `rounded-card` (14px — the standard card token; `lg` is
+ *     reserved for hero blocks),
  *   - `p-5` inner padding (20px),
  *   - a soft floating shadow (offset `0,2`, opacity 0.15, radius 4,
  *     elevation 3) that lifts the card off the page instead of the old
@@ -78,5 +79,5 @@ export function Card({
 }
 
 function baseLayout(padding: NonNullable<CardProps["padding"]>): string {
-  return `bg-surface border border-border rounded-lg ${PADDING[padding]}`;
+  return `bg-surface border border-border rounded-card ${PADDING[padding]}`;
 }

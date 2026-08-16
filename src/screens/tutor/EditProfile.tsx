@@ -25,6 +25,7 @@ import {
 
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { AvatarBubble } from "@/components/forms/AvatarBubble";
+import { colors } from "@/constants/colors";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
 import { TutorDocumentList } from "@/components/forms/DocumentUploader";
 import { EditableField } from "@/components/forms/EditableField";
@@ -374,7 +375,7 @@ export function EditTutorProfile() {
           matches the other student/tutor surfaces. */}
       <ScreenHeader variant="light">
         <Text className="text-body text-text-secondary mb-0.5">Profile</Text>
-        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-display text-text-primary">
             {form.fullName || form.email || 'Your account'}
           </Text>
@@ -443,7 +444,7 @@ export function EditTutorProfile() {
           </Text>
           {form.email ? (
             <View className="flex-row items-center gap-1.5 mt-1">
-              <Ionicons name="mail-outline" size={12} color="#6B7268" />
+              <Ionicons name="mail-outline" size={12} color={colors.text.muted} />
               <Text className="text-caption text-text-muted">{form.email}</Text>
             </View>
           ) : null}
@@ -478,7 +479,7 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "fullName" ? (
-                <ActivityIndicator size="small" color="#2F5D50" />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
               ) : undefined
             }
           />
@@ -492,7 +493,7 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "headline" ? (
-                <ActivityIndicator size="small" color="#2F5D50" />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
               ) : undefined
             }
           />
@@ -506,7 +507,7 @@ export function EditTutorProfile() {
             editable={!isLocked}
             trailing={
               savingField === "bio" ? (
-                <ActivityIndicator size="small" color="#2F5D50" />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
               ) : undefined
             }
           />
@@ -524,7 +525,7 @@ export function EditTutorProfile() {
                 {form.email || "Not signed in"}
               </Text>
               <View className="flex-row items-center gap-1 bg-success-bg rounded-sm px-2 py-1">
-                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
+                <Ionicons name="checkmark-circle" size={11} color={colors.brand.verification} />
                 <Text className="text-micro text-success-text font-medium">
                   Verified
                 </Text>
@@ -633,7 +634,7 @@ export function EditTutorProfile() {
           onPress={() => setConfirmLogout(true)}
           className="mt-7 min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
         >
-          <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+          <Ionicons name="log-out-outline" size={18} color={colors.semantic.danger} />
           <Text className="text-button font-semibold text-danger">
             Log out
           </Text>

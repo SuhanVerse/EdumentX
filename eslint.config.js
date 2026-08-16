@@ -1,9 +1,33 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
+// EdumentX design-token rules — see the file's docstring.
+const designTokens = require('./eslint-rules/design-tokens');
 
 module.exports = defineConfig([
   expoConfig,
+  {
+    plugins: {
+      'design-tokens': { rules: designTokens.rules },
+    },
+    rules: {
+      // placeholderTextColor must reference a colors.* token, never a
+      // raw hex (the June 2026 sweep found 6 stragglers after the
+      // "final" pass — this rule makes that class of bug impossible).
+      'design-tokens/no-raw-hex-placeholder': 'error',
+      // color="#…" props (Ionicons, ActivityIndicator, …) must use a
+      // colors.* token too — the July 2026 sweep found 101 of them.
+      'design-tokens/no-raw-hex-color-prop': 'error',
+      // Inline style backgroundColor / border*Color must be tokens;
+      // pure black (#000 scrims) stays exempt.
+      'design-tokens/no-raw-hex-inline-color': 'error',
+      // className radii must be design tokens (xs|sm|md|card|lg|xl|
+      // hero|pill). Tailwind defaults like rounded-2xl / rounded-full
+      // / rounded-t-3xl and arbitrary rounded-[…] values silently
+      // drift off the documented scale (theme.extend keeps defaults).
+      'design-tokens/no-non-token-radius': 'error',
+    },
+  },
   {
     ignores: [
       'dist/**',

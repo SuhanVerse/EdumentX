@@ -184,16 +184,18 @@ bar** `px-5 pt-3 pb-8 bg-background` holds the CTA.
 ## 5. Student Profile Setup (`/profile-student`)
 
 Canvas `variant="night"` — **dark hero → light sheet** (see
-`FIGMA_AI_CONTEXT.md` §2.11). Hero block `bg-night` `px-5 pt-4 pb-8`.
+`FIGMA_AI_CONTEXT.md` §2.11). The hero is the canonical `ScreenHeader`
+(dark `bg-night`, `px-6 pb-8`); the body overlaps it through the
+`ScreenSheet` seam (`rounded-t-xl -mt-4`).
 
-### 5.1 Hero
+### 5.1 Hero (`ScreenHeader`)
 - Back: white chevron + "Back" (white 80%).
 - Title: **"Set up your profile"** — display 28/700 `#FFFFFF` + amber 2px
   underline.
 - Subtitle: "This helps tutors understand your learning needs." — 15/400
   white 70%.
 
-### 5.2 Form body (white cards on `#FBF8F2`, `px-5 pt-8 pb-10 gap-6`)
+### 5.2 Form body (white cards on `#FBF8F2`, `px-6 pt-8 pb-12 gap-6`, inside `ScreenSheet`)
 Every section below is a `Card` (`bg-surface`, 1px `#E7E1D3` border,
 radius 14, padding 20) unless noted. Failed submit **scrolls to the
 first invalid section**; a muted helper under the CTA reads "Some

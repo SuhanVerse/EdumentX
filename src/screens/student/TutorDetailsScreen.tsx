@@ -65,7 +65,7 @@ import { StudentAvailabilityGrid } from "@/components/domain/StudentAvailability
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SECTION_GAP = "mb-8";
-const SECTION_PADDING = "px-5";
+const SECTION_PADDING = "px-6";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -442,7 +442,7 @@ export function TutorDetailsScreen() {
     return (
       <ScreenLayout variant="background">
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.brand.primary ?? "#26302B"} />
+          <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text className="text-body text-text-muted mt-4">
             Loading tutor profile…
           </Text>
@@ -635,7 +635,7 @@ function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
           {/* Verified status dot */}
           {tutor.isVerifiedProfessional && (
             <View className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-pill bg-verification items-center justify-center border-2 border-background">
-              <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+              <Ionicons name="shield-checkmark" size={12} color={colors.text.inverse} />
             </View>
           )}
         </View>
@@ -948,9 +948,9 @@ function SessionBoardSection({
             {totalSlots > 0 ? `${totalFilled} of ${totalSlots} filled` : "No slots created yet"}
           </Text>
         </View>
-        <View className="h-2 rounded-full bg-background overflow-hidden">
+        <View className="h-2 rounded-pill bg-background overflow-hidden">
           <View
-            className={`h-full rounded-full ${totalSlots > 0 ? barColor : "bg-surface-muted"}`}
+            className={`h-full rounded-pill ${totalSlots > 0 ? barColor : "bg-surface-muted"}`}
             style={{ width: `${Math.min(fillPct, 100)}%` }}
           />
         </View>
@@ -1025,9 +1025,9 @@ function SessionCard({
           </Text>
         </View>
         {/* Mini progress bar */}
-        <View className="flex-1 mx-3 h-1.5 rounded-full bg-background overflow-hidden">
+        <View className="flex-1 mx-3 h-1.5 rounded-pill bg-background overflow-hidden">
           <View
-            className={`h-full rounded-full ${fillPct >= 100 ? "bg-danger" : "bg-primary"}`}
+            className={`h-full rounded-pill ${fillPct >= 100 ? "bg-danger" : "bg-primary"}`}
             style={{ width: `${Math.min(fillPct, 100)}%` }}
           />
         </View>
@@ -1294,7 +1294,7 @@ function DemoLessonSection({
             {/* Play button — layered circles with a central play arrow */}
             <View className="w-16 h-16 rounded-pill bg-white/20 items-center justify-center">
               <View className="w-14 h-14 rounded-pill bg-white/30 items-center justify-center">
-                <Ionicons name="play" size={30} color="#FFFFFF" />
+                <Ionicons name="play" size={30} color={colors.text.inverse} />
               </View>
             </View>
           </View>
@@ -1369,9 +1369,9 @@ function ReviewsSection({ tutor }: { tutor: TutorProfile }) {
                   <View key={star} className="flex-row items-center gap-2">
                     <Text className="text-caption text-text-secondary w-4">{star}</Text>
                     <Ionicons name="star" size={10} color={colors.brand.accent} />
-                    <View className="flex-1 h-1.5 rounded-full bg-surface-muted overflow-hidden">
+                    <View className="flex-1 h-1.5 rounded-pill bg-surface-muted overflow-hidden">
                       <View
-                        className="h-full rounded-full bg-accent"
+                        className="h-full rounded-pill bg-accent"
                         style={{ width: `${pct}%` }}
                       />
                     </View>
@@ -1411,9 +1411,9 @@ function ReviewsSection({ tutor }: { tutor: TutorProfile }) {
                         <Ionicons name="star" size={10} color={colors.brand.accent} />
                       </View>
                     </View>
-                    <View className="h-2 rounded-full bg-surface-muted overflow-hidden">
+                    <View className="h-2 rounded-pill bg-surface-muted overflow-hidden">
                       <View
-                        className="h-full rounded-full bg-primary"
+                        className="h-full rounded-pill bg-primary"
                         style={{ width: `${(score / 5) * 100}%` }}
                       />
                     </View>

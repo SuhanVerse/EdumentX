@@ -40,6 +40,7 @@ import { Pressable, Text, View } from "react-native";
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { todayIsoInKtm } from "@/services/enrollments/derived";
+import { colors } from "@/constants/colors";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -192,7 +193,7 @@ export function CalendarDatePicker({
             prevBlocked ? "opacity-30" : "active:opacity-70"
           }`}
         >
-          <Ionicons name="chevron-back" size={18} color="#26302B" />
+          <Ionicons name="chevron-back" size={18} color={colors.text.primary} />
         </Pressable>
         <Text className="text-card-title font-semibold text-text-primary">
           {MONTH_NAMES[viewMonth]} {viewYear}
@@ -203,7 +204,7 @@ export function CalendarDatePicker({
           onPress={goNextMonth}
           className="w-9 h-9 rounded-pill items-center justify-center active:opacity-70"
         >
-          <Ionicons name="chevron-forward" size={18} color="#26302B" />
+          <Ionicons name="chevron-forward" size={18} color={colors.text.primary} />
         </Pressable>
       </View>
 

@@ -39,8 +39,9 @@ export type AddMemberInput = {
   tutorUid: string;
   batchId: string;
   /** The member is keyed by `enrollmentId` so re-adding the same
-   *  student is idempotent (matches the `removeEnrollment` cascade
-   *  which deletes members by `enrollmentId`). */
+   *  student is idempotent (matches the `removeEnrollment` cascade,
+   *  which deletes the member by direct path
+   *  `batches/{tutorUid}/classes/{batchId}/members/{enrollmentId}`). */
   enrollmentId: string;
   studentUid: string;
   studentName: string;

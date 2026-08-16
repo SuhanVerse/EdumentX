@@ -9,6 +9,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "@react-native-firebase/firestore";
+import { colors } from "@/constants/colors";
 import * as SplashScreen from "expo-splash-screen";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -289,6 +290,18 @@ export default function RootLayout() {
         // /notification).
         "notification",
         "filters-sheet",
+        // Student profile menu rows. Both must be listed or the guard
+        // bounces the user back to the dashboard the moment the
+        // screen mounts — the reported "Help & support flashes then
+        // returns to home" bug.
+        "help-support",
+        "saved-tutors",
+        // Student marketplace sub-screens reachable from StudentHome
+        // and the tutor detail / batch surfaces.
+        "browse-batches",
+        "messages",
+        "chat",
+        "enroll",
         // Admin sub-screens (AdminNav targets)
         "platform-statistics",
         "verification-queue",
@@ -304,7 +317,7 @@ export default function RootLayout() {
       // segments like `["tutor", "t-001"]` which don't exist in the
       // flat `allowedForSignedIn` set — we check prefix matches here
       // to avoid redirecting back to the dashboard.
-      const allowedNestedPrefixes = ["tutor/"];
+      const allowedNestedPrefixes = ["tutor/", "batch/"];
       const isNestedAllowed = allowedNestedPrefixes.some((p) =>
         currentRoute.startsWith(p),
       );
@@ -945,7 +958,7 @@ export default function RootLayout() {
             pointerEvents="none"
             className="absolute inset-0 items-center justify-center bg-background"
           >
-            <ActivityIndicator size="large" color="#0F172A" />
+            <ActivityIndicator size="large" color={colors.text.primary} />
           </View>
         ) : null}
       </SafeAreaProvider>

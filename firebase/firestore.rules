@@ -395,11 +395,34 @@ service cloud.firestore {
               : 6
           );
       // Update: the tutor can flip status / removedAt / removeReason
-      // (the three fields touched by `removeEnrollment`).
-      allow update: if isSignedIn()
-        && resource.data.tutorUid == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys()
-          .hasOnly(["status", "removedAt", "removeReason"]);
+      // (the three fields touched by `removeEnrollment`) and stamp
+      // `batchId` (the denormalized batch pointer written by
+      // `createBatch` when it seeds active enrollments as members —
+      // the removal cascade reads it to reach the member doc via a
+      // direct path instead of a rule-unprovable collectionGroup
+      // scan). The tutor owns both the roster row and the batch, so
+      // letting them point a row at one of their own classes is not
+      // a privilege escalation.
+      //
+      // Student carve-out: the owning STUDENT may update ONLY
+      // `endDate` / `updatedAt` on their own row. This exists for the
+      // `__DEV__`-only QA fast-forward button on My Enrollments
+      // (Enrollment.tsx `fastForwardToPast`) — it moves the row's
+      // endDate to yesterday so `sweepExpiredEnrollments` flips the
+      // card Active → Past without waiting for a real lapse. The
+      // carve-out is intentionally narrow: no status / removedAt /
+      // removeReason / batchId access, so a student can never
+      // self-remove or point their row at a class. The row carries
+      // `studentUid` (written by acceptRequest), which is what the
+      // collectionGroup roster rule already keys on.
+      allow update: if isSignedIn() && (
+        (resource.data.tutorUid == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status", "removedAt", "removeReason", "batchId"]))
+        || (resource.data.studentUid == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["endDate", "updatedAt"]))
+      );
       // Delete: the tutor can hard-delete (used by the cascade
       // handler in `removeEnrollment` when the existing
       // `status: "removed"` is not enough).
@@ -564,8 +587,19 @@ service cloud.firestore {
             || isAdmin());
     }
     match /{prefix=**}/reviews/{reviewId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid || isAdmin());
+      // The marketplace overlays live per-tutor rating/reviewCount from
+      // a single `collectionGroup("reviews")` subscription (see
+      // services/tutors/FirebaseTutorRepository.ts). The direct-path
+      // rule above already allows any signed-in user to read a tutor's
+      // reviews; this recursive rule is what a collectionGroup query
+      // actually evaluates against, so it MUST match that allowance.
+      // Restricting to `studentUid == auth.uid || isAdmin()` here is
+      // what surfaced as "TutorRepository: reviews aggregate subscribe
+      // failed [permission-denied]" on every marketplace render — a
+      // student browsing tutor cards is neither the review author nor
+      // an admin. Reviews are public-facing content (name, score,
+      // comment), so signed-in reads are safe.
+      allow get, list: if isSignedIn();
     }
 
     // Everything else stays locked down. The app's MVP only touches

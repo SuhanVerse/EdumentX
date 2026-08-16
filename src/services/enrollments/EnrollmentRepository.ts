@@ -29,10 +29,11 @@
  *     request, writes enrollment, decrements capacity on accept,
  *     updates request status, writes a notification to the student.
  *   - `declineRequest(requestId, reason)` — hard delete + decline
- *     notification.
- *   - `removeEnrollment(enrollmentId, reason)` — atomic transaction
- *     that soft-deletes the enrollment, decrements capacity,
- *     cascades to batch member docs, and notifies the student.
+ *     notification.   *   - `removeEnrollment(tutorUid, enrollmentId, reason)` — atomic
+   *     transaction that soft-deletes the enrollment by direct path,
+   *     decrements capacity, cascades to the batch member doc via
+   *     the roster's `batchId`, and notifies the student. (No
+   *     collectionGroup scans — those are rule-unprovable.)
  *   - `setSlotStatus(tutorUid, day, slot, status)` — dot-path write
  *     to the profile's `availability.<day>.<slot>` field. No merge
  *     with siblings — only the touched cell changes.
@@ -281,9 +282,14 @@ export interface EnrollmentRepository {
     reason: string,
   ): Promise<void>;
 
-  /** Soft-delete the enrollment, decrement capacity, cascade to
-   *  batch member docs, notify the student. */
+  /** Soft-delete the enrollment by direct path, decrement capacity,
+   *  cascade to the batch member doc via the roster's `batchId`
+   *  (`batches/{tutorUid}/classes/{batchId}/members/{enrollmentId}`),
+   *  notify the student. `tutorUid` is the caller's own auth uid —
+   *  it pins every write to paths the tutor owns, so no collectionGroup
+   *  scan is needed (and no scan is rule-legal anyway). */
   removeEnrollment(
+    tutorUid: string,
     enrollmentId: string,
     reason: string,
   ): Promise<void>;

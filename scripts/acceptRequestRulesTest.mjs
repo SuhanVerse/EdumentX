@@ -108,23 +108,64 @@ await seed(`/enrollmentRequests/${TUTOR}/requests/${REQ_ID}`, {
 }
 
 // ── 2. Tutor creates roster enrollment (status active) ──
+// PATCH at the explicit ${ENR_ID} path (create-with-id — the doc
+// doesn't exist yet) so the fast-forward tests in 2b hit the same
+// row instead of a doc that doesn't exist.
 {
-  const r = await req("POST", `/enrollments/${TUTOR}/roster`, TUTOR, payload(
-    {
-      enrollmentId: ENR_ID,
-      tutorUid: TUTOR,
-      studentUid: STUDENT,
-      studentName: "Student One",
-      status: "active",
-      slotKey: "mon:5-7",
-      startDate: "2026-08-15",
-      endDate: "2026-12-15",
-      subjects: ["Math"],
-    },
-    ["subjects"],
-  ));
+  const r = await req(
+    "PATCH",
+    `/enrollments/${TUTOR}/roster/${ENR_ID}`,
+    TUTOR,
+    payload(
+      {
+        enrollmentId: ENR_ID,
+        tutorUid: TUTOR,
+        studentUid: STUDENT,
+        studentName: "Student One",
+        status: "active",
+        slotKey: "mon:5-7",
+        startDate: "2026-08-15",
+        endDate: "2026-12-15",
+        subjects: ["Math"],
+      },
+      ["subjects"],
+    ),
+  );
   check("tutor creates roster enrollment (capacity gate)", r.status, 200);
   if (r.status !== 200) console.log("   ", r.body);
+}
+
+// ── 2b. Student fast-forward (dev QA helper on My Enrollments).
+//        The owning student may update ONLY `endDate`/`updatedAt` on
+//        their own roster row so `sweepExpiredEnrollments` can flip
+//        the card Active → Past. Status/removal fields stay
+//        tutor-only — a student moving their own row to "removed"
+//        must be denied.
+{
+  const ok = await req(
+    "PATCH",
+    `/enrollments/${TUTOR}/roster/${ENR_ID}?updateMask.fieldPaths=endDate&updateMask.fieldPaths=updatedAt`,
+    STUDENT,
+    payload({ endDate: "2026-08-14", updatedAt: "2026-08-16T00:00:00Z" }),
+  );
+  check("student fast-forwards own roster endDate (dev QA helper)", ok.status, 200);
+  if (ok.status !== 200) console.log("   ", ok.body);
+
+  const statusBump = await req(
+    "PATCH",
+    `/enrollments/${TUTOR}/roster/${ENR_ID}?updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt`,
+    STUDENT,
+    payload({ status: "removed", updatedAt: "2026-08-16T00:00:00Z" }),
+  );
+  check("student cannot flip own roster status (tutor-only)", statusBump.status, 403);
+
+  const stranger = await req(
+    "PATCH",
+    `/enrollments/${TUTOR}/roster/${ENR_ID}?updateMask.fieldPaths=endDate&updateMask.fieldPaths=updatedAt`,
+    "student-accept-2",
+    payload({ endDate: "2026-08-14", updatedAt: "2026-08-16T00:00:00Z" }),
+  );
+  check("non-member student cannot touch another student's roster row", stranger.status, 403);
 }
 
 // ── 3. Tutor updates the request status → accepted ──

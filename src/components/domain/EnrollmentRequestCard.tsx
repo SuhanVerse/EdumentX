@@ -31,6 +31,7 @@ import { Check, ChevronDown, ChevronUp, Lock, ShieldCheck, X } from "lucide-reac
 import { Image, Pressable, Text, View } from "react-native";
 
 import type { EnrollmentRequest } from "@/services/enrollments/types";
+import { colors } from "@/constants/colors";
 
 export type EnrollmentRequestAction = "accepted" | "declined";
 
@@ -97,9 +98,9 @@ export function EnrollmentRequestCard({
             <View className="flex-row items-center gap-1.5">
               {!action ? <PendingBadge /> : <StatusBadge action={action} />}
               {collapsed ? (
-                <ChevronDown size={16} color="#6B7268" />
+                <ChevronDown size={16} color={colors.text.muted} />
               ) : (
-                <ChevronUp size={16} color="#6B7268" />
+                <ChevronUp size={16} color={colors.text.muted} />
               )}
             </View>
           </View>
@@ -141,7 +142,7 @@ export function EnrollmentRequestCard({
           {request.mode === "session-code" ? (
             <View className="flex-row items-center gap-2.5 bg-ai-light border border-ai-border rounded-card p-3 mb-3">
               <View className="w-9 h-9 rounded-pill bg-ai items-center justify-center">
-                <Lock size={15} color="#FFFFFF" />
+                <Lock size={15} color={colors.text.inverse} />
               </View>
               <View className="flex-1 min-w-0">
                 <Text className="text-micro font-semibold text-ai uppercase tracking-wider">
@@ -190,11 +191,11 @@ export function EnrollmentRequestCard({
                   </View>
                 ) : null}
                 <View
-                  className="absolute w-3 h-3 rounded-full bg-ai border-2 border-white"
+                  className="absolute w-3 h-3 rounded-pill bg-ai border-2 border-white"
                   style={{ top: "55%", left: "35%" }}
                 />
                 <View
-                  className="absolute w-16 h-16 rounded-full border-2 border-verification"
+                  className="absolute w-16 h-16 rounded-pill border-2 border-verification"
                   style={{ top: "30%", left: "55%", opacity: 0.7 }}
                 />
               </View>
@@ -204,7 +205,7 @@ export function EnrollmentRequestCard({
           {/* Within-radius confirmation */}
           {withinServiceRadius && (
             <View className="flex-row items-center gap-2 mt-3 bg-verification-light rounded-md px-3 py-2.5">
-              <ShieldCheck size={15} color="#3F8A5A" />
+              <ShieldCheck size={15} color={colors.brand.verification} />
               <Text className="flex-1 text-caption text-text-secondary">
                 Within your service radius — exact address shared after
                 acceptance.
@@ -222,7 +223,7 @@ export function EnrollmentRequestCard({
                 accessibilityRole="button"
                 accessibilityLabel="Accept request"
               >
-                <Check size={14} color="#FFFFFF" />
+                <Check size={14} color={colors.text.inverse} />
                 <Text className="text-button font-medium text-white">
                   {accepting ? "Accepting…" : "Accept"}
                 </Text>
@@ -233,7 +234,7 @@ export function EnrollmentRequestCard({
                 accessibilityRole="button"
                 accessibilityLabel="Decline request"
               >
-                <X size={14} color="#C1503D" />
+                <X size={14} color={colors.semantic.danger} />
                 <Text className="text-button font-medium text-danger">
                   Decline
                 </Text>
@@ -324,7 +325,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   const initial = (name?.charAt(0) ?? "?").toUpperCase();
   if (!hasImage) {
     return (
-      <View className="w-10 h-10 rounded-full bg-surface-muted items-center justify-center">
+      <View className="w-10 h-10 rounded-pill bg-surface-muted items-center justify-center">
         <Text className="text-card-title font-medium text-text-muted">{initial}</Text>
       </View>
     );
@@ -332,7 +333,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   return (
     <Image
       source={{ uri: uri as string }}
-      className="w-10 h-10 rounded-full bg-surface-muted"
+      className="w-10 h-10 rounded-pill bg-surface-muted"
     />
   );
 }

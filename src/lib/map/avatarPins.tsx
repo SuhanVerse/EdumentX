@@ -17,6 +17,12 @@
  * the ready map plus a hidden `<AvatarPinHost/>` to mount inside the
  * map screen.
  *
+ * The SELECTED variant (amber ring + white halo — see
+ * `TutorAvatarPin`) is rasterized on demand by `useSelectedAvatarPin`
+ * when a tutor is tapped, so the photo pin keeps its identity while
+ * showing the selection state. It is deliberately non-gating: the map
+ * falls back to the PNG selected teardrop until the capture lands.
+ *
  * Requires `react-native-view-shot` (added Aug 2026 — zero-budget,
  * keyless, on-device). EAS/dev-client rebuild required.
  */
@@ -39,14 +45,16 @@ const CAPTURE_TIMEOUT_MS = 4000;
 export function avatarPinKey(
   avatarUri: string | null,
   verified: boolean,
+  selected = false,
 ): string {
-  return `${verified ? "v" : "u"}:${avatarUri ?? "anon"}`;
+  return `${verified ? "v" : "u"}${selected ? "s" : ""}:${avatarUri ?? "anon"}`;
 }
 
 type PinItem = {
   key: string;
   avatarUri: string | null;
   verified: boolean;
+  selected?: boolean;
 };
 
 // ─── Module cache ────────────────────────────────────────────────────────────
@@ -61,8 +69,9 @@ const cache = new Map<string, ImageRef | null>();
 export function getCachedAvatarPin(
   avatarUri: string | null,
   verified: boolean,
+  selected = false,
 ): ImageRef | null | "pending" {
-  const key = avatarPinKey(avatarUri, verified);
+  const key = avatarPinKey(avatarUri, verified, selected);
   return cache.has(key) ? cache.get(key)! : "pending";
 }
 
@@ -152,6 +161,7 @@ const PinCaptureItem = memo(function PinCaptureItem({
       <TutorAvatarPin
         avatarUri={item.avatarUri}
         verified={item.verified}
+        selected={item.selected}
         onAvatarLoad={() => setAvatarLoaded(true)}
         onAvatarError={() => setAvatarLoaded(true)}
       />
@@ -212,7 +222,9 @@ export function useAvatarPins(
 
   // Number of unique pins not yet resolved (neither generated nor
   // failed). Drives the map's "wait for icons before mounting tutor
-  // markers" gate.
+  // markers" gate. The SELECTED variant is handled by
+  // `useSelectedAvatarPin` and intentionally NOT counted here — a tap
+  // must never re-hide the whole map while its halo rasterizes.
   const resolvedCount = useMemo(
     () =>
       items.reduce((acc, item) => (pins[item.key] !== undefined ? acc + 1 : acc), 0),
@@ -246,5 +258,60 @@ export function useAvatarPins(
     pins,
     pendingCount,
     host: items.length > 0 ? <AvatarPinHost items={items} onReady={onReady} /> : null,
+  };
+}
+
+// ─── Selected variant (on demand, non-gating) ────────────────────────────────
+
+/**
+ * Rasterizes the SELECTED variant (amber ring + white halo) for one
+ * tutor — the map calls this when a pin is tapped so the photo pin
+ * keeps its identity while showing the selection state.
+ *
+ * Non-gating by design: the caller shows the PNG selected teardrop
+ * until this resolves, so tapping never stalls the map. Returns
+ * `{ ref, host }` where `ref` is the ImageRef once ready (or `null`
+ * after a failed capture) and `host` is the offscreen capture view to
+ * mount next to the main host.
+ */
+export function useSelectedAvatarPin(
+  selected: { photoUrl: string | null; isVerifiedProfessional: boolean } | null,
+): {
+  ref: ImageRef | null | "pending";
+  host: React.ReactElement | null;
+} {
+  const [ref, setRef] = useState<ImageRef | null | "pending">(() =>
+    selected ? getCachedAvatarPin(selected.photoUrl, selected.isVerifiedProfessional, true) : "pending",
+  );
+
+  // Re-seed from the cache when the selected tutor changes.
+  useEffect(() => {
+    setRef(
+      selected
+        ? getCachedAvatarPin(selected.photoUrl, selected.isVerifiedProfessional, true)
+        : "pending",
+    );
+  }, [selected]);
+
+  const item = useMemo<PinItem | null>(() => {
+    if (!selected) return null;
+    const key = avatarPinKey(selected.photoUrl, selected.isVerifiedProfessional, true);
+    if (cache.has(key)) return null; // already captured
+    return {
+      key,
+      avatarUri: selected.photoUrl,
+      verified: selected.isVerifiedProfessional,
+      selected: true,
+    };
+  }, [selected]);
+
+  const onReady = useCallback((key: string, imageRef: ImageRef | null) => {
+    cache.set(key, imageRef);
+    setRef(imageRef);
+  }, []);
+
+  return {
+    ref,
+    host: item ? <AvatarPinHost items={[item]} onReady={onReady} /> : null,
   };
 }

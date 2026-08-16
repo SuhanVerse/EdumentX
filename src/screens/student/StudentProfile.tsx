@@ -19,12 +19,15 @@ import {
   getFirestore,
   doc,
   getDoc,
+  onSnapshot,
+  collection,
   serverTimestamp,
   setDoc,
 } from "@react-native-firebase/firestore";
 
 import { AvatarBubble } from "@/components/forms/AvatarBubble";
 import { ConfirmDialog } from "@/components/forms/ConfirmDialog";
+import { colors } from "@/constants/colors";
 import { EditableField } from "@/components/forms/EditableField";
 import { MenuRow } from "@/components/forms/MenuRow";
 import { BottomNav } from "@/components/shared/BottomNav";
@@ -71,6 +74,30 @@ export function StudentProfile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  // Live unread count for the notifications row — mirrors the
+  // NotificationBell subscription so the badge is real, not static.
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    const db = getFirestore(getApp());
+    const unsub = onSnapshot(
+      collection(db, "notifications", user.uid, "items"),
+      (snap) => {
+        let n = 0;
+        snap.forEach((d) => {
+          const data = d.data() as { read?: boolean };
+          if (!data.read) n += 1;
+        });
+        setUnreadCount(n);
+      },
+      () => setUnreadCount(0),
+    );
+    return unsub;
+  }, [user]);
 
   // Hydrate from Firestore on first mount. We prefer the saved
   // `fullName` from `users/{uid}/studentProfile/default` (the
@@ -213,11 +240,11 @@ export function StudentProfile() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero header — slate, matches the other 4 student surfaces. */}
-      <ScreenHeader>
-        <Text className="text-body text-white/70 mb-0.5">Profile</Text>
-        <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
-          <Text className="text-display text-white">
+      {/* Hero header — light warm, matches StudentHome's header. */}
+      <ScreenHeader variant="light">
+        <Text className="text-body text-text-secondary mb-0.5">Profile</Text>
+        <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
+          <Text className="text-display text-text-primary">
             Your account
           </Text>
         </View>
@@ -240,7 +267,7 @@ export function StudentProfile() {
           </Text>
           {user?.email && (
             <View className="flex-row items-center gap-1.5 mt-1">
-              <Ionicons name="mail-outline" size={12} color="#6B7268" />
+              <Ionicons name="mail-outline" size={12} color={colors.text.muted} />
               <Text className="text-caption text-text-muted">
                 {user.email}
               </Text>
@@ -301,7 +328,7 @@ export function StudentProfile() {
                   {user?.email ?? "Not signed in"}
                 </Text>
               <View className="flex-row items-center gap-1 bg-success-bg rounded-pill px-2 py-1">
-                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
+                <Ionicons name="checkmark-circle" size={11} color={colors.brand.verification} />
                 <Text className="text-micro text-success-text font-medium">
                   Verified
                 </Text>
@@ -329,23 +356,27 @@ export function StudentProfile() {
             className="flex-row items-center gap-3 bg-surface border border-border rounded-card px-4 py-3.5 active:opacity-80"
           >
             <View className="w-9 h-9 rounded-pill bg-accent-soft items-center justify-center relative">
-              <Ionicons name="notifications-outline" size={18} color="#E5A03B" />
-              {/* Unread badge */}
-              <View className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-pill bg-danger items-center justify-center">
-                <Text className="text-[9px] text-text-inverse font-bold">
-                  3
-                </Text>
-              </View>
+              <Ionicons name="notifications-outline" size={18} color={colors.brand.accent} />
+              {/* Live unread badge — hidden at zero */}
+              {unreadCount > 0 && (
+                <View className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-0.5 rounded-pill bg-danger items-center justify-center">
+                  <Text className="text-[9px] text-text-inverse font-bold">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
             </View>
             <View className="flex-1">
               <Text className="text-card-title text-text-primary">
                 Notifications
               </Text>
               <Text className="text-caption text-text-muted mt-0.5">
-                3 unread · messages, enrollment, AI
+                {unreadCount > 0
+                  ? `${unreadCount} unread`
+                  : "You're all caught up"}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#6B7268" />
+            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
           </Pressable>
         </View>
 
@@ -376,7 +407,7 @@ export function StudentProfile() {
           onPress={() => setConfirmLogout(true)}
           className="mt-7 min-h-btn rounded-card bg-surface border border-border flex-row items-center justify-center gap-2 active:opacity-80"
       >
-        <Ionicons name="log-out-outline" size={18} color="#C1503D" />
+        <Ionicons name="log-out-outline" size={18} color={colors.semantic.danger} />
         <Text className="text-button font-semibold text-danger">
           Log out
         </Text>

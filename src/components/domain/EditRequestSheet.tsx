@@ -223,7 +223,7 @@ export function EditRequestSheet({
       onRequestClose={onClose}
     >
       <View className="flex-1 bg-black/50 justify-end">
-        <View className="bg-background rounded-t-3xl max-h-[90%]">
+        <View className="bg-background rounded-t-xl max-h-[90%]">
           {/* Drag handle */}
           <View className="items-center pt-2 pb-1">
             <View className="w-10 h-1 rounded-pill bg-border" />
@@ -386,7 +386,7 @@ export function EditRequestSheet({
               }`}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.text.inverse} />
               ) : (
                 <>
                   <Ionicons
@@ -418,7 +418,7 @@ export function EditRequestSheet({
               className="mt-3 h-12 rounded-card items-center justify-center flex-row gap-2 bg-surface border border-danger/30 active:opacity-80"
             >
               {removing ? (
-                <ActivityIndicator size="small" color="#C1503D" />
+                <ActivityIndicator size="small" color={colors.semantic.danger} />
               ) : (
                 <>
                   <Ionicons

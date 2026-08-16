@@ -35,6 +35,10 @@ import {
 } from "@/components/motion";
 import { BottomNav } from "@/components/shared/BottomNav";
 import {
+  ScreenLayout,
+  ScreenHeader,
+} from "@/components/shared/ScreenLayout";
+import {
   TutorMapView,
   type MapCameraPosition,
   type TutorMarker,
@@ -59,7 +63,11 @@ import { rankTutorsByDistance } from "@/lib/location/distance";
 import { clampCameraToNepal } from "@/lib/location/nepalBounds";
 import { withPinCoordinates } from "@/lib/location/nepalGeo";
 import { loadMarkerIcons, type MarkerIconSet } from "@/lib/map/markerIcons";
-import { useAvatarPins, avatarPinKey } from "@/lib/map/avatarPins";
+import {
+  useAvatarPins,
+  useSelectedAvatarPin,
+  avatarPinKey,
+} from "@/lib/map/avatarPins";
 import { colors } from "@/constants/colors";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -114,7 +122,7 @@ export function MapSearch() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
   const [selectedTutor, setSelectedTutor] = useState<TutorListing | null>(null);
-  const [selectedTutorId] = useState<string | null>(null);
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [markerIcons, setMarkerIcons] = useState<MarkerIconSet | null>(null);
 
@@ -180,6 +188,23 @@ export function MapSearch() {
     host: avatarPinHost,
   } = useAvatarPins(tutors);
 
+  // ── Selected pin variant (amber ring + halo) ──
+  // Rasterized on demand when a tutor is tapped (non-gating — the
+  // PNG selected teardrop stands in until the capture lands).
+  const selectedTutorForPin = useMemo(() => {
+    const t = tutors.find((t) => t.uid === selectedTutorId);
+    return t
+      ? {
+          photoUrl: t.photoUrl,
+          isVerifiedProfessional: t.isVerifiedProfessional,
+        }
+      : null;
+  }, [tutors, selectedTutorId]);
+  const {
+    ref: selectedAvatarRef,
+    host: selectedAvatarHost,
+  } = useSelectedAvatarPin(selectedTutorForPin);
+
   // ── Pins-ready gate ──
   // expo-maps replaces a marker only when its props truly change, and
   // an icon hot-swap (undefined → ImageRef) is not reliable on every
@@ -237,26 +262,37 @@ export function MapSearch() {
       };
     }
     const isSelected = c.id === selectedTutorId;
-    const key = avatarPinKey(
+    const baseKey = avatarPinKey(
       c.tutor.photoUrl,
       c.tutor.isVerifiedProfessional,
+      false,
     );
-    const imageRef = avatarPins[key];
-    // Icon ladder: avatar teardrop → static teardrop PNG (branded
-    // fallback while rasterizing or after a failed capture) → native
-    // tinted pin (last resort). The selected variant swaps in the
-    // wide-white-ring pin (selection halo); avatar drop pins keep
-    // their photo (the radius circle below signals selection).
+    const selectedKey = avatarPinKey(
+      c.tutor.photoUrl,
+      c.tutor.isVerifiedProfessional,
+      true,
+    );
+    // Icon ladder (selected first — the amber-ring halo variant takes
+    // priority over the base photo pin):
+    //   selected avatar → selected PNG → base avatar → base PNG → tint.
+    // Non-selected pins skip the selected tiers entirely, so the
+    // unselected set is identical to before.
+    const selectedRef = avatarPins[selectedKey];
+    const selectedReady =
+      selectedRef !== undefined ? selectedRef : isSelected ? selectedAvatarRef : undefined;
+    const baseRef = avatarPins[baseKey];
     const icon =
-      imageRef !== undefined
-        ? imageRef
+      selectedReady && selectedReady !== "pending" && selectedReady !== undefined
+        ? selectedReady
         : isSelected
           ? c.tutor.isVerifiedProfessional
             ? markerIcons?.verifiedSelected
             : markerIcons?.tutorSelected
-          : c.tutor.isVerifiedProfessional
-            ? markerIcons?.verified
-            : markerIcons?.tutor;
+          : baseRef !== undefined
+            ? baseRef
+            : c.tutor.isVerifiedProfessional
+              ? markerIcons?.verified
+              : markerIcons?.tutor;
     return {
       id: c.id as string,
       latitude: c.latitude,
@@ -270,6 +306,25 @@ export function MapSearch() {
   });
 
   // ── Selected tutor service-radius circle ──
+  // Translucent amber fill under the selected pin (2.5 km default —
+  // the tutor profile has no radius field yet). AARRGGBB alpha-first
+  // (Google Maps Android convention). Only while a pin is selected.
+  const selectedCircle = useMemo(() => {
+    const t = geo.find((t) => t.uid === selectedTutorId);
+    if (!t?.coordinates) return [];
+    return [
+      {
+        id: `radius-${selectedTutorId}`,
+        latitude: t.coordinates.latitude,
+        longitude: t.coordinates.longitude,
+        radius: 2500,
+        color: "#26E5A03B", // 15% amber fill
+        lineColor: colors.brand.accent,
+        lineWidth: 2,
+      },
+    ];
+  }, [geo, selectedTutorId]);
+
   // ── Nearby tutors (bottom list preview) ──
   const nearbyTutors = rankTutorsByDistance(
     geo,
@@ -307,11 +362,20 @@ export function MapSearch() {
       );
       if (cluster) {
         setSelectedTutor(cluster.tutor);
+        setSelectedTutorId(cluster.tutor.uid);
         setPreviewVisible(true);
       }
     },
     [clusters, camera.zoom],
   );
+
+  // Clearing selection (preview close / map tap) resets the pin to
+  // its base variant and hides the radius circle.
+  const clearSelection = useCallback(() => {
+    setSelectedTutor(null);
+    setSelectedTutorId(null);
+    setPreviewVisible(false);
+  }, []);
 
   const handleCameraMove = useCallback((cam: MapCameraPosition) => {
     // Live camera only — do NOT push it back into the camera prop, or the
@@ -341,22 +405,24 @@ export function MapSearch() {
   const pinnedTutors = geo.length;
 
   return (
-    <View className="flex-1 bg-background">
+    <ScreenLayout variant="background">
 
-      {/* ── Hero header — matches StudentHome's slate header ── */}
-      <View className="bg-night px-5 pt-14 pb-4">
+      {/* ── Hero header — canonical ScreenHeader slot, matching
+          StudentHome (px-6 gutters, safe-area handled by
+          ScreenLayout — no hand-rolled pt-14). ── */}
+      <ScreenHeader variant="light">
         <View className="flex-row items-center justify-between mb-3">
           <View>
-            <Text className="text-body text-white/70 mb-0.5">Find a tutor</Text>
+            <Text className="text-body text-text-secondary mb-0.5">Find a tutor</Text>
             <View
               style={{
                 borderBottomWidth: 2,
-                borderBottomColor: "#E5A03B",
+                borderBottomColor: colors.brand.accent,
                 paddingBottom: 2,
                 alignSelf: "flex-start",
               }}
             >
-              <Text className="text-screen-title font-medium text-white">
+              <Text className="text-screen-title font-medium text-text-primary">
                 Near you
               </Text>
             </View>
@@ -366,13 +432,13 @@ export function MapSearch() {
 
         {/* Search bar + filter trigger */}
         <View className="flex-row gap-2">
-          <View className="flex-1 bg-surface rounded-card h-12 flex-row items-center px-3 gap-2.5">
-            <Ionicons name="search-outline" size={18} color="#6B7280" />
+          <View className="flex-1 bg-surface rounded-card h-12 flex-row items-center px-3 gap-2.5 border border-border">
+            <Ionicons name="search-outline" size={18} color={colors.text.muted} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search tutors, subjects…"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={colors.text.muted}
               className="flex-1 text-body text-text-primary"
             />
             {search.length > 0 && (
@@ -381,7 +447,7 @@ export function MapSearch() {
           </View>
           <MapFiltersButton onPress={() => setFiltersOpen(true)} />
         </View>
-      </View>
+      </ScreenHeader>
 
       {/* ── Map area ── */}
       <View className="flex-1 relative">
@@ -398,14 +464,17 @@ export function MapSearch() {
             style={{ flex: 1 } as any}
             cameraPosition={cameraTarget}
             markers={markers}
+            circles={selectedCircle}
             isMyLocationEnabled
             onMarkerClick={handleMarkerClick}
             onCameraMove={handleCameraMove}
+            onMapTap={previewVisible ? clearSelection : undefined}
           />
         )}
 
         {/* Offscreen rasterizer host for avatar drop pins */}
       {avatarPinHost}
+      {selectedAvatarHost}
 
       {/* ── Floating controls ── */}
 
@@ -423,7 +492,7 @@ export function MapSearch() {
             elevation: 2,
           }}
         >
-          <Ionicons name="people" size={14} color="#FFFFFF" />
+          <Ionicons name="people" size={14} color={colors.text.inverse} />
           <Text className="text-caption font-medium text-white">
             {pinnedTutors} tutor{pinnedTutors !== 1 ? "s" : ""} on map
           </Text>
@@ -490,6 +559,7 @@ export function MapSearch() {
                   tone="light"
                   onPress={() => {
                     setSelectedTutor(t);
+                    setSelectedTutorId(t.uid);
                     setPreviewVisible(true);
                   }}
                 />
@@ -506,13 +576,8 @@ export function MapSearch() {
       <TutorPreviewSheet
         tutor={selectedTutor}
         visible={previewVisible}
-        onClose={() => {
-          setPreviewVisible(false);
-          setSelectedTutor(null);
-        }}
-      />
-
-      {/* ── Filters sheet overlay ── */}
+        onClose={clearSelection}
+      />      {/* ── Filters sheet overlay ── */}
       <FiltersSheet
         visible={filtersOpen}
         value={filters}
@@ -520,7 +585,7 @@ export function MapSearch() {
         onClose={() => setFiltersOpen(false)}
         resultCount={filteredTutors.length}
       />
-    </View>
+    </ScreenLayout>
   );
 }
 
@@ -538,9 +603,9 @@ function MapHeroBack({ onPress }: { onPress: () => void }) {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center"
+      className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center"
     >
-      <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+      <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
     </AnimatedPressable>
   );
 }
@@ -558,7 +623,7 @@ function MapClearSearch({ onPress }: { onPress: () => void }) {
       style={animatedStyle}
       hitSlop={10}
     >
-      <Ionicons name="close-circle" size={18} color="#6B7280" />
+      <Ionicons name="close-circle" size={18} color={colors.text.muted} />
     </AnimatedPressable>
   );
 }
@@ -575,7 +640,7 @@ function MapFiltersButton({ onPress }: { onPress: () => void }) {
       style={animatedStyle}
       className="w-12 h-12 rounded-card bg-accent items-center justify-center"
     >
-      <Ionicons name="options-outline" size={20} color="#FFFFFF" />
+      <Ionicons name="options-outline" size={20} color={colors.text.inverse} />
     </AnimatedPressable>
   );
 }

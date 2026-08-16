@@ -145,7 +145,7 @@ export function AvatarUploader({
             accessibilityElementsHidden
             className="absolute -bottom-1 -right-1 w-6 h-6 rounded-pill bg-verification border-2 border-surface items-center justify-center"
           >
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            <Ionicons name="checkmark" size={14} color={colors.text.inverse} />
           </View>
         ) : (
           <View>
@@ -187,12 +187,12 @@ function UploadButton({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className={`w-24 h-24 rounded-full border-2 bg-surface-muted items-center justify-center ${ringClass}`}
+      className={`w-24 h-24 rounded-pill border-2 bg-surface-muted items-center justify-center ${ringClass}`}
     >
       {value ? (
         <Image
           source={{ uri: value }}
-          className="w-avatar-uploader h-avatar-uploader rounded-full"
+          className="w-avatar-uploader h-avatar-uploader rounded-pill"
         />
       ) : (
         <Ionicons

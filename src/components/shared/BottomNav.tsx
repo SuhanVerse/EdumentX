@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
+import { colors } from "@/constants/colors";
 
 /**
  * EdumentX — Student bottom navigation
@@ -64,7 +65,7 @@ const PILL_SIZE = 48;
 const PILL_HEIGHT = 28;
 
 /** Muted slate gray — inactive icon tone on the light bar. */
-const INACTIVE_COLOR = "#6B7268";
+const INACTIVE_COLOR = colors.text.muted;
 
 const STUDENT_TABS: BottomNavTab[] = [
   { icon: "home", label: "Home", route: "/student-home" },
@@ -119,7 +120,7 @@ function TabButton({
         />
       </View>
       {tone === "dark" && active ? (
-        <View className="w-1 h-1 rounded-full mb-0.5" style={{ backgroundColor: AMBER }} />
+        <View className="w-1 h-1 rounded-pill mb-0.5" style={{ backgroundColor: AMBER }} />
       ) : null}
       {/* Single-line label: `adjustsFontSizeToFit` shrinks only when
           the text would overflow its tab; `maxFontSizeMultiplier`
@@ -265,7 +266,7 @@ export function BottomNav({
           white over the night canvas reads as frosted glass without
           a native blur (which would degrade on Android); the
           hairline `glass-border` gives it a crisp 1px edge. */}
-      <View className="flex-row relative rounded-3xl bg-glass border glass-border px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
+      <View className="flex-row relative rounded-xl bg-glass border glass-border px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
         <TabRow
           tabs={tabs}
           activeIndex={activeIndex >= 0 ? activeIndex : 0}

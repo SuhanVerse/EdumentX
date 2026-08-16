@@ -231,7 +231,7 @@ export function MyEnrollments() {
         <View
           style={{
             borderBottomWidth: 2,
-            borderBottomColor: "#E5A03B",
+            borderBottomColor: colors.brand.accent,
             paddingBottom: 2,
             alignSelf: "flex-start",
           }}
@@ -256,7 +256,7 @@ export function MyEnrollments() {
         {!hasLoaded ? (
           // First-snapshot skeleton
           <View className="items-center justify-center pt-16 px-6">
-            <Ionicons name="sync-outline" size={26} color="#6B7268" />
+            <Ionicons name="sync-outline" size={26} color={colors.text.muted} />
             <Text className="text-caption text-text-muted mt-2">
               Loading enrollments…
             </Text>
@@ -475,7 +475,7 @@ function RequestCard({
           onPress={onEdit}
           className="flex-1 h-10 rounded-md bg-accent-light flex-row items-center justify-center gap-1.5 active:opacity-80"
         >
-          <Ionicons name="create-outline" size={14} color="#92400E" />
+          <Ionicons name="create-outline" size={14} color={colors.semantic.warningText} />
           <Text className="text-button font-medium text-accent-dark">
             Edit
           </Text>
@@ -576,7 +576,7 @@ function EnrollmentCard({
               className="flex-row items-center gap-1.5 mb-2 active:opacity-70"
             >
               <View className="w-5 h-5 rounded-md bg-ai-light items-center justify-center">
-                <Ionicons name="people-outline" size={11} color="#4A7FA5" />
+                <Ionicons name="people-outline" size={11} color={colors.brand.ai} />
               </View>
               <Text
                 className="text-caption font-medium text-ai flex-1"
@@ -584,7 +584,7 @@ function EnrollmentCard({
               >
                 Joined batch · {enrollment.batchName}
               </Text>
-              <Ionicons name="chevron-forward" size={12} color="#4A7FA5" />
+              <Ionicons name="chevron-forward" size={12} color={colors.brand.ai} />
             </Pressable>
           ) : null}
 
@@ -650,7 +650,7 @@ function EnrollmentCard({
               onPress={onFastForward}
               className="h-9 bg-ai-light border border-ai-border rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80"
             >
-              <Ionicons name="flash-outline" size={12} color="#4A7FA5" />
+              <Ionicons name="flash-outline" size={12} color={colors.brand.ai} />
               <Text className="text-micro text-ai font-medium">
                 Dev: fast-forward to past
               </Text>
@@ -723,7 +723,7 @@ function EmptyStateByTab({
   return (
     <View className="items-center justify-center pt-16 px-6">
       <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
-        <Ionicons name={c.icon} size={26} color="#E5A03B" />
+        <Ionicons name={c.icon} size={26} color={colors.brand.accent} />
       </View>
       <Text className="text-card-title font-medium text-text-primary text-center">
         {c.title}
@@ -786,8 +786,8 @@ function StatusBadge({ status }: { status: "active" | "pending" | "past" }) {
           m.fg === "text-text-secondary"
             ? colors.text.muted
             : m.fg === "text-warning-text"
-              ? "#92400E"
-              : "#3F8A5A"
+              ? colors.semantic.warningText
+              : colors.semantic.success
         }
       />
       <Text className={`text-micro font-medium ${m.fg}`}>{m.label}</Text>

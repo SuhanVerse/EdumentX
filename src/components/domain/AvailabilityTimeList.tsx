@@ -30,6 +30,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/constants/colors";
 import { Pressable, Text, View } from "react-native";
 
 import { FloatingEmptyIcon } from "@/components/motion/FloatingEmptyIcon";
@@ -179,7 +180,7 @@ function Row({
           isAvailable ? "bg-verification-light" : "bg-surface-muted"
         }`}
       >
-        {!isAvailable ? <Ionicons name="people" size={11} color="#4A7FA5" /> : null}
+        {!isAvailable ? <Ionicons name="people" size={11} color={colors.brand.ai} /> : null}
         <Text
           className={`text-micro font-medium ${
             isAvailable ? "text-verification" : "text-ai"

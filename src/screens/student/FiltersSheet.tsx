@@ -21,6 +21,7 @@ import RAnimated, {
   withTiming,
 } from "react-native-reanimated";
 import { colors } from "@/constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * EdumentX — FiltersSheet (bottom-sheet overlay)
@@ -254,6 +255,8 @@ export function FiltersSheet({
    *  provided it replaces the estimate in the footer label. */
   resultCount?: number;
 }) {
+  const insets = useSafeAreaInsets();
+
   // Local editable copy — synced from the parent's `value` each time
   // the sheet opens, so sliders never fight the live map state.
   const [local, setLocal] = useState<MapFilters>(value);
@@ -366,11 +369,12 @@ export function FiltersSheet({
             right: 0,
             bottom: 0,
             maxHeight: "90%",
-            backgroundColor: "#FFFFFF",
+            backgroundColor: colors.background.surface,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
+            paddingBottom: insets.bottom,
             transform: [{ translateY: Animated.add(translateY, dragY) }],
-            shadowColor: "#26302B",
+            shadowColor: "#000",
             shadowOpacity: 0.10,
             shadowRadius: 18,
             shadowOffset: { width: 0, height: -4 },
@@ -396,7 +400,7 @@ export function FiltersSheet({
               style={closeStyle}
               className="w-9 h-9 items-center justify-center rounded-pill"
             >
-              <Ionicons name="close" size={20} color="#6B7268" />
+              <Ionicons name="close" size={20} color={colors.text.muted} />
             </AnimatedPressable>
           </View>
 
@@ -525,7 +529,7 @@ export function FiltersSheet({
  * with a 2px track margin from the original `marginLeft: 2`).
  */
 function FiltersVerifiedSwitch({ checked }: { checked: boolean }) {
-  const TRACK_OFF = colors.border.strong ?? "#C8C0AE";
+  const TRACK_OFF = colors.border.strong;
   const TRACK_ON = colors.brand.verification;
   const progress = useSharedValue(checked ? 1 : 0);
 

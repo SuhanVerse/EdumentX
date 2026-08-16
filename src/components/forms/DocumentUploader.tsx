@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { ImageViewer } from "@/components/ui/ImageViewer";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
+import { colors } from "@/constants/colors";
 import { motion } from "@/lib/motion";
 import {
   TUTOR_DOC_HELPER,
@@ -91,7 +92,7 @@ export function DocumentUploader({
     >
       <View className="flex-row items-start gap-3">
         <View
-          className={`w-11 h-11 rounded-xl items-center justify-center ${accent.bg}`}
+          className={`w-11 h-11 rounded-lg items-center justify-center ${accent.bg}`}
         >
           <Ionicons
             name={kindIconName(kind)}
@@ -106,7 +107,7 @@ export function DocumentUploader({
             </Text>
             {hasExisting ? (
               <View className="flex-row items-center gap-1 bg-verification-light px-2 py-0.5 rounded-pill">
-                <Ionicons name="checkmark-circle" size={11} color="#3F8A5A" />
+                <Ionicons name="checkmark-circle" size={11} color={colors.brand.verification} />
                 <Text className="text-micro font-medium text-verification">
                   Uploaded
                 </Text>
@@ -214,12 +215,12 @@ function DocumentUploaderButton({
       } disabled:opacity-60`}
     >
       {uploading ? (
-        <ActivityIndicator size="small" color="#0F172A" />
+        <ActivityIndicator size="small" color={colors.text.primary} />
       ) : (
         <Ionicons
           name={hasExisting ? "refresh" : "cloud-upload-outline"}
           size={14}
-          color="#0F172A"
+          color={colors.text.primary}
         />
       )}
       <Text
@@ -360,13 +361,13 @@ function DocumentRow({
           <Ionicons
             name="checkmark-circle"
             size={18}
-            color="#3F8A5A"
+            color={colors.brand.verification}
           />
         ) : (
           <Ionicons
             name="ellipse-outline"
             size={18}
-            color="#6B7268"
+            color={colors.text.muted}
           />
         )}
       </View>
@@ -408,7 +409,7 @@ function DocumentPlayButton({
       style={animatedStyle}
       className="w-16 h-12 rounded-lg items-center justify-center bg-amber-light"
     >
-      <Ionicons name="play-circle" size={24} color="#E5A03B" />
+      <Ionicons name="play-circle" size={24} color={colors.brand.accent} />
     </AnimatedPressable>
   );
 }

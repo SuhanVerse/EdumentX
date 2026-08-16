@@ -26,7 +26,11 @@ import { LocationField } from "@/components/forms/LocationField";
 import { NameEmailFields } from "@/components/forms/NameEmailFields";
 import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { AnimatedPressable, FieldShell, usePressScale } from "@/components/motion";
-import { ScreenLayout } from "@/components/shared/ScreenLayout";
+import {
+  ScreenHeader,
+  ScreenLayout,
+  ScreenSheet,
+} from "@/components/shared/ScreenLayout";
 import { Card } from "@/components/ui/Card";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
@@ -457,7 +461,7 @@ export function TutorProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
-        <View className="gap-1 px-5 pt-4 pb-8 bg-night">
+        <ScreenHeader>
           <Pressable
             accessibilityRole="button"
             hitSlop={12}
@@ -485,7 +489,7 @@ export function TutorProfileScreen() {
             <Ionicons color={colors.text.inverse} name="chevron-back" size={18} />
             <Text className="text-body text-white opacity-80">Back</Text>
           </Pressable>
-          <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start', marginBottom: 4 }}>
             <Text className="text-display text-white">
               Set up your tutor profile
             </Text>
@@ -493,12 +497,13 @@ export function TutorProfileScreen() {
           <Text className="text-body text-white opacity-70 mt-0.5">
             This is what parents will see on the map. You can update everything later.
           </Text>
-        </View>
+        </ScreenHeader>
 
+        <ScreenSheet>
         <ScrollView
           ref={scrollRef}
           className="flex-1"
-          contentContainerClassName="flex-grow gap-6 px-5 pt-8 pb-10 bg-background"
+          contentContainerClassName="flex-grow gap-6 px-6 pt-8 pb-12 bg-background"
           keyboardShouldPersistTaps="handled"
         >
           <View onLayout={registerField("avatar")}>
@@ -622,12 +627,12 @@ export function TutorProfileScreen() {
                   }`}
                 >
                   <View
-                    className={`w-4 h-4 rounded-full border-2 items-center justify-center ${
-                      gender === option ? "border-white" : "border-text-muted"
+                    className={`w-4 h-4 rounded-pill border-2 items-center justify-center ${
+                      gender === option ? "border-surface" : "border-text-muted"
                     }`}
                   >
                     {gender === option && (
-                      <View className="w-2 h-2 rounded-full bg-white" />
+                      <View className="w-2 h-2 rounded-pill bg-surface" />
                     )}
                   </View>
                   <Text
@@ -914,6 +919,7 @@ export function TutorProfileScreen() {
             ) : null}
           </View>
         </ScrollView>
+        </ScreenSheet>
       </KeyboardAvoidingView>
     </ScreenLayout>
   );
@@ -942,7 +948,7 @@ function StepperButton({
       onPressOut={onPressOut}
       disabled={disabled}
       style={animatedStyle}
-      className="w-11 h-11 rounded-full bg-surface-muted border border-border items-center justify-center disabled:opacity-40"
+      className="w-11 h-11 rounded-pill bg-surface-muted border border-border items-center justify-center disabled:opacity-40"
     >
       <Ionicons color={colors.text.primary} name={icon} size={20} />
     </AnimatedPressable>

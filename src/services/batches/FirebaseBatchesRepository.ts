@@ -12,9 +12,12 @@
  * picker needs.
  *
  * The member doc id is the `enrollmentId` (same convention as
- * `createBatch`), which makes add idempotent and lets the
- * `removeEnrollment` cascade in the enrollment repo find members
- * via its `collectionGroup("members") where enrollmentId == …` query.
+ * `createBatch` and the session-code join in `acceptRequest`), which
+ * makes add idempotent and lets the `removeEnrollment` cascade in
+ * the enrollment repo delete a member by DIRECT PATH
+ * (`batches/{tutorUid}/classes/{batchId}/members/{enrollmentId}`,
+ * located via the roster row's `batchId`) — no collectionGroup scan,
+ * which Firestore rules can't prove safe anyway.
  */
 
 import { getApp } from "@react-native-firebase/app";

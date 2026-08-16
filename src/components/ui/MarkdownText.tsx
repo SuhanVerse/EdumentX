@@ -27,20 +27,22 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { colors } from "@/constants/colors";
+
 const T = StyleSheet.create({
-  para: { fontSize: 16, lineHeight: 22, color: "#1F2937" },
+  para: { fontSize: 16, lineHeight: 22, color: colors.text.primary },
   bold: { fontWeight: "700" as const },
   italic: { fontStyle: "italic" as const },
   code: {
     fontFamily: "monospace",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.background.surfaceMuted,
     paddingHorizontal: 4,
     borderRadius: 4,
   },
   heading: { fontSize: 17, fontWeight: "700" as const, marginTop: 4 },
   bulletRow: { flexDirection: "row" as const, alignItems: "flex-start" as const, marginVertical: 2 },
-  bulletDot: { width: 14, color: "#1F2937" },
-  bulletText: { flex: 1, fontSize: 16, lineHeight: 22, color: "#1F2937" },
+  bulletDot: { width: 14, color: colors.text.primary },
+  bulletText: { flex: 1, fontSize: 16, lineHeight: 22, color: colors.text.primary },
 });
 
 /**

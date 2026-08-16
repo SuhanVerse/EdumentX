@@ -22,6 +22,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -78,6 +79,7 @@ const slides: OnboardingSlide[] = [
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OnboardingScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeSlide, setActiveSlide] = useState(0);
   const { height } = useWindowDimensions();
@@ -160,7 +162,10 @@ export function OnboardingScreen() {
       </Animated.View>
 
       {/* ── Footer: dots + full-width CTA ── */}
-      <View className="gap-5 px-5 pb-5">
+      <View
+        className="gap-5 px-6"
+        style={{ paddingBottom: 20 + insets.bottom }}
+      >
         <PaginationDots
           total={slides.length}
           current={activeSlide}

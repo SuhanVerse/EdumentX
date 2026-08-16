@@ -7,6 +7,12 @@
       "skillPath": "skills/assess-react-native-migration/SKILL.md",
       "computedHash": "c07f3265bc8d51ae6dfe929f2034bea3dfa3afd73d7a3fe9910cd8944cf3c970"
     },
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "f3b4a7f337455dc365ba8e3923930b067a362c9662779137170ea700cb4328cb"
+    },
     "create-react-native-library": {
       "source": "callstackincubator/agent-skills",
       "sourceType": "github",
@@ -73,6 +79,12 @@
       "skillPath": "skills/react-native-brownfield-migration/SKILL.md",
       "computedHash": "d4aa733c792b2a8d46c91f9bc009b8aeb5c8478d55bd02b8d904b93f7d25a061"
     },
+    "react-native-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/react-native-design/SKILL.md",
+      "computedHash": "8a044b22f5296c463d328ba6144d978b15b382754344e596bce8e827c4ca699f"
+    },
     "react-native-tv-best-practices": {
       "source": "callstackincubator/agent-skills",
       "sourceType": "github",
@@ -84,6 +96,18 @@
       "sourceType": "github",
       "skillPath": "skills/react-navigation/SKILL.md",
       "computedHash": "f09111c137b0bac6e43ff5ff57297afc93ae51583797acf779733ace4d1ced60"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/requesting-code-review/SKILL.md",
+      "computedHash": "004f340ae65811095d6a9bb0a759c87d0a8085c5e705dbb019b011626293d2e9"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "523b8063c07eedd2b8a1ca94d7a0be9ad340026bd9f21a1eda0b6be2a855298f"
     },
     "upgrading-react-native": {
       "source": "callstackincubator/agent-skills",

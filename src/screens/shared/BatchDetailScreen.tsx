@@ -6,9 +6,14 @@
  *   TUTOR (current user owns the batch):
  *     - Live batch doc + full member roster (the members
  *       subcollection is tutor-gated in firestore.rules).
- *     - Per-member Remove action — writes via
- *       `BatchesRepository.removeBatchMember` (deletes the member
- *       doc + decrements the denormalized `memberCount`).
+ *     - Per-member Remove action — the full `removeEnrollment`
+ *       cascade via the shared `RemoveEnrollmentDialog`: soft-delete
+ *       the roster enrollment by direct path, decrement capacity,
+ *       delete the batch member doc (member docs are keyed by
+ *       `enrollmentId`), and notify the student. This is a strict
+ *       superset of the old batch-only `removeBatchMember` — a
+ *       student can never stay orphaned in the roster after being
+ *       removed from a batch.
  *
  *   STUDENT (any other signed-in user):
  *     - Live batch doc via the public active-batches feed (the
@@ -34,6 +39,7 @@ import {
   View,
 } from "react-native";
 
+import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { SeatsRing } from "@/components/domain/SeatsRing";
 import {
   ScreenLayout,
@@ -94,7 +100,16 @@ export function BatchDetailScreen() {
   const [members, setMembers] = useState<BatchMember[]>([]);
   // Student-only — detect whether the viewer already joined.
   const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([]);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  // Full remove-student flow — same RemoveEnrollmentDialog as the
+  // dashboard / capacity / inbox roster. `removeTarget` holds the
+  // member row the tutor tapped; the dialog collects the reason and
+  // `removeEnrollment` cascades to the roster + member docs.
+  const [removeTarget, setRemoveTarget] = useState<BatchMember | null>(null);
+  const [removing, setRemoving] = useState(false);
+  // End-batch write in flight — disables the button + swaps in a
+  // spinner so the destructive action gives feedback while the
+  // batch doc flips to `ended`.
+  const [ending, setEnding] = useState(false);
 
   const batchesRepo = useMemo(() => getBatchesRepository(), []);
   const enrollRepo = useMemo(() => getEnrollmentRepository(), []);
@@ -161,48 +176,79 @@ export function BatchDetailScreen() {
 
   function handleEndBatch() {
     if (!tutorUid || !batchId) return;
+    // Name the students who keep their one-to-one slots so the
+    // tutor can see exactly who remains on the roster after the
+    // class closes. Ending a batch only hides it from the
+    // marketplace — member enrollments stay `active`, their weekly
+    // slots stay booked, and they keep counting toward capacity
+    // until removed (via the roster remove flow) or expired.
+    const memberNames = members.map((m) => m.studentName);
+    const memberLine =
+      memberNames.length === 0
+        ? "There are no members in this batch right now."
+        : `These students stay enrolled for one-to-one sessions and keep their weekly slots: ${memberNames.join(", ")}.`;
     Alert.alert(
       "End this batch?",
-      `"${batch?.name ?? "This batch"}" will close. Students will no longer see it on the marketplace, and the \u201cRequest to join\u201d button disappears. Existing members stay enrolled for one-to-one sessions.`,
+      `"${batch?.name ?? "This batch"}" will close. Students will no longer see it on the marketplace, and the \u201cRequest to join\u201d button disappears. ${memberLine}`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "End batch",
           style: "destructive",
           onPress: () => {
-            batchesRepo
-              .endBatch(tutorUid, batchId)
-              .catch((err) =>
-                console.warn("BatchDetail: endBatch failed", err),
-              );
+            void doEndBatch();
           },
         },
       ],
     );
   }
 
+  async function doEndBatch() {
+    if (!tutorUid || !batchId || ending) return;
+    setEnding(true);
+    try {
+      await batchesRepo.endBatch(tutorUid, batchId);
+      // The batch doc flips to `ended` live and the button unmounts
+      // (it only renders while `status === "active"`).
+    } catch (err) {
+      console.warn("BatchDetail: endBatch failed", err);
+      Alert.alert(
+        "Couldn't end batch",
+        "We couldn't close this batch. Try again in a moment.",
+      );
+    } finally {
+      setEnding(false);
+    }
+  }
+
   function handleRemove(member: BatchMember) {
-    Alert.alert(
-      "Remove student from batch?",
-      `${member.studentName} will leave "${batch?.name ?? "this batch"}". They stay enrolled for one-to-one sessions.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            if (!tutorUid || !batchId) return;
-            setRemovingId(member.memberId);
-            batchesRepo
-              .removeBatchMember(tutorUid, batchId, member.memberId)
-              .catch((err) =>
-                console.warn("BatchDetail: removeBatchMember failed", err),
-              )
-              .finally(() => setRemovingId(null));
-          },
-        },
-      ],
-    );
+    setRemoveTarget(member);
+  }
+
+  async function handleRemoveEnrollment(reason: string) {
+    if (!tutorUid || !removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      // Member docs are keyed by `enrollmentId`, so the cascade
+      // deletes this exact member doc + decrements memberCount as
+      // part of the enrollment removal — no orphaned roster rows.
+      await enrollRepo.removeEnrollment(
+        tutorUid,
+        removeTarget.enrollmentId,
+        reason,
+      );
+      // The member + batch subscriptions re-emit and the row drops
+      // off automatically; close the dialog on success.
+      setRemoveTarget(null);
+    } catch (err) {
+      console.warn("BatchDetail: removeEnrollment failed", err);
+      Alert.alert(
+        "Couldn't remove",
+        "We couldn't remove this student. Try again in a moment.",
+      );
+    } finally {
+      setRemoving(false);
+    }
   }
 
   return (
@@ -336,9 +382,9 @@ export function BatchDetailScreen() {
                   <SeatsRing seatsLeft={seatsLeft} max={MAX_BATCH_MEMBERS} />
                 </View>
               </View>
-              <View className="h-1.5 bg-sand rounded-full overflow-hidden">
+              <View className="h-1.5 bg-sand rounded-pill overflow-hidden">
                 <View
-                  className={`h-full rounded-full ${
+                  className={`h-full rounded-pill ${
                     pct >= 80 ? "bg-accent" : "bg-verification"
                   }`}
                   style={{ width: `${pct}%` }}
@@ -368,6 +414,53 @@ export function BatchDetailScreen() {
                 </View>
               )}
             </View>
+
+            {/* ── Ended banner — ending a batch only hides it from
+                the marketplace; member enrollments stay `active` and
+                their weekly slots stay booked. The tutor sees the
+                exact students who remain one-to-one; students see a
+                count (the members subcollection is tutor-gated). ── */}
+            {batch.status === "ended" && (
+              <View className="bg-ai-light border border-ai-border rounded-card p-4">
+                <View className="flex-row items-start gap-2.5">
+                  <View className="w-8 h-8 rounded-pill bg-ai items-center justify-center">
+                    <Ionicons
+                      name="flag-outline"
+                      size={16}
+                      color={colors.text.inverse}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-card-title font-semibold text-text-primary">
+                      Batch ended
+                    </Text>
+                    <Text className="text-body-sm text-text-secondary mt-0.5">
+                      {isTutor
+                        ? members.length === 0
+                          ? "No students are enrolled — everyone was removed when the batch closed."
+                          : "These students remain enrolled one-to-one and keep their weekly slots:"
+                        : memberCount === 0
+                          ? "This batch has ended — no students remain enrolled."
+                          : `${memberCount} ${memberCount === 1 ? "student stays" : "students stay"} enrolled one-to-one with the tutor.`}
+                    </Text>
+                    {isTutor && members.length > 0 && (
+                      <View className="flex-row flex-wrap gap-1.5 mt-2.5">
+                        {members.map((member) => (
+                          <View
+                            key={member.memberId}
+                            className="bg-surface border border-border rounded-pill px-2.5 py-1"
+                          >
+                            <Text className="text-micro text-text-primary">
+                              {member.studentName}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* ── Members (tutor) / seats (student) ── */}
             <View className="bg-surface border border-border rounded-card p-4">
@@ -418,16 +511,11 @@ export function BatchDetailScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={`Remove ${member.studentName} from batch`}
                             onPress={() => handleRemove(member)}
-                            disabled={removingId === member.memberId}
                             className="px-2.5 py-1.5 active:opacity-70"
                           >
-                            {removingId === member.memberId ? (
-                              <ActivityIndicator size="small" color="#C0392B" />
-                            ) : (
-                              <Text className="text-micro font-medium text-danger">
-                                Remove
-                              </Text>
-                            )}
+                            <Text className="text-micro font-medium text-danger">
+                              Remove
+                            </Text>
                           </Pressable>
                         )}
                       </View>
@@ -460,17 +548,25 @@ export function BatchDetailScreen() {
             {isTutor && batch.status === "active" && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`End ${batch.name}`}
+                accessibilityLabel={
+                  ending ? "Ending batch" : `End ${batch.name}`
+                }
+                accessibilityState={{ disabled: ending, busy: ending }}
                 onPress={handleEndBatch}
-                className="min-h-btn rounded-card border border-danger/30 bg-danger/5 flex-row items-center justify-center gap-2 active:opacity-80"
+                disabled={ending}
+                className="min-h-btn rounded-card border border-danger/30 bg-danger/5 flex-row items-center justify-center gap-2 active:opacity-80 disabled:opacity-60"
               >
-                <Ionicons
-                  name="close-circle-outline"
-                  size={18}
-                  color={colors.semantic.danger}
-                />
+                {ending ? (
+                  <ActivityIndicator size="small" color={colors.semantic.danger} />
+                ) : (
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={18}
+                    color={colors.semantic.danger}
+                  />
+                )}
                 <Text className="text-button font-medium text-danger">
-                  End batch
+                  {ending ? "Ending…" : "End batch"}
                 </Text>
               </Pressable>
             )}
@@ -515,6 +611,13 @@ export function BatchDetailScreen() {
           </View>
         )}
       </ScreenScroll>
+      <RemoveEnrollmentDialog
+        visible={removeTarget !== null}
+        studentName={removeTarget?.studentName ?? ""}
+        loading={removing}
+        onConfirm={(reason) => void handleRemoveEnrollment(reason)}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </ScreenLayout>
   );
 }

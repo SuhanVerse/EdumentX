@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { ScreenLayout, ScreenSheet } from "@/components/shared/ScreenLayout";
+import { colors } from "@/constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApp } from "@react-native-firebase/app";
 import {
   getFirestore,
@@ -11,6 +13,7 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "@/store/authStore";
 
@@ -215,9 +218,12 @@ type Tab = (typeof TABS)[number];
 
 export function NotificationsCenter() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const [tab, setTab] = useState<Tab>("All");
   const [showPrefs, setShowPrefs] = useState(false);
+  // Full-screen detail view — set when the user taps a row.
+  const [selected, setSelected] = useState<NotifRow | null>(null);
 
   // Live rows from Firestore. Subscribes to the signed-in user's
   // `notifications` subcollection; for non-signed-in callers (the
@@ -295,6 +301,8 @@ export function NotificationsCenter() {
     return unsub;
   }, [user?.uid]);
 
+  const unreadRows = useMemo(() => rows.filter((n) => !n.read), [rows]);
+
   const filtered = useMemo(() => {
     return rows.filter((n) => {
       if (!prefs[n.type]) return false; // category is muted
@@ -333,28 +341,58 @@ export function NotificationsCenter() {
     }
   }
 
+  /**
+   * Mark every unread notification read in one batch. Mirrors the
+   * single-row `markRead` write shape (only `read` / `readAt` change,
+   * so the rules' allowed-key diff holds) and optimistically flips
+   * local state so the badge clears instantly.
+   */
+  async function markAllRead() {
+    if (!user?.uid || unreadRows.length === 0) return;
+    const ids = unreadRows.map((r) => r.id);
+    setRows((prev) =>
+      prev.map((r) => (r.read ? r : { ...r, read: true })),
+    );
+    try {
+      const db = getFirestore(getApp());
+      const batch = writeBatch(db);
+      ids.forEach((id) => {
+        batch.update(doc(db, "notifications", user.uid, "items", id), {
+          read: true,
+          readAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn("[NotificationsCenter] markAllRead failed", err);
+      setRows((prev) =>
+        prev.map((r) =>
+          ids.includes(r.id) ? { ...r, read: false } : r,
+        ),
+      );
+    }
+  }
+
   function togglePref(key: NotifType) {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
   }
 
   return (
     <ScreenLayout variant="background">
-      {/* Inline header — replaces the (non-existent)
-          `<ScreenHeader>` and matches the slate-hero shape used by
-          every other student screen. */}
-      <View className="bg-night px-5 pb-5 shrink-0">
+      {/* Inline header — light warm, matches the StudentHome hero. */}
+      <View className="bg-surface px-5 pb-5 shrink-0 border-b border-border">
         <View className="flex-row items-center gap-3 mt-2">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
+            className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} className="text-white" />
+            <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-body text-white/70 mb-0.5">Inbox</Text>
-            <Text className="text-screen-title font-medium text-white">
+            <Text className="text-body text-text-secondary mb-0.5">Inbox</Text>
+            <Text className="text-screen-title font-medium text-text-primary">
               Notifications
             </Text>
           </View>
@@ -362,9 +400,9 @@ export function NotificationsCenter() {
             accessibilityRole="button"
             accessibilityLabel="Notification preferences"
             onPress={() => setShowPrefs(true)}
-            className="w-10 h-10 rounded-pill bg-white/10 items-center justify-center active:opacity-70"
+            className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="settings-outline" size={20} className="text-white" />
+            <Ionicons name="settings-outline" size={20} color={colors.brand.primary} />
           </Pressable>
         </View>
       </View>
@@ -372,11 +410,12 @@ export function NotificationsCenter() {
       {/* Light content — tabs + list overlapping the dark hero
           (premium dark→light seam, shared `ScreenSheet` pattern) */}
       <ScreenSheet>
-      {/* Tabs */}
+      {/* Tabs + mark-all-read action */}
+      <View className="bg-surface border-b border-border px-4 py-3 flex-grow-0 flex-row items-center gap-2">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="bg-surface border-b border-border px-4 py-3 flex-grow-0"
+        className="flex-1"
       >
         {TABS.map((t) => {
           const isActive = tab === t;
@@ -406,6 +445,19 @@ export function NotificationsCenter() {
           );
         })}
       </ScrollView>
+      {unreadRows.length > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Mark all notifications as read"
+          onPress={markAllRead}
+          className="px-3 py-2 rounded-pill bg-accent-soft active:opacity-80"
+        >
+          <Text className="text-micro font-semibold text-accent">
+            Mark all read
+          </Text>
+        </Pressable>
+      )}
+      </View>
 
       {/* List */}
       <ScrollView
@@ -419,7 +471,14 @@ export function NotificationsCenter() {
           <EmptyState tab={tab} />
         ) : (
           filtered.map((n) => (
-            <Row key={n.id} n={n} onPress={() => markRead(n)} />
+            <Row
+              key={n.id}
+              n={n}
+              onPress={() => {
+                markRead(n);
+                setSelected(n);
+              }}
+            />
           ))
         )}
       </ScrollView>
@@ -433,7 +492,83 @@ export function NotificationsCenter() {
         onToggle={togglePref}
         onClose={() => setShowPrefs(false)}
       />
+
+      {/* Full-screen detail view — covers the whole screen with its
+          own back button. Tapping a row marks it read and opens this. */}
+      {selected && (
+        <View className="absolute inset-0 bg-background">
+          <View
+            className="bg-surface px-5 pb-5 border-b border-border"
+            style={{ paddingTop: insets.top + 8 }}
+          >
+            <View className="flex-row items-center gap-3 mt-2">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                onPress={() => setSelected(null)}
+                className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
+              >
+                <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
+              </Pressable>
+              <View className="flex-1">
+                <Text className="text-body text-text-secondary mb-0.5">
+                  Inbox
+                </Text>
+                <Text className="text-screen-title font-medium text-text-primary">
+                  Notification
+                </Text>
+              </View>
+            </View>
+          </View>
+          <NotificationDetail n={selected} onBack={() => setSelected(null)} />
+        </View>
+      )}
     </ScreenLayout>
+  );
+}
+
+/* ----------------------- full-screen detail ----------------------- */
+
+function NotificationDetail({ n, onBack }: { n: NotifRow; onBack: () => void }) {
+  const meta = TYPE_META[n.type];
+  return (
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="px-5 pt-6 pb-12"
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Category chip */}
+      <View
+        className={`self-start flex-row items-center gap-1.5 px-3 py-1.5 rounded-pill ${meta.bgClass}`}
+      >
+        <Ionicons name={meta.icon} size={14} color={iconColorForClass(meta.fgClass)} />
+        <Text className={`text-micro font-semibold ${meta.fgClass}`}>
+          {meta.label}
+        </Text>
+      </View>
+
+      <Text className="text-section-title font-medium text-text-primary mt-4 leading-8">
+        {n.title}
+      </Text>
+      <Text className="text-caption text-text-muted mt-1">
+        {formatRelative(n.timeMs ? new Date(n.timeMs) : null)}
+      </Text>
+
+      <Text className="text-body text-text-secondary leading-6 mt-4">
+        {n.body}
+      </Text>
+
+      {n.reason ? (
+        <View className="bg-danger-bg rounded-card p-3 mt-5">
+          <Text className="text-micro text-danger font-semibold mb-1">
+            Admin note
+          </Text>
+          <Text className="text-body-sm text-text-secondary leading-5">
+            {n.reason}
+          </Text>
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 
@@ -493,7 +628,7 @@ function Row({ n, onPress }: { n: NotifRow; onPress: () => void }) {
 
 function LoadingState() {
   return (
-    <View className="items-center justify-center px-8 pt-20">
+    <View className="items-center justify-center px-8 pt-16">
       <View className="w-14 h-14 rounded-pill bg-sand items-center justify-center mb-3">
         <Ionicons name="sync" size={26} className="text-text-muted" />
       </View>
@@ -532,7 +667,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     };
   })();
   return (
-    <View className="items-center justify-center px-8 pt-20">
+    <View className="items-center justify-center px-8 pt-16">
       <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
         <Ionicons name="sparkles" size={26} className="text-accent" />
       </View>
@@ -557,6 +692,7 @@ function NotificationPreferences({
   onToggle: (k: NotifType) => void;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const enabledCount = Object.values(prefs).filter(Boolean).length;
   const total = Object.keys(TYPE_META).length;
 
@@ -577,7 +713,8 @@ function NotificationPreferences({
             backdrop dismiss only fires on the area outside. */}
         <Pressable
           onPress={() => {}}
-          className="bg-surface rounded-t-[20px] pt-2.5 pb-8 max-h-[90%]"
+          className="bg-surface rounded-t-xl pt-2.5 max-h-[90%]"
+          style={{ paddingBottom: 32 + insets.bottom }}
         >
           {/* Handle */}
           <View className="items-center mb-3">
@@ -710,7 +847,7 @@ function iconColorForClass(fgClass: string): string {
     case "text-accent":
       return "#E5A03B";
     case "text-warning-text":
-      return "#92400E";
+      return colors.semantic.warningText;
     case "text-success":
       return "#3F8A5A";
     case "text-verification":
@@ -719,6 +856,6 @@ function iconColorForClass(fgClass: string): string {
       return "#C1503D";
     case "text-text-primary":
     default:
-      return "#26302B";
+      return colors.text.primary;
   }
 }

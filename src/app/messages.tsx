@@ -8,6 +8,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/constants/colors";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -83,7 +84,7 @@ export default function MessagesScreen() {
             onPress={() => router.back()}
             className="w-9 h-9 rounded-pill bg-background border border-border items-center justify-center active:opacity-70"
           >
-            <Ionicons name="chevron-back" size={20} color="#2F5D50" />
+            <Ionicons name="chevron-back" size={20} color={colors.brand.primary} />
           </Pressable>
         </View>
         <Text className="text-body text-text-secondary mt-0.5">
@@ -96,12 +97,12 @@ export default function MessagesScreen() {
       <ScreenScroll className="flex-1 bg-background">
         {!loaded ? (
           <View className="items-center justify-center pt-16">
-            <ActivityIndicator size="small" color="#2F5D50" />
+            <ActivityIndicator size="small" color={colors.brand.primary} />
           </View>
         ) : conversations.length === 0 ? (
           <View className="items-center justify-center pt-16 px-6">
             <View className="w-14 h-14 rounded-pill bg-accent-soft items-center justify-center mb-3">
-              <Ionicons name="chatbubbles-outline" size={26} color="#E5A03B" />
+              <Ionicons name="chatbubbles-outline" size={26} color={colors.brand.accent} />
             </View>
             <Text className="text-card-title font-medium text-text-primary text-center">
               No conversations yet
@@ -155,7 +156,7 @@ export default function MessagesScreen() {
                         : "Start the conversation"}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#6B7268" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
                 </Pressable>
               );
             })}

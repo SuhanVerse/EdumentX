@@ -104,7 +104,9 @@ export function LocationPickerModal({
               latitude: picked.latitude,
               longitude: picked.longitude,
               color: colors.brand.accent,
-              icon: icons?.tutor,
+              // Solid amber locator — the picker's drop pin (brand
+              // amber, distinct from the slate/green tutor pins).
+              icon: icons?.picker,
             },
           ]
         : [],

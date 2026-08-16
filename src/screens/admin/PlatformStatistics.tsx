@@ -143,7 +143,7 @@ export function PlatformStatistics() {
         </View>
       </ScreenHeader>
 
-      <ScreenScroll contentContainerClassName="px-5 pt-6 pb-8 gap-5">
+      <ScreenScroll contentContainerClassName="px-6 pt-8 pb-8 gap-5">
         <KpiGrid />
         <WeeklyEnrollmentCard />
         <SubjectDemandCard />

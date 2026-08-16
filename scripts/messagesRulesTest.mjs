@@ -76,6 +76,55 @@ const CONV = `${[STUDENT, TUTOR].sort().join("__")}`;
   if (r.status !== 200) console.log("   ", r.body);
 }
 
+// ── 1b. Hub list query (messages inbox). The client's
+//        `subscribeConversations` filters on the SORTED SCALAR pair
+//        (`participantA == uid OR participantB == uid`) — matching
+//        the scalar-only rules. A list query with an OR composite
+//        filter on those two fields must be permitted; the old
+//        `array-contains`-on-`participants` shape was NOT provable
+//        against the rules and 403'd on every render.
+//
+//        REST shape: for a TOP-LEVEL collection query the parent is
+//        `documents` itself and `from.collectionId` names the
+//        collection (`documents/conversations:runQuery` trips an
+//        emulator parser bug — the same one the reviews list test
+//        documents).
+async function runHubQuery(uid) {
+  const res = await fetch(`${BASE}:runQuery`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${tokenFor(uid)}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "conversations" }],
+        where: {
+          compositeFilter: {
+            op: "OR",
+            filters: [
+              { fieldFilter: { field: { fieldPath: "participantA" }, op: "EQUAL", value: { stringValue: uid } } },
+              { fieldFilter: { field: { fieldPath: "participantB" }, op: "EQUAL", value: { stringValue: uid } } },
+            ],
+          },
+        },
+      },
+    }),
+  });
+  return { status: res.status, body: await res.text() };
+}
+{
+  const r = await runHubQuery(STUDENT);
+  const ok = r.status === 200 && r.body.includes(`"name"`) && r.body.includes(CONV);
+  check("participant hub query (OR on scalars) returns their thread", ok ? 200 : r.status, 200);
+  if (r.status !== 200 || !ok) console.log("   ", r.body.slice(0, 200));
+
+  const denied = await runHubQuery(STRANGER);
+  const empty = denied.status === 200 && !denied.body.includes(CONV);
+  check("stranger hub query returns no rows (not an error)", empty ? 200 : denied.status, 200);
+  if (!empty) console.log("   ", denied.body.slice(0, 200));
+}
+
 // ── 2. Stranger tries to create a conversation they're not in ──
 {
   const r = await req("PATCH", `/conversations/${CONV}`, STRANGER, payload(

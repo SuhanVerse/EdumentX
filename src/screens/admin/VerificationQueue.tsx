@@ -1,5 +1,6 @@
 import { ImageViewerModal } from "@/components/ui/ImageViewer";
 import { VideoViewerModal } from "@/components/ui/VideoViewer";
+import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { getApp } from "@react-native-firebase/app";
 import {
@@ -1081,7 +1082,7 @@ export function VerificationQueue() {
           Verification Queue
         </Text>
         <View className="flex-row items-center gap-2 mt-1">
-          <View className="w-1.5 h-1.5 rounded-full bg-warning" />
+          <View className="w-1.5 h-1.5 rounded-pill bg-warning" />
           <Text className="text-caption text-white/70">
             {loading
               ? "Loading queue…"
@@ -1319,11 +1320,11 @@ function VerificationCard({
         {typeof item.avatar === "string" && item.avatar.length > 0 ? (
           <Image
             source={{ uri: item.avatar }}
-            className="w-12 h-12 rounded-full bg-sand"
+            className="w-12 h-12 rounded-pill bg-sand"
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+          <View className="w-12 h-12 rounded-pill bg-accent-light items-center justify-center">
             <Text className="text-card-title font-medium text-accent">
               {(item.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
@@ -1565,11 +1566,11 @@ function PendingEditCard({
         {typeof edit.avatar === "string" && edit.avatar.length > 0 ? (
           <Image
             source={{ uri: edit.avatar }}
-            className="w-12 h-12 rounded-full bg-sand"
+            className="w-12 h-12 rounded-pill bg-sand"
             resizeMode="cover"
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-accent-light items-center justify-center">
+          <View className="w-12 h-12 rounded-pill bg-accent-light items-center justify-center">
             <Text className="text-card-title font-medium text-accent">
               {(edit.name?.charAt(0) ?? "?").toUpperCase()}
             </Text>
@@ -1689,11 +1690,11 @@ function DecidedRow({ item }: { item: Verification }) {
       {typeof item.avatar === "string" && item.avatar.length > 0 ? (
         <Image
           source={{ uri: item.avatar }}
-          className="w-10 h-10 rounded-full bg-sand"
+          className="w-10 h-10 rounded-pill bg-sand"
           resizeMode="cover"
         />
       ) : (
-        <View className="w-10 h-10 rounded-full bg-accent-light items-center justify-center">
+        <View className="w-10 h-10 rounded-pill bg-accent-light items-center justify-center">
           <Text className="text-card-title font-medium text-accent">
             {(item.name?.charAt(0) ?? "?").toUpperCase()}
           </Text>
@@ -1749,7 +1750,7 @@ function StatusBadge({ status }: { status: QueueStatus }) {
 
 function EmptyState() {
   return (
-    <View className="items-center justify-center px-8 pt-20">
+    <View className="items-center justify-center px-8 pt-16">
       <View className="w-14 h-14 rounded-pill bg-accent-light items-center justify-center mb-3">
         <Ionicons name="shield-checkmark" size={26} className="text-accent" />
       </View>
@@ -1820,7 +1821,7 @@ function RejectReasonDialog({
             value={reason}
             onChangeText={onChangeReason}
             placeholder="e.g. Documents are unclear. Please re-upload a clearer citizenship scan."
-            placeholderTextColor="#6B7268"
+            placeholderTextColor={colors.text.muted}
             multiline
             numberOfLines={4}
             className="mt-4 bg-sand rounded-card p-3 text-body text-text-primary min-h-[96px]"

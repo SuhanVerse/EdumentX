@@ -15,6 +15,7 @@ import {
   usePressScale,
 } from "@/components/motion";
 import { motion } from "@/lib/motion";
+import { colors } from "@/constants/colors";
 
 type TutorTabKey = "dashboard" | "inbox" | "batches" | "profile";
 
@@ -41,7 +42,7 @@ const TUTOR_TABS: readonly TutorTabDef[] = [
 ] as const;
 
 const ACTIVE_COLOR = "#2F5D50";
-const INACTIVE_COLOR = "#6B7268";
+const INACTIVE_COLOR = colors.text.muted;
 
 type TutorBottomBarProps = {
   inboxBadgeCount?: number;
@@ -95,7 +96,7 @@ export function TutorBottomBar({
             The amber underline marks the current tab (amber speaks
             only for "where you are" states here). */}
         <View
-          className="relative flex-row rounded-3xl bg-glass border border-glass-border px-1 py-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+          className="relative flex-row rounded-xl bg-glass border border-glass-border px-1 py-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
           onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         >
           {width > 0 ? (
@@ -143,7 +144,7 @@ export function TutorBottomBar({
             top: 6,
             width: 48,
             height: 28,
-            backgroundColor: "#F1ECE0",
+            backgroundColor: colors.background.surfaceMuted,
           }}
         />
       ) : null}
@@ -233,7 +234,7 @@ function TutorTab({
 
 function BadgeDot({ count }: BadgeDotProps) {
   return (
-    <View className="absolute -top-1.5 -right-2 bg-danger rounded-full min-w-[16px] h-4 items-center justify-center px-1">
+    <View className="absolute -top-1.5 -right-2 bg-danger rounded-pill min-w-[16px] h-4 items-center justify-center px-1">
       <Text className="text-white text-[10px] font-semibold leading-none">
         {count > 9 ? "9+" : count}
       </Text>

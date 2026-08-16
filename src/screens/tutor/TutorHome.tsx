@@ -31,12 +31,16 @@ import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
+import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
 import { deriveTodaySessions } from "@/services/enrollments/derived";
-import type {
-  Enrollment,
-  EnrollmentRequest,
+import {
+  DAY_LABELS,
+  TIME_SLOT_LABELS,
+  parseSlotKey,
+  type Enrollment,
+  type EnrollmentRequest,
 } from "@/services/enrollments/types";
 import { setTutorAvailability } from "@/lib/tutor/firestoreTutorService";
 import type { Review } from "@/lib/tutor/types";
@@ -154,6 +158,13 @@ export function TutorDashboard() {
   // (b) persisting a "banner seen" flag to Firestore would be
   // more work than it's worth for a UI affordance.
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Active-students removal — the only UI entry to `removeEnrollment`
+  // (soft-delete by direct path + capacity decrement + batch-member
+  // cascade). `removeTarget` holds the roster row the tutor tapped;
+  // the dialog collects the reason and drives the `removing` spinner.
+  const [removeTarget, setRemoveTarget] = useState<Enrollment | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   // Live read from the tutorProfile subcollection. We subscribe via
   // `onSnapshot` so future Phase-5 "Edit profile" writes propagate to
@@ -334,6 +345,29 @@ export function TutorDashboard() {
     return unsub;
   }, [user]);
 
+  async function handleRemoveEnrollment(reason: string) {
+    if (!user || !removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      await getEnrollmentRepository().removeEnrollment(
+        user.uid,
+        removeTarget.enrollmentId,
+        reason,
+      );
+      // The roster snapshot re-emits and the row drops off
+      // automatically; close the dialog on success.
+      setRemoveTarget(null);
+    } catch (err) {
+      console.warn("TutorDashboard: removeEnrollment failed", err);
+      Alert.alert(
+        "Couldn't remove",
+        "We couldn't remove this student. Try again in a moment.",
+      );
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   async function handleToggleAvailability() {
     if (!user || available == null || availableToggleBusy) return;
     const next = !available;
@@ -358,6 +392,7 @@ export function TutorDashboard() {
 
   const capacity = data.capacity;
   const currentStudents = data.currentStudents;
+  const activeRoster = roster.filter((e) => e.status === "active");
   const capPct = capacity > 0 ? (currentStudents / capacity) * 100 : 0;
   const capColor =
     capPct >= 100
@@ -414,7 +449,7 @@ export function TutorDashboard() {
               and reads as "Suh…" in the screenshots. */}
           <View className="flex-1 min-w-0">
             <Text className="text-body text-text-secondary">Good to see you,</Text>
-            <View style={{ borderBottomWidth: 2, borderBottomColor: '#E5A03B', paddingBottom: 2, alignSelf: 'flex-start' }}>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
               <Text
                 className="text-screen-title font-medium text-text-primary mt-0.5"
                 numberOfLines={1}
@@ -424,7 +459,7 @@ export function TutorDashboard() {
             </View>
             {data.isVerifiedProfessional ? (
               <View className="flex-row items-center gap-1 px-2.5 py-1 rounded-pill bg-verification-light mt-2 self-start">
-                <Ionicons name="shield-checkmark" size={12} color="#3F8A5A" />
+                <Ionicons name="shield-checkmark" size={12} color={colors.brand.verification} />
                 <Text className="text-caption text-success font-medium">
                   Verified Professional
                 </Text>
@@ -438,7 +473,7 @@ export function TutorDashboard() {
               onPress={() => router.push("/messages" as never)}
               className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
             >
-              <Ionicons name="chatbubble-ellipses-outline" size={19} color="#2F5D50" />
+              <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
             </Pressable>
             <NotificationBell tone="light" />
           </View>
@@ -448,7 +483,7 @@ export function TutorDashboard() {
             `tutors/{uid}.isAvailableForNewStudents` flag. The switch
             is disabled until the first snapshot lands so it never
             renders a stale optimistic default. */}
-        <View className="bg-surface rounded-2xl px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center border border-border">
+        <View className="bg-surface rounded-card px-3.5 py-2.5 mt-3.5 flex-row justify-between items-center border border-border">
           <View className="flex-1 pr-3">
             <Text className="text-body font-medium text-text-primary">
               {available === false ? "Hidden from search" : "Available for new students"}
@@ -555,10 +590,10 @@ export function TutorDashboard() {
             editor (live availability grid) */}
         <Pressable
           onPress={() => router.push("/tutor-capacity")}
-          className="bg-surface border border-border rounded-2xl p-4 mb-3.5 active:opacity-70"
+          className="bg-surface border border-border rounded-card p-4 mb-3.5 active:opacity-70"
         >
           <View className="flex-row items-center gap-2 mb-2.5">
-            <Ionicons name="people" size={16} color="#6B7280" />
+            <Ionicons name="people" size={16} color={colors.text.muted} />
             <Text className="flex-1 text-button-sm font-medium text-text-primary">
               Capacity
             </Text>
@@ -569,25 +604,25 @@ export function TutorDashboard() {
             >
               {currentStudents} of {capacity} filled
             </Text>
-            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </View>
-          <View className="h-2 rounded-full bg-border overflow-hidden">
+          <View className="h-2 rounded-pill bg-border overflow-hidden">
             <View
-              className={`h-full rounded-full ${capColor}`}
+              className={`h-full rounded-pill ${capColor}`}
               style={{ width: `${capPct}%` }}
             />
           </View>
         </Pressable>
 
         {/* Profile completion */}
-        <View className="bg-surface border border-border rounded-2xl p-4 mb-3.5">
+        <View className="bg-surface border border-border rounded-card p-4 mb-3.5">
           <Text className="text-button-sm font-medium text-text-primary mb-1.5">
             Profile completion
           </Text>
           <View className="flex-row items-center gap-2.5">
-            <View className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
+            <View className="flex-1 h-1.5 rounded-pill bg-border overflow-hidden">
               <View
-                className="h-full bg-accent rounded-full"
+                className="h-full bg-accent rounded-pill"
                 style={{ width: `${data.profileCompletion}%` }}
               />
             </View>
@@ -600,9 +635,9 @@ export function TutorDashboard() {
         {/* Today's sessions — derived live from the roster (active
             enrollments on today's weekday within their date window),
             not a `sessions` collection. */}
-        <View className="bg-surface border border-border rounded-2xl p-6 mb-3.5 items-center">
+        <View className="bg-surface border border-border rounded-card p-6 mb-3.5 items-center">
           <View className="w-14 h-14 rounded-pill bg-background border border-border items-center justify-center mb-3">
-            <Ionicons name="briefcase-outline" size={26} color="#E5A03B" />
+            <Ionicons name="briefcase-outline" size={26} color={colors.brand.accent} />
           </View>
           {!rosterLoaded ? (
             <Text className="text-caption text-text-muted py-2">
@@ -633,6 +668,84 @@ export function TutorDashboard() {
           )}
         </View>
 
+        {/* Active students — the live roster (same stream the
+            capacity screen reads). Removing a student soft-deletes
+            the enrollment by direct path, frees a capacity slot,
+            and cascades to the batch member doc when the
+            enrollment sits in a group batch. */}
+        <View className="mb-3.5">
+          <View className="flex-row justify-between items-center mb-2.5">
+            <Text className="text-card-title font-medium text-text-primary">
+              Active students
+            </Text>
+            <Text className="text-caption text-text-muted">
+              {activeRoster.length} of {capacity || "—"} filled
+            </Text>
+          </View>
+          {!rosterLoaded ? (
+            <Text className="text-caption text-text-muted py-2">
+              Loading students…
+            </Text>
+          ) : activeRoster.length === 0 ? (
+            <View className="bg-surface border border-border rounded-card p-5 items-center">
+              <Ionicons name="person-outline" size={22} color={colors.text.muted} />
+              <Text className="text-caption text-text-muted mt-2 text-center">
+                No active students yet. Accepted requests appear here.
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-col gap-2.5">
+              {activeRoster.map((e) => (
+                <View
+                  key={e.enrollmentId}
+                  className="bg-surface rounded-card p-3.5 border border-border"
+                >
+                  <View className="flex-row gap-2.5 items-start">
+                    <AvatarCircle uri={e.studentAvatar} name={e.studentName} />
+                    <View className="flex-1">
+                      <View className="flex-row justify-between items-center gap-2">
+                        <Text
+                          className="text-card-title font-medium text-text-primary flex-1"
+                          numberOfLines={1}
+                        >
+                          {e.studentName}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${e.studentName}`}
+                          onPress={() => setRemoveTarget(e)}
+                          className="w-8 h-8 rounded-pill bg-danger-bg items-center justify-center active:opacity-70"
+                        >
+                          <Ionicons name="close" size={16} color={colors.semantic.danger} />
+                        </Pressable>
+                      </View>
+                      <Text className="text-caption text-text-muted mt-0.5">
+                        {e.studentGrade} · {formatRosterSlot(e.slotKey)}
+                      </Text>
+                      <View className="flex-row gap-1 mt-1.5 flex-wrap items-center">
+                        {e.subjects.slice(0, 3).map((s) => (
+                          <SubjectChip key={s} label={s} />
+                        ))}
+                        {e.batchId ? (
+                          <View className="px-2 py-0.5 rounded-sm bg-ai-light">
+                            <Text className="text-micro font-medium text-ai">
+                              In batch
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text className="mt-1.5 text-micro text-text-muted">
+                        From {e.startDate}
+                        {e.endDate ? ` to ${e.endDate}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Pending requests */}
         <View className="mb-3.5">
           <View className="flex-row justify-between items-center mb-2.5">
@@ -644,7 +757,7 @@ export function TutorDashboard() {
               className="flex-row items-center gap-0.5 active:opacity-70"
             >
               <Text className="text-button-sm text-amber">See all</Text>
-              <Ionicons name="chevron-forward" size={14} color="#2F5D50" />
+              <Ionicons name="chevron-forward" size={14} color={colors.brand.primary} />
             </Pressable>
           </View>
 
@@ -673,7 +786,7 @@ export function TutorDashboard() {
                   <Pressable
                     key={req.requestId}
                     onPress={() => router.push("/tutor-inbox")}
-                    className="bg-surface rounded-2xl p-3.5 border border-border active:opacity-70"
+                    className="bg-surface rounded-card p-3.5 border border-border active:opacity-70"
                   >
                     <View className="flex-row gap-2.5 items-start">
                       <AvatarCircle uri={req.studentAvatar} name={req.studentName} />
@@ -713,8 +826,8 @@ export function TutorDashboard() {
 
           {reqTab === "batches" && (
             <View className="flex-col gap-2.5">
-              <View className="bg-surface rounded-2xl p-4 border border-border items-center">
-                <Ionicons name="people-outline" size={22} color="#6B7268" />
+              <View className="bg-surface rounded-card p-4 border border-border items-center">
+                <Ionicons name="people-outline" size={22} color={colors.text.muted} />
                 <Text className="text-caption text-text-muted mt-2 text-center">
                   No batch requests right now.
                 </Text>
@@ -726,10 +839,10 @@ export function TutorDashboard() {
         {/* Group batch CTA */}
         <Pressable
           onPress={() => router.push("/batches")}
-          className="w-full flex-row items-center gap-3 p-3.5 bg-surface border border-border rounded-2xl active:opacity-70"
+          className="w-full flex-row items-center gap-3 p-3.5 bg-surface border border-border rounded-card active:opacity-70"
         >
-          <View className="w-10 h-10 rounded-xl bg-ai items-center justify-center">
-            <Ionicons name="people" size={20} color="#FFFFFF" />
+          <View className="w-10 h-10 rounded-lg bg-ai items-center justify-center">
+            <Ionicons name="people" size={20} color={colors.text.inverse} />
           </View>
           <View className="flex-1">
             <Text className="text-card-title font-medium text-ai">Create a group batch</Text>
@@ -737,7 +850,7 @@ export function TutorDashboard() {
               Combine 2–6 students into a shared batch
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#4A7FA5" />
+          <Ionicons name="chevron-forward" size={18} color={colors.brand.ai} />
         </Pressable>
 
         {/* Quick actions row */}
@@ -749,13 +862,20 @@ export function TutorDashboard() {
               accessibilityLabel={label}
               onPress={() => router.push(route as never)}
               style={{ width: "48%" }}
-              className="bg-surface border border-border rounded-2xl p-3.5 mb-2.5 active:opacity-70"
+              className="bg-surface border border-border rounded-card p-3.5 mb-2.5 active:opacity-70"
             >
               <Text className="text-button-sm font-medium text-text-primary">{label}</Text>
             </Pressable>
           ))}
         </View>
       </ScreenScroll>
+      <RemoveEnrollmentDialog
+        visible={removeTarget !== null}
+        studentName={removeTarget?.studentName ?? ""}
+        loading={removing}
+        onConfirm={(reason) => void handleRemoveEnrollment(reason)}
+        onCancel={() => setRemoveTarget(null)}
+      />
       <TutorBottomBar tone="light" />
     </ScreenLayout>
   );
@@ -781,7 +901,7 @@ type MetricProps = {
 function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
   return (
     <View
-      className="bg-surface border border-border rounded-2xl p-3.5 mb-2.5"
+      className="bg-surface border border-border rounded-card p-3.5 mb-2.5"
       style={{ width: "48%" }}
     >
       <View className="flex-row items-center justify-between mb-2">
@@ -789,10 +909,10 @@ function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
           <Ionicons
             name={iconName}
             size={16}
-            color="#2F5D50"
+            color={colors.brand.primary}
           />
         </View>
-        {trendUp ? <Ionicons name="trending-up" size={14} color="#3F8A5A" /> : null}
+        {trendUp ? <Ionicons name="trending-up" size={14} color={colors.brand.verification} /> : null}
       </View>
       <Text className="text-label text-text-muted mb-1">{label}</Text>
       <Text className="text-heading text-text-primary leading-tight">{value}</Text>
@@ -803,6 +923,13 @@ function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
       </Text>
     </View>
   );
+}
+
+/** `day:slot` → "Mon · 5–7 PM" — used by the roster rows. */
+function formatRosterSlot(key: string): string {
+  const parsed = parseSlotKey(key);
+  if (!parsed) return key;
+  return `${DAY_LABELS[parsed.day]} · ${TIME_SLOT_LABELS[parsed.slot]}`;
 }
 
 type SubjectChipProps = {
@@ -853,7 +980,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   const initial = (name?.charAt(0) ?? "?").toUpperCase();
   if (!hasImage) {
     return (
-      <View className="w-10 h-10 rounded-full bg-background border border-border items-center justify-center">
+      <View className="w-10 h-10 rounded-pill bg-background border border-border items-center justify-center">
         <Text className="text-card-title font-medium text-text-muted">{initial}</Text>
       </View>
     );
@@ -861,7 +988,7 @@ function AvatarCircle({ uri, name }: AvatarCircleProps) {
   return (
     <Image
       source={{ uri }}
-      className="w-10 h-10 rounded-full bg-background border border-border"
+      className="w-10 h-10 rounded-pill bg-background border border-border"
     />
   );
 }
@@ -899,7 +1026,7 @@ function TutorDashboardEmptyState() {
           accessibilityRole="button"
           accessibilityLabel="Complete your tutor profile"
           onPress={() => router.replace("/profile-tutor")}
-          className="mt-6 min-h-btn-lg rounded-2xl bg-accent items-center justify-center px-8 active:opacity-90"
+          className="mt-6 min-h-btn-lg rounded-card bg-accent items-center justify-center px-8 active:opacity-90"
         >
           <Text className="text-button text-text-inverse font-semibold">
             Complete your profile
@@ -965,17 +1092,17 @@ function AvailabilitySwitch({
       accessibilityState={{ checked, disabled }}
       accessibilityLabel="Toggle availability"
       onPress={disabled ? undefined : onToggle}
-      className="w-11 h-6 rounded-full px-0.5 justify-center"
+      className="w-11 h-6 rounded-pill px-0.5 justify-center"
     >
       <Animated.View
         style={trackStyle}
-        className="absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-pill"
       />
       <SwitchThumb
         checked={checked}
         trackWidth={TRACK_WIDTH}
         thumbSize={THUMB_SIZE}
-        thumbClassName="w-5 h-5 rounded-full bg-white border border-border shadow-sm"
+        thumbClassName="w-5 h-5 rounded-pill bg-white border border-border shadow-sm"
         style={{ elevation: 2 }}
       />
     </Pressable>
@@ -1004,7 +1131,7 @@ function RequestsSubTabs<TKey extends string>({
   );
   return (
     <View
-      className="flex-row bg-surface border border-border rounded-xl p-1 mb-2.5 relative"
+      className="flex-row bg-surface border border-border rounded-card p-1 mb-2.5 relative"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (
@@ -1018,7 +1145,7 @@ function RequestsSubTabs<TKey extends string>({
             height: 36,
             width: width / tabs.length - 8,
             marginLeft: 4,
-            backgroundColor: "#2F5D50",
+            backgroundColor: colors.brand.primary,
           }}
         />
       ) : null}
@@ -1038,7 +1165,7 @@ function RequestsSubTabs<TKey extends string>({
               {t.label}
             </Text>
             <View
-              className={`px-1.5 py-[1px] rounded-full ${
+              className={`px-1.5 py-[1px] rounded-pill ${
                 on ? "bg-white/25" : "bg-border"
               }`}
             >

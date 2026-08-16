@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Plus } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "@/constants/colors";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ActivePill } from "@/components/motion";
 import {
@@ -58,6 +60,7 @@ const COMMON_SUBJECTS = ["Mathematics", "Science", "English", "Physics", "Chemis
 const MIN_MEMBERS = 2;
 
 export function BatchesScreen() {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const tutorUid = user?.uid ?? "";
   const router = useRouter();
@@ -280,7 +283,7 @@ export function BatchesScreen() {
           onPress={openWizard}
           className="bg-ai rounded-card py-4 px-6 flex-row items-center justify-center gap-2 active:opacity-90 mb-8"
         >
-          <Plus size={20} color="#FFFFFF" strokeWidth={3} />
+          <Plus size={20} color={colors.text.inverse} strokeWidth={3} />
           <Text className="text-white font-semibold text-base">
             Create New Batch
           </Text>
@@ -320,7 +323,7 @@ export function BatchesScreen() {
                   {t === "active" ? "Active" : "Ended"}
                 </Text>
                 <View
-                  className={`px-1.5 py-0.5 rounded-full ${
+                  className={`px-1.5 py-0.5 rounded-pill ${
                     isActive ? "bg-white/20" : "bg-surface"
                   }`}
                 >
@@ -345,7 +348,7 @@ export function BatchesScreen() {
 
           {batchesLoading ? (
             <View className="items-center py-8">
-              <ActivityIndicator color="#4A7FA5" />
+              <ActivityIndicator color={colors.brand.ai} />
             </View>
           ) : visibleBatches.length === 0 ? (
             <View className="bg-surface border border-border rounded-card p-6 items-center">
@@ -392,11 +395,11 @@ export function BatchesScreen() {
                       ) : null}
                     </View>
                     {batch.status === "active" ? (
-                      <View className="bg-success/10 px-3 py-1 rounded-full">
+                      <View className="bg-success/10 px-3 py-1 rounded-pill">
                         <Text className="text-success text-xs font-medium">Active</Text>
                       </View>
                     ) : (
-                      <View className="bg-text-muted/10 px-3 py-1 rounded-full">
+                      <View className="bg-text-muted/10 px-3 py-1 rounded-pill">
                         <Text className="text-text-muted text-xs font-medium">Ended</Text>
                       </View>
                     )}
@@ -410,9 +413,9 @@ export function BatchesScreen() {
                         {members.length} in batch
                       </Text>
                     </View>
-                    <View className="h-1.5 bg-border rounded-full overflow-hidden">
+                    <View className="h-1.5 bg-border rounded-pill overflow-hidden">
                       <View
-                        className="h-1.5 bg-ai rounded-full"
+                        className="h-1.5 bg-ai rounded-pill"
                         style={{ width: `${Math.min(100, (members.length / MAX_BATCH_MEMBERS) * 100)}%` }}
                       />
                     </View>
@@ -423,7 +426,7 @@ export function BatchesScreen() {
                     {batch.slotKeys.map((slotKey) => (
                       <View
                         key={slotKey}
-                        className="bg-background px-3 py-1 rounded-full"
+                        className="bg-background px-3 py-1 rounded-pill"
                       >
                         <Text className="text-text-secondary text-xs">
                           {formatSlotKey(slotKey)}
@@ -439,7 +442,7 @@ export function BatchesScreen() {
                         {members.slice(0, 3).map((member) => (
                           <View
                             key={member.memberId}
-                            className="w-8 h-8 rounded-full border-2 border-surface overflow-hidden"
+                            className="w-8 h-8 rounded-pill border-2 border-surface overflow-hidden"
                           >
                             <View className="w-full h-full bg-ai/20 items-center justify-center">
                               <Text className="text-xs font-semibold text-ai">
@@ -476,7 +479,10 @@ export function BatchesScreen() {
       {/* ── Creation wizard (bottom sheet) ── */}
       {wizardOpen && (
         <View className="absolute inset-0 bg-black/70 justify-end">
-          <View className="bg-surface rounded-t-3xl h-[85%] p-6">
+          <View
+            className="bg-surface rounded-t-xl h-[85%] px-6 pt-6"
+            style={{ paddingBottom: 24 + insets.bottom }}
+          >
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-xl font-semibold text-text-primary">
                 {wizardStep === 1 ? "Pick students" : wizardStep === 2 ? "Batch details" : "Review & create"}
@@ -491,7 +497,7 @@ export function BatchesScreen() {
               {[1, 2, 3].map((step) => (
                 <View
                   key={step}
-                  className={`h-1 flex-1 rounded-full ${wizardStep >= step ? "bg-accent" : "bg-border"}`}
+                  className={`h-1 flex-1 rounded-pill ${wizardStep >= step ? "bg-accent" : "bg-border"}`}
                 />
               ))}
             </View>
@@ -508,7 +514,7 @@ export function BatchesScreen() {
                 <ScrollView className="flex-1">
                   {rosterLoading ? (
                     <View className="items-center py-10">
-                      <ActivityIndicator color="#4A7FA5" />
+                      <ActivityIndicator color={colors.brand.ai} />
                     </View>
                   ) : roster.length === 0 ? (
                     <View className="bg-background rounded-card p-6 items-center">
@@ -532,7 +538,7 @@ export function BatchesScreen() {
                           } ${atCap ? "opacity-50" : ""}`}
                         >
                           <View
-                            className={`w-9 h-9 rounded-full items-center justify-center ${
+                            className={`w-9 h-9 rounded-pill items-center justify-center ${
                               selected ? "bg-accent" : "bg-ai/20"
                             }`}
                           >
@@ -587,7 +593,7 @@ export function BatchesScreen() {
                   value={batchName}
                   onChangeText={setBatchName}
                   placeholder="e.g. Grade 10 Maths Batch A"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.text.muted}
                   className="bg-background border border-border rounded-card px-4 py-3 text-text-primary mb-4"
                 />
 
@@ -625,7 +631,7 @@ export function BatchesScreen() {
                     value={customSubject}
                     onChangeText={setCustomSubject}
                     placeholder="Custom subject"
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={colors.text.muted}
                     className="bg-background border border-border rounded-card px-4 py-3 text-text-primary mb-3"
                   />
                 )}
@@ -635,7 +641,7 @@ export function BatchesScreen() {
                   value={feeText}
                   onChangeText={setFeeText}
                   placeholder="e.g. 2200"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.text.muted}
                   keyboardType="numeric"
                   className="bg-background border border-border rounded-card px-4 py-3 text-text-primary mb-4"
                 />
@@ -677,7 +683,7 @@ export function BatchesScreen() {
                 )}
                 {conflictingSlots.length > 0 && (
                   <View className="bg-danger/10 border border-danger/30 rounded-card p-3 flex-row items-start gap-2 mb-2">
-                    <Ionicons name="warning-outline" size={16} color="#C1503D" />
+                    <Ionicons name="warning-outline" size={16} color={colors.semantic.danger} />
                     <Text className="flex-1 text-xs text-danger leading-relaxed">
                       {conflictingSlots.map(formatSlotKey).join(", ")}{" "}
                       {conflictingSlots.length === 1 ? "overlaps" : "overlap"} a slot
@@ -757,7 +763,7 @@ export function BatchesScreen() {
                   }`}
                 >
                   {creating ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={colors.text.inverse} />
                   ) : (
                     <Text className="text-white font-semibold">Save Batch</Text>
                   )}

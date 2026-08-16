@@ -1,141 +1,219 @@
-import { useState } from "react";
-import { Users2, Info } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Users2, Info, Check } from "lucide-react";
 import { TUTORS, TIME_SLOTS, DAYS, SAMPLE_AVAILABILITY } from "../data/mockData";
-import { ScreenHeader } from "../components/shared/ScreenHeader";
 import { BottomNav } from "../components/shared/BottomNav";
+import { colors, font } from "../theme/tokens";
 
 type SlotState = "available" | "booked" | "off";
 
-const STATE_STYLE: Record<SlotState, { bg: string; color: string; border: string; label: string }> = {
-  available: { bg: "#DCF0E4", color: "#3F8A5A", border: "#3F8A5A", label: "Available" },
-  booked:    { bg: "#E4EDE9", color: "#0F172A", border: "#2F5D50", label: "Booked" },
-  off:       { bg: "#F1ECE0", color: "#9CA3AF", border: "#E7E1D3", label: "Off" },
+const CELL_STYLE: Record<SlotState, { bg: string; borderColor: string }> = {
+  available: { bg: colors.verifyTint,  borderColor: colors.verify },
+  booked:    { bg: colors.aiTint,      borderColor: colors.ai },
+  off:       { bg: colors.sand,        borderColor: "transparent" },
 };
-
-const NEXT: Record<SlotState, SlotState> = { off: "available", available: "booked", booked: "off" };
 
 export function CapacityManager() {
   const me = TUTORS[0];
-  const tier = me.tier ?? "pro";
-  const maxAllowed = tier === "pro" ? 20 : 10;
+  const capacity = me.capacity ?? 8;
+  const occupied = me.currentStudents ?? 5;
 
-  const [capacity, setCapacity] = useState(me.capacity ?? 8);
+  const [original] = useState<Record<string, Record<string, SlotState>>>(
+    () => JSON.parse(JSON.stringify(SAMPLE_AVAILABILITY))
+  );
   const [grid, setGrid] = useState<Record<string, Record<string, SlotState>>>(
     () => JSON.parse(JSON.stringify(SAMPLE_AVAILABILITY))
   );
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
-  const occupied = me.currentStudents ?? 5;
+  const isDirty = useMemo(() => {
+    for (const day of DAYS) {
+      for (const slot of TIME_SLOTS) {
+        if (grid[day][slot.id] !== original[day][slot.id]) return true;
+      }
+    }
+    return false;
+  }, [grid, original]);
+
+  const changedCount = useMemo(() => {
+    let n = 0;
+    for (const day of DAYS) {
+      for (const slot of TIME_SLOTS) {
+        if (grid[day][slot.id] !== original[day][slot.id]) n++;
+      }
+    }
+    return n;
+  }, [grid]);
+
+  const toggle = (day: string, slotId: string) => {
+    if (grid[day][slotId] === "booked") return;
+    setGrid((g) => ({
+      ...g,
+      [day]: { ...g[day], [slotId]: g[day][slotId] === "off" ? "available" : "off" },
+    }));
+  };
+
+  const discard = () => setGrid(JSON.parse(JSON.stringify(original)));
+
+  const save = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2200);
+    }, 1000);
+  };
+
   const pct = Math.min(100, (occupied / capacity) * 100);
-  const atCap = occupied >= capacity;
+  const capColor = pct >= 100 ? colors.danger : pct >= 80 ? colors.amber : colors.verify;
 
-  const cycle = (day: string, slot: string) =>
-    setGrid((g) => ({ ...g, [day]: { ...g[day], [slot]: NEXT[g[day][slot]] } }));
-
-  const totals = (Object.values(grid) as Record<string, SlotState>[]).reduce(
-    (acc, day) => {
-      Object.values(day).forEach((s) => {
-        acc[s]++;
-      });
-      return acc;
-    },
-    { available: 0, booked: 0, off: 0 } as Record<SlotState, number>
-  );
+  const totalAvail = DAYS.reduce((a, d) => a + TIME_SLOTS.filter((s) => grid[d][s.id] === "available").length, 0);
+  const totalBooked = DAYS.reduce((a, d) => a + TIME_SLOTS.filter((s) => grid[d][s.id] === "booked").length, 0);
 
   return (
-    <div style={{ width: "100%", height: "100%", background: "#FBF8F2", display: "flex", flexDirection: "column", fontFamily: "Inter, sans-serif" }}>
-      <ScreenHeader title="Capacity & schedule" backPath="/tutor/dashboard" />
+    <div style={{ width: "100%", height: "100%", background: colors.paper, display: "flex", flexDirection: "column", fontFamily: font }}>
+      {/* Header */}
+      <div style={{ background: colors.paper, padding: "20px 16px 16px", flexShrink: 0, borderBottom: `1px solid ${colors.hairline}` }}>
+        <div style={{ fontSize: 14, color: colors.muted, marginBottom: 4 }}>Manage your</div>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 500, color: colors.text, lineHeight: 1.2 }}>Capacity & schedule</div>
+          <div style={{ height: 2, background: colors.amber, borderRadius: 1, marginTop: 6, alignSelf: "flex-start", width: 220 }} />
+        </div>
+        <div style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>
+          <strong style={{ color: colors.text }}>{occupied} / {capacity} filled</strong> · {capacity - occupied} slots available
+        </div>
+      </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 88px" }}>
-        {/* Capacity card */}
-        <div style={{ background: "#FFFFFF", border: "1px solid #E7E1D3", borderRadius: 14, padding: 16, marginBottom: 14 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px", paddingBottom: (isDirty || savedFlash) ? 140 : 88 }}>
+        {/* Capacity progress card */}
+        <div style={{ background: colors.card, border: `1px solid ${colors.hairline}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <Users2 size={16} color="#2F5D50" />
-            <div style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#0F172A" }}>Student capacity</div>
-            <div style={{ fontSize: 13, color: atCap ? "#C1503D" : "#3F8A5A", fontWeight: 500 }}>{occupied} / {capacity}</div>
+            <Users2 size={16} color={colors.green} />
+            <div style={{ flex: 1, fontSize: 14, fontWeight: 500, color: colors.text }}>Student capacity</div>
+            <div style={{ fontSize: 13, color: capColor, fontWeight: 500 }}>{occupied} / {capacity} filled</div>
           </div>
-          <div style={{ height: 8, borderRadius: 999, background: "#F1ECE0", overflow: "hidden", marginBottom: 12 }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: atCap ? "#C1503D" : pct > 80 ? "#E5A03B" : "#3F8A5A", borderRadius: 999 }} />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid #E7E1D3" }}>
-            <div>
-              <div style={{ fontSize: 13, color: "#0F172A" }}>Max students</div>
-              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
-                {tier === "pro" ? "Pro tutor: 2–20" : "Student tutor: 2–10"}
-              </div>
-            </div>
-            <input
-              type="range"
-              min={Math.max(2, occupied)}
-              max={maxAllowed}
-              value={capacity}
-              onChange={(e) => setCapacity(Number(e.target.value))}
-              style={{ width: 140, accentColor: "#2F5D50" }}
-            />
+          <div style={{ height: 8, borderRadius: 999, background: colors.paper, border: `1px solid ${colors.hairline}`, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: capColor, borderRadius: 999 }} />
           </div>
         </div>
 
-        {/* Weekly grid */}
-        <div style={{ background: "#FFFFFF", border: "1px solid #E7E1D3", borderRadius: 14, padding: 16, marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: "#0F172A", marginBottom: 4 }}>Weekly availability</div>
-          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>Tap a slot to cycle: Off → Available → Booked.</div>
+        {/* Weekly availability grid */}
+        <div style={{ background: colors.card, border: `1px solid ${colors.hairline}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: colors.text, marginBottom: 4 }}>Weekly availability</div>
+          <div style={{ fontSize: 12, color: colors.muted, marginBottom: 12 }}>Tap slots to edit, then save your changes.</div>
 
-          <div style={{ overflowX: "auto", margin: "0 -16px", padding: "0 16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "92px repeat(7, 44px)", gap: 4, minWidth: 400 }}>
-              <div />
-              {DAYS.map((d) => (
-                <div key={d} style={{ fontSize: 11, fontWeight: 500, color: "#6B7280", textAlign: "center", padding: "4px 0" }}>{d}</div>
-              ))}
-              {TIME_SLOTS.map((slot) => (
-                <div key={slot.id} style={{ display: "contents" }}>
-                  <div style={{ fontSize: 10, color: "#6B7280", display: "flex", alignItems: "center", paddingRight: 4, lineHeight: 1.2 }}>
-                    {slot.label}
-                  </div>
-                  {DAYS.map((d) => {
-                    const state = grid[d][slot.id];
-                    const s = STATE_STYLE[state];
-                    return (
-                      <button
-                        key={d + slot.id}
-                        onClick={() => cycle(d, slot.id)}
-                        style={{
-                          height: 36,
-                          borderRadius: 8,
-                          background: s.bg,
-                          border: `1px solid ${s.border}`,
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
-                        aria-label={`${d} ${slot.label} ${s.label}`}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
+          {/* Time header row */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 6, marginLeft: 56 }}>
+            {TIME_SLOTS.map((slot) => (
+              <div key={slot.id} style={{ flex: 1, fontSize: 9, fontWeight: 500, color: colors.muted, textTransform: "uppercase", textAlign: "center", lineHeight: 1.2 }}>
+                {slot.label.split(" · ")[1] ?? slot.label}
+              </div>
+            ))}
+          </div>
+
+          {/* 7 day rows × 6 slots */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 460, overflowY: "auto" }}>
+            {DAYS.map((day) => (
+              <div key={day} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 52, fontSize: 11, fontWeight: 500, color: colors.muted, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>{day}</div>
+                {TIME_SLOTS.map((slot) => {
+                  const state = grid[day][slot.id];
+                  const s = CELL_STYLE[state];
+                  const isBooked = state === "booked";
+                  return (
+                    <button
+                      key={slot.id}
+                      onClick={() => toggle(day, slot.id)}
+                      disabled={isBooked}
+                      style={{
+                        flex: 1, height: 40, borderRadius: 8,
+                        background: s.bg, border: `1px solid ${s.borderColor}`,
+                        cursor: isBooked ? "default" : "pointer", padding: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                      aria-label={`${day} ${slot.label} — ${state}`}
+                    >
+                      {state === "available" && <Check size={12} color={colors.verify} strokeWidth={2.5} />}
+                      {state === "booked" && <Users2 size={12} color={colors.ai} />}
+                      {state === "off" && <span style={{ fontSize: 10, color: colors.placeholder, opacity: 0.7 }}>·</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           {/* Legend */}
           <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
-            {(Object.entries(STATE_STYLE) as [SlotState, typeof STATE_STYLE[SlotState]][]).map(([k, s]) => (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 14, height: 14, borderRadius: 4, background: s.bg, border: `1px solid ${s.border}` }} />
-                <span style={{ fontSize: 11, color: "#6B7280" }}>{s.label} · {totals[k]}</span>
+            {[
+              { state: "available" as SlotState, label: `Available · ${totalAvail}` },
+              { state: "booked" as SlotState, label: `Booked · ${totalBooked}` },
+              { state: "off" as SlotState, label: "Off" },
+            ].map(({ state, label }) => (
+              <div key={state} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: CELL_STYLE[state].bg, border: `1px solid ${CELL_STYLE[state].borderColor || colors.hairline}` }} />
+                <span style={{ fontSize: 11, color: colors.muted }}>{label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Help */}
-        <div style={{ background: "#E3EDF4", border: "1px solid #B9D0E0", borderRadius: 12, padding: 12, display: "flex", gap: 10 }}>
-          <Info size={16} color="#4A7FA5" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 12, color: "#4A7FA5", lineHeight: 1.6 }}>
-            One student per 1-to-1 slot. Group batches occupy a full slot for all members. Students can request only your <b>Available</b> slots — conflicts are blocked automatically.
+        {/* Info banner — AI blue */}
+        <div style={{ background: colors.aiTint, border: `1px solid #B9D0E0`, borderRadius: 14, padding: 14, display: "flex", gap: 10 }}>
+          <Info size={18} color={colors.ai} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: 12, color: colors.ai, lineHeight: 1.6 }}>
+            One student per 1-to-1 slot. Group batches occupy a full slot for all members. Students can request only your <strong>Available</strong> slots — conflicts are blocked automatically.
           </div>
         </div>
       </div>
+
+      {/* Sticky save bar — only while dirty or flashing saved */}
+      {(isDirty || savedFlash) && (
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 72,
+          padding: "12px 16px 8px",
+          borderTop: `1px solid ${colors.hairline}`,
+          background: colors.paper,
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <div style={{ flex: 1 }}>
+            {savedFlash ? (
+              <div style={{ fontSize: 13, fontWeight: 500, color: colors.verify }}>Availability saved</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 500, color: colors.text }}>Unsaved changes</div>
+                <div style={{ fontSize: 11, color: colors.muted, marginTop: 1 }}>{changedCount} slot{changedCount !== 1 ? "s" : ""} changed</div>
+              </>
+            )}
+          </div>
+          {!savedFlash && (
+            <>
+              <button
+                onClick={discard}
+                style={{ height: 44, padding: "0 14px", background: "none", border: "none", color: colors.muted, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: font }}
+              >
+                Discard
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                style={{
+                  height: 44, padding: "0 18px", borderRadius: 14, border: "none",
+                  background: saving ? colors.sand : colors.amber,
+                  color: saving ? colors.muted : colors.inverse,
+                  fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer", fontFamily: font,
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                {saving ? "Saving…" : `Save changes (${changedCount})`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <BottomNav role="tutor" />
     </div>
   );
 }
+

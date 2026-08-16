@@ -23,6 +23,12 @@
  *   7. Full-batch backstop: fills the batch to capacity and confirms
  *      a join is rejected (BATCH_FULL) with atomic rollback (request
  *      stays pending, memberCount unchanged, no orphan roster doc).
+ *   7b. Direct-path removeEnrollment (the Aug 2026 fix): the tutor
+ *      removes the joined enrollment — roster soft-deleted, profile
+ *      counters decremented, the batch member doc deleted by direct
+ *      path (via roster.batchId), batch memberCount 3 → 2.
+ *   7c. createBatch-seeded removal: a seeded batch (member docs keyed
+ *      by enrollmentId + roster batchId stamp) cascades identically.
  *   8. Recursively deletes every doc it created, even on failure.
  *
  * All UIDs are prefixed `smoke-` with a timestamp, so the script can
@@ -625,6 +631,202 @@ async function main() {
     } else {
       fail("No roster doc from blocked join", `found ${orphanRoster.size} orphan roster doc(s)`);
     }
+
+    // ── 7b. Direct-path removeEnrollment cascade ────────────────────────
+    // The Aug 2026 fix: NO collectionGroup scans. The tutor pins the
+    // row by their own uid, reads the roster's `batchId`, and deletes
+    // the member doc by direct path. First restore the batch's
+    // memberCount to its real doc count (the backstop check above
+    // bumped it to 6; the batch actually holds 3 member docs).
+    await batchRef.set(
+      { memberCount: 3, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    const removeReason = "Smoke test removal";
+    await db.runTransaction(async (tx) => {
+      const [profileSnap, enrSnap, batchSnap] = await Promise.all([
+        tx.get(profileRef),
+        tx.get(batchEnrollmentRef),
+        tx.get(batchRef),
+      ]);
+      const profileData = profileSnap.data() as
+        | { enrolledCount?: number; currentStudents?: number }
+        | undefined;
+      const enrData = enrSnap.data() as
+        | { status?: string; batchId?: string | null }
+        | undefined;
+      if (!enrSnap.exists || enrData?.status !== "active") {
+        throw new Error("ENROLLMENT_NOT_ACTIVE");
+      }
+      tx.update(batchEnrollmentRef, {
+        status: "removed",
+        removedAt: FieldValue.serverTimestamp(),
+        removeReason,
+      });
+      tx.update(profileRef, {
+        enrolledCount: Math.max(0, (profileData?.enrolledCount ?? 0) - 1),
+        currentStudents: Math.max(0, (profileData?.currentStudents ?? 0) - 1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      // Cascade via the roster's batchId (member docs keyed by
+      // enrollmentId — direct path, exists() guard for the batch).
+      if (batchSnap.exists) {
+        const batchData = batchSnap.data() as { memberCount?: number } | undefined;
+        tx.delete(
+          db.doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}/members/${batchEnrollmentId}`),
+        );
+        tx.update(batchRef, {
+          memberCount: Math.max(0, (batchData?.memberCount ?? 0) - 1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    pass("removeEnrollment transaction committed", batchEnrollmentId);
+
+    // Verify: roster soft-deleted, profile counters decremented,
+    // member doc gone, batch memberCount decremented.
+    const removedRoster = (await batchEnrollmentRef.get()).data();
+    assertEqual(removedRoster?.status, "removed", "roster.status after removal");
+    assertEqual(removedRoster?.removeReason, removeReason, "roster.removeReason");
+    const profileAfterRemoval = (await profileRef.get()).data();
+    assertEqual(
+      profileAfterRemoval?.enrolledCount,
+      0,
+      "profile.enrolledCount decremented (1 → 0)",
+    );
+    const removedMember = await db
+      .doc(`batches/${TUTOR_UID}/classes/${BATCH_ID}/members/${batchEnrollmentId}`)
+      .get();
+    if (!removedMember.exists) {
+      pass("Batch member doc deleted by cascade", "direct-path delete");
+    } else {
+      fail("Batch member doc deleted by cascade", "member doc still present");
+    }
+    const batchAfterRemoval = (await batchRef.get()).data();
+    assertEqual(
+      batchAfterRemoval?.memberCount,
+      2,
+      "batch.memberCount after removal (3 → 2)",
+    );
+
+    // ── 7c. createBatch-seeded removal (roster batchId stamp) ──────────
+    // A batch seeded via createBatch now keys member docs by
+    // enrollmentId AND stamps batchId onto the seeded roster rows.
+    // Removing the seeded enrollment must cascade the same way.
+    const SEED_BATCH_ID = "smoke-batch-seed-remove";
+    const seedBatchRef = db.doc(`batches/${TUTOR_UID}/classes/${SEED_BATCH_ID}`);
+    const seedEnrollmentRef = rosterColl.doc("seed-enrollment-remove");
+    await db.runTransaction(async (tx) => {
+      tx.set(seedBatchRef, stripNulls({
+        batchId: SEED_BATCH_ID,
+        tutorUid: TUTOR_UID,
+        name: "Seeded Remove Batch",
+        subject: "Physics",
+        monthlyRateNpr: 1800,
+        slotKeys: [SLOT_KEY],
+        startDate: START_DATE,
+        endDate: null,
+        status: "active" as const,
+        createdAt: FieldValue.serverTimestamp(),
+        memberCount: 1,
+      }));
+      // createBatch's roster stamp: the seeded enrollment's roster
+      // row carries the batchId.
+      tx.set(seedEnrollmentRef, {
+        enrollmentId: seedEnrollmentRef.id,
+        tutorUid: TUTOR_UID,
+        studentUid: STUDENT.uid,
+        studentName: STUDENT.name,
+        studentGrade: STUDENT.grade,
+        studentAvatar: STUDENT.avatar,
+        subjects: SUBJECTS,
+        slotKey: SLOT_KEY,
+        startDate: START_DATE,
+        endDate: END_DATE,
+        status: "active" as const,
+        acceptedAt: FieldValue.serverTimestamp(),
+        removedAt: null,
+        removeReason: null,
+        batchId: SEED_BATCH_ID,
+      });
+      // Member doc keyed by enrollmentId (the createBatch convention).
+      tx.set(
+        db.doc(`batches/${TUTOR_UID}/classes/${SEED_BATCH_ID}/members/${seedEnrollmentRef.id}`),
+        {
+          memberId: seedEnrollmentRef.id,
+          enrollmentId: seedEnrollmentRef.id,
+          studentUid: STUDENT.uid,
+          studentName: STUDENT.name,
+          studentAvatar: STUDENT.avatar,
+          joinedAt: FieldValue.serverTimestamp(),
+        },
+      );
+      tx.update(profileRef, {
+        enrolledCount: 1,
+        currentStudents: 1,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+    pass("Seeded createBatch-style batch + roster stamp", SEED_BATCH_ID);
+
+    // Remove the seeded enrollment — same direct-path flow as above.
+    await db.runTransaction(async (tx) => {
+      const [profileSnap, enrSnap, batchSnap] = await Promise.all([
+        tx.get(profileRef),
+        tx.get(seedEnrollmentRef),
+        tx.get(seedBatchRef),
+      ]);
+      const profileData = profileSnap.data() as
+        | { enrolledCount?: number; currentStudents?: number }
+        | undefined;
+      const enrData = enrSnap.data() as
+        | { status?: string; batchId?: string | null }
+        | undefined;
+      if (!enrSnap.exists || enrData?.status !== "active") {
+        throw new Error("ENROLLMENT_NOT_ACTIVE");
+      }
+      tx.update(seedEnrollmentRef, {
+        status: "removed",
+        removedAt: FieldValue.serverTimestamp(),
+        removeReason,
+      });
+      tx.update(profileRef, {
+        enrolledCount: Math.max(0, (profileData?.enrolledCount ?? 0) - 1),
+        currentStudents: Math.max(0, (profileData?.currentStudents ?? 0) - 1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      if (batchSnap.exists) {
+        const batchData = batchSnap.data() as { memberCount?: number } | undefined;
+        tx.delete(
+          db.doc(`batches/${TUTOR_UID}/classes/${SEED_BATCH_ID}/members/${seedEnrollmentRef.id}`),
+        );
+        tx.update(seedBatchRef, {
+          memberCount: Math.max(0, (batchData?.memberCount ?? 0) - 1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    pass("Seeded-member removal transaction committed", seedEnrollmentRef.id);
+
+    const seedMemberGone = await db
+      .doc(`batches/${TUTOR_UID}/classes/${SEED_BATCH_ID}/members/${seedEnrollmentRef.id}`)
+      .get();
+    if (!seedMemberGone.exists) {
+      pass("Seeded member doc deleted by cascade", "direct-path delete");
+    } else {
+      fail("Seeded member doc deleted by cascade", "member doc still present");
+    }
+    assertEqual(
+      (await seedBatchRef.get()).data()?.memberCount,
+      0,
+      "seeded batch.memberCount after removal (1 → 0)",
+    );
+    assertEqual(
+      (await seedEnrollmentRef.get()).data()?.status,
+      "removed",
+      "seeded roster.status after removal",
+    );
   } catch (err) {
     fail("Smoke test run", err instanceof Error ? err.message : String(err));
   } finally {
