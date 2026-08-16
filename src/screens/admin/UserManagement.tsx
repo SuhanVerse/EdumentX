@@ -342,24 +342,27 @@ export function UserManagement() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Header — dark navy hero with the title and search bar only.
-          The status + role filter pills were moved out of the hero
-          into a separate filter card below (see next block) — they
-          were too cramped stacked inside the dark hero, and the
-          `Text` element they used had `flex-row flex-wrap` styling
-          that doesn't actually work (RN's `<Text>` ignores flex on
-          non-text siblings), so the layout rendered as a single
-          jagged line. Splitting them out gives them room to breathe
-          and lets us lay them out with a proper `<View>`. */}
-      <ScreenHeader>
+      {/* Header — standard LIGHT hero (the admin theme purge: no more
+          legacy dark-navy admin headers), with the title and search
+          bar only. The status + role filter pills were moved out of
+          the hero into a separate filter card below (see next block)
+          — they were too cramped stacked inside the dark hero, and
+          the `Text` element they used had `flex-row flex-wrap`
+          styling that doesn't actually work (RN's `<Text>` ignores
+          flex on non-text siblings), so the layout rendered as a
+          single jagged line. Splitting them out gives them room to
+          breathe and lets us lay them out with a proper `<View>`. */}
+      <ScreenHeader variant="light">
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-body text-white/70 mb-0.5">Management</Text>
-            <Text className="text-screen-title font-medium text-white">
+            <Text className="text-body text-text-secondary mb-0.5">
+              Management
+            </Text>
+            <Text className="text-screen-title font-medium text-text-primary">
               User Management
             </Text>
           </View>
-          <Text className="text-caption text-white/60">
+          <Text className="text-caption text-text-muted">
             {visibleUsers.filter((u) => u.status !== "deleted").length} users · {deletedCount} deleted
           </Text>
         </View>

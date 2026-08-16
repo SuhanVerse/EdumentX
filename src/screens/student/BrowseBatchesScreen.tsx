@@ -135,7 +135,7 @@ export function BrowseBatchesScreen() {
               const seatsLeft = MAX_BATCH_MEMBERS - (b.memberCount ?? 0);
               return (
                 <Pressable
-                  key={b.batchId}
+                  key={`${b.tutorUid}-${b.batchId}`}
                   accessibilityRole="button"
                   accessibilityLabel={`View ${b.subject} batch details`}
                   onPress={() =>

@@ -1075,15 +1075,18 @@ export function VerificationQueue() {
   return (
     <ScreenLayout variant="background">
 
-      {/* Hero header */}
-      <ScreenHeader>
-        <Text className="text-body text-white/70 mb-0.5">Moderation</Text>
-        <Text className="text-screen-title font-medium text-white">
+      {/* Hero header — standard LIGHT hero (the admin theme purge:
+          no more legacy dark-navy admin headers). */}
+      <ScreenHeader variant="light">
+        <Text className="text-body text-text-secondary mb-0.5">
+          Moderation
+        </Text>
+        <Text className="text-screen-title font-medium text-text-primary">
           Verification Queue
         </Text>
         <View className="flex-row items-center gap-2 mt-1">
           <View className="w-1.5 h-1.5 rounded-pill bg-warning" />
-          <Text className="text-caption text-white/70">
+          <Text className="text-caption text-text-muted">
             {loading
               ? "Loading queue…"
               : `${totalOpen} open · ${decided.length} decided`}
@@ -1663,7 +1666,8 @@ function PendingEditCard({
           className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
           accessibilityRole="button"
           accessibilityLabel="Approve edit"
-        >          <Ionicons name="checkmark" size={14} className="text-white" />
+        >
+          <Ionicons name="checkmark" size={14} className="text-white" />
           <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
         </Pressable>
         <Pressable

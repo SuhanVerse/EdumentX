@@ -30,6 +30,8 @@
     "smoke:batches-browse": "npm run smoke:batches-browse:build && node dist/scripts/smokeTestBatchesBrowse.js",
     "smoke:messages:build": "npx tsc scripts/smokeTestMessages.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "smoke:messages": "npm run smoke:messages:build && node dist/scripts/smokeTestMessages.js",
+    "smoke:tutor-details:build": "npx tsc scripts/smokeTestTutorDetails.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "smoke:tutor-details": "npm run smoke:tutor-details:build && node dist/scripts/smokeTestTutorDetails.js",
     "test:derived:build": "npx tsc scripts/testDerived.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "test:derived": "npm run test:derived:build && node --test dist/scripts/scripts/testDerived.js",
     "test:lint-rules:build": "npx tsc scripts/testLintRules.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
@@ -37,7 +39,7 @@
     "backfill:tutor-availability:build": "npx tsc scripts/backfillTutorAvailability.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "backfill:tutor-availability": "npm run backfill:tutor-availability:build && node dist/scripts/backfillTutorAvailability.js",
     "test:rules:deployed": "node scripts/checkDeployedRules.mjs",
-    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs && node scripts/acceptRequestRulesTest.mjs && node scripts/messagesRulesTest.mjs && node scripts/reviewsListRulesTest.mjs && node scripts/removeEnrollmentRulesTest.mjs\"",
+    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs && node scripts/acceptRequestRulesTest.mjs && node scripts/messagesRulesTest.mjs && node scripts/reviewsListRulesTest.mjs && node scripts/removeEnrollmentRulesTest.mjs && node scripts/tutorDetailsRulesTest.mjs\"",
     "probe:chat": "node scripts/probeChat.cjs"
   },
   "dependencies": {

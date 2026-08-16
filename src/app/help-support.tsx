@@ -29,7 +29,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How do payments work?",
-    a: "EdumentX doesn't process payments. You and your tutor agree on a direct transfer — eSewa, Khalti, IME Pay or bank.",
+    a: "Enrollment is billed per month at the tutor's listed rate, but EdumentX never processes payments — it only matches you with the tutor. Once your request is accepted, settle the monthly fee directly with your tutor (eSewa, Khalti, IME Pay or bank transfer).",
   },
   {
     q: "What does tutor verification mean?",

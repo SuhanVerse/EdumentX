@@ -11,26 +11,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /**
  * EdumentX — Admin Bottom Navigation
  *
- * Persistent 5-tab nav for admin screens, mirroring the student's
+ * Persistent 4-tab nav for admin screens, mirroring the student's
  * `BottomNav` pattern (Home · Map · AI · Enrollments · Profile →
- * Home · Statistics · Verification · Users · Profile).
+ * Home · Verification · Users · Profile).
  *
  * Tab order is intentional:
  *   1. **Home** is leftmost — the entry point the admin lands on
  *      after sign-in and the surface they return to when they're
- *      done with a task.
- *   2. The three work surfaces (Statistics, Verification, Users)
- *      sit in the middle. These are the "do work" tabs.
+ *      done with a task. Live platform statistics live ON Home
+ *      (the KPI grid), so there is no separate Statistics tab.
+ *   2. The work surfaces (Verification, Users) sit in the middle.
  *   3. **Profile** is rightmost — account/identity lives at the
  *      far end so it's discoverable but not in the way.
  *
  * **Why a separate component from the student `BottomNav`:** the
  * student nav accepts a `role` prop and switches between tab sets
  * (`STUDENT_TABS` vs `TUTOR_TABS`). The admin nav has its own
- * fixed 5-tab set and its own setup-state carve-out
- * (see "First-time setup hide" below), so reusing the student
- * component with another `role` value would force a third branch
- * into the same file. Cleaner to keep them separate.
+ * fixed 4-tab set (Home · Verification · Users · Profile — the
+ * old Statistics tab was merged into Home) and its own
+ * setup-state carve-out (see "First-time setup hide" below), so
+ * reusing the student component with another `role` value would
+ * force a third branch into the same file. Cleaner to keep them
+ * separate.
  *
  * **First-time setup hide.** When the admin's `adminProfile` doc
  * is empty (i.e. they're on `/admin-profile` for first-time
@@ -48,7 +50,6 @@ export type AdminTab = {
 
 const ADMIN_TABS: AdminTab[] = [
   { icon: "home", label: "Home", route: "/admin-home" },
-  { icon: "analytics", label: "Statistics", route: "/platform-statistics" },
   { icon: "shield-checkmark", label: "Verification", route: "/verification-queue" },
   { icon: "people", label: "Users", route: "/user-management" },
   { icon: "person", label: "Profile", route: "/admin-profile" },
@@ -63,7 +64,12 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
-  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  // Nav tabs don't fire haptics — the sliding pill is the feedback
+  // and per-tap haptics add perceived lag on budget Android devices
+  // (see BottomNav).
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    haptic: false,
+  });
 
   return (
     <AnimatedPressable
@@ -117,7 +123,7 @@ function TabRow({
           count={tabs.length}
           activeIndex={activeIndex}
           itemWidth={width / tabs.length}
-          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-accent/10"
+          pillClassName="absolute top-1.5 w-1/4 h-7 rounded-pill bg-accent/10"
           style={{ width: width / tabs.length, height: 28, top: 6 }}
         />
       ) : null}

@@ -163,6 +163,9 @@ export function EnrollmentFormScreen() {
         recompute();
       },
       (err) => console.warn("EnrollmentForm: enrollments subscribe failed", err),
+      // Read-only roster — never run the expiry sweep as a student
+      // (it writes the tutor's docs and would permission-deny).
+      { runSweep: false },
     );
     const unsubB = repo.subscribeBatches(
       tutorId,

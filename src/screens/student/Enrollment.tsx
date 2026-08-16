@@ -832,8 +832,12 @@ function EnrollmentTabs({
     // screens. The pill's width/position come from `style` (applied
     // now that ActivePill forwards it) so the white label always
     // sits on the green fill.
+    // `mx-6` gutters match the list cards below (ScreenScroll's
+    // 24px px-6) — the tab bar used to run full-bleed to the screen
+    // edges while the cards were inset, which read as misaligned
+    // padding.
     <View
-      className="flex-row bg-sand rounded-card relative h-11 overflow-hidden"
+      className="flex-row bg-sand rounded-card relative h-11 overflow-hidden mx-6"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
       {width > 0 ? (

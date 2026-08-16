@@ -241,11 +241,20 @@ export interface EnrollmentRepository {
     requestId: string,
   ): Promise<void>;
 
-  /** Live list of the tutor's enrollments (active + removed/expired). */
+  /** Live list of the tutor's enrollments (active + removed/expired).
+   *
+   *  `options.runSweep` (default true) controls whether the
+   *  auto-expiry sweep runs on every snapshot. The sweep WRITES the
+   *  tutor's roster + profile, so it must only run when the caller
+   *  is the tutor themself — student-facing screens (TutorDetails,
+   *  EnrollmentForm) subscribe to a tutor's roster just to read it
+   *  and would otherwise trigger the sweep as the wrong actor and
+   *  log a permission-denied flood. */
   subscribeEnrollments(
     tutorUid: string,
     onData: EnrollmentCallback,
     onError?: ErrorCallback,
+    options?: { runSweep?: boolean },
   ): Unsubscribe;
 
   /** Live list of the tutor's batches (active + ended). */

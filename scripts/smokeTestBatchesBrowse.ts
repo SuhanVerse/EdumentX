@@ -155,12 +155,18 @@ async function main() {
   const stamp = Date.now();
   const TUTOR = `smoke-browse-tutor-${stamp}`;
   const STUDENT = `smoke-browse-student-${stamp}`;
-  const ACTIVE_BATCH = "batch-active-1";
-  const ENDED_BATCH = "batch-ended-1";
+  // Batch ids are unique PER RUN (timestamped) — a leftover from a
+  // crashed previous run must never collide with this run, or the
+  // marketplace's collectionGroup list would surface duplicate
+  // `batchId`s to the app (the BrowseBatchesScreen duplicate-key
+  // crash, Aug 2026).
+  const ACTIVE_BATCH = `batch-active-${stamp}`;
+  const ENDED_BATCH = `batch-ended-${stamp}`;
 
   const cleanupRefs = [db.doc(`batches/${TUTOR}`)];
   const cleanupUsers = [STUDENT];
 
+  try {
   // ── 1. Seed one active + one ended batch (admin SDK) ──
   await db.doc(`batches/${TUTOR}/classes/${ACTIVE_BATCH}`).set({
     tutorUid: TUTOR,
@@ -227,16 +233,22 @@ async function main() {
     );
   }
 
-  // ── Cleanup ──────────────────────────────────────────────────────────────
+  } finally {
+  // ── Cleanup (runs even on crash, so leftovers can never seed the
+  //     duplicate-key bug in the live project) ──────────────────────────────
   console.log("\nCleaning up smoke-test data…");
-  const results = await Promise.allSettled(
-    cleanupRefs.map((ref) => db.recursiveDelete(ref)),
-  );
-  results.forEach((r, i) => {
-    if (r.status === "rejected") {
-      console.error(`  ⚠️  cleanup of ${cleanupRefs[i].path} failed: ${String(r.reason)}`);
-    }
-  });
+  try {
+    const results = await Promise.allSettled(
+      cleanupRefs.map((ref) => db.recursiveDelete(ref)),
+    );
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`  ⚠️  cleanup of ${cleanupRefs[i].path} failed: ${String(r.reason)}`);
+      }
+    });
+  } catch (err) {
+    console.error(`  ⚠️  cleanup of batch docs failed: ${String(err)}`);
+  }
   const authResults = await Promise.allSettled(
     cleanupUsers.map((uid) => auth.deleteUser(uid)),
   );
@@ -260,6 +272,7 @@ async function main() {
   } else {
     console.error("  ❌ Some smoke-test data may remain — inspect the paths above.");
     failures += 1;
+  }
   }
 
   // ── Summary ─────────────────────────────────────────────────────────────

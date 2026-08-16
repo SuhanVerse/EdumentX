@@ -303,7 +303,6 @@ export default function RootLayout() {
         "chat",
         "enroll",
         // Admin sub-screens (AdminNav targets)
-        "platform-statistics",
         "verification-queue",
         "user-management",
         // Admin profile — first-time setup and view/edit. The first-time
@@ -945,7 +944,6 @@ export default function RootLayout() {
           <Stack.Screen name="messages" />
           <Stack.Screen name="chat" />
           {/*Admin sub-screens*/}
-          <Stack.Screen name="platform-statistics" />
           <Stack.Screen name="verification-queue" />
           <Stack.Screen name="user-management" />
           {/* Admin profile — first-time setup + view/edit. The auth

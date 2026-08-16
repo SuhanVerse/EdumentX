@@ -220,7 +220,12 @@ function WideCard({
       ) : null}
       {/* Info block — no hero/cover panel, content starts immediately */}
       <View className="p-4 gap-2">
-        <View className="flex-row items-center gap-2">
+        {/* `pr-9` clears the absolutely-positioned save heart (36px at
+            top-3 right-3): without it the verified badge (pinned to
+            the end of the name row) can slide under the heart. */}
+        <View
+          className={`flex-row items-center gap-2 ${onSaveToggle ? "pr-9" : ""}`}
+        >
           <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
           <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-1">
@@ -340,10 +345,10 @@ function CompactCard({
       // the card off the map surface.
       style={[{ width }, animatedStyle, {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+        elevation: 5,
       }]}
       className={`border rounded-card overflow-hidden ${
         dark
@@ -351,25 +356,28 @@ function CompactCard({
           : 'bg-surface border-border'
       } ${className}`}
     >
-      <View className="p-3 gap-1">
-        <View className="flex-row items-center gap-1">
-          <Text
-            className={`text-card-title flex-1 ${
-              dark ? "text-white" : "text-text-primary"
-            }`}
-            numberOfLines={1}
-          >
-            {tutor.fullName}
-          </Text>
-          {tutor.isVerifiedProfessional ? (
-            <View className="-ml-0.5">
-              <Ionicons
-                color={colors.brand.verification}
-                name="checkmark-circle"
-                size={14}
-              />
+      <View className="p-3 gap-1.5">
+        <View className="flex-row items-center gap-2">
+          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
+          <View className="flex-1 min-w-0">
+            <View className="flex-row items-center gap-1">
+              <Text
+                className={`text-card-title flex-1 ${dark ? "text-white" : "text-text-primary"}`}
+                numberOfLines={1}
+              >
+                {tutor.fullName}
+              </Text>
+              {tutor.isVerifiedProfessional ? (
+                <View className="-ml-0.5">
+                  <Ionicons
+                    color={colors.brand.verification}
+                    name="checkmark-circle"
+                    size={14}
+                  />
+                </View>
+              ) : null}
             </View>
-          ) : null}
+          </View>
         </View>
         <Text
           className={`text-caption ${dark ? 'text-glass-secondary' : 'text-text-secondary'}`}

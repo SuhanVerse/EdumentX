@@ -23,6 +23,7 @@
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { AnimatedPressable, usePressScale } from '@/components/motion';
+import { colors } from '@/constants/colors';
 import { SecondaryButtonProps, SecondaryButtonState } from './SecondaryButton.types';
 
 // ─── Variant styles ──────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ export function SecondaryButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={destructive ? '#C1503D' : '#0F172A'}
+          color={destructive ? colors.semantic.danger : colors.text.primary}
         />
       ) : (
         <View className="flex-row items-center gap-2">

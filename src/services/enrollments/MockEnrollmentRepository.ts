@@ -352,6 +352,7 @@ export const MockEnrollmentRepository: EnrollmentRepository = {
     tutorUid: string,
     onData: EnrollmentCallback,
     _onError?: ErrorCallback,
+    _options?: { runSweep?: boolean },
   ): Unsubscribe {
     const s = getStore(tutorUid);
     // Run the sweep first so the seed data with the past `endDate`

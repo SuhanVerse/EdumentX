@@ -77,7 +77,27 @@ service cloud.firestore {
       // this specific subcollection path.
       match /tutorProfile/default {
         allow read: if isSignedIn();
-        allow write: if isOwner(userId) || isAdmin();
+        allow create, delete: if isOwner(userId) || isAdmin();
+        // The student review flow (`submitReview` in
+        // FirebaseReviewRepository) writes the tutor's rating
+        // aggregates in the SAME transaction that creates the review
+        // doc — there is no server-side writer, so the authoring
+        // student must be able to bump them. The carve-out is narrow:
+        // ONLY the five aggregate fields (+ updatedAt) may change,
+        // so a reviewer can never touch the tutor's personal fields
+        // (fullName, headline, bio, rate, availability, …). The
+        // review create rule (`reviews/{tutorUid}/reviews/{reviewId}`)
+        // is the enforcement point for who may submit at all.
+        allow update: if isOwner(userId) || isAdmin()
+          || (isSignedIn()
+            && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly([
+                "rating",
+                "reviewCount",
+                "categoryRatings",
+                "reviewBreakdown",
+                "updatedAt"
+              ]));
       }
 
       match /{subcollection}/{document=**} {
@@ -416,7 +436,16 @@ service cloud.firestore {
       // `studentUid` (written by acceptRequest), which is what the
       // collectionGroup roster rule already keys on.
       allow update: if isSignedIn() && (
-        (resource.data.tutorUid == request.auth.uid
+        // Tutor clause: the PATH owner (`request.auth.uid == tutorUid`)
+        // may flip status / stamp removal fields. Using the path owner
+        // instead of `resource.data.tutorUid == request.auth.uid` also
+        // covers LEGACY roster rows created before `tutorUid` was a
+        // required field — otherwise `sweepExpiredEnrollments` (which
+        // runs on the tutor's own subscription) batch-commits a
+        // permission-denied on those rows and the whole expiry sweep
+        // fails, flooding the log. The path owner IS the tutor (create
+        // is gated), so the security surface is unchanged.
+        (request.auth.uid == tutorUid
           && request.resource.data.diff(resource.data).changedKeys()
             .hasOnly(["status", "removedAt", "removeReason", "batchId"]))
         || (resource.data.studentUid == request.auth.uid
@@ -568,36 +597,37 @@ service cloud.firestore {
     // in FirebaseEnrollmentRepository.ts:620 / :768), so checking
     // those fields is sufficient. Read-only — all writes stay on the
     // direct-path rules above.
+    // IMPORTANT — real Firestore applies a recursive rule's
+    // conditions to DIRECT-PATH list queries too (not just
+    // collectionGroup ones): a query on `enrollments/{tutorUid}/roster`
+    // matches BOTH the path-specific rule below AND this recursive
+    // rule, and the strictest wins. The TutorDetailsScreen (student
+    // facing) lists a tutor's roster / classes / requests by direct
+    // path to build the BookedMap, the pending-hourglass overlay, and
+    // the batch list — so these recursive rules MUST allow signed-in
+    // reads exactly like the path-specific rules do. That the direct
+    // path is already readable by any signed-in user means the
+    // collectionGroup surface exposes the same data, so there is no
+    // new privacy surface here. (The emulator does NOT reproduce this
+    // AND-ing — it accepts the path-specific allow alone — which is
+    // why the live smoke test, not the emulator, catches regressions.)
     match /{prefix=**}/roster/{enrollmentId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/requests/{requestId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/members/{memberId} {
-      allow get, list: if isSignedIn()
-        && (resource.data.studentUid == request.auth.uid
-            || resource.data.tutorUid == request.auth.uid
-            || isAdmin());
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/classes/{batchId} {
       // The marketplace "Browse open batches" screen lists every
-      // ACTIVE batch via a collectionGroup query. Public batches
-      // are discoverable by design — any signed-in user may list
-      // active classes (the direct-path rule already allows
-      // signed-in reads of `batches/{tutorUid}/classes/*`); the
-      // tutor/admin restriction applies to non-active (ended)
-      // batches only.
-      allow get, list: if isSignedIn()
-        && (resource.data.tutorUid == request.auth.uid
-            || resource.data.status == "active"
-            || isAdmin());
+      // ACTIVE batch via a collectionGroup query. Any signed-in user
+      // may list classes — active ones by design, ended ones because
+      // the tutor-details BookedMap reads them via direct path and
+      // the recursive rule must not be stricter than the direct-path
+      // rule (see the note above). The UI filters by status.
+      allow get, list: if isSignedIn();
     }
     match /{prefix=**}/reviews/{reviewId} {
       // The marketplace overlays live per-tutor rating/reviewCount from

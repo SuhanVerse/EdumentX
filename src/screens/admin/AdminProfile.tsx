@@ -53,12 +53,11 @@ import { useAiChatStore } from "@/store/aiChatStore";
  * separate admin-only surface.
  *
  * No `AdminNav` here: the bottom nav lists `/admin-home`,
- * `/verification-queue`, `/platform-statistics`, and
- * `/user-management` — none of which are reachable from a profile
- * form. Mounting it here would also tempt admins to "skip" profile
- * setup by tapping a tab, which is exactly the UX we are trying to
- * prevent. The Sign out button below the form is the only escape
- * hatch.
+ * `/verification-queue`, and `/user-management` (Profile is the
+ * current screen, and platform statistics live ON Home). Mounting
+ * the nav here would also tempt admins to "skip" profile setup by
+ * tapping a tab, which is exactly the UX we are trying to prevent.
+ * The Sign out button below the form is the only escape hatch.
  *
  * Doc shape (`users/{uid}/adminProfile/default`):
  *   {
@@ -230,13 +229,9 @@ export function AdminProfile() {
       // would re-route us back to /admin-profile — an infinite loop
       // we hit on the first iteration of this screen.
       useAuthStore.getState().setHasAdminProfile(true);
-      // First-time flow → advance to /admin-home. Returning flow →
-      // pop back to wherever the admin came from.
-      if (isFirstTime) {
-        router.replace("/admin-home");
-      } else {
-        router.replace("/admin-home");
-      }
+      // Both flows (first-time setup and edit) land on /admin-home —
+      // the single admin dashboard with the live KPI grid.
+      router.replace("/admin-home");
     } catch (err: any) {
       console.error("AdminProfile: failed to save adminProfile", err);
       const code = err?.code ? `\n\nError code: ${err.code}` : "";
@@ -343,19 +338,20 @@ export function AdminProfile() {
         className="flex-1"
       >
         {/* Hero — mirrors StudentProfileScreen's "Set up your profile"
-            header. Dark navy bg, large white title, lighter caption.
-            No sign-out pill in the hero — it's moved to the bottom of
-            the form to match the Tutor Profile layout. */}
-        <ScreenHeader>
+            header, on the standard LIGHT hero (the admin theme purge:
+            no more legacy dark-navy admin headers). No sign-out pill
+            in the hero — it's moved to the bottom of the form to
+            match the Tutor Profile layout. */}
+        <ScreenHeader variant="light">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 min-w-0">
-              <Text className="text-overline text-white/70 uppercase">
+              <Text className="text-overline text-text-muted uppercase">
                 {isFirstTime ? "Welcome" : "Admin profile"}
               </Text>
-              <Text className="text-header-title text-white mt-0.5">
+              <Text className="text-header-title text-text-primary mt-0.5">
                 {isFirstTime ? "Set up your admin profile" : "Your details"}
               </Text>
-              <Text className="text-body text-white opacity-70 mt-1">
+              <Text className="text-body text-text-secondary mt-1">
                 {isFirstTime
                   ? "Tell the team who's behind this account."
                   : "Update your display name, role title, or phone."}
@@ -452,7 +448,7 @@ export function AdminProfile() {
                 <Text className="text-caption text-danger">{errors.roleTitle}</Text>
               ) : (
                 <Text className="text-caption text-text-muted">
-                  {/* How you'd be described on the moderation team page. */}
+                  Shown on the moderation team page.
                 </Text>
               )}
             </View>
@@ -583,13 +579,11 @@ export function AdminProfile() {
             </View>
           )}
 
-          {!isFirstTime ? (
-            <Text className="text-caption text-text-muted text-center mb-4">
-              Last updated: {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </Text>
-          ) : (
-            <View className="mb-4" />
-          )}
+          {/* No "last updated" footer — a client-computed date is
+              noise on a profile screen (it reflects the device clock,
+              not the server). The updatedAt field on the doc serves
+              audit purposes; users don't need it rendered. */}
+          <View className="mb-4" />
 
           {/* Log out — at the bottom, matching the Tutor Profile and
               Student Profile layout. Uses the same styling:

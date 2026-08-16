@@ -188,7 +188,12 @@ async function main() {
   const REV_A2 = "review-client-a2";
 
   // Subtrees + the throwaway Auth user to wipe in cleanup.
-  const cleanupRefs = [db.doc(`reviews/${TUTOR_A}`), db.doc(`reviews/${TUTOR_B}`)];
+  // (The tutor-A profile doc is seeded for the aggregate update.)
+  const cleanupRefs = [
+    db.doc(`reviews/${TUTOR_A}`),
+    db.doc(`reviews/${TUTOR_B}`),
+    db.doc(`users/${TUTOR_A}/tutorProfile/default`),
+  ];
   const cleanupUsers = [STUDENT];
 
   const reviewFields = (tutorUid: string, studentUid: string, score: number, comment: string) => ({
@@ -202,6 +207,13 @@ async function main() {
   });
 
   // ── 1. Seed two reviews under two different tutors (admin SDK) ──
+  // The real `submitReview` transaction also updates the tutor's
+  // profile aggregates, so tutor A needs a profile doc for the
+  // update to land on (a PATCH on a missing doc is a 404).
+  await db
+    .doc(`users/${TUTOR_A}/tutorProfile/default`)
+    .set({ fullName: "Smoke Tutor A", rating: 0, reviewCount: 0 });
+  pass("seeded tutor A profile (admin)", TUTOR_A);
   await db
     .doc(`reviews/${TUTOR_A}/reviews/${REV_A1}`)
     .set(reviewFields(TUTOR_A, "real-student-1", 5, "Seeded review under tutor A"));
@@ -265,6 +277,39 @@ async function main() {
       },
     );
     expect(res.status, 200, "client creates an active review (studentUid == auth.uid)");
+
+    // The app's `submitReview` writes the review AND the tutor's
+    // profile aggregates in one transaction — the aggregate update
+    // must be allowed or the whole transaction rolls back with
+    // permission-denied (the Aug 16 submitReview bug, which the old
+    // smoke never caught because it skipped this second write).
+    {
+      const aggRes = await fetch(
+        `${FIRESTORE_BASE}/users/${TUTOR_A}/tutorProfile/default` +
+          `?updateMask.fieldPaths=rating&updateMask.fieldPaths=reviewCount` +
+          `&updateMask.fieldPaths=updatedAt`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            fields: {
+              rating: { doubleValue: 5 },
+              reviewCount: { integerValue: "1" },
+              updatedAt: { stringValue: new Date().toISOString() },
+            },
+          }),
+          signal: AbortSignal.timeout(15000),
+        },
+      );
+      expect(
+        aggRes.status,
+        200,
+        "reviewer updates tutor profile aggregates (submitReview transaction)",
+      );
+    }
 
     // Re-run the aggregate — the new review must now be visible.
     const r = await runReviewsGroupQuery(idToken);

@@ -51,6 +51,14 @@
       ]
     },
     {
+      "collectionGroup": "requests",
+      "fieldPath": "status",
+      "ttl": false,
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
       "collectionGroup": "classes",
       "fieldPath": "tutorUid",
       "ttl": false,

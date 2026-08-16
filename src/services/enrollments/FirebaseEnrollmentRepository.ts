@@ -293,9 +293,13 @@ async function sweepExpiredEnrollments(
     decrement++;
   }
   const profileRef = doc(db, "users", tutorUid, "tutorProfile", "default");
+  // Keep `currentStudents` in sync with `enrolledCount` (acceptRequest
+  // sets both to the same value) instead of zeroing it — zeroing
+  // under-reported capacity when other students remained active.
+  const newCount = (await safeEnrolledCount(db, tutorUid)) - decrement;
   batch.update(profileRef, {
-    enrolledCount: (await safeEnrolledCount(db, tutorUid)) - decrement,
-    currentStudents: 0,
+    enrolledCount: newCount,
+    currentStudents: newCount,
     updatedAt: serverTimestamp(),
   });
   try {
@@ -352,6 +356,90 @@ function applyTutorDisplay(list: Enrollment[]): Enrollment[] {
     if (!info) return e;
     return { ...e, tutorName: info.name, tutorAvatar: info.avatar };
   });
+}
+
+/**
+ * Cache of STUDENT display identity (name + avatar) for the
+ * TUTOR-facing views (dashboard roster, batch picker, inbox). The
+ * roster/request rows snapshot the student's name/avatar at accept
+ * time — legacy rows (and rows created before avatars were captured)
+ * have blank values, which rendered as empty UI. The tutor-facing
+ * subscriptions backfill missing identity from the student's public
+ * `users/{uid}/studentProfile/default` doc (fullName + photoUrl,
+ * auto-persisted by StudentProfile / StudentProfileScreen) using the
+ * same emit-then-backfill pattern as `applyTutorDisplay`.
+ */
+const studentDisplayCache = new Map<
+  string,
+  { name: string; avatar: string | null }
+>();
+
+/** Structural superset of the roster + request rows that carry the
+ *  student's identity snapshot. */
+type StudentDisplayRow = {
+  studentUid: string;
+  studentName: string;
+  studentAvatar: string | null;
+};
+
+function applyStudentDisplay<T extends StudentDisplayRow>(list: T[]): T[] {
+  return list.map((e) => {
+    if (!e.studentUid) return e;
+    const info = studentDisplayCache.get(e.studentUid);
+    if (!info) return e;
+    return {
+      ...e,
+      // Only fill the BLANK slots — a real snapshot value (e.g. the
+      // student renamed their profile later) stays authoritative.
+      studentName: e.studentName || info.name,
+      studentAvatar: e.studentAvatar || info.avatar,
+    };
+  });
+}
+
+/** Read + cache student display identity from the public profile doc. */
+async function backfillStudentDisplay(
+  db: ReturnType<typeof getFirestore>,
+  studentUids: string[],
+): Promise<void> {
+  await Promise.all(
+    studentUids.map(async (studentUid) => {
+      try {
+        const snap = await getDoc(
+          doc(db, "users", studentUid, "studentProfile", "default"),
+        );
+        const d = snap.data() as
+          | { fullName?: unknown; photoUrl?: unknown }
+          | undefined;
+        studentDisplayCache.set(studentUid, {
+          name:
+            typeof d?.fullName === "string" && d.fullName.length > 0
+              ? d.fullName
+              : "",
+          avatar:
+            typeof d?.photoUrl === "string" && d.photoUrl.length > 0
+              ? d.photoUrl
+              : null,
+        });
+      } catch {
+        // Unreadable profile (deleted account, rules) — cache the
+        // empty identity so we don't re-read on every snapshot.
+        studentDisplayCache.set(studentUid, { name: "", avatar: null });
+      }
+    }),
+  );
+}
+
+/** Student uids whose identity isn't cached yet (rows with a blank
+ *  avatar or name included — the cache decides). */
+function missingStudentUids(list: StudentDisplayRow[]): string[] {
+  return [
+    ...new Set(
+      list
+        .map((e) => e.studentUid)
+        .filter((uid) => uid.length > 0 && !studentDisplayCache.has(uid)),
+    ),
+  ];
 }
 
 /**
@@ -419,7 +507,17 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         );
         // Newest first — `submittedAt` is the source of truth.
         requests.sort((a, b) => b.submittedAt - a.submittedAt);
-        onData(requests);
+        // Same emit-then-backfill as the roster: legacy requests may
+        // predate avatar capture, so fill blank names/avatars from
+        // the student's public profile and re-emit once resolved.
+        const enriched = applyStudentDisplay(requests);
+        onData(enriched);
+        const missing = missingStudentUids(requests);
+        if (missing.length > 0) {
+          void backfillStudentDisplay(db, missing).then(() => {
+            onData(applyStudentDisplay(requests));
+          });
+        }
       },
       (err) => {
         console.warn("FirebaseEnrollmentRepository.subscribeRequests", err);
@@ -433,6 +531,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     tutorUid: string,
     onData: EnrollmentCallback,
     onError?: ErrorCallback,
+    options?: { runSweep?: boolean },
   ): Unsubscribe {
     const db = getFirestore(getApp());
     // 4-arg form — path is `enrollments/{tutorUid}/roster`.
@@ -450,14 +549,35 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         // never sees the stale "active" rows. The sweep is
         // fire-and-forget; a concurrent re-snapshot will pick up
         // the result.
-        try {
-          const tutorName = await readTutorName(db, tutorUid);
-          await sweepExpiredEnrollments(db, tutorUid, enrollments, tutorName);
-        } catch (err) {
-          console.warn("subscribeEnrollments: sweep failed", err);
+        //
+        // The sweep WRITES the tutor's roster + profile, so it must
+        // only run for the tutor's own subscription. Student-facing
+        // screens subscribe to a tutor's roster read-only and pass
+        // `runSweep: false` — running the sweep as a student used to
+        // batch-commit a permission-denied on the tutor's docs and
+        // flood the log (the Aug 16 sweepExpiredEnrollments storm).
+        if (options?.runSweep !== false) {
+          try {
+            const tutorName = await readTutorName(db, tutorUid);
+            await sweepExpiredEnrollments(db, tutorUid, enrollments, tutorName);
+          } catch (err) {
+            console.warn("subscribeEnrollments: sweep failed", err);
+          }
         }
         enrollments.sort((a, b) => b.acceptedAt - a.acceptedAt);
-        onData(enrollments);
+        // Emit immediately with whatever student identity is cached,
+        // then backfill the missing names/avatars from their public
+        // profiles (`users/{uid}/studentProfile/default`) and re-emit
+        // — legacy roster rows flip from blank initials to the real
+        // avatar as soon as the read lands.
+        const enriched = applyStudentDisplay(enrollments);
+        onData(enriched);
+        const missing = missingStudentUids(enrollments);
+        if (missing.length > 0) {
+          void backfillStudentDisplay(db, missing).then(() => {
+            onData(applyStudentDisplay(enrollments));
+          });
+        }
       },
       (err) => {
         console.warn("FirebaseEnrollmentRepository.subscribeEnrollments", err);

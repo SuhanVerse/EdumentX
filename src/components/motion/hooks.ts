@@ -21,7 +21,7 @@
  */
 
 import * as Haptics from "expo-haptics";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import {
   useAnimatedStyle,
@@ -156,10 +156,23 @@ export function useActiveIndicator({
   gap = 0,
 }: UseActiveIndicatorOptions) {
   const target = useSharedValue(activeIndex);
+  // First-render guard: when a nav/segmented row mounts it typically
+  // renders once with `itemWidth = 0` (the row hasn't been laid out
+  // yet), then re-renders with the real width. Without this guard the
+  // pill would spring from tab 0 to the active tab on every mount —
+  // the "pill slides in from the left" jank users reported on the
+  // bottom nav. The first measured position is a hard jump, and only
+  // subsequent active-index changes animate.
+  const firstMeasure = useRef(true);
 
   useEffect(() => {
     // Clamp to valid range so a stale prop doesn't spring past the end.
     const clamped = Math.max(0, Math.min(count - 1, activeIndex));
+    if (firstMeasure.current) {
+      firstMeasure.current = false;
+      target.value = clamped;
+      return;
+    }
     target.value = withSpring(clamped, motion.spring.indicator);
   }, [activeIndex, count, target]);
 
