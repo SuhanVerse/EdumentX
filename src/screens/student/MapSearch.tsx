@@ -586,7 +586,8 @@ export function MapSearch() {
         tutor={selectedTutor}
         visible={previewVisible}
         onClose={clearSelection}
-      />      {/* ── Filters sheet overlay ── */}
+      />
+      {/* ── Filters sheet overlay ── */}
       <FiltersSheet
         visible={filtersOpen}
         value={filters}

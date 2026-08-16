@@ -50,25 +50,38 @@ Verification: `tsc` 0 errors, `eslint` 0 problems, `test:rules`
   firebase deploy --only firestore:indexes
   ```
 
-### B. `Text strings must be rendered within a <Text> component`
+### B. `Text strings must be rendered within a <Text> component` — FIXED (Aug 16)
 
 - **Reported sites:** `MapSearch.tsx:415` (inside `ScreenLayout`),
   `VerificationQueue.tsx:1660` (`PendingEditCard` Approve
-  `Pressable`), and a re-captured log shows `ScreenLayout.tsx:65` —
-  the `SafeAreaView` render. All three point at a raw string child
-  of a non-`Text` host somewhere under the tree.
-- **Investigation (still valid):** every reported line was read from
-  live disk and is **provably clean** — the Approve `Pressable`'s
-  only children are `<Ionicons>` + `<Text>`, and a Babel AST scan
-  of the entire MapSearch tree found zero raw-string children under
-  non-`Text` hosts. RN 0.81 logs this error non-fatally, and the
-  shifting line numbers (`ScreenLayout.tsx:65` vs `MapSearch.tsx:415`)
-  match an OLD BUNDLE being served to the phone.
-- **Verdict:** stale Metro transform cache on the device (old module
-  served to the phone). Fix: `npx expo start -c`, then fully reload
-  the app on the device (kill + reopen). If it persists after a clean
-  bundle, re-audit `TutorPreviewSheet` / `FiltersSheet` /
-  `TutorCard` for a runtime-value child (e.g. `{count && "label"}`).
+  `Pressable`), and the logs show `ScreenLayout.tsx:65` — the
+  `SafeAreaView` render. All point at a raw string child of a
+  non-`Text` host somewhere under the tree.
+- **Root cause (found Aug 16 — the earlier "stale cache" verdict
+  was WRONG):** same-line whitespace between JSX tags becomes a
+  real text node. The JSX transform strips whitespace-only text
+  that contains a newline, but KEEPS same-line whitespace. Two
+  sites had a tag boundary and content on the SAME line:
+  - `src/screens/student/MapSearch.tsx` (was line 589):
+    `/>      {/* comment */}` — the 6 spaces between the
+    `TutorPreviewSheet` close and the comment survive the
+    transform, so `children` gets a `"      "` text node that
+    React flattens as a direct child of `SafeAreaView` →
+    error reported at `ScreenLayout.tsx:65` / `MapSearch.tsx:415`.
+  - `src/screens/admin/VerificationQueue.tsx` (was line 1669):
+    `>          <Ionicons …` — the 10 spaces between the
+    `Pressable` opening tag and `<Ionicons>` survive → text node
+    child of the Pressable → error at `VerificationQueue.tsx:1660`.
+- **Detection:** a babel AST scan for `JSXText` nodes that are
+  whitespace-only and newline-free under non-`Text` hosts found
+  exactly these two across all of `src/`. Everything else with
+  `\n` in it is stripped by the transform and safe.
+- **Fix:** split the same-line tags onto separate lines in both
+  files (no more text nodes). tsc + eslint clean.
+- **Prevention:** keep the scanner (`scan_whitespace_text.mjs`,
+  one-off, removed after use) as the recipe: parse all `src/**/*.tsx`
+  with `@babel/parser`, flag `JSXText` matching `!value.includes('\n')
+  && value.trim() === ''` under non-`Text` hosts.
 
 ### C. `getIdToken` deprecation warnings (rNFirebase v22 namespaced API)
 

@@ -1666,7 +1666,8 @@ function PendingEditCard({
           className="flex-1 h-10 bg-success rounded-md items-center justify-center flex-row gap-1.5 active:opacity-80 disabled:opacity-50"
           accessibilityRole="button"
           accessibilityLabel="Approve edit"
-        >          <Ionicons name="checkmark" size={14} className="text-white" />
+        >
+          <Ionicons name="checkmark" size={14} className="text-white" />
           <Text className="text-button-sm font-medium text-text-inverse">Approve</Text>
         </Pressable>
         <Pressable
