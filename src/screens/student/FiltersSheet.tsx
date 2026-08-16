@@ -399,6 +399,7 @@ export function FiltersSheet({
               onPressIn={onCloseIn}
               onPressOut={onCloseOut}
               style={closeStyle}
+              hitSlop={8}
               className="w-9 h-9 items-center justify-center rounded-pill"
             >
               <Ionicons name="close" size={20} color={colors.text.muted} />

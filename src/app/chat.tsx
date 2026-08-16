@@ -377,7 +377,7 @@ export default function ChatScreen() {
             <Ionicons
               name="send"
               size={18}
-              color={canSend ? "#FFFFFF" : "#9CA3AF"}
+              color={canSend ? "#FFFFFF" : colors.text.muted}
             />
           </Pressable>
         </View>

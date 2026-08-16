@@ -26,6 +26,12 @@ module.exports = defineConfig([
       // / rounded-t-3xl and arbitrary rounded-[…] values silently
       // drift off the documented scale (theme.extend keeps defaults).
       'design-tokens/no-non-token-radius': 'error',
+      // className may not use Tailwind default palette shades
+      // (text-slate-300, bg-blue-500, …) — those fall back to
+      // framework defaults. Dark surfaces use text-glass-secondary /
+      // text-glass-muted; light surfaces use text-text-secondary /
+      // text-text-muted.
+      'design-tokens/no-non-token-color-class': 'error',
     },
   },
   {

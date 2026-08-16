@@ -783,6 +783,7 @@ function IconButton({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
+      hitSlop={8}
       className="w-9 h-9 rounded-pill bg-surface border border-border items-center justify-center"
     >
       <Ionicons

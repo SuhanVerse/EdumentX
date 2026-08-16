@@ -804,6 +804,9 @@ export function TutorDashboard() {
                           accessibilityRole="button"
                           accessibilityLabel={`Remove ${e.studentName}`}
                           onPress={() => setRemoveTarget(e)}
+                          // 32px visual — hitSlop 8 expands the touch
+                          // area to 48px (iOS 44 / Android 48 minimum).
+                          hitSlop={8}
                           className="w-8 h-8 rounded-pill bg-danger-bg items-center justify-center active:opacity-70"
                         >
                           <Ionicons name="close" size={16} color={colors.semantic.danger} />

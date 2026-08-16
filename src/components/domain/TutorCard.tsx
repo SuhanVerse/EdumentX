@@ -202,8 +202,8 @@ function WideCard({
     ? 'bg-glass border border-glass-border'
     : 'bg-surface border border-border';
   const primaryText = dark ? 'text-white' : 'text-text-primary';
-  const secondaryText = dark ? 'text-slate-300' : 'text-text-secondary';
-  const mutedText = dark ? 'text-slate-400' : 'text-text-muted';
+  const secondaryText = dark ? 'text-glass-secondary' : 'text-text-secondary';
+  const mutedText = dark ? 'text-glass-muted' : 'text-text-muted';
 
   return (
     <AnimatedPressable
@@ -372,7 +372,7 @@ function CompactCard({
           ) : null}
         </View>
         <Text
-          className={`text-caption ${dark ? 'text-slate-300' : 'text-text-secondary'}`}
+          className={`text-caption ${dark ? 'text-glass-secondary' : 'text-text-secondary'}`}
           numberOfLines={2}
         >
           {tutor.headline}
@@ -386,7 +386,7 @@ function CompactCard({
           </Text>
           <Text
             className={`text-micro ${
-              dark ? 'text-slate-400' : 'text-text-muted'
+              dark ? 'text-glass-muted' : 'text-text-muted'
             }`}
           >
             · {tutor.location.city}
@@ -394,7 +394,7 @@ function CompactCard({
         </View>
         <Text className={`text-button-sm mt-1 ${dark ? 'text-white' : 'text-text-primary'}`}>
           {formatNpr(tutor.monthlyRateNpr)}
-          <Text className={`text-caption ${dark ? 'text-slate-400' : 'text-text-muted'}`}> /mo</Text>
+          <Text className={`text-caption ${dark ? 'text-glass-muted' : 'text-text-muted'}`}> /mo</Text>
         </Text>
       </View>
     </AnimatedPressable>

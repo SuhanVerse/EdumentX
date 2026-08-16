@@ -57,6 +57,7 @@ function lint(code: string): string[] {
           "design-tokens/no-raw-hex-color-prop": "error",
           "design-tokens/no-raw-hex-inline-color": "error",
           "design-tokens/no-non-token-radius": "error",
+          "design-tokens/no-non-token-color-class": "error",
         },
       },
     ],
@@ -178,6 +179,51 @@ describe("design-tokens/no-non-token-radius", () => {
     const msgs = lint(
       '<View className="rounded-card rounded-pill rounded-t-xl rounded-b-lg rounded-l-md rounded-r-sm rounded-tl-xs rounded-br-hero" />',
     );
+    assert.deepEqual(msgs, []);
+  });
+});
+
+describe("design-tokens/no-non-token-color-class", () => {
+  it("flags default palette shades in a literal className", () => {
+    const msgs = lint(
+      '<View className="text-slate-300 bg-blue-500 border-red-100" />',
+    );
+    for (const cls of ["text-slate-300", "bg-blue-500", "border-red-100"]) {
+      assert.ok(
+        msgs.some((m) => m.includes(`"${cls}"`)),
+        `expected "${cls}" to be flagged`,
+      );
+    }
+  });
+
+  it("flags the slate-300/400 dark-surface offenders from the audit", () => {
+    const msgs = lint(
+      '<Text className={`text-caption ${dark ? "text-slate-300" : "text-text-secondary"}`} />',
+    );
+    assert.ok(msgs.some((m) => m.includes("text-slate-300")));
+  });
+
+  it("flags side-specific utilities (border-t-slate-300)", () => {
+    const msgs = lint('<View className="border-t-slate-300" />');
+    assert.ok(msgs.some((m) => m.includes("border-t-slate-300")));
+  });
+
+  it("accepts glass + token classes on dark surfaces", () => {
+    const msgs = lint(
+      '<Text className="text-glass-secondary text-glass-muted text-white/70" />',
+    );
+    assert.deepEqual(msgs, []);
+  });
+
+  it("accepts project tokens and opacity modifiers", () => {
+    const msgs = lint(
+      '<View className="bg-amber/10 text-amber bg-accent/10 text-text-primary bg-surface-muted" />',
+    );
+    assert.deepEqual(msgs, []);
+  });
+
+  it("does not flag incomplete classes split across expressions", () => {
+    const msgs = lint('<View className={`text-slate-${shade}`} />');
     assert.deepEqual(msgs, []);
   });
 });
