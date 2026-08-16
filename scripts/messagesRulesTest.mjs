@@ -46,6 +46,17 @@ async function req(method, path, uid, body, query = "") {
   return { status: res.status, body: (await res.text()).slice(0, 300) };
 }
 
+// Same as `req` but returns the UNTRUNCATED body — for calls that
+// need to JSON.parse the response (e.g. listing message auto-ids).
+async function reqFull(method, path, uid, body, query = "") {
+  const res = await fetch(`${BASE}${path}${query}`, {
+    method,
+    headers: { Authorization: `Bearer ${tokenFor(uid)}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: await res.text() };
+}
+
 let pass = 0;
 let fail = 0;
 function check(name, actual, expected, extra = "") {
@@ -206,8 +217,10 @@ async function runHubQuery(uid) {
 // ── 7b. Read receipts — a participant flips an incoming message to
 //        `status: "read"` (markMessagesRead). Stranger flip denied.
 {
-  // Fetch the message id created in step 4 (auto-id).
-  const list = await req("GET", `/conversations/${CONV}/messages`, STUDENT);
+  // Fetch the message id created in step 4 (auto-id). Uses the
+  // full (untruncated) body — `req` slices to 300 chars for display,
+  // which would truncate the JSON mid-string and break the parse.
+  const list = await reqFull("GET", `/conversations/${CONV}/messages`, STUDENT);
   const m = JSON.parse(list.body);
   const msgId = m.documents?.[0]?.name?.split("/").pop();
   if (msgId) {
