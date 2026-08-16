@@ -11,7 +11,7 @@ import {
   ScreenHeader,
   ScreenScroll,
 } from "@/components/shared/ScreenLayout";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -37,6 +37,7 @@ import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
 import { deriveTodaySessions } from "@/services/enrollments/derived";
 import {
   DAY_LABELS,
+  MAX_CAPACITY,
   TIME_SLOT_LABELS,
   parseSlotKey,
   type Enrollment,
@@ -44,6 +45,7 @@ import {
 } from "@/services/enrollments/types";
 import { setTutorAvailability } from "@/lib/tutor/firestoreTutorService";
 import type { Review } from "@/lib/tutor/types";
+import { useUnreadCount } from "@/services/messages/useUnreadCount";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -124,12 +126,23 @@ type ReqTab = "enrollments" | "batches";
 export function TutorDashboard() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
+  // Live unread message count for the header chat icon badge.
+  const unreadMessages = useUnreadCount(user?.uid);
   // Search visibility — backed by the tutor's own
   // `tutors/{uid}.isAvailableForNewStudents` flag (see
   // `setTutorAvailability` + the rules carve-out). `null` while the
   // first snapshot is in flight; once loaded it reflects the doc.
   const [available, setAvailable] = useState<boolean | null>(null);
   const [availableToggleBusy, setAvailableToggleBusy] = useState(false);
+  // Transient "Visibility paused" notice shown right after the tutor
+  // flips the availability switch OFF — auto-dismisses after a few
+  // seconds so the dashboard doesn't nag. The timer lives in a ref so
+  // a rapid second toggle (or an unmount) can't leave a stale timeout
+  // clearing the notice early or firing after the screen is gone.
+  const [visibilityNotice, setVisibilityNotice] = useState(false);
+  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   // Live pending enrollment requests addressed to this tutor. The
   // subscription returns the full list (pending + decided history);
@@ -211,7 +224,15 @@ export function TutorDashboard() {
               : "",
           isVerifiedProfessional: !!(d as { isVerifiedProfessional?: boolean })
             .isVerifiedProfessional,
-          capacity: toNum((d as { capacity?: number }).capacity),
+          // `studentCapacity` is the canonical cap (acceptRequest +
+          // the capacity screen both read it; the rules enforce
+          // `max(studentCapacity, 6)`). Fall back to MAX_CAPACITY
+          // when the legacy field is missing or zero so the card
+          // never renders "1 of — filled" (the reported bug).
+          capacity: Math.max(
+            toNum((d as { studentCapacity?: number }).studentCapacity),
+            MAX_CAPACITY,
+          ),
           currentStudents: toNum((d as { currentStudents?: number }).currentStudents),
           monthlyRateNpr: toNum(
             (d as { monthlyRateNpr?: number }).monthlyRateNpr,
@@ -377,6 +398,21 @@ export function TutorDashboard() {
     setAvailable(next);
     try {
       await setTutorAvailability(user.uid, next);
+      if (!next) {
+        // Paused — show the "hidden from search" notice; auto-clear
+        // so it reads as a toast, not a permanent banner. Any
+        // pending timer is cleared first so a rapid re-toggle
+        // restarts the 4s window instead of letting the older
+        // timeout hide the fresh notice early.
+        if (visibilityTimerRef.current) {
+          clearTimeout(visibilityTimerRef.current);
+        }
+        setVisibilityNotice(true);
+        visibilityTimerRef.current = setTimeout(
+          () => setVisibilityNotice(false),
+          4000,
+        );
+      }
     } catch (err) {
       console.warn("TutorDashboard: setTutorAvailability failed", err);
       // Revert the optimistic flip — the doc still has the old value.
@@ -415,6 +451,16 @@ export function TutorDashboard() {
   // it. Without this, a dismissed banner would stay hidden through
   // subsequent state changes — the dismiss only "absorbs" a
   // *seen* state, not future changes.
+  // Clear any pending visibility-notice timer on unmount so a
+  // stray timeout never fires against a screen that's gone.
+  useEffect(() => {
+    return () => {
+      if (visibilityTimerRef.current) {
+        clearTimeout(visibilityTimerRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setBannerDismissed(false);
   }, [data.verificationStatus, data.hasPendingUpdate]);
@@ -467,14 +513,38 @@ export function TutorDashboard() {
             ) : null}
           </View>
           <View className="flex-row items-center gap-2">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Messages"
-              onPress={() => router.push("/messages" as never)}
-              className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
-            </Pressable>
+            <View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadMessages > 0
+                    ? `Messages, ${unreadMessages} unread`
+                    : "Messages"
+                }
+                onPress={() => router.push("/messages" as never)}
+                className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
+              </Pressable>
+              {unreadMessages > 0 && (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-pill bg-danger items-center justify-center"
+                  style={{
+                    shadowColor: "#000",
+                    shadowOpacity: 0.15,
+                    shadowRadius: 2,
+                    shadowOffset: { width: 0, height: 1 },
+                    elevation: 2,
+                  }}
+                >
+                  <Text className="text-[10px] font-semibold text-white leading-none">
+                    {unreadMessages > 9 ? "9+" : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </View>
             <NotificationBell tone="light" />
           </View>
         </View>
@@ -500,6 +570,26 @@ export function TutorDashboard() {
             onToggle={handleToggleAvailability}
           />
         </View>
+
+        {/* Toast-style notice when the tutor pauses search
+            visibility — confirms the effect of the flip without
+            permanently occupying dashboard space. */}
+        {visibilityNotice && (
+          <View className="mt-3 flex-row items-center gap-2 rounded-card bg-warning-bg border border-warning/30 px-3.5 py-2.5">
+            <Ionicons name="eye-off-outline" size={16} color={colors.semantic.warning} />
+            <Text className="flex-1 text-caption font-medium text-warning-text">
+              Visibility paused — you are hidden from new searches.
+            </Text>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss visibility notice"
+              onPress={() => setVisibilityNotice(false)}
+            >
+              <Ionicons name="close" size={16} color={colors.semantic.warning} />
+            </Pressable>
+          </View>
+        )}
       </ScreenHeader>
 
       {/* Under-review banner — surfaces when (a) the tutor's signup
@@ -679,7 +769,7 @@ export function TutorDashboard() {
               Active students
             </Text>
             <Text className="text-caption text-text-muted">
-              {activeRoster.length} of {capacity || "—"} filled
+              {activeRoster.length} of {capacity} filled
             </Text>
           </View>
           {!rosterLoaded ? (
@@ -1092,7 +1182,10 @@ function AvailabilitySwitch({
       accessibilityState={{ checked, disabled }}
       accessibilityLabel="Toggle availability"
       onPress={disabled ? undefined : onToggle}
-      className="w-11 h-6 rounded-pill px-0.5 justify-center"
+      // `overflow-hidden` clips the sliding thumb (and its shadow)
+      // to the rounded track so it never bleeds outside the 44×24
+      // pill while animating.
+      className="w-11 h-6 rounded-pill px-0.5 justify-center overflow-hidden"
     >
       <Animated.View
         style={trackStyle}

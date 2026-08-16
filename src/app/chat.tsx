@@ -14,7 +14,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { colors } from "@/constants/colors";
 import {
   ActivityIndicator,
@@ -66,6 +66,9 @@ export default function ChatScreen() {
   const [loaded, setLoaded] = useState(false);
   const [draftText, setDraftText] = useState("");
   const [sending, setSending] = useState(false);
+  // Debounced typing publisher: a timer resets each keystroke; after
+  // 1.2 s idle the flag is cleared. Cleared immediately on send too.
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Peer fallback identity — resolved from the public tutor profile
   // when the caller didn't pass name/avatar and the conversation has
   // no meta for the peer yet.
@@ -97,6 +100,57 @@ export default function ChatScreen() {
       unsubMsgs();
     };
   }, [currentUser, peerId, conversationId, repo]);
+
+  // Read receipts: when the chat opens (or a new peer message arrives
+  // while it's open), flip the peer's unread messages to "read" and
+  // zero our unread badge. Runs once per batch; the repo zeroes the
+  // conversation's `unreadCount` for us.
+  const lastMarkedRef = useRef<string>("");
+  useEffect(() => {
+    if (!currentUser || !peerId) return;
+    const unreadIncoming = messages.filter(
+      (m) => m.senderId !== currentUser.uid && m.status !== "read",
+    );
+    if (unreadIncoming.length === 0) return;
+    const key = unreadIncoming.map((m) => m.messageId).join(",");
+    if (key === lastMarkedRef.current) return;
+    lastMarkedRef.current = key;
+    repo
+      .markMessagesRead({
+        conversationId,
+        viewerUid: currentUser.uid,
+        messageIds: unreadIncoming.map((m) => m.messageId),
+      })
+      .catch((err) => console.warn("Chat: markMessagesRead failed", err));
+  }, [messages, currentUser, peerId, conversationId, repo]);
+
+  // Debounced typing indicator. `typing` on the conversation doc is
+  // only meaningful while composing — publish on the first keystroke,
+  // auto-clear after 1.2 s of silence, and clear on send / unmount.
+  const publishTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!currentUser) return;
+      repo
+        .setTyping({
+          conversationId,
+          uid: currentUser.uid,
+          isTyping,
+        })
+        .catch(() => {
+          // Best-effort; a missed flag just shows the peer as not
+          // typing until the next keystroke.
+        });
+    },
+    [currentUser, conversationId, repo],
+  );
+  useEffect(() => {
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      publishTyping(false);
+    };
+  }, [publishTyping]);
+
+  const peerTyping = conversation?.typing?.[peerId] === true;
 
   // Resolve the peer's display name + avatar from the conversation's
   // self-written meta, or the public tutor profile as a fallback.
@@ -153,6 +207,8 @@ export default function ChatScreen() {
     const text = draftText.trim();
     if (!canSend || !currentUser || !text) return;
     setSending(true);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    publishTyping(false);
     try {
       await repo.sendMessage({
         conversationId,
@@ -243,6 +299,23 @@ export default function ChatScreen() {
                 >
                   {item.text}
                 </Text>
+                {mine && (
+                  <View className="flex-row items-center justify-end mt-1 gap-0.5">
+                    <Ionicons
+                      name="checkmark"
+                      size={12}
+                      color={item.status === "read" ? colors.brand.verification : "rgba(255,255,255,0.6)"}
+                    />
+                    {item.status === "read" && (
+                      <Ionicons
+                        name="checkmark"
+                        size={12}
+                        style={{ marginLeft: -6 }}
+                        color={colors.brand.verification}
+                      />
+                    )}
+                  </View>
+                )}
               </View>
               <Text className="text-micro text-text-muted mt-1 px-1">
                 {formatTime(item.sentAt)}
@@ -251,6 +324,15 @@ export default function ChatScreen() {
           );
         }}
       />
+
+      {/* Typing indicator */}
+      {peerTyping && (
+        <View className="bg-surface px-4 py-1.5 border-t border-border">
+          <Text className="text-micro text-text-muted italic">
+            {peerName === "Chat" ? "They" : peerName} is typing…
+          </Text>
+        </View>
+      )}
 
       {/* Composer */}
       <KeyboardAvoidingView
@@ -263,7 +345,20 @@ export default function ChatScreen() {
         >
           <TextInput
             value={draftText}
-            onChangeText={setDraftText}
+            onChangeText={(text) => {
+              setDraftText(text);
+              if (text.length > 0) {
+                publishTyping(true);
+                if (typingTimer.current) clearTimeout(typingTimer.current);
+                typingTimer.current = setTimeout(
+                  () => publishTyping(false),
+                  1200,
+                );
+              } else {
+                if (typingTimer.current) clearTimeout(typingTimer.current);
+                publishTyping(false);
+              }
+            }}
             placeholder="Type a message…"
             placeholderTextColor={colors.text.muted}
             multiline

@@ -29,6 +29,7 @@ import {
   getTutorRepository,
   type TutorListing,
 } from "@/services/tutors/dataSource";
+import { useUnreadCount } from "@/services/messages/useUnreadCount";
 import { createDefaultTutorProfile } from "@/lib/tutor/types";
 
 /**
@@ -98,6 +99,8 @@ export function StudentHome() {
   // subscribe via `onSnapshot` so the dashboard re-renders if the
   // user edits their profile from the "Edit profile" affordance.
   const user = useAuthStore((state) => state.user);
+  // Live unread message count for the header chat icon badge.
+  const unreadMessages = useUnreadCount(user?.uid);
   const [tutors, setTutors] = useState<TutorListing[]>([]);
   const [tutorsLoading, setTutorsLoading] = useState(true);
   const [profile, setProfile] = useState<Profile>({
@@ -190,14 +193,38 @@ export function StudentHome() {
             </View>
           </View>
           <View className="flex-row items-center gap-2">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Messages"
-              onPress={() => router.push("/messages" as never)}
-              className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
-            </Pressable>
+            <View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadMessages > 0
+                    ? `Messages, ${unreadMessages} unread`
+                    : "Messages"
+                }
+                onPress={() => router.push("/messages" as never)}
+                className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
+              </Pressable>
+              {unreadMessages > 0 && (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-pill bg-danger items-center justify-center"
+                  style={{
+                    shadowColor: "#000",
+                    shadowOpacity: 0.15,
+                    shadowRadius: 2,
+                    shadowOffset: { width: 0, height: 1 },
+                    elevation: 2,
+                  }}
+                >
+                  <Text className="text-[10px] font-semibold text-white leading-none">
+                    {unreadMessages > 9 ? "9+" : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </View>
             <NotificationBell tone="light" />
           </View>
         </View>

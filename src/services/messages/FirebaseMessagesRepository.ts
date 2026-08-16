@@ -13,12 +13,14 @@ import {
   doc,
   getDoc,
   getFirestore,
+  increment,
   onSnapshot,
   or,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
@@ -77,6 +79,22 @@ function mapConversation(
     raw.lastMessage && typeof raw.lastMessage === "object"
       ? (raw.lastMessage as Record<string, unknown>)
       : null;
+  const rawUnread =
+    raw.unreadCount && typeof raw.unreadCount === "object"
+      ? (raw.unreadCount as Record<string, unknown>)
+      : {};
+  const unreadCount: Record<string, number> = {};
+  for (const [uid, n] of Object.entries(rawUnread)) {
+    if (typeof n === "number") unreadCount[uid] = n;
+  }
+  const rawTyping =
+    raw.typing && typeof raw.typing === "object"
+      ? (raw.typing as Record<string, unknown>)
+      : {};
+  const typing: Record<string, boolean> = {};
+  for (const [uid, t] of Object.entries(rawTyping)) {
+    if (typeof t === "boolean") typing[uid] = t;
+  }
   return {
     conversationId: id,
     participants,
@@ -88,6 +106,8 @@ function mapConversation(
           sentAt: tsToMs(rawLast.sentAt),
         }
       : null,
+    unreadCount,
+    typing,
     createdAt: tsToMs(raw.createdAt),
     updatedAt: tsToMs(raw.updatedAt),
   };
@@ -167,6 +187,7 @@ export const FirebaseMessagesRepository: MessagesRepository = {
             senderId: str(raw.senderId),
             text: str(raw.text),
             sentAt: tsToMs(raw.sentAt),
+            status: raw.status === "read" ? "read" : "sent",
           };
         });
         onData(messages);
@@ -241,10 +262,15 @@ export const FirebaseMessagesRepository: MessagesRepository = {
 
     const messageRef = doc(collection(db, "conversations", conversationId, "messages"));
     const batch = writeBatch(db);
-    // Dotted-path update touches only the sender's own meta key — the
-    // peer's meta entry survives.
+    // Dotted-path updates touch only the sender's own keys — the
+    // peer's meta / unreadCount / typing entries survive.
     batch.update(convRef, {
       [`meta.${senderId}`]: await resolveOwnIdentity(senderId),
+      // Bump the peer's unread badge; zero our own (we're composing).
+      [`unreadCount.${peerUid}`]: increment(1),
+      [`unreadCount.${senderId}`]: 0,
+      // Sending clears our own typing flag.
+      [`typing.${senderId}`]: false,
       lastMessage: {
         senderId,
         text: trimmed,
@@ -256,7 +282,31 @@ export const FirebaseMessagesRepository: MessagesRepository = {
       senderId,
       text: trimmed,
       sentAt: serverTimestamp(),
+      status: "sent",
     });
     await batch.commit();
+  },
+
+  async markMessagesRead({ conversationId, viewerUid, messageIds }) {
+    if (messageIds.length === 0) return;
+    const db = getFirestore(getApp());
+    const batch = writeBatch(db);
+    for (const id of messageIds) {
+      batch.update(
+        doc(db, "conversations", conversationId, "messages", id),
+        { status: "read", readAt: serverTimestamp() },
+      );
+    }
+    batch.update(doc(db, "conversations", conversationId), {
+      [`unreadCount.${viewerUid}`]: 0,
+    });
+    await batch.commit();
+  },
+
+  async setTyping({ conversationId, uid, isTyping }) {
+    const db = getFirestore(getApp());
+    await updateDoc(doc(db, "conversations", conversationId), {
+      [`typing.${uid}`]: isTyping,
+    });
   },
 };

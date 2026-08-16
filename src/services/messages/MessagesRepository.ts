@@ -41,11 +41,30 @@ export interface MessagesRepository {
 
   /** Append a message and bump the conversation's lastMessage /
    *  updatedAt. Also (re)writes the sender's own display meta so the
-   *  conversation list can render peer names without extra reads. */
+   *  conversation list can render peer names without extra reads.
+   *  New messages start as `status: "sent"` and increment the peer's
+   *  `unreadCount` entry on the conversation doc. */
   sendMessage(input: {
     conversationId: string;
     senderId: string;
     peerUid: string;
     text: string;
+  }): Promise<void>;
+
+  /** Mark the given incoming messages as read (receipts) and zero the
+   *  viewer's `unreadCount` on the conversation. Call with the ids of
+   *  the peer's unread messages when the chat screen opens. */
+  markMessagesRead(input: {
+    conversationId: string;
+    viewerUid: string;
+    messageIds: string[];
+  }): Promise<void>;
+
+  /** Publish (or clear) the viewer's typing flag on a conversation.
+   *  The sender of the flag writes only their own `typing` key. */
+  setTyping(input: {
+    conversationId: string;
+    uid: string;
+    isTyping: boolean;
   }): Promise<void>;
 }

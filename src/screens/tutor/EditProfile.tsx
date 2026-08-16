@@ -641,7 +641,7 @@ export function EditTutorProfile() {
         </Pressable>
 
         <Text className="text-caption text-text-muted text-center mt-6">
-          EdumentX · v1.0 · build 2026.07.08
+          EdumentX • Version 1.0.0
         </Text>
       </ScreenScroll>
 

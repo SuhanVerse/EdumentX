@@ -156,6 +156,15 @@ export default function MessagesScreen() {
                         : "Start the conversation"}
                     </Text>
                   </View>
+                  {currentUser && (c.unreadCount?.[currentUser.uid] ?? 0) > 0 && (
+                    <View className="min-w-[20px] h-5 px-1.5 rounded-pill bg-danger items-center justify-center">
+                      <Text className="text-[11px] font-semibold text-white leading-none">
+                        {c.unreadCount[currentUser.uid] > 9
+                          ? "9+"
+                          : c.unreadCount[currentUser.uid]}
+                      </Text>
+                    </View>
+                  )}
                   <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
                 </Pressable>
               );

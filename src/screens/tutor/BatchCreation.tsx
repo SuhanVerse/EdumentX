@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Plus } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
+import { Avatar } from "@/components/ui/Avatar";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ActivePill } from "@/components/motion";
 import {
@@ -444,11 +445,11 @@ export function BatchesScreen() {
                             key={member.memberId}
                             className="w-8 h-8 rounded-pill border-2 border-surface overflow-hidden"
                           >
-                            <View className="w-full h-full bg-ai/20 items-center justify-center">
-                              <Text className="text-xs font-semibold text-ai">
-                                {member.studentName.slice(0, 1)}
-                              </Text>
-                            </View>
+                            <Avatar
+                              name={member.studentName}
+                              imageUri={member.studentAvatar}
+                              size={32}
+                            />
                           </View>
                         ))}
                       </View>
@@ -537,15 +538,11 @@ export function BatchesScreen() {
                               : "border-border bg-background"
                           } ${atCap ? "opacity-50" : ""}`}
                         >
-                          <View
-                            className={`w-9 h-9 rounded-pill items-center justify-center ${
-                              selected ? "bg-accent" : "bg-ai/20"
-                            }`}
-                          >
-                            <Text className={selected ? "text-white text-xs font-semibold" : "text-ai text-xs font-semibold"}>
-                              {student.studentName.slice(0, 1)}
-                            </Text>
-                          </View>
+                          <Avatar
+                            name={student.studentName}
+                            imageUri={student.studentAvatar}
+                            size={36}
+                          />
                           <View className="flex-1 min-w-0">
                             <Text className="text-text-primary font-medium">
                               {student.studentName}

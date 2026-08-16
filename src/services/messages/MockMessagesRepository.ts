@@ -67,6 +67,8 @@ export const MockMessagesRepository: MessagesRepository = {
       participants: [senderId, peerUid],
       meta: {},
       lastMessage: null,
+      unreadCount: {},
+      typing: {},
       createdAt: now,
       updatedAt: now,
     };
@@ -77,6 +79,13 @@ export const MockMessagesRepository: MessagesRepository = {
       text: trimmed,
       sentAt: now,
     };
+    // Bump the peer's unread badge; zero our own; clear our typing flag.
+    conversation.unreadCount = {
+      ...conversation.unreadCount,
+      [peerUid]: (conversation.unreadCount[peerUid] ?? 0) + 1,
+      [senderId]: 0,
+    };
+    conversation.typing = { ...conversation.typing, [senderId]: false };
     conversations.set(conversationId, conversation);
 
     const message: ChatMessage = {
@@ -84,10 +93,34 @@ export const MockMessagesRepository: MessagesRepository = {
       senderId,
       text: trimmed,
       sentAt: now,
+      status: "sent",
     };
     messagesByConversation.set(conversationId, [
       ...(messagesByConversation.get(conversationId) ?? []),
       message,
     ]);
+  },
+
+  async markMessagesRead({ conversationId, viewerUid, messageIds }) {
+    const list = messagesByConversation.get(conversationId) ?? [];
+    const byId = new Set(messageIds);
+    if (byId.size > 0) {
+      messagesByConversation.set(
+        conversationId,
+        list.map((m) =>
+          byId.has(m.messageId) ? { ...m, status: "read" } : m,
+        ),
+      );
+    }
+    const conv = conversations.get(conversationId);
+    if (conv) {
+      conv.unreadCount = { ...conv.unreadCount, [viewerUid]: 0 };
+    }
+  },
+
+  async setTyping({ conversationId, uid, isTyping }) {
+    const conv = conversations.get(conversationId);
+    if (!conv) return;
+    conv.typing = { ...conv.typing, [uid]: isTyping };
   },
 };

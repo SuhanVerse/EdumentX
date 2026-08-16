@@ -86,7 +86,7 @@ function TabButton({
       <Text
         className={
           active
-            ? "text-micro mt-0.5 font-semibold text-amber"
+            ? "text-micro mt-0.5 font-semibold text-accent"
             : "text-micro mt-0.5 text-text-muted"
         }
         numberOfLines={1}
@@ -117,7 +117,7 @@ function TabRow({
           count={tabs.length}
           activeIndex={activeIndex}
           itemWidth={width / tabs.length}
-          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-amber-light"
+          pillClassName="absolute top-1.5 w-1/5 h-7 rounded-pill bg-accent/10"
           style={{ width: width / tabs.length, height: 28, top: 6 }}
         />
       ) : null}
