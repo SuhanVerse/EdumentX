@@ -30,6 +30,14 @@ module.exports = {
         'glass-strong': 'rgba(255, 255, 255, 0.10)',
         'glass-border': 'rgba(255, 255, 255, 0.14)',
         'glass-faint': 'rgba(255, 255, 255, 0.03)',
+        // Dark-surface TEXT tones. The light-mode text tokens
+        // (`text-text-secondary` / `text-text-muted`, both mid-gray
+        // #6B7280) fail contrast on the night/glass surfaces, so the
+        // glass family gets its own pair: `glass-secondary` (~10:1 on
+        // night) for body/secondary and `glass-muted` (~6:1 on night)
+        // for captions — both pass WCAG 4.5:1 for normal text.
+        'glass-secondary': '#CBD5E1',
+        'glass-muted': '#94A3B8',
 
         // Brand
         primary: {

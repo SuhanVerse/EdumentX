@@ -11,10 +11,17 @@ jobs:
     name: Typecheck, lint & unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # v5 of the setup actions runs on Node 24 (v4 targets the
+      # deprecated Node 20 runtime — GitHub warns on every run).
+      - uses: actions/checkout@v5
+      # Node 24 matches the repo's `.nvmrc` and `engines` (`>=20.19.4`);
+      # Node 20 is also deprecated on GitHub runners AND breaks
+      # `npm ci` — firebase-tools pulls
+      # `@google-cloud/cloud-sql-connector` which requires `>=22`
+      # (EBADENGINE failure seen on run #15).
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       # Zero errors expected: `Documentation/02-Design-System/**` (the
@@ -33,16 +40,24 @@ jobs:
     name: Firestore rules emulator
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
+      # The Firestore emulator is a Java process. firebase-tools 15.x
+      # rejects JDK < 21 ("firebase-tools no longer supports Java
+      # version before 21"), and the default JDK on ubuntu-latest is
+      # older — run #16 failed exactly there. Pin Temurin 21 to match
+      # local dev (java -version → 21.0.11).
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
       - run: npm ci
-      # Runs the 5 rules suites against the LOCAL emulator with the
+      # Runs the 6 rules suites against the LOCAL emulator with the
       # `demo-edumentx` project — no Firebase credentials needed (the
-      # emulator is fully offline). The Java runtime the emulator needs
-      # is preinstalled on ubuntu-latest.
+      # emulator is fully offline).
       #
       # The deployed-vs-local drift check runs separately in the
       # `rules-deployed` job (it needs real project credentials).
@@ -51,34 +66,68 @@ jobs:
           "node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs
           && node scripts/acceptRequestRulesTest.mjs
           && node scripts/messagesRulesTest.mjs
-          && node scripts/reviewsListRulesTest.mjs"
+          && node scripts/reviewsListRulesTest.mjs
+          && node scripts/removeEnrollmentRulesTest.mjs"
 
-  # Credentialed drift check: compares the DEPLOYED ruleset (via the
-  # Firebase Rules API) against the local firebase/firestore.rules.
-  # Requires the `GCP_SA_KEY` repo secret — a Google service-account
-  # JSON with the `cloud-platform` scope (see
-  # scripts/checkDeployedRules.mjs).
+  # Credentialed checks: deployed-vs-local drift + LIVE smoke tests.
+  # Requires two repo secrets:
+  #   - `GCP_SA_KEY` — a Google service-account JSON with the
+  #     `cloud-platform` scope (see scripts/checkDeployedRules.mjs).
+  #   - `FIREBASE_WEB_API_KEY` — the public Firebase web API key (the
+  #     same `EXPO_PUBLIC_FIREBASE_API_KEY` shipped in the app; the
+  #     smoke scripts mint real client tokens with it).
   #
   # Runs on main pushes + manual dispatch only, NOT on PRs: a PR that
   # legitimately changes rules would show drift until the rules are
   # deployed, so this would fail every rules-changing PR by design.
+  # The live smoke tests mutate real docs (seeded then cleaned up),
+  # so they're held to the same trigger.
+  #
+  # IMPORTANT: the `secrets` context is NOT available in ANY `if`
+  # condition — not job-level and not step-level. GitHub's context
+  # availability table only allows `secrets` inside `env` blocks, and
+  # using it in an `if` fails the workflow at PARSE time with
+  # "Unrecognized named-value: 'secrets'" (seen twice: job-level and
+  # step-level variants). The fix: copy the secret into a JOB-LEVEL
+  # `env` variable, then reference `env.GCP_SA_KEY` in the step `if`s.
+  # When a secret is unset the env var is the empty string, the
+  # `!= ''` checks fail, and the credential steps are skipped — the
+  # job passes trivially instead of erroring.
   rules-deployed:
-    name: Deployed-rules drift check
+    name: Deployed-rules drift check + live smoke tests
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && secrets.GCP_SA_KEY != ''
+    if: github.event_name != 'pull_request'
+    env:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - name: Write service-account key
-        env:
-          SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        if: env.GCP_SA_KEY != ''
         run: |
-          echo "$SA_KEY" > /tmp/gcp-sa-key.json
+          echo "$GCP_SA_KEY" > /tmp/gcp-sa-key.json
       - name: Check deployed rules vs local
+        if: env.GCP_SA_KEY != ''
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npm run test:rules:deployed
+      # Live end-to-end smoke tests: each suite acts as REAL signed-in
+      # clients against the deployed rules (the exact queries/writes
+      # the app makes), seeds throwaway data, asserts, then cleans up.
+      # Order matters: the drift check above must pass first so a
+      # green run proves the CURRENT rules are correct — otherwise the
+      # smoke tests would silently exercise a stale deployed ruleset.
+      - name: Live smoke tests (enrollments, reviews, batches, messages)
+        if: env.GCP_SA_KEY != '' && env.FIREBASE_WEB_API_KEY != ''
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
+        run: |
+          npm run smoke:enrollments
+          npm run smoke:reviews
+          npm run smoke:batches-browse
+          npm run smoke:messages

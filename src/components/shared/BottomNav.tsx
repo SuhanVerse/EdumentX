@@ -94,7 +94,10 @@ function TabButton({
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.chipPressed,
   });
-  const activeColor = tone === "dark" ? "#FFFFFF" : "#2F5D50";
+  // Light-tone active state is the amber accent (matches the admin
+  // nav + tutor nav) so the "you are here" signal is uniform across
+  // every role's bottom bar. The dark tone keeps white icons.
+  const activeColor = tone === "dark" ? "#FFFFFF" : colors.brand.accent;
   const color = active ? activeColor : tone === "dark"
     ? "rgba(255,255,255,0.45)"
     : INACTIVE_COLOR;
@@ -190,7 +193,7 @@ function TabRow({
               height: PILL_HEIGHT,
             },
           ]}
-          className="rounded-pill bg-primary-light"
+          className="rounded-pill bg-accent/10"
         />
       ) : null}
       {tabs.map((tab, i) => (

@@ -142,7 +142,7 @@ export default function HelpSupportScreen() {
           </View>
 
           <Text className="text-caption text-text-muted text-center">
-            EdumentX · v1.0 · build 2026.06.27
+            EdumentX • Version 1.0.0
           </Text>
         </View>
       </ScreenScroll>

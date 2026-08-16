@@ -6,7 +6,7 @@ You are an expert React Native + NativeWind engineer building EdumentX.
 
 1. **Use standard React Native primitives** (`View`, `Text`, `Pressable`, `TextInput`, `ScrollView`) for layout — apply styling through NativeWind `className` props, not inline `style={{}}` objects.
 2. **Never use Tamagui.** All `@tamagui/*` packages and `tamagui.config.ts` have been removed. Do not reintroduce them.
-3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`src/components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `src/constants/colors.ts`. **Enforced by four custom ESLint rules** (`eslint-rules/design-tokens.js`, registered in `eslint.config.js`, regression-tested by `npm run test:lint-rules`): `no-raw-hex-placeholder` rejects raw hex in `placeholderTextColor`; `no-raw-hex-color-prop` rejects raw hex in `color="#…"` props (Ionicons, ActivityIndicator, …); `no-raw-hex-inline-color` rejects raw hex in inline-style `backgroundColor` / `border*Color` (pure black `#000000` scrims are the one exempt convention — there's no black token and `shadowColor` is likewise out of scope); and `no-non-token-radius` rejects any `className` radius that isn't a token — `rounded-xs|sm|md|card|lg|xl|hero|pill` (with `-t/-b/-l/-r` partials). Tailwind defaults (`rounded-2xl`, `rounded-full`, `rounded-t-3xl`) and arbitrary `rounded-[…]` values are violations because `theme.extend` leaves them off the documented scale. Every hex value must map to `src/constants/colors.ts` (e.g. `#2F5D50`→`colors.brand.primary`, `#E5A03B`→`colors.brand.accent`, `#3F8A5A`→`colors.brand.verification`, `#4A7FA5`→`colors.brand.ai`, `#C1503D`→`colors.semantic.danger`, `#6B7280`→`colors.text.muted`, `#0F172A`→`colors.text.primary`, `#FFFFFF`→`colors.text.inverse`).
+3. **Never hardcode hex colors.** Always use design tokens defined in `tailwind.config.js` (e.g., `bg-night`, `text-amber`, `border-border`). The narrow exceptions are SVG illustrations (`src/components/illustrations/*`) where `react-native-svg` primitives need raw hex — those consume `src/constants/colors.ts`. **Enforced by five custom ESLint rules** (`eslint-rules/design-tokens.js`, registered in `eslint.config.js`, regression-tested by `npm run test:lint-rules`): `no-raw-hex-placeholder` rejects raw hex in `placeholderTextColor`; `no-raw-hex-color-prop` rejects raw hex in `color="#…"` props (Ionicons, ActivityIndicator, …); `no-raw-hex-inline-color` rejects raw hex in inline-style `backgroundColor` / `border*Color` (pure black `#000000` scrims are the one exempt convention — there's no black token and `shadowColor` is likewise out of scope); `no-non-token-radius` rejects any `className` radius that isn't a token — `rounded-xs|sm|md|card|lg|xl|hero|pill` (with `-t/-b/-l/-r` partials). Tailwind defaults (`rounded-2xl`, `rounded-full`, `rounded-t-3xl`) and arbitrary `rounded-[…]` values are violations because `theme.extend` leaves them off the documented scale; and `no-non-token-color-class` rejects any `className` that uses a Tailwind default palette shade (`text-slate-300`, `bg-blue-500`, `border-t-slate-300`, …) — those resolve to framework defaults, not the palette in `tailwind.config.js`. Dark surfaces must use `text-glass-secondary` / `text-glass-muted` (the light-mode `text-text-secondary`/`text-text-muted` mid-grays fail contrast on `night`); the rule's className checker also inspects string literals nested inside template expressions (ternaries in `` className={`…`} ``), so classes hidden in conditionals can't slip past. Every hex value must map to `src/constants/colors.ts` (e.g. `#2F5D50`→`colors.brand.primary`, `#E5A03B`→`colors.brand.accent`, `#3F8A5A`→`colors.brand.verification`, `#4A7FA5`→`colors.brand.ai`, `#C1503D`→`colors.semantic.danger`, `#6B7280`→`colors.text.muted`, `#0F172A`→`colors.text.primary`, `#FFFFFF`→`colors.text.inverse`).
 4. **Reference Sandbox:** The folder `Documentation/98-Reference-BasoBas/` contains a React web app. You may study its UX logic, component composition, and layout structures, but you MUST translate those concepts into pure React Native + NativeWind code before writing anything to our `src/app/` or `src/components/` directories.
 5. **Auth is native Firebase Auth.** Use `@react-native-firebase/auth` (`getAuth(getApp())`, `createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `signInWithCredential`, etc.) and `@react-native-google-signin/google-signin` for Google Sign-In. The unified entry point is `src/screens/auth/EmailSignUp.tsx` — it hosts both the Email + Password form and the "Continue with Google" button. Do NOT reintroduce Clerk; a one-day pivot to Clerk (June 20) was reverted the next day (Clerk's `integration_firebase` template is discontinued for new accounts). The Clerk-pivot history is archived under `Documentation/99-Archive/2026-06-21-clerk-revert/`.
 6. **Zero-budget / free-tier only.** This project is a college demo built without an international credit card. **Never suggest Firebase Cloud Storage, Firebase Cloud Functions, Google Maps SDK, Google Places API, OpenAI, Anthropic, Cohere, Mapbox, or Algolia** — all require a paid plan or card. Object storage lives in **Supabase Storage** (1 GB free, no card). Map tiles come from **OpenStreetMap** via `react-native-maps` `<UrlTile>` (no key). Geocoding uses **Nominatim** (keyless). Distance / KNN / matching math runs **client-side** (no Cloud Functions). The RAG chatbot uses **Groq** or **HuggingFace Serverless Inference** (free dev tier). Before adding any new dependency, update `Documentation/01-Architecture/ARCHITECTURE.md` §0 with a row justifying it as zero-budget. If it can't be justified, replace the feature or remove it.
@@ -253,6 +253,10 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   `services/enrollments/derived.ts` + `types.ts` (KTM date helpers,
   slotKey parsing, today-sessions derivation, booked-map, capacity
   counts + availability-draft helpers, malformed-slotKey guard).
+- `npm run test:lint-rules` — node:test suite for the five
+  design-token ESLint rules above, so a regression in
+  `eslint-rules/design-tokens.js` fails CI instead of slipping
+  through (21 tests).
 - `npm run test:rules` — TWO stages: (1) `test:rules:deployed`
   fetches the latest released ruleset from the Firebase Rules API
   and fails on drift vs local `firebase/firestore.rules` (needs
@@ -263,8 +267,20 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   acceptRequest transaction paths (incl. the legacy no-counters
   profile carve-out + the student fast-forward `endDate`
   carve-out for the dev QA helper), the conversations/messages
-  participant gates (incl. the hub `or()` scalar list query),
-  the reviews list rules, and the removeEnrollment cascade.
+  participant gates (incl. the hub `or()` scalar list query + the
+  message read-receipt `status`/`readAt` carve-out), the reviews
+  list rules, and the removeEnrollment cascade.
+
+**CI (`.github/workflows/ci.yml`, green on develop):** `check`
+  (typecheck, lint incl. the five design-token rules, test:derived,
+  test:lint-rules) → `rules` (six emulator suites, Java 21) →
+  `rules-deployed` (deployed-vs-local drift + FOUR live smoke
+  suites — enrollments, reviews, batches-browse, messages — that
+  act as real signed-in clients against the deployed rules,
+  gated on the `GCP_SA_KEY` + `FIREBASE_WEB_API_KEY` secrets).
+  Trigger on `main` pushes + manual dispatch; the credentialed job
+  intentionally skips PRs (rules-changing PRs would show drift
+  until deployed).
 
 **Pending deliverables (as of Aug 15, 2026):**
 - Rebuild the EAS dev client with the updated native deps (Clerk

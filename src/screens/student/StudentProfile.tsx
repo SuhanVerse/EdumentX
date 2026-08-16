@@ -414,7 +414,7 @@ export function StudentProfile() {
         </Pressable>
 
         <Text className="text-caption text-text-muted text-center mt-6">
-          EdumentX · v1.0 · build 2026.06.27
+          EdumentX • Version 1.0.0
         </Text>
       </ScreenScroll>
       </ScreenSheet>

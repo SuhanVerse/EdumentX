@@ -842,7 +842,17 @@ function EnrollmentTabs({
           activeIndex={activeIndex}
           itemWidth={width / TABS_ORDER.length}
           pillClassName="absolute top-1 bottom-1 bg-primary rounded-lg"
-          style={{ width: width / TABS_ORDER.length, borderRadius: 10 }}
+          // Even 4px inset on every side: the pill is 8px narrower
+          // than the segment and `left: 4` re-centers it (the
+          // translateX still steps by the full segment width), so it
+          // reads as a padded inner pill instead of a full-bleed
+          // fill. Uniform `flex-1` tabs above keep distribution
+          // perfectly even.
+          style={{
+            width: width / TABS_ORDER.length - 8,
+            left: 4,
+            borderRadius: 10,
+          }}
         />
       ) : null}
       {TABS_ORDER.map((t, i) => {

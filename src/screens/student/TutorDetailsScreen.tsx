@@ -783,6 +783,7 @@ function IconButton({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
+      hitSlop={8}
       className="w-9 h-9 rounded-pill bg-surface border border-border items-center justify-center"
     >
       <Ionicons
@@ -1284,9 +1285,9 @@ function DemoLessonSection({
           className="bg-surface border border-border rounded-card overflow-hidden active:opacity-80"
         >
           {/* Video preview area — clean dark background with centered play button.
-              Real video thumbnails were removed because the native module
-              (expo-video-thumbnails) requires a dev-client rebuild. The play
-              button is layered for visual depth. */}
+              Real video thumbnails were dropped along with the native
+              expo-video-thumbnails module (it required a dev-client rebuild).
+              The play button is layered for visual depth. */}
           <View className="w-full h-40 items-center justify-center relative overflow-hidden bg-night">
             {/* Dim overlay */}
             <View className="absolute inset-0 bg-black/20" />

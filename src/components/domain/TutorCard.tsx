@@ -65,6 +65,12 @@ export type TutorCardProps = {
    * (Map / search / details) keep the classic solid surface.
    */
   tone?: 'light' | 'dark';
+  /**
+   * Width for the `compact-h` variant (px). Defaults to 200 — the
+   * classic rail width. MapSearch overrides it with ~85% of the
+   * screen width so the carousel shows a peek of the next card.
+   */
+  width?: number;
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -77,6 +83,7 @@ export function TutorCard({
   saved = false,
   className = '',
   tone = 'light',
+  width = 200,
 }: TutorCardProps) {
   const router = useRouter();
 
@@ -88,7 +95,7 @@ export function TutorCard({
 
   if (variant === 'compact-h') {
     return (
-      <CompactCard tutor={tutor} onPress={handlePress} className={className} tone={tone} />
+      <CompactCard tutor={tutor} onPress={handlePress} className={className} tone={tone} width={width} />
     );
   }
   return (
@@ -195,8 +202,8 @@ function WideCard({
     ? 'bg-glass border border-glass-border'
     : 'bg-surface border border-border';
   const primaryText = dark ? 'text-white' : 'text-text-primary';
-  const secondaryText = dark ? 'text-slate-300' : 'text-text-secondary';
-  const mutedText = dark ? 'text-slate-400' : 'text-text-muted';
+  const secondaryText = dark ? 'text-glass-secondary' : 'text-text-secondary';
+  const mutedText = dark ? 'text-glass-muted' : 'text-text-muted';
 
   return (
     <AnimatedPressable
@@ -307,11 +314,13 @@ function CompactCard({
   onPress,
   className,
   tone,
+  width = 200,
 }: {
   tutor: TutorProfile;
   onPress?: () => void;
   className: string;
   tone: 'light' | 'dark';
+  width?: number;
 }) {
   const { onPressIn, onPressOut, animatedStyle } = usePressScale({
     targetScale: motion.scale.cardPressed,
@@ -325,8 +334,18 @@ function CompactCard({
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      style={animatedStyle}
-      className={`w-[200px] border rounded-card overflow-hidden ${
+      // Width comes from the `style` prop so carousels can size the
+      // card to ~85% of the screen (a peek of the next card) while
+      // other callers keep the classic 200px rail. The shadow pops
+      // the card off the map surface.
+      style={[{ width }, animatedStyle, {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 3,
+      }]}
+      className={`border rounded-card overflow-hidden ${
         dark
           ? 'bg-glass border-glass-border'
           : 'bg-surface border-border'
@@ -353,7 +372,7 @@ function CompactCard({
           ) : null}
         </View>
         <Text
-          className={`text-caption ${dark ? 'text-slate-300' : 'text-text-secondary'}`}
+          className={`text-caption ${dark ? 'text-glass-secondary' : 'text-text-secondary'}`}
           numberOfLines={2}
         >
           {tutor.headline}
@@ -367,7 +386,7 @@ function CompactCard({
           </Text>
           <Text
             className={`text-micro ${
-              dark ? 'text-slate-400' : 'text-text-muted'
+              dark ? 'text-glass-muted' : 'text-text-muted'
             }`}
           >
             · {tutor.location.city}
@@ -375,7 +394,7 @@ function CompactCard({
         </View>
         <Text className={`text-button-sm mt-1 ${dark ? 'text-white' : 'text-text-primary'}`}>
           {formatNpr(tutor.monthlyRateNpr)}
-          <Text className={`text-caption ${dark ? 'text-slate-400' : 'text-text-muted'}`}> /mo</Text>
+          <Text className={`text-caption ${dark ? 'text-glass-muted' : 'text-text-muted'}`}> /mo</Text>
         </Text>
       </View>
     </AnimatedPressable>

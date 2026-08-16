@@ -735,6 +735,7 @@ function NotificationPreferences({
               accessibilityRole="button"
               accessibilityLabel="Close"
               onPress={onClose}
+              hitSlop={8}
               className="w-9 h-9 items-center justify-center rounded-pill bg-sand active:opacity-70"
             >
               <Ionicons name="close" size={18} className="text-text-muted" />

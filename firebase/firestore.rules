@@ -518,7 +518,20 @@ service cloud.firestore {
                 .data.participantA == request.auth.uid
               || get(/databases/$(database)/documents/conversations/$(conversationId))
                 .data.participantB == request.auth.uid);
-        allow update, delete: if false;
+        // Read receipts: a participant flips INCOMING messages from
+        // "sent" to "read" when the chat opens (markMessagesRead).
+        // Narrow — only status/readAt may change; text/senderId are
+        // immutable after create. Either participant may flip any
+        // message in the thread (both share the same chat), which is
+        // how the double-checkmark works in practice.
+        allow update: if isSignedIn()
+          && (get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantA == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(conversationId))
+                .data.participantB == request.auth.uid)
+          && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status", "readAt"]);
+        allow delete: if false;
       }
     }
 

@@ -1,67 +1,79 @@
 # EdumentX
 
-> **Location-based tutor finding app** — connecting students/parents with verified home tutors nearby. Built with React Native (Expo SDK 54) + Firebase.
+A location-based tutor-finding app for Nepal. Students and parents browse
+verified home tutors on a map, send enrollment requests, join group
+batches, message tutors directly, and leave reviews after sessions. Tutors
+manage availability, capacity, batches, and their inbox from one dashboard;
+admins review verifications and monitor platform stats.
 
-## 📚 Documentation
+Everything runs on free tiers — no paid Firebase plan, maps SDK, or AI
+service. Storage is Supabase's free tier, map tiles come from
+OpenStreetMap, and all matching logic runs client-side.
 
-**Start here**: [`Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md`](./Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md) — the definitive 15-section guide to the product, design, architecture, and roadmap.
+## Features
 
-The full documentation structure is in [`Documentation/README.md`](./Documentation/README.md). Key files:
+- Map-based tutor discovery with subject, level, mode, distance, and budget filters
+- Tutor verification (ID + academic documents, admin-reviewed)
+- Enrollment requests with a weekly schedule picker and conflict checking
+- Group batches with session codes, seat limits, and a browse/join flow
+- In-app chat with read receipts and typing indicators
+- Reviews and ratings on tutor profiles
+- Saved tutors, notifications, and help & support
+- Separate dashboards for students, tutors, and admins
 
-- 🎯 **[Master Project Guide](./Documentation/00-Overview/EDUMENTX_MASTER_PROJECT_GUIDE.md)** — product, screens, tokens, improvements
-- 🗺️ **[Implementation Roadmap](./Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md)** — sprint-by-sprint build plan
-- 🎨 **[Figma Make Prompt](./Documentation/06-Prompts/Figma-Make/00-MASTER-FIGMA-MAKE-PROMPT.md)** — generate industry-grade designs
-- 💻 **[Claude Code Prompt](./Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md)** — refactor the codebase
+## Tech stack
 
-## Tech Stack
+- React Native + Expo SDK 54 (TypeScript, expo-router v6)
+- NativeWind 4 for styling — all colors/radii come from design tokens in `tailwind.config.js`, enforced by custom ESLint rules
+- Firebase: native Auth (email/password + Google Sign-In), Firestore, security rules
+- Supabase Storage for avatars
+- OpenStreetMap tiles via `react-native-maps`
+- Zustand for client state, Reanimated for animations
 
-- **React Native** with **Expo SDK 54** (TypeScript strict mode, New Architecture)
-- **Expo Router v6** for file-based navigation (typed routes)
-- **Firebase** for Auth, Firestore, Storage (not yet wired)
-- **Zustand** for state (planned)
-- **Tamagui** for UI (planned migration target)
-
-## Quick Start
+## Getting started
 
 ```bash
-nvm use                  # Node 20.19.4+
+nvm use
 npm ci
-cp .env.example .env     # Add your Firebase keys
-npx expo start --lan
+cp .env.example .env   # fill in the Firebase + Supabase keys
+npx expo run:android   # or npx expo start
 ```
 
-For physical device testing:
+The app reads live Firestore data. Set `EXPO_PUBLIC_USE_MOCK_DATA=true`
+in `.env` to run against in-memory repositories instead.
 
-```bash
-npx expo start --tunnel --clear
+Installing on a physical device (iOS or Android) is covered in
+[`Documentation/05-Build-and-Deploy/install-guide.md`](Documentation/05-Build-and-Deploy/install-guide.md).
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | TypeScript check |
+| `npm run lint` | ESLint, including the design-token rules |
+| `npm run test:derived` | Unit tests for the enrollment helpers |
+| `npm run test:lint-rules` | Unit tests for the design-token lint rules |
+| `npm run test:rules` | Firestore rules: deployed-drift check + six emulator suites |
+| `npm run smoke:messages` | Live smoke tests against the deployed rules (needs a service-account key) |
+
+## Repository layout
+
+```
+src/app/          expo-router routes
+src/screens/      screen components (student, tutor, admin, shared, auth)
+src/components/   reusable UI and domain components
+src/services/     data layers (Firestore repositories + mocks)
+src/store/        Zustand stores
+src/lib/          helpers (validation, motion, tutor service)
+src/constants/    design tokens and colors
+firebase/         Firestore security rules
+scripts/          smoke tests, rules tests, seed scripts
+Documentation/    project docs — start at Documentation/README.md
 ```
 
-## Project Status (June 2026)
+## CI
 
-| Phase | Status |
-|-------|--------|
-| 7 auth/onboarding screens | ✅ Complete |
-| Design system tokens | ✅ Complete |
-| Firebase security rules | ✅ Complete |
-| Firebase Auth + Firestore integration | ⏳ Pending |
-| Tamagui UI migration | ⏳ Pending |
-| Multi-role dashboards (Student, Tutor, Admin) | ⏳ Pending |
-| Map-based tutor discovery | ⏳ Pending |
-| Chat + enrollments | ⏳ Pending |
-
-See the [Implementation Roadmap](./Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md) for the full plan.
-
-## Git Workflow
-
-Work from `develop`, create `feature/*` or `fix/*` branches, and open pull requests. Use merge commits.
-
-## Useful Scripts
-
-```bash
-npm run start       # Start Expo dev server
-npm run android     # Open on Android emulator
-npm run ios         # Open on iOS simulator
-npm run web         # Open in browser
-npm run lint        # ESLint
-npm run typecheck   # TypeScript check
-```
+Every push to `main` runs typecheck, lint, unit tests, six Firestore
+rules suites, a deployed-vs-local rules drift check, and four live smoke
+suites (enrollments, reviews, batches, messages) in
+`.github/workflows/ci.yml`.

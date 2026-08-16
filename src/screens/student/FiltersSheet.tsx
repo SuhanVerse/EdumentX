@@ -381,9 +381,10 @@ export function FiltersSheet({
             elevation: 24,
           }}
         >
-          {/* Handle */}
+          {/* Handle — clear drag affordance: 48px wide, hairline
+              border tone so it reads as a grab rail. */}
           <View className="items-center pt-2.5 pb-1">
-            <View className="w-10 h-1 rounded-pill bg-surface-muted" />
+            <View className="w-12 h-1 rounded-pill bg-border" />
           </View>
 
           {/* Header */}
@@ -398,6 +399,7 @@ export function FiltersSheet({
               onPressIn={onCloseIn}
               onPressOut={onCloseOut}
               style={closeStyle}
+              hitSlop={8}
               className="w-9 h-9 items-center justify-center rounded-pill"
             >
               <Ionicons name="close" size={20} color={colors.text.muted} />

@@ -26,6 +26,7 @@ import {
   View,
   ActivityIndicator,
   FlatList,
+  useWindowDimensions,
 } from "react-native";
 
 import {
@@ -404,6 +405,12 @@ export function MapSearch() {
   // ── Count tutors with map pins ──
   const pinnedTutors = geo.length;
 
+  // Carousel geometry — cards are ~85% of the screen width with a
+  // 16px gap, so the next card peeks in from the right edge.
+  const { width: windowWidth } = useWindowDimensions();
+  const carouselCardWidth = Math.round(windowWidth * 0.85);
+  const CAROUSEL_GAP = 16;
+
   return (
     <ScreenLayout variant="background">
 
@@ -525,10 +532,11 @@ export function MapSearch() {
               keyExtractor={(t) => t.uid}
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
-              snapToInterval={216}
+              snapToAlignment="center"
+              snapToInterval={carouselCardWidth + CAROUSEL_GAP}
               contentContainerStyle={{
                 paddingHorizontal: 12,
-                gap: 16,
+                gap: CAROUSEL_GAP,
                 paddingBottom: 4,
               }}
               renderItem={({ item: t }) => (
@@ -557,6 +565,7 @@ export function MapSearch() {
                   })}
                   variant="compact-h"
                   tone="light"
+                  width={carouselCardWidth}
                   onPress={() => {
                     setSelectedTutor(t);
                     setSelectedTutorId(t.uid);

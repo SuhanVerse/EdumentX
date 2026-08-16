@@ -538,7 +538,7 @@ export function AdminProfile() {
               accessibilityLabel="Save and continue"
               disabled={!canSave}
               onPress={handleSave}
-              className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-night active:opacity-90 active:scale-[0.98] disabled:opacity-60 self-center w-full max-w-sm"
+              className="min-h-btn-lg rounded-card items-center justify-center shadow-md bg-primary active:opacity-90 active:scale-[0.98] disabled:opacity-60 self-center w-full max-w-sm"
             >
               <Text className="text-button text-base font-semibold text-white disabled:text-text-muted">
                 {isSaving ? "Saving..." : "Save and continue"}
@@ -574,7 +574,7 @@ export function AdminProfile() {
                 accessibilityLabel="Save changes"
                 disabled={!canSave}
                 onPress={handleSave}
-                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-night active:opacity-90 disabled:opacity-60"
+                className="flex-1 h-btn-lg rounded-card items-center justify-center bg-primary active:opacity-90 disabled:opacity-60"
               >
                 <Text className="text-button font-semibold text-white disabled:text-text-muted">
                   {isSaving ? "Saving..." : "Save changes"}
@@ -609,7 +609,7 @@ export function AdminProfile() {
           </Pressable>
 
           {/* <Text className="text-caption text-text-muted text-center mt-6">
-            EdumentX · v1.0 · build 2026.07.08
+            EdumentX • Version 1.0.0
           </Text> */}
         </ScreenScroll>
       </KeyboardAvoidingView>

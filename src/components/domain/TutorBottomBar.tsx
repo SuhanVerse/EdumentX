@@ -32,7 +32,7 @@ type TutorTabDef = {
 const TUTOR_TABS: readonly TutorTabDef[] = [
   {
     key: "dashboard",
-    label: "Dashboard",
+    label: "Home",
     path: "/tutor-home",
     icon: LayoutDashboard,
   },
@@ -41,7 +41,9 @@ const TUTOR_TABS: readonly TutorTabDef[] = [
   { key: "profile", label: "Profile", path: "/tutor_edit_profile", icon: User },
 ] as const;
 
-const ACTIVE_COLOR = "#2F5D50";
+// Active state is the amber accent — uniform with the student +
+// admin bottom bars ("you are here" = amber pill + amber tint).
+const ACTIVE_COLOR = colors.brand.accent;
 const INACTIVE_COLOR = colors.text.muted;
 
 type TutorBottomBarProps = {
@@ -144,7 +146,9 @@ export function TutorBottomBar({
             top: 6,
             width: 48,
             height: 28,
-            backgroundColor: colors.background.surfaceMuted,
+            // Amber at 10% — same `bg-accent/10` tint the student +
+            // admin navs use for their active pill.
+            backgroundColor: `${colors.brand.accent}1A`,
           }}
         />
       ) : null}
@@ -216,7 +220,7 @@ function TutorTab({
           backgroundColor: active
             ? tone === "dark"
               ? "rgba(255,255,255,0.08)"
-              : "#F1ECE0"
+              : `${ACTIVE_COLOR}1A` // accent at 10%
             : "transparent",
         }}
       >

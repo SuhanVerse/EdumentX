@@ -46,6 +46,17 @@ async function req(method, path, uid, body, query = "") {
   return { status: res.status, body: (await res.text()).slice(0, 300) };
 }
 
+// Same as `req` but returns the UNTRUNCATED body — for calls that
+// need to JSON.parse the response (e.g. listing message auto-ids).
+async function reqFull(method, path, uid, body, query = "") {
+  const res = await fetch(`${BASE}${path}${query}`, {
+    method,
+    headers: { Authorization: `Bearer ${tokenFor(uid)}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: await res.text() };
+}
+
 let pass = 0;
 let fail = 0;
 function check(name, actual, expected, extra = "") {
@@ -201,6 +212,43 @@ async function runHubQuery(uid) {
     text: "Sneaking in",
   }));
   check("non-participant cannot send a message", r.status, 403);
+}
+
+// ── 7b. Read receipts — a participant flips an incoming message to
+//        `status: "read"` (markMessagesRead). Stranger flip denied.
+{
+  // Fetch the message id created in step 4 (auto-id). Uses the
+  // full (untruncated) body — `req` slices to 300 chars for display,
+  // which would truncate the JSON mid-string and break the parse.
+  const list = await reqFull("GET", `/conversations/${CONV}/messages`, STUDENT);
+  const m = JSON.parse(list.body);
+  const msgId = m.documents?.[0]?.name?.split("/").pop();
+  if (msgId) {
+    const ok = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=status&updateMask.fieldPaths=readAt`,
+      TUTOR,
+      payload({ status: "read", readAt: "2026-08-16T00:00:00Z" }),
+    );
+    check("participant marks incoming message read (receipt)", ok.status, 200);
+    if (ok.status !== 200) console.log("   ", ok.body);
+
+    const tamper = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=text`,
+      TUTOR,
+      payload({ text: "Edited!" }),
+    );
+    check("participant cannot rewrite message text (receipt-only carve-out)", tamper.status, 403);
+
+    const denied = await req(
+      "PATCH",
+      `/conversations/${CONV}/messages/${msgId}?updateMask.fieldPaths=status&updateMask.fieldPaths=readAt`,
+      STRANGER,
+      payload({ status: "read", readAt: "2026-08-16T00:00:00Z" }),
+    );
+    check("stranger cannot flip message status", denied.status, 403);
+  }
 }
 
 // ── 8. Participant bumps lastMessage (update allowed) ──

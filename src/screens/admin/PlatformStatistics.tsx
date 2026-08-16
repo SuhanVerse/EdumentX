@@ -66,24 +66,21 @@ async function fetchPlatformCounts(): Promise<PlatformCounts> {
  * EdumentX — Platform Statistics (`/platform-statistics`)
  *
  * Admin-only read-only metrics surface. Renders a 2x2 KPI grid fed
- * by live Firestore count aggregations (`getCountFromServer`), a
- * weekly enrollment bar list, and a subject-demand bar list.
+ * by live Firestore count aggregations (`getCountFromServer`).
  *
  * **Why no chart library:** the project doesn't ship a chart
  * dependency (the previous version of this file imported
  * `react-native-chart-kit`, which isn't installed and was crashing
  * on launch). Bar lists drawn with `View` widths look identical
  * at this scale, keep the bundle tiny, and don't require a native
- * module. If the project ever needs a real chart lib, swap the
- * `<BarList>` instances for a chart — the rest of the screen is
- * already shaped for it.
+ * module.
  *
- * **What's live vs static:** the four KPI tiles read real counts
+ * **All-live policy:** the four KPI tiles read real counts
  * (users, tutors, approved tutors, pending enrollment requests).
- * The weekly-trend and subject-demand bars are static sample data —
- * Firestore has no time-series or subject-demand collection to
- * aggregate yet, so fabricating them would be worse than showing
- * them as-is until a data source exists.
+ * The old "Weekly enrollment trend" and "Subject demand" bar
+ * charts were static sample data with no Firestore source behind
+ * them — they were removed rather than shown as fake metrics.
+ * No data is better than fabricated data.
  *
  * **Why the greeting is live:** admins want to land on a screen
  * that feels personal. We read `adminProfile.fullName` via
@@ -145,8 +142,6 @@ export function PlatformStatistics() {
 
       <ScreenScroll contentContainerClassName="px-6 pt-8 pb-8 gap-5">
         <KpiGrid />
-        <WeeklyEnrollmentCard />
-        <SubjectDemandCard />
       </ScreenScroll>
 
       <AdminNav />
@@ -271,114 +266,6 @@ function KpiGrid() {
             </View>
           </View>
         ))}
-      </View>
-    </View>
-  );
-}
-
-/**
- * Weekly enrollment trend — rendered as a horizontal-bar list
- * inside a `bg-surface` card. No chart lib required: each row is
- * a flex row of (day, bar track, value). The bar fill width is
- * `(value / max) * 100%`.
- *
- * Static sample data: there is no enrollment time-series collection
- * to aggregate yet, so this stays illustrative until one exists.
- */
-function WeeklyEnrollmentCard() {
-  const data = [
-    { day: "Mon", value: 12 },
-    { day: "Tue", value: 18 },
-    { day: "Wed", value: 9 },
-    { day: "Thu", value: 24 },
-    { day: "Fri", value: 31 },
-    { day: "Sat", value: 38 },
-    { day: "Sun", value: 22 },
-  ];
-  const max = Math.max(...data.map((d) => d.value));
-
-  return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-section-title font-medium text-text-primary">
-          Weekly enrollment trend
-        </Text>
-        <View className="bg-accent-light px-2 py-0.5 rounded-pill">
-          <Text className="text-micro font-semibold text-accent">+22%</Text>
-        </View>
-      </View>
-      <View className="gap-2.5">
-        {data.map((row) => {
-          const pct = Math.round((row.value / max) * 100);
-          return (
-            <View key={row.day} className="flex-row items-center gap-3">
-              <Text className="text-caption text-text-secondary w-8">
-                {row.day}
-              </Text>
-              <View className="flex-1 h-2.5 bg-sand rounded-pill overflow-hidden">
-                <View
-                  className="h-full bg-accent rounded-pill"
-                  style={{ width: `${pct}%` }}
-                />
-              </View>
-              <Text className="text-caption font-medium text-text-primary w-7 text-right">
-                {row.value}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-/**
- * Subject demand — same bar-list pattern, with the subject name
- * on the left of the bar instead of a weekday. Sorted by demand
- * (descending) so the most-requested subject is always at the top.
- *
- * Static sample data: subject demand isn't aggregated anywhere in
- * Firestore yet — illustrative until a data source exists.
- */
-function SubjectDemandCard() {
-  const data = [
-    { subject: "Math", value: 142 },
-    { subject: "Science", value: 98 },
-    { subject: "English", value: 76 },
-    { subject: "Physics", value: 65 },
-    { subject: "Chemistry", value: 54 },
-    { subject: "Computer Science", value: 41 },
-  ];
-  const max = Math.max(...data.map((d) => d.value));
-
-  return (
-    <View className="bg-surface border border-border-subtle rounded-card p-4">
-      <Text className="text-section-title font-medium text-text-primary mb-3">
-        Subject demand
-      </Text>
-      <View className="gap-2.5">
-        {data.map((row) => {
-          const pct = Math.round((row.value / max) * 100);
-          return (
-            <View key={row.subject} className="flex-row items-center gap-3">
-              <Text
-                className="text-caption text-text-secondary w-24"
-                numberOfLines={1}
-              >
-                {row.subject}
-              </Text>
-              <View className="flex-1 h-2.5 bg-sand rounded-pill overflow-hidden">
-                <View
-                  className="h-full bg-accent rounded-pill"
-                  style={{ width: `${pct}%` }}
-                />
-              </View>
-              <Text className="text-caption font-medium text-text-primary w-9 text-right">
-                {row.value}
-              </Text>
-            </View>
-          );
-        })}
       </View>
     </View>
   );

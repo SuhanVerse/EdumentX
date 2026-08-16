@@ -402,6 +402,9 @@ export function TutorCapacityScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${e.studentName}`}
                       onPress={() => setRemoveTarget(e)}
+                      // 36px visual — hitSlop 8 → 52px effective touch
+                      // area (iOS 44 / Android 48 minimum).
+                      hitSlop={8}
                       className="w-9 h-9 rounded-pill bg-danger-bg items-center justify-center active:opacity-70"
                     >
                       <Ionicons name="close" size={18} color={colors.semantic.danger} />
