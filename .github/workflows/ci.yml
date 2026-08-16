@@ -64,17 +64,22 @@ jobs:
   # legitimately changes rules would show drift until the rules are
   # deployed, so this would fail every rules-changing PR by design.
   #
-  # IMPORTANT: the `secrets` context is NOT available in job-level `if`
-  # conditions (only `github`/`needs`/`vars`/`inputs` are — GitHub
-  # rejects the file at parse time with "Unrecognized named-value:
-  # 'secrets'"). The job-level `if` therefore only gates on the event
-  # type, and the actual secret-presence check moves to STEP-level
-  # `if`, where `secrets` IS allowed. When `GCP_SA_KEY` is unset the
-  # credential steps are skipped and the job passes trivially.
+  # IMPORTANT: the `secrets` context is NOT available in ANY `if`
+  # condition — not job-level and not step-level. GitHub's context
+  # availability table only allows `secrets` inside `env` blocks, and
+  # using it in an `if` fails the workflow at PARSE time with
+  # "Unrecognized named-value: 'secrets'" (seen twice: job-level and
+  # step-level variants). The fix: copy the secret into a JOB-LEVEL
+  # `env` variable, then reference `env.GCP_SA_KEY` in the step `if`s.
+  # When the secret is unset the env var is the empty string, the
+  # `!= ''` checks fail, and the credential steps are skipped — the
+  # job passes trivially instead of erroring.
   rules-deployed:
     name: Deployed-rules drift check
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    env:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -83,13 +88,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Write service-account key
-        if: secrets.GCP_SA_KEY != ''
-        env:
-          SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        if: env.GCP_SA_KEY != ''
         run: |
-          echo "$SA_KEY" > /tmp/gcp-sa-key.json
+          echo "$GCP_SA_KEY" > /tmp/gcp-sa-key.json
       - name: Check deployed rules vs local
-        if: secrets.GCP_SA_KEY != ''
+        if: env.GCP_SA_KEY != ''
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npm run test:rules:deployed
