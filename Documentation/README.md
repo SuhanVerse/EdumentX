@@ -51,7 +51,9 @@ Documentation/
 │
 ├── 01-Architecture/                          ← System design docs
 │   ├── ARCHITECTURE.md                       (canonical stack + anti-patterns)
-│   └── zero_cost_architecture.md             (full 3,884-line proposal)
+│   ├── zero_cost_architecture.md             (full 3,884-line proposal)
+│   ├── CROSS_PROJECT_CONTEXT_ANALYSIS.md     (cross-project context)
+│   └── NOTIFICATION_FEATURE_SUMMARY.md       (notification feature summary)
 │
 ├── 02-Design-System/                         ← Design tokens (placeholder)
 │
@@ -61,12 +63,19 @@ Documentation/
 │   ├── PROJECT_SETUP.md                      (initial dev setup)
 │   ├── INITIAL_PROJECT_SETUP.md              (Expo + Firebase setup)
 │   ├── CLAUDE_CODE_TOOL_STACK.md             (skills / plugins / MCP servers)
-│   └── DEPENDENCY_AND_GIT_TROUBLESHOOTING.md
+│   ├── DEPENDENCY_AND_GIT_TROUBLESHOOTING.md
+│   ├── RAGBOT_IMPLEMENTATION_GUIDE.md        (AI chatbot implementation)
+│   ├── RAGBOT_7_PHASE_PLAN.md                (AI chatbot phase plan)
+│   └── RAGBOT_DOCS.md                        (AI chatbot reference docs)
 │
 ├── 04-Firebase/                              ← Firebase-specific guides
-│   └── phase-3-notes.md                      (deploy workflow, rules)
+│   ├── phase-3-notes.md                      (deploy workflow, rules)
+│   ├── adminsetup.md                         (admin service-account walkthrough)
+│   └── firebase-to-supabase-auth-migration-analysis.md
 │
 ├── 05-Build-and-Deploy/                      ← EAS, app store, eSewa
+│   ├── install-guide.md                      (iOS + Android install)
+│   ├── borrowed-mac-checklist.md             (building on a friend's Mac)
 │   ├── firebase-auth-plan.md
 │   ├── firebase-auth-plan-audit.md
 │   └── esewa_integration.md
@@ -95,7 +104,8 @@ Documentation/
     ├── README.md                             (folder index — read this first)
     ├── 2026-06-21-clerk-revert/              (Clerk pivot archive)
     ├── design-prompts-jun2026/               (v1 design prompts, consolidated)
-    └── context-snapshots-jun2026/            (long AI chat transcripts)
+    ├── context-snapshots-jun2026/            (long AI chat transcripts)
+    └── PROJECT_AUDIT_JULY_2026.md            (superseded by the Aug 2026 audit)
 ```
 
 ---
@@ -118,6 +128,11 @@ Documentation/
 | See previous design iterations | `99-Archive/design-prompts-jun2026/README.md` |
 | Find an old AI chat transcript | `99-Archive/context-snapshots-jun2026/` |
 | See the team-authored history | `00-Overview/LOG.md` (do NOT edit) |
+| Read the AI chatbot (RAG) implementation | `03-Implementation-Guides/RAGBOT_IMPLEMENTATION_GUIDE.md` |
+| Read the notification feature summary | `01-Architecture/NOTIFICATION_FEATURE_SUMMARY.md` |
+| Read the cross-project context analysis | `01-Architecture/CROSS_PROJECT_CONTEXT_ANALYSIS.md` |
+| Read the Firebase → Supabase auth migration analysis | `04-Firebase/firebase-to-supabase-auth-migration-analysis.md` |
+| Find the superseded July 2026 audit | `99-Archive/PROJECT_AUDIT_JULY_2026.md` |
 | Reference a senior's mid-term | `97-Educational_Contents/` |
 | Fix a dependency issue | `03-Implementation-Guides/DEPENDENCY_AND_GIT_TROUBLESHOOTING.md` |
 | See what Claude Code skills / plugins / MCP servers are installed | `03-Implementation-Guides/CLAUDE_CODE_TOOL_STACK.md` |

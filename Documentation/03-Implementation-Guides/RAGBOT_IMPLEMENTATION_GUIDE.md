@@ -171,7 +171,8 @@ edumentx/
 │   └── useConversation.ts                 # Session lifecycle management
 │
 └── Documentation/
-    └── AI ragbot/                         ← 📚 You are here
+    └── 03-Implementation-Guides/
+        └── RAGBOT_IMPLEMENTATION_GUIDE.md  ← You are here
         └── COMPREHENSIVE_IMPLEMENTATION_GUIDE.md
 ```
 
