@@ -39,7 +39,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      # Runs the 5 rules suites against the LOCAL emulator with the
+      # Runs the 6 rules suites against the LOCAL emulator with the
       # `demo-edumentx` project — no Firebase credentials needed (the
       # emulator is fully offline). The Java runtime the emulator needs
       # is preinstalled on ubuntu-latest.
@@ -51,7 +51,8 @@ jobs:
           "node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs
           && node scripts/acceptRequestRulesTest.mjs
           && node scripts/messagesRulesTest.mjs
-          && node scripts/reviewsListRulesTest.mjs"
+          && node scripts/reviewsListRulesTest.mjs
+          && node scripts/removeEnrollmentRulesTest.mjs"
 
   # Credentialed drift check: compares the DEPLOYED ruleset (via the
   # Firebase Rules API) against the local firebase/firestore.rules.
@@ -62,10 +63,18 @@ jobs:
   # Runs on main pushes + manual dispatch only, NOT on PRs: a PR that
   # legitimately changes rules would show drift until the rules are
   # deployed, so this would fail every rules-changing PR by design.
+  #
+  # IMPORTANT: the `secrets` context is NOT available in job-level `if`
+  # conditions (only `github`/`needs`/`vars`/`inputs` are — GitHub
+  # rejects the file at parse time with "Unrecognized named-value:
+  # 'secrets'"). The job-level `if` therefore only gates on the event
+  # type, and the actual secret-presence check moves to STEP-level
+  # `if`, where `secrets` IS allowed. When `GCP_SA_KEY` is unset the
+  # credential steps are skipped and the job passes trivially.
   rules-deployed:
     name: Deployed-rules drift check
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && secrets.GCP_SA_KEY != ''
+    if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -74,11 +83,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Write service-account key
+        if: secrets.GCP_SA_KEY != ''
         env:
           SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           echo "$SA_KEY" > /tmp/gcp-sa-key.json
       - name: Check deployed rules vs local
+        if: secrets.GCP_SA_KEY != ''
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npm run test:rules:deployed
