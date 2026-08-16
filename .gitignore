@@ -81,3 +81,7 @@ private_key_firebase.json
 graphify-out/
 
 
+
+# Firebase Admin SDK service-account key (never commit)
+service-account-*.json
+*-firebase-adminsdk-*.json
