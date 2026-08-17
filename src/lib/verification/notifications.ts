@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   serverTimestamp,
 } from "@react-native-firebase/firestore";
 
@@ -93,6 +94,30 @@ export async function writeNotification(
     readAt: null,
   });
   return ref.id;
+}
+
+/**
+ * Mark one notification doc as read — the same write the
+ * notification center's tap handler does. Shared with the push
+ * service so the OS-tray "Mark as Read" action stays in lockstep
+ * with the in-app surfaces.
+ *
+ * The rules only allow the owner to update `["read", "readAt"]` on
+ * `notifications/{uid}/items/{itemId}` — this update stays inside
+ * that allowed-key set.
+ */
+export async function markNotificationRead(
+  recipientUid: string,
+  notificationId: string,
+): Promise<void> {
+  const db = getFirestore(getApp());
+  await updateDoc(
+    doc(db, "notifications", recipientUid, "items", notificationId),
+    {
+      read: true,
+      readAt: serverTimestamp(),
+    },
+  );
 }
 
 /** Convenience helpers for the common cases. Keeping the
