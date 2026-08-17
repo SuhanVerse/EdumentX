@@ -18,7 +18,12 @@ import { ActivityIndicator, Alert, View, StatusBar as NativeStatusBar } from "re
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { InAppNotificationBar } from "@/components/notifications/InAppNotificationBar";
 import { theme } from "@/constants/theme";
+import {
+  initPushForUser,
+  stopInboxSync,
+} from "@/services/notifications/pushService";
 import { useAuthStore, type UserRole, type TutorVerificationStatus } from "@/store/authStore";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -67,6 +72,17 @@ export default function RootLayout() {
     (state) => state.setTutorVerificationStatus,
   );
   const setLoading = useAuthStore((state) => state.setLoading);
+
+  // Wire the push layer for the signed-in user (token registration +
+  // inbox mirror). Non-blocking — failures are swallowed inside the
+  // service, so notification setup never blocks auth or navigation.
+  // The role gate mirrors the routing guard: only a user with a role
+  // (past onboarding) subscribes.
+  const signedInUid = user?.uid ?? null;
+  useEffect(() => {
+    initPushForUser(signedInUid && role ? signedInUid : null);
+    return () => stopInboxSync();
+  }, [signedInUid, role]);
 
   // Track the currently-signed-in uid so we only fetch the user doc when it
   // actually changes (not on every state callback).
@@ -959,6 +975,9 @@ export default function RootLayout() {
             <ActivityIndicator size="large" color={colors.text.primary} />
           </View>
         ) : null}
+        {/* Floating in-app notification banner (renders nothing when
+            the queue is empty — never blocks touches). */}
+        <InAppNotificationBar />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

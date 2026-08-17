@@ -25,6 +25,7 @@
       "expo-router",
       "expo-dev-client",
       "expo-font",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

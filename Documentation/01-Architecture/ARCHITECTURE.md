@@ -37,11 +37,12 @@ been working since Phase 2.
 | **Geocoding** | Nominatim (OpenStreetMap) | ~1 req/sec, no key | No |
 | **Location Math** | Client-side Haversine + KNN (in-app) | Free (just CPU) | No |
 | **RAG / Chatbot** | Groq Cloud API (Llama 3) **or** HuggingFace Serverless | Free dev tier | No |
-| **Push (future)** | Firebase Cloud Messaging | Unlimited | No |
+| **Push / In-app Notifications** | `expo-notifications` + Expo Push Service (inbox-mirror local notifications — no FCM server; tokens registered on `users/{uid}.pushTokens`, writes pass the owner rule) | Free, keyless, no card | No |
 | **Analytics (future)** | Firebase Analytics | Unlimited events | No |
 | **Animations** | Reanimated 4 worklets (press springs, splash particles, onboarding transitions) | MIT, on-device only | No |
 | **Illustrations** | `react-native-svg` (onboarding scenes) — the 3D stack (`expo-gl`/R3F/`three`) was **removed** in Phase 3.5 after a device crash (`WebGLCapabilities.getMaxPrecision`) | MIT, on-device only | No |
 | **UX / Haptics** | `expo-haptics` (Phase 2 UI overhaul: tactile 100ms press micro-interactions) | MIT, keyless, on-device only | No |
+| **Device capability** | `expo-device` (push layer gates token registration on `isDevice` — simulators/emulators are skipped) | MIT, keyless, on-device only | No |
 | **Map Markers** | `expo-image` + `react-native-view-shot` + bundled cluster PNGs (Aug 2026: teardrop pins with the tutor avatar are rasterized offscreen via `captureRef`, loaded through `Image.loadAsync` into `SharedRef<'image'>` Google Map markers) | MIT, keyless, on-device only | No |
 | **Dev / CI tooling** | `firebase-tools` (devDependency — the `firebase` CLI for `emulators:exec` rules testing and `deploy:rules`; runs headlessly on GitHub Actions runners) | Free, open-source (Apache-2.0), no card | No |
 
