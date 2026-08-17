@@ -25,10 +25,14 @@
       "expo-router",
       "expo-dev-client",
       "expo-font",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0F172A"
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#0F172A",
+          "resizeMode": "contain"
         }
       ],
       [
