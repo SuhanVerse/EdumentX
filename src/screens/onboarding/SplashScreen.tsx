@@ -2,11 +2,10 @@
  * EdumentX — Splash Screen (Phase 3, Reanimated 4).
  *
  * Layout (top to bottom):
- *   - 64×64 surface tile containing a placeholder "E" mark. This tile
- *     is the slot for the future custom EdumentX logo — once that
- *     artwork ships, swap the `<Text>E</Text>` for an `<Image>` /
- *     `<Svg>` of identical dimensions and the surrounding animation
- *     keeps working without changes.
+ *   - 64×64 surface tile containing the EdumentX logo mark
+ *     (`assets/logo-mark.png`, a transparent-background crop of the
+ *     full logo). The tile + amber border read as a stamp/seal; the
+ *     surrounding entrance animation is unchanged.
  *   - "EdumentX" wordmark — slides up + fades in.
  *   - "Find your perfect tutor nearby" tagline.
  *   - Progress bar at the bottom — sweeps 0 → 100% over 1.4 s using
@@ -20,8 +19,9 @@
  * entirely. All animations now run on the UI thread via Reanimated 4
  * worklets; JS-thread jank is gone.
  */
+import { Image } from "expo-image";
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -92,37 +92,34 @@ export function SplashScreen() {
   }));
 
   return (
-    <ScreenLayout variant="splash">
+    <ScreenLayout variant="background">
 
-      {/* Ambient particle field behind everything */}
+      {/* Ambient particle field — subtle dark specks on cream bg */}
       <SplashParticleField />
 
       {/* Center column */}
       <View className="flex-1 items-center justify-center">
         <Animated.View
           style={logoStyle}
-          className="w-16 h-16 items-center justify-center rounded-card mb-4 border-2 border-amber/40 bg-splash-tile"
-          // The tile + offset amber border use Design System tokens
-          // (splash-tile sits one step off the night base, amber/40
-          // is the soft accent edge) — this reads as a stamp/seal
-          // rather than a float surface chip.
-          // Future: swap the two-letter mark for the real vector logo.
+          className="w-16 h-16 items-center justify-center rounded-card mb-4 border-2 border-amber/40 bg-surface p-1"
         >
-          <Text className="text-[28px] leading-[34px] font-bold text-splash-text tracking-tight">
-            Ex
-          </Text>
+          <Image
+            source={require("../../../assets/logo-mark.png")}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="contain"
+          />
         </Animated.View>
 
         <Animated.Text
           style={wordmarkStyle}
-          className="text-splash-wordmark text-splash-text mb-2"
+          className="text-splash-wordmark text-ink mb-2"
         >
           EdumentX
         </Animated.Text>
 
         <Animated.Text
           style={taglineStyle}
-          className="text-splash-text text-tagline mb-12 opacity-80"
+          className="text-text-secondary text-tagline mb-12 opacity-80"
         >
           Your classroom, your neighbourhood
         </Animated.Text>
@@ -130,10 +127,10 @@ export function SplashScreen() {
 
       {/* Progress bar pinned to the bottom */}
       <View className="pb-6 items-center">
-        <View className="w-splash-bar h-1 overflow-hidden rounded-pill bg-splash-track">
+        <View className="w-splash-bar h-1 overflow-hidden rounded-pill bg-border">
           <Animated.View
             style={progressStyle}
-            className="h-full rounded-pill bg-splash-text"
+            className="h-full rounded-pill bg-accent"
           />
         </View>
       </View>

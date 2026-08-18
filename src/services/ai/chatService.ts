@@ -14,7 +14,7 @@
  *   - Error normalization
  */
 
-import { getAuth } from "@react-native-firebase/auth";
+import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import { getApp } from "@react-native-firebase/app";
 import { sendMockChatMessage } from "@/services/ai/mockChatService";
 
@@ -219,11 +219,12 @@ export async function sendChatMessage(
 
   let idToken: string;
   try {
-    // Explicit forceRefresh=false: call the METHOD (not the legacy
-    // property-style accessor) — RNFirebase's modular-deprecation shim
-    // warns if the namespace form is used. We don't force a refresh
-    // here; the cached token is fine for the Edge Function call.
-    idToken = await currentUser.getIdToken(false);
+    // Modular API form (rNFirebase v22+): the standalone function
+    // instead of the legacy User method, which trips the
+    // namespaced-API deprecation warning in the console. We don't
+    // force a refresh here; the cached token is fine for the Edge
+    // Function call.
+    idToken = await getIdToken(currentUser, false);
   } catch {
     throw new ChatServiceError(
       "Failed to authenticate. Please try signing in again.",

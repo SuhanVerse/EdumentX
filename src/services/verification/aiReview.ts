@@ -21,7 +21,7 @@
 
 import { doc, getFirestore, serverTimestamp, setDoc } from "@react-native-firebase/firestore";
 import { getApp } from "@react-native-firebase/app";
-import { getAuth } from "@react-native-firebase/auth";
+import { getAuth, getIdToken } from "@react-native-firebase/auth";
 
 const EDGE_FUNCTION = "verify-identity";
 
@@ -61,7 +61,9 @@ export async function runAiVerification(input: {
   profileName: string;
 }): Promise<AiReviewVerdict | null> {
   const auth = getAuth(getApp());
-  const idToken = await auth.currentUser?.getIdToken();
+  const idToken = auth.currentUser
+    ? await getIdToken(auth.currentUser)
+    : undefined;
   if (!idToken) return null;
   if (!input.docUrl && !input.photoUrl) return null;
 

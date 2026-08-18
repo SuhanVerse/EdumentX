@@ -22,7 +22,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { getApp } from "@react-native-firebase/app";
-import { getAuth } from "@react-native-firebase/auth";
+import { getAuth, getIdToken } from "@react-native-firebase/auth";
 
 import type {
   EsewaFormFields,
@@ -79,7 +79,9 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
 
   async createEsewaOrder(plan: ProPlanId): Promise<EsewaFormFields> {
     const auth = getAuth(getApp());
-    const idToken = await auth.currentUser?.getIdToken();
+    const idToken = auth.currentUser
+      ? await getIdToken(auth.currentUser)
+      : undefined;
     if (!idToken) {
       throw new Error("You must be signed in to upgrade to Pro.");
     }
@@ -102,7 +104,9 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
 
   async verifyEsewaCallback(data: string) {
     const auth = getAuth(getApp());
-    const idToken = await auth.currentUser?.getIdToken();
+    const idToken = auth.currentUser
+      ? await getIdToken(auth.currentUser)
+      : undefined;
     if (!idToken) throw new Error("You must be signed in.");
     const supabase = getSupabase();
     const { data: res, error } = await supabase.functions.invoke(

@@ -7,6 +7,7 @@
     "scheme": "edumentx",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.edumentx",
@@ -16,7 +17,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.edumentx",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FAF2E5"
+      }
     },
     "web": {
       "output": "static"
@@ -25,13 +30,12 @@
       "expo-router",
       "expo-dev-client",
       "expo-font",
-      "expo-notifications",
-      [
+      "expo-notifications",        [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
-          "backgroundColor": "#0F172A",
+          "imageWidth": 280,
+          "backgroundColor": "#FAF2E5",
           "resizeMode": "contain"
         }
       ],

@@ -1,7 +1,7 @@
 import "../../global.css";
 import { getApp } from "@react-native-firebase/app";
 import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged, signOut as fbSignOut } from "@react-native-firebase/auth";
 import {
   getFirestore,
   doc,
@@ -691,7 +691,7 @@ export default function RootLayout() {
             setHasAdminProfile(false);
             setTutorVerificationStatus(null);
             try {
-              await firebaseAuth.signOut();
+              await fbSignOut(firebaseAuth);
             } catch (signOutErr) {
               console.warn("RootLayout: signOut for blocked account failed", signOutErr);
             }
