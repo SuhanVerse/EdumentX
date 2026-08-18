@@ -65,6 +65,7 @@ function toCanonicalListing(t: FirestoreTutorListing): TutorListing {
     // predates the migration.
     tutoringMode: "both",
     languages: ["English", "Nepali"],
+    subscriptionTier: t.subscriptionTier ?? "free",
   };
 }
 

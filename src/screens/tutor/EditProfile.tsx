@@ -619,6 +619,11 @@ export function EditTutorProfile() {
               onPress={() => router.push("/batches")}
             />
             <MenuRow
+              icon="sparkles-outline"
+              label="Go Pro"
+              onPress={() => router.push("/pro-upgrade" as never)}
+            />
+            <MenuRow
               icon="help-circle-outline"
               label="Help & support"
               onPress={() => router.push("/help-support" as never)}

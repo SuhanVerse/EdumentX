@@ -327,12 +327,21 @@ export function MapSearch() {
   }, [geo, selectedTutorId]);
 
   // ── Nearby tutors (bottom list preview) ──
+  // Pro subscription priority (Phase 2): Pro tutors are promoted to
+  // the top of the list (stable — distance order is preserved WITHIN
+  // each tier), so subscribers get the visibility they paid for
+  // without silently destroying the distance ranking.
   const nearbyTutors = rankTutorsByDistance(
     geo,
     userLocation.latitude,
     userLocation.longitude,
     filters.distance,
-  ).slice(0, 5);
+  )
+    .sort((a, b) => {
+      if (a.subscriptionTier === b.subscriptionTier) return 0;
+      return a.subscriptionTier === "pro" ? -1 : 1;
+    })
+    .slice(0, 5);
 
   // ── Handlers ──
   const handleMarkerClick = useCallback(

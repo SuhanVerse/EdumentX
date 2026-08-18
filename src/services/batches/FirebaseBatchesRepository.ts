@@ -97,15 +97,27 @@ export const FirebaseBatchesRepository: BatchesRepository = {
     return enrollmentRepo.subscribeBatches(tutorUid, onData, onError);
   },
 
-  subscribePublicBatches(onData, onError) {
+  subscribePublicBatches(onData, onError, tutorUids) {
     const db = getFirestore(getApp());
+    // Zero-trust contextual filtering: when the caller scopes to the
+    // student's enrolled tutors, an EMPTY list means "no active
+    // enrollments" — emit [] without querying (Firestore rejects an
+    // empty `in` array client-side).
+    if (tutorUids && tutorUids.length === 0) {
+      onData([]);
+      return () => {};
+    }
     // collectionGroup("classes") — every tutor's batch subcollection.
     // Scoped to ACTIVE batches (ended batches drop off the marketplace;
     // the recursive rule allows signed-in reads of active classes).
-    const q = query(
-      collectionGroup(db, "classes"),
-      where("status", "==", "active"),
-    );
+    // When `tutorUids` is given, an `in` query scopes the marketplace
+    // to exactly those tutors (BrowseBatchesScreen passes the tutors
+    // the student is currently enrolled with).
+    const filters = [where("status", "==", "active")];
+    if (tutorUids && tutorUids.length > 0) {
+      filters.push(where("tutorUid", "in", tutorUids));
+    }
+    const q = query(collectionGroup(db, "classes"), ...filters);
     let cancelled = false;
     return onSnapshot(
       q,

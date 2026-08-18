@@ -63,6 +63,7 @@ function profileToListing(t: TutorProfile): TutorListing {
     gender: t.gender,
     tutoringMode: t.tutoringMode,
     languages: t.languages,
+    subscriptionTier: t.subscriptionTier ?? "free",
   };
 }
 

@@ -63,11 +63,15 @@ export const MockBatchesRepository: BatchesRepository = {
     );
   },
 
-  subscribePublicBatches(onData, onError) {
+  subscribePublicBatches(onData, onError, tutorUids) {
     return subscribeAllBatches((batches) => {
       // Marketplace list: active only + enrich with the tutor's
-      // display name from the mock tutor store.
-      const active = batches.filter((b) => b.status === "active");
+      // display name from the mock tutor store. When `tutorUids` is
+      // provided (student-scoped browse), keep only the batches
+      // belonging to those tutors — mirrors the Firebase `in` query.
+      const active = batches
+        .filter((b) => b.status === "active")
+        .filter((b) => !tutorUids || tutorUids.includes(b.tutorUid));
       onData(
         active.map((b: Batch) => ({
           ...b,

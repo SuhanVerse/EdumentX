@@ -29,6 +29,7 @@ import {
 } from "@/components/shared/ScreenLayout";
 import { colors } from "@/constants/colors";
 import { getBatchesRepository } from "@/services/batches/dataSource";
+import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import { sortBatchesForBrowse } from "@/services/enrollments/derived";
 import {
   DAY_LABELS,
@@ -36,6 +37,7 @@ import {
   parseSlotKey,
   TIME_SLOT_LABELS,
 } from "@/services/enrollments/types";
+import { useAuthStore } from "@/store/authStore";
 import type { Batch } from "@/services/batches/types";
 
 /** Format a `day:slot` key as a short schedule fragment. */
@@ -47,24 +49,60 @@ function formatSlotKey(key: string): string {
 
 export function BrowseBatchesScreen() {
   const router = useRouter();
+  const studentUid = useAuthStore((s) => s.user?.uid ?? null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState("");
 
+  // Zero-trust contextual filtering: a student only sees open
+  // batches from tutors they are CURRENTLY enrolled with. The
+  // enrollments subscription resolves the tutor set; the batches
+  // subscription then runs a Firestore `in` query scoped to those
+  // tutors — the marketplace never fetches unrelated tutors' batches.
   useEffect(() => {
-    const repo = getBatchesRepository();
-    const unsub = repo.subscribePublicBatches(
-      (list) => {
-        setBatches(list);
-        setLoaded(true);
+    if (!studentUid) {
+      setBatches([]);
+      setLoaded(true);
+      return;
+    }
+    const enrRepo = getEnrollmentRepository();
+    const batchRepo = getBatchesRepository();
+    let batchUnsub: (() => void) | null = null;
+    const enrUnsub = enrRepo.subscribeEnrollmentsByStudent(
+      studentUid,
+      (enrollments) => {
+        // Only ACTIVE enrollments count — removed/expired students
+        // lose access to that tutor's batches too.
+        const tutorUids = [
+          ...new Set(
+            enrollments
+              .filter((e) => e.status === "active")
+              .map((e) => e.tutorUid),
+          ),
+        ];
+        batchUnsub?.();
+        batchUnsub = batchRepo.subscribePublicBatches(
+          (list) => {
+            setBatches(list);
+            setLoaded(true);
+          },
+          (err) => {
+            console.warn("BrowseBatchesScreen: subscribePublicBatches failed", err);
+            setLoaded(true);
+          },
+          tutorUids,
+        );
       },
       (err) => {
-        console.warn("BrowseBatchesScreen: subscribePublicBatches failed", err);
+        console.warn("BrowseBatchesScreen: enrollments subscribe failed", err);
         setLoaded(true);
       },
     );
-    return unsub;
-  }, []);
+    return () => {
+      enrUnsub();
+      batchUnsub?.();
+    };
+  }, [studentUid]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -122,7 +160,7 @@ export function BrowseBatchesScreen() {
             <Text className="text-body text-text-secondary text-center mt-1.5">
               {query
                 ? "Try a different subject or tutor name."
-                : "Tutors publish group batches here once they create them."}
+                : "Batches from your enrolled tutors appear here. Enroll with a tutor to see their open group classes."}
             </Text>
           </View>
         ) : (

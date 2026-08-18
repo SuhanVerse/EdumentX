@@ -1,270 +1,230 @@
-<https://developer.esewa.com.np/pages/Android#transactionflow>
-
-    Introduction
-    Epay
-    Intent
-    Android
-        Transaction Flow
-        System Interaction
-        Integration
-        Error Cases and Handling
-        Transaction Verification
-        Credentials & URLs
-    iOS
-    Flutter
-    WooCommerce
-    Prestashop
-    Magento
-    Token
-    Test credentials
-    Contact
-
-Overview
-
-The eSewa Mobile SDK enables native Android to easily accept eSewa payments. The SDK supports only one use case for making payment – Single Payment (i.e., one payment per one user login).
-Transaction Flow
-
-    1. Client Mobile Application initiates eSewa Payment procedure by sending their client_id and client_secret along with product/service name, product/service price, product_id, and callback-url to the SDK.
-
-    2. SDK sends the merchant's credentials to eSewa.
-
-    3. eSewa verifies the merchant credentials and sends a merchant authentication token upon successful verification.
-
-    4. SDK sends customer credentials to eSewa.
-
-    5. eSewa sends customer identifier along with name and balance to SDK.
-
-    6. SDK sends payment request to eSewa if balance is sufficient for payment.
-
-    7. In case of successful payment eSewa sends proof of payment to sdk and to client application server.
-
-    8. SDK forwards proof of payment to client mobile application.
-
-    9. Final verification procedure is strongly recommended before product/service delivery.
-
-    10. Deliver Product/Service to customer.
-
-
-                            client_id and client_secret values are provided by eSewa to its merchant/client and is unique for each. For development phase, you can use the following credentials:
- client_id: JB0BBQ4aD0UqIThFJwAKBgAXEUkEGQUBBAwdOgABHD4DChwUAB0R
-client_secret: BhwIWQQADhIYSxILExMcAgFXFhcOBwAKBgAXEQ==
-
-                            Note : After login, if the device stays ideal for more than 5 minutes before confirming the payment, the particular session will be time out and customer have to re-initiate the payment process.
-
-                        
-System Interaction
-
-The interactions required to complete a transaction followed by transaction verification process are shown below:
-
-Integration
-
-Add SDK to your project
-
-Clients can download the sdk (.aar file ) from this drive link. The .aar file must be added to libs folder of your projects app module (Your Project -> app -> libs ). After that add the following code in your apps build.gradle:
-
-android{
-...
-
-repositories {
-               flatDir {dirs ‘libs’}
-             }
-}
-
-dependencies {
-    compile(name: ‘eSewaSdk’, ext: ‘aar’)
-    implementation "com.android.support:cardview-v7:27.1.1"
-    implementation "com.android.support:design:27.1.1"
-}
-
-                            Note : eSewa SDK uses compileSdkVersion 27. So, compileSdkVersion 27 or higher must be used in the project.
-
-                        
-Add permissions to your Android Manifest.xml file
-
-<uses-permission android:name=”android.permission.INTERNET” />
-<uses-permission android:name=”android.permission.ACCESS_NETWORK_STATE” />
-
-Create a ESewaConfiguration object
-
-Create a ESewaConfiguration object. Start with test environment. When application is ready, you can switch it to live (ENVIRONMENT_PRODUCTION)
-
-ESewaConfiguration eSewaConfiguration = new ESewaConfiguration()
-        .clientId("<Client ID>")
-        .secretKey("<Secret Key>")
-        .environment(ESewaConfiguration.ENVIRONMENT_TEST);
-
-Create the payment and launch the payment intent on some action done (for example when button is pressed)
-
-  Button buttonBuy = (Button) findViewById(R.id.button_buy);
-     buttonBuy.setOnClickListener(new View.OnClickListener() {
-
-     @Override
-     public void onClick(View view) {
-        ESewaPayment eSewaPayment = new ESewaPayment(“<Product Price>”,             
-        “<Product Name>”, “<productId>”,”<call_back_url>”);
-
-        Intent intent = new Intent(SampleActivity.this, ESewaPaymentActivity.class);
-        intent.putExtra(ESewaConfiguration.ESEWA_CONFIGURATION, eSewaConfiguration);
-
-        intent.putExtra(ESewaPayment.ESEWA_PAYMENT, eSewaPayment);
-        startActivityForResult(intent, REQUEST_CODE_PAYMENT);
-    }
-});
-
-Where,
-Parameter Name  Description
-client_id
-                                             Client Id of the client/merchant
-Secret Key
-                                             Secret key of the client/merchant
-Environment
-                                             Environment integrating for i.e. LIVE (live) or DEVELOPMENT (test)
-Product Price
-                                             Price of Product or Service
-Product Name
-                                             Name of Product or Service
-ProductId
-                                             Set a unique Id for your particular product or services
-Callback-url
-                                             API exposed at merchant/client`server where eSewa sends a copy of proof of payment after successful payment
-Override onActivityResult() method to listen the results from the SDK
-
-In this method, proof of payment in case of successful transaction and reason for failure in case of transaction failure ( In case of ( result == RESULT_CANCEL ) will be returned. No additional information will be sent on intent and in case of successful and unsuccessful payment proof of payment and reason of failure are sent respectively to string value Esewa-Payment.EXTRA_RESULT_MESSAGE).
-
-@Override
-  protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-     super.onActivityResult(requestCode, resultCode, data);
-     if (requestCode == REQUEST_CODE_PAYMENT) {
-         if (resultCode == Activity.RESULT_OK) {
-             if (data == null) return;
-             String message = data.getStringExtra(ESewaPayment.EXTRA_RESULT_MESSAGE);
-             Log.i(TAG, "Proof of Payment " + message);
-             Toast.makeText(this, "SUCCESSFUL PAYMENT", Toast.LENGTH_SHORT).show();
-         } else if (resultCode == Activity.RESULT_CANCELED) {
-             Toast.makeText(this, "Canceled By User", Toast.LENGTH_SHORT).show();
-         } else if (resultCode == ESewaPayment.RESULT_EXTRAS_INVALID) {
-             if (data == null) return;
-             String message = data.getStringExtra(ESewaPayment.EXTRA_RESULT_MESSAGE);
-             Log.i(TAG, "Proof of Payment " + message);
-         }
-     }
-  }
-
-Call Back Url
-
-Callback-url is an API exposed at merchant/client's server at which eSewa sends a copy of proof of payment after successful payment; the client/merchant must send a callback-url while initiating the payment through SDK. The sent callback-url is later used by eSewa server to send a copy of proof of payment after a payment is received. The callback-url is a POST method API and should be in this format
-Error Cases and Handling
-
-Here are the error cases which can occur in each of the step during implementation of eSewa SDK implementation.
-During Merchant Verification
-
-    1. Invalid Merchant Id or Secret Key 
-     SDK gets JSON response from server including errorMessage which contains message "Sorry your request failed. Contact your service provider." shown to customer and technicalErrorMessage which contains message "Invalid Merchant Credential" returned to merchant mobile application as along with result code EsewaPayment.RESULT_EXTRAS_INVALID. 
-
-    2. No Internet Connection. 
-     SDK shows dialog box with message  "Internet not available"  to end user and returns same message to mobile application as result.
-
-    3. Invalid Test Environment 
-     If environment of EsewaConfiguration is set to value other than ENVIRONMENT_TEST or ENVIRONMENT_PRODUCTION, SDK shows message "Sorry your request failed. Contact your service provider." to end user and message "Invalid Test Environment" which is returned to mobile application as result with result code EsewaPayment.RESULT_EXTRAS_INVALID.
-
-During Customer Login
-
-    1. No Internet Connection 
-     SDK shows dialog box with message "Internet not available" to end user. 
-
-    2. Invalid user name or password
-     SDK shows message Invalid username or password to customer and clears password field.
-
-    3. Canceled by customer 
-     If end user presses Back Button or Cancel button then user is returned to previous mobile application's activity and result code RESULT_CANCELED is returned to mobile application.
-
-During Payment Confirmation
-
-    1. No Internet Connection 
-     SDK shows dialog box with message "Internet not available" to customer. He can turn on Internet and proceed to confirming their payment.
-
-    2. Insufficient Balance 
-     SDK compares the customer's current balance with the total payment amount of the product or service. Payment request is sent if and only if the customer has sufficient balance else the following message will be shown “Your balance is less than required total amount” and will be bound to cancel the payment.
-
-    3. Canceled by user 
-     If customer presses Back Button or Cancel button then he is returned to previous merchant application's activity and result code RESULT_CANCELED is returned to mobile application.
-
-    4. Session Timeout 
-     If the device is kept untouched for 5 minutes then the particular session for payment expires and user has to re-process the payment again. Message "The session is expired. Please try again later" is shown to user and message “Session Time Out” which is returned to mobile application as result with result code EsewaPayment.RESULT_EXTRAS_INVALID.
-
-Transaction Verification
-VIA CALLBACK URL
-
-Esewa sends a proof of payment in the callback-URL(if provided)after successful payment in live environment.
-VIA TRANSACTION VERIFICATION API (Recommended Method)
-
-In case of mobile devices, We suggest to use the TXN verification API using below methods to verify ur transaction status and check for “status” key in “transactionDetails” object from the response body. “status” => “COMPLETE” means the transaction verification is successful.You can use any methods as per your convenience
- For live enviromment, please remove 'rc' from url
-Method 1: Using refID
-
-<https://rc.esewa.com.np/mobile/transaction?txnRefId={refId}>
-
-Method 2:Using productId and amount
-
-<https://rc.esewa.com.np/mobile/transaction?productId={productId}&amount={amount}>
-
-                            REQUEST TYPE : GET 
-merchantId : ***********************************************
-merchantSecret : ***********************************************
-Content-Type : application/json
-
-RESPONSE
-
-[
-    {
-        "productId": "1999",
-        "productName": "Android SDK Payment",
-        "totalAmount": "25.0",
-        "code": "00",
-        "message": {
-            "technicalSuccessMessage": "Your transaction has been completed.",
-            "successMessage": "Your transaction has been completed."
-        },
-        "transactionDetails": {
-            "date": "Mon Dec 26 12:58:14 NPT 2022",
-            "referenceId": "0004VZR",
-            "status": "COMPLETE"
-        },
-        "merchantName": "Android SDK Payment"
-    }
-]
-
-Credentials & URLs
-
-Each client will also receive a wallet on eSewa (Merchant wallet) from where they can find payments made for their products/services:
-
- Link For Production Mode: <https://merchant.esewa.com.np>
-
-To make payment with eSewa sdk. One must be a registered eSewa user. For testing phase, the client/merchant can use the following eSewa id and password:
-
- eSewa ID: 9711111111/9711111112/9711111113/9711111114
- Password: Nepal@123 MPIN: 1122 (for application only)
-Token:123456
- A GIT sample project with eSewa sdk integrated (java version) can be cloned from here
-ABOUT ESEWA
-
-eSewa is a mobile wallet for online and offline payments with a user base of 8 millions, a vast network of 4 hundred thousand agents, and a comprehensive array of services.
-It is a one-stop destination for all of your needs like mobile recharge, electricity bills payment,telephone bills payment, booking bus and airlines tickets, buying movie tickets, transferring money, and many more.
-COMPANY
-
-    About Us
-    Career
-    Partner Banks
-    Contact us
-    FAQ
-
-POLICIES
-
-    Privacy Policy
-    Terms & Conditions
-    Report Fraud & Misuse
-    Transaction Limits
-
-DOWNLOAD APP
-© 2009- 2026 eSewa.All Rights Reserved.
-keep in touch----
+# EdumentX — eSewa Integration (ePay v2 WebView flow)
+
+> **What this doc covers:** the eSewa payment integration EdumentX
+> actually ships — the **web-based ePay v2 form flow inside a React
+> Native WebView**, signed and verified by a Supabase Edge Function,
+> with a Postgres transaction ledger for replay protection.
+>
+> **What it replaces:** the previous version of this file was a raw
+> scrape of eSewa's **Android SDK** page (`ESewaConfiguration` /
+> `ESewaPayment` intents). That native-SDK path is **deprecated by
+> eSewa** — their docs point new builds at the web form flow, which is
+> what we use. The `.aar`-based SDK is not part of this project.
+>
+> The full architecture write-up (data model, trust model, Pro-tier
+> gates) lives in `Documentation/04-Advanced-Features.md` §3. This
+> file focuses on how to run, deploy, and debug it.
+
+---
+
+## 1. Architecture at a glance
+
+```
+Tutor taps "Upgrade" (ProUpgradeScreen — src/screens/tutor/ProUpgradeScreen.tsx)
+        │
+        ▼
+create-esewa-order  (Supabase Edge Function — supabase/functions/create-esewa-order/)
+  • Firebase JWT verified (Bearer token, _shared/firebase-auth.ts)
+  • price looked up SERVER-SIDE (_shared/esewa.ts PRODUCTS) — client
+    never sends an amount
+  • INSERTs a PENDING row in the `transactions` Postgres ledger
+    (migration 015) — the replay-protection anchor
+  • HMAC-SHA256 signs "total_amount,transaction_uuid,product_code"
+    and returns the eSewa form fields
+        │
+        ▼
+ProUpgradeScreen renders an AUTO-SUBMITTING HTML form in a WebView
+  (react-native-webview; real-mobile user agent to dodge CAPTCHA)
+        │
+        ▼
+eSewa sandbox → redirects to edumentx://payment-success?data=<base64>
+  (intercepted in onShouldStartLoadWithRequest — the deep link never
+  actually opens)
+        │
+        ▼
+Client calls create-esewa-order again with { verify: data } — the
+server runs FOUR checks before allowing the grant:
+  1. HMAC signature over the payload (raw-JSON-text rebuild, so
+     amounts like 1000.0 verify exactly)
+  2. `transactions` lookup by transaction_uuid → must exist AND
+     belong to the caller (a uuid reconciles exactly once)
+  3. amount + product_code cross-check vs the stored row
+  4. server-to-server GET /api/epay/transaction/status/ → COMPLETE
+     (the docs' anti-fraud step — the signed callback alone can be
+     replayed; the status API proves the transaction happened)
+  → marks the row COMPLETE with eSewa's ref id
+        │
+        ▼
+Client writes the Pro grant (FirebaseSubscriptionRepository.applyProGrant):
+  users/{uid}/tutorProfile/default + tutors/{uid} discovery mirror
+  (skipped when the verify response reports alreadyGranted — a
+  replayed callback never stacks the grant)
+```
+
+### Key files
+
+| File | Role |
+|---|---|
+| `src/screens/tutor/ProUpgradeScreen.tsx` + `src/app/pro-upgrade.tsx` | Plan picker + eSewa WebView + deep-link intercept |
+| `src/services/subscription/*` | `SubscriptionRepository` interface, Firebase/Mock impls, `dataSource` selector |
+| `supabase/functions/create-esewa-order/index.ts` | ORDER mode (sign + ledger insert) and VERIFY mode (4-check reconcile) |
+| `supabase/functions/_shared/esewa.ts` | HMAC signing, callback verification, GET status check, base64 normalization |
+| `supabase/functions/_shared/firebase-auth.ts` | Firebase ID-token verification for edge functions |
+| `supabase/migrations/015_create_transactions.sql` | `transactions` ledger (service-role-only RLS) |
+| `Documentation/04-Advanced-Features.md` §3 | Full trust model + Pro gates |
+
+---
+
+## 2. Why WebView, not the Android SDK
+
+eSewa's own developer docs mark their **native mobile SDKs as
+deprecated** and direct new integrations to the web-based flow. The
+ePay v2 form flow (POST to `/api/epay/main/v2/form`) works identically
+from any client that can host a web view:
+
+- **No `.aar` SDK, no `client_id`/`client_secret` intents, no
+  `ESewaConfiguration`.** The merchant credentials that matter are
+  `product_code` + `secret_key`, used to sign the form server-side.
+- The HMAC **secret key never touches the device** — signing and
+  verification run in the Supabase Edge Function, so the key can't be
+  extracted from the app binary.
+- The pattern matches the BasoBas reference project
+  (`Documentation/98-Reference-BasoBas/basobas-app/app/(tenant)/esewa-webview.tsx`),
+  which this port was adapted from.
+
+---
+
+## 3. Sandbox credentials & URLs
+
+> ⚠️ **SANDBOX ONLY.** Merchant code `EPAYTEST` + the public test
+> secret. This is a college demo without a registered business —
+> pointing at live merchant credentials requires an explicit,
+> separate decision.
+
+| Item | Sandbox value |
+|---|---|
+| Form (POST) URL | `https://rc-epay.esewa.com.np/api/epay/main/v2/form` |
+| Status (GET) URL | `https://uat.esewa.com.np/api/epay/transaction/status/` (see note below) |
+| Production form URL | `https://epay.esewa.com.np/api/epay/main/v2/form` |
+| Product code | `EPAYTEST` |
+| Secret key | `8gBm/:&EnhH.1/q(` (public UAT key from the docs) |
+| Test eSewa IDs | `9806800001` … `9806800005` (password `Nepal@123`) |
+| Test MPIN / token | `1122` / `123456` |
+
+> **Status-host note:** eSewa's docs have been inconsistent about the
+> sandbox status host (`rc.esewa.com.np`, `uat.esewa.com.np`, and
+> `rc-epay.esewa.com.np` all appear in different pages/generations).
+> The env var is the single place to fix it — confirm against the
+> live `developer.esewa.com.np/pages/Epay-V2 §Status Check` page for
+> the current sandbox host before first live test.
+
+**Signature format** (must match exactly — no spaces):
+
+```
+base_string = "total_amount=<total>,transaction_uuid=<uuid>,product_code=<code>"
+signature   = Base64(HMAC_SHA256(base_string, secret_key))
+```
+
+`signed_field_names` sent with the form is
+`total_amount,transaction_uuid,product_code` — the field order above
+is mandatory.
+
+**Form fields** (all required; unused charges must be `0`):
+`amount`, `tax_amount`, `total_amount`, `transaction_uuid`,
+`product_code`, `product_service_charge`, `product_delivery_charge`,
+`success_url`, `failure_url`, `signed_field_names`, `signature`.
+
+---
+
+## 4. Environment variables
+
+Supabase Edge Function secrets (`supabase secrets set ...`):
+
+| Var | Purpose |
+|---|---|
+| `ESEWA_FORM_URL` | `https://rc-epay.esewa.com.np/api/epay/main/v2/form` |
+| `ESEWA_STATUS_URL` | sandbox status endpoint (see note above) |
+| `ESEWA_PRODUCT_CODE` | `EPAYTEST` |
+| `ESEWA_SECRET_KEY` | the matching sandbox secret |
+| `SUCCESS_URL` | `edumentx://payment-success` |
+| `FAILURE_URL` | `edumentx://payment-failed` |
+| `FIREBASE_PRODUCT_ID` | Firebase project id (JWT verification) |
+| `EDUMENTX_SERVICE_KEY` | Supabase service role (ledger writes; already set for the chat function) |
+
+The app-side `.env` needs `EXPO_PUBLIC_SUPABASE_URL` +
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` (already present for storage/chat).
+
+---
+
+## 5. Deploy
+
+```bash
+# 1. Create the transactions ledger table
+supabase db push
+
+# 2. Deploy the edge function (order + verify modes)
+supabase functions deploy create-esewa-order
+
+# 3. Set/verify secrets (only if not already set)
+supabase secrets set ESEWA_FORM_URL=... ESEWA_STATUS_URL=... \
+  ESEWA_PRODUCT_CODE=EPAYTEST ESEWA_SECRET_KEY='8gBm/:&EnhH.1/q(' \
+  SUCCESS_URL=edumentx://payment-success \
+  FAILURE_URL=edumentx://payment-failed
+```
+
+Deploy order matters: the function's ledger reads/writes need migration
+`015` to exist first.
+
+---
+
+## 6. Testing in the sandbox
+
+1. **Start the app** and open the Pro Upgrade screen
+   (`/pro-upgrade` — "Go Pro" row in the tutor profile).
+2. Pick a plan and tap Upgrade. The WebView opens eSewa's test login.
+3. Log in with `9806800001` / `Nepal@123`, confirm with MPIN `1122`
+   and token `123456`.
+4. On success you land back on the app with the Pro banner live.
+
+**Things to verify in a live test** (these are the failure modes the
+ledger + status API guard against):
+
+- Payment succeeds once → Pro granted, `transactions` row = `COMPLETE`
+  with `esewa_ref_id`.
+- Replaying the same `edumentx://payment-success` URL → verify returns
+  `alreadyGranted: true` and **no second grant / no stacked expiry**.
+- Tampering with the `data` payload → `signature_mismatch` (no grant).
+- The status API is unreachable → `status_check_unavailable`; the
+  client shows a retry message, the row stays `PENDING` and can still
+  be reconciled.
+
+**Known sandbox quirks:**
+
+- The session times out after ~5 minutes of inactivity — re-initiate
+  the payment.
+- eSewa's published *example output signatures* in their docs don't
+  reproduce with the published UAT secret (their samples were
+  generated with a rotated key). The format above is what the docs
+  specify; trust a live sandbox payment as the real end-to-end check.
+- The WebView uses a real mobile user-agent to avoid eSewa's
+  CAPTCHA/bot detection — don't "fix" it back to a stock WebView UA.
+
+---
+
+## 7. Security model (summary)
+
+1. **Secret never on the client** — HMAC signing + verification both
+   run in the edge function.
+2. **Server-side price** — the client sends a plan id, never an
+   amount; a tampered client can't pay Rs 1 for a Rs 249 pass.
+3. **Replay protection** — every order inserts a PENDING
+   `transactions` row keyed by a unique `transaction_uuid`; verify
+   reconciles it exactly once, and only for the tutor who created it.
+4. **Anti-fraud status check** — grants happen only after eSewa's own
+   status API reports `COMPLETE` (never auto-success on
+   verification-API failure).
+5. **Idempotent client** — `alreadyGranted` responses skip the re-grant
+   (no stacking).
+
+Full rationale in `Documentation/04-Advanced-Features.md` §3 ("Trust
+model").

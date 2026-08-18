@@ -85,10 +85,17 @@ export interface BatchesRepository {
   ): Unsubscribe;
 
   /** Live list of all active batches across tutors (student
-   *  marketplace browse screen). */
+   *  marketplace browse screen). When `tutorUids` is provided the
+   *  query is scoped with a Firestore `in` filter — the student
+   *  only sees open batches from tutors they are CURRENTLY enrolled
+   *  with (zero-trust contextual filtering, Phase "location privacy
+   *  & contextual batches"). An empty array means "no enrolled
+   *  tutors" and emits `[]` without running a query (an empty `in`
+   *  is a client error in Firestore). */
   subscribePublicBatches(
     onData: PublicBatchCallback,
     onError?: (err: Error) => void,
+    tutorUids?: string[],
   ): Unsubscribe;
 
   /** Create a batch + seed its initial members in one transaction. */

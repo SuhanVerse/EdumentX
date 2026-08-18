@@ -682,6 +682,11 @@ function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
             >
               {tutor.fullName}
             </Text>
+            {tutor.subscriptionTier === "pro" && (
+              <View className="px-1.5 py-0.5 rounded-sm bg-amber">
+                <Text className="text-micro font-bold text-white">PRO</Text>
+              </View>
+            )}
             {tutor.isVerifiedProfessional && (
               <Ionicons name="shield-checkmark" size={16} color={colors.brand.verification} />
             )}

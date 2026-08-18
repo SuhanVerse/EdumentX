@@ -391,5 +391,207 @@ await seed(`/enrollmentRequests/${TUTOR}/requests/${REQ_ID}`, {
   check("student cannot flip a legacy roster row status", studentSweep.status, 403);
 }
 
+// ── 8. ZERO-TRUST LOCATION PRIVACY: the `locationAccess` marker
+//        under `users/{studentUid}/locationAccess/{tutorUid}` is what
+//        unlocks reading the student's precise location
+//        (`studentProfile/default.location`). It may ONLY be written
+//        by the tutor whose uid matches the path AND who has a real
+//        ACTIVE roster row for that student. Without the marker, the
+//        student profile read is denied.
+{
+  // Seed the student profile (precise location) via the admin
+  // channel — the student owns it, but seeding with `owner` is fine.
+  await seed(`/users/${STUDENT}/studentProfile/default`, {
+    fullName: "Student One",
+    location: "hidden",
+  });
+
+  // 8a. Enrolled tutor (roster row exists from step 2) writes the
+  //     marker → allowed.
+  const markerOk = await req(
+    "PATCH",
+    `/users/${STUDENT}/locationAccess/${TUTOR}`,
+    TUTOR,
+    payload({
+      studentUid: STUDENT,
+      tutorUid: TUTOR,
+      status: "active",
+      enrollmentId: ENR_ID,
+    }),
+  );
+  check("enrolled tutor writes locationAccess marker", markerOk.status, 200);
+  if (markerOk.status !== 200) console.log("   ", markerOk.body);
+
+  // 8b. With the marker present, the tutor may read the student's
+  //     profile (which carries the precise location).
+  const profileRead = await req(
+    "GET",
+    `/users/${STUDENT}/studentProfile/default`,
+    TUTOR,
+    null,
+  );
+  check("enrolled tutor can read student profile (location unlocked)", profileRead.status, 200);
+
+  // 8c. A NON-enrolled tutor cannot forge a marker for an arbitrary
+  //     student (no roster row references them) → denied.
+  const forged = await req(
+    "PATCH",
+    `/users/student-victim-1/locationAccess/tutor-attacker-1`,
+    "tutor-attacker-1",
+    payload({
+      studentUid: "student-victim-1",
+      tutorUid: "tutor-attacker-1",
+      status: "active",
+      enrollmentId: "enr-fake",
+    }),
+  );
+  check("non-enrolled tutor cannot forge locationAccess marker", forged.status, 403);
+
+  // 8d. A tutor with NO marker cannot read a stranger's profile.
+  const deniedRead = await req(
+    "GET",
+    `/users/student-victim-1/studentProfile/default`,
+    "tutor-attacker-1",
+    null,
+  );
+  check("tutor without marker cannot read student profile", deniedRead.status, 403);
+
+  // 8e. Marker with a mismatched studentUid (path says X, doc says Y)
+  //     → denied.
+  const mismatch = await req(
+    "PATCH",
+    `/users/${STUDENT}/locationAccess/${TUTOR}`,
+    TUTOR,
+    payload({
+      studentUid: "student-other",
+      tutorUid: TUTOR,
+      status: "active",
+      enrollmentId: ENR_ID,
+    }),
+  );
+  check("marker with mismatched studentUid denied", mismatch.status, 403);
+
+  // 8f. The owning student can always read their own profile.
+  const ownerRead = await req(
+    "GET",
+    `/users/${STUDENT}/studentProfile/default`,
+    STUDENT,
+    null,
+  );
+  check("student can read own profile", ownerRead.status, 200);
+
+  // 8g. Marker deletion: the tutor may remove their own marker
+  //     (removeEnrollment / sweep) — revoking location access.
+  const markerDelete = await req(
+    "DELETE",
+    `/users/${STUDENT}/locationAccess/${TUTOR}`,
+    TUTOR,
+    null,
+  );
+  check("tutor deletes own locationAccess marker (revoke)", markerDelete.status, 200);
+
+  // 8h. After deletion the profile read is locked again.
+  const lockedRead = await req(
+    "GET",
+    `/users/${STUDENT}/studentProfile/default`,
+    TUTOR,
+    null,
+  );
+  check("profile read locked after marker deletion", lockedRead.status, 403);
+}
+
+// ── 9. PRO SUBSCRIPTION GATES (Phase 2 Advanced Architecture) ──
+//      a) The discovery doc mirror allows the OWNER to update ONLY
+//         subscriptionTier / subscriptionExpiresAt (+updatedAt) —
+//         same carve-out shape as the availability flag.
+//      b) FREE tutors are capped at 5 active students in the roster
+//         create rule; Pro tutors keep the studentCapacity/6 cap.
+{
+  // Seed the discovery doc (admin-write, mirrors an approved tutor)
+  // so the owner's tier PATCH is an UPDATE, not a CREATE (creates
+  // are admin-only by design).
+  await seed(`/tutors/${TUTOR}`, {
+    uid: TUTOR,
+    fullName: "Tutor Accept One",
+    verificationStatus: "approved",
+    isAvailableForNewStudents: true,
+    subscriptionTier: "free",
+  });
+
+  // 9a. Owner mirrors tier onto their own discovery doc → allowed.
+  const tierWrite = await req(
+    "PATCH",
+    `/tutors/${TUTOR}?updateMask.fieldPaths=subscriptionTier&updateMask.fieldPaths=subscriptionExpiresAt&updateMask.fieldPaths=updatedAt`,
+    TUTOR,
+    payload({
+      subscriptionTier: "pro",
+      subscriptionExpiresAt: "2099-01-01T00:00:00Z",
+      updatedAt: "2026-08-17T00:00:00Z",
+    }),
+  );
+  check("owner mirrors subscriptionTier onto own discovery doc", tierWrite.status, 200);
+  if (tierWrite.status !== 200) console.log("   ", tierWrite.body);
+
+  // 9b. A stranger cannot touch another tutor's tier.
+  const strangerTier = await req(
+    "PATCH",
+    `/tutors/${TUTOR}?updateMask.fieldPaths=subscriptionTier`,
+    "student-accept-2",
+    payload({ subscriptionTier: "pro" }),
+  );
+  check("stranger cannot mirror subscriptionTier on someone else's doc", strangerTier.status, 403);
+
+  // 9c. FREE-tier tutor with 5 enrolled can NOT create a 6th roster row.
+  {
+    await seed(`/users/tutor-free-1/tutorProfile/default`, {
+      enrolledCount: 5,
+      currentStudents: 5,
+      studentCapacity: 6,
+      // tier ABSENT → free
+    });
+    const r = await req("POST", `/enrollments/tutor-free-1/roster`, "tutor-free-1", payload(
+      {
+        enrollmentId: "enr-free-6",
+        tutorUid: "tutor-free-1",
+        studentUid: "student-free-6",
+        studentName: "Student Six",
+        status: "active",
+        slotKey: "mon:5-7",
+        startDate: "2026-08-17",
+        endDate: "2026-12-17",
+        subjects: ["Math"],
+      },
+      ["subjects"],
+    ));
+    check("free tier at 5 students denies 6th roster row", r.status, 403);
+  }
+
+  // 9d. PRO-tier tutor at 5 can still add a 6th (cap raised, not removed).
+  {
+    await seed(`/users/tutor-pro-1/tutorProfile/default`, {
+      enrolledCount: 5,
+      currentStudents: 5,
+      studentCapacity: 6,
+      subscriptionTier: "pro",
+    });
+    const r = await req("POST", `/enrollments/tutor-pro-1/roster`, "tutor-pro-1", payload(
+      {
+        enrollmentId: "enr-pro-6",
+        tutorUid: "tutor-pro-1",
+        studentUid: "student-pro-6",
+        studentName: "Student Six",
+        status: "active",
+        slotKey: "mon:5-7",
+        startDate: "2026-08-17",
+        endDate: "2026-12-17",
+        subjects: ["Math"],
+      },
+      ["subjects"],
+    ));
+    check("pro tier at 5 students can add a 6th (cap raised)", r.status, 200);
+    if (r.status !== 200) console.log("   ", r.body);
+  }
+}
+
 console.log(`\n${pass} passed / ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

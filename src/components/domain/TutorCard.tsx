@@ -235,6 +235,14 @@ function WideCard({
               >
                 {tutor.fullName}
               </Text>
+              {tutor.subscriptionTier === "pro" ? (
+                // Pro subscription badge — deliberately an AMBER
+                // "PRO" pill, NOT a second green checkmark, so it can
+                // never be confused with the verification Blue Tick.
+                <View className="shrink-0 px-1.5 py-0.5 rounded-sm bg-amber">
+                  <Text className="text-micro font-bold text-white">PRO</Text>
+                </View>
+              ) : null}
               {tutor.isVerifiedProfessional ? (
                 // `shrink-0` keeps the verification badge anchored
                 // at the end of the row when the name truncates with

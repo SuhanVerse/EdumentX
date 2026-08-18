@@ -1,66 +1,80 @@
-# EdumentX — Zero-Budget Hybrid Architecture
+# EdumentX — No-Cost Architecture (Blaze Plan)
 
 > **Status**: Source of truth for the production stack.
-> **Last updated**: Aug 2026 — Phase 3.5 stabilization + enrollment
-> data-model notes. The 3D stack (`expo-gl`, `three`, `@react-three/fiber`,
+> **Last updated**: Aug 2026 — **Blaze transition.** The project now has
+> billing enabled (Google Cloud linked, card on file, prepaid balance)
+> and the policy moved from "no credit card" to **no-cost at demo
+> scale** — every service must run inside its free quota, a Google Cloud
+> budget alert + spend caps on Cloud Functions guard the project, and
+> eSewa stays sandbox-only. Serverless is split across Supabase Edge
+> Functions (chat RAG, eSewa order signing, verify-identity) and a
+> scaffolded Firebase Cloud Functions codebase (`functions/`). Earlier
+> notes: the 3D stack (`expo-gl`, `three`, `@react-three/fiber`,
 > `@react-three/drei`) was **removed** after a device crash in
-> `WebGLCapabilities.getMaxPrecision`; onboarding now uses flat
-> `react-native-svg` illustrations. Map pins, GPS auto-location and the
-> location picker shipped in the same pass. §2 documents the
-> enrollment collections + `slotKey` format; §9a documents the
-> `node:test` unit-test pattern. See §4a for the removal rationale.
+> `WebGLCapabilities.getMaxPrecision`; onboarding uses flat
+> `react-native-svg` illustrations. §2 documents the enrollment
+> collections + `slotKey` format; §9a documents the `node:test`
+> unit-test pattern. See §4a for the removal rationale.
 > **Read this first** if you are about to add a new backend dependency.
 
 This document is the canonical reference for every service the EdumentX
-app talks to. The single design rule is **zero-budget**:
+app talks to. The single design rule is **no-cost at demo scale**:
 
-> Every dependency must be usable on a free tier with **no credit card
-> required**. If a service starts gating its free tier behind a card or
-> billable plan, we replace it before shipping the next phase.
+> Every dependency must run inside its free usage quota for the
+> project's real traffic. Billing is enabled (Blaze, Aug 2026) but the
+> bill must stay $0: quota math for new services goes in this table, a
+> Google Cloud budget alert + spend caps guard the project, and
+> credentials stay sandbox-only (eSewa `EPAYTEST`, dev Google Maps key)
+> — live merchant keys require a separate, explicit decision.
 
-The architecture is a **hybrid**: we keep the parts of Firebase that work
-on the Spark plan (Auth + Firestore) and use other free services for the
-parts Firebase gates behind Blaze (Cloud Storage, Cloud Functions,
-Maps SDK). This avoids rewriting the auth + database layer that has
-been working since Phase 2.
+The architecture is a **hybrid**: Firebase owns identity + data (Auth,
+Firestore, and Cloud Functions on Blaze's no-cost quota), Supabase owns
+the AI/search/payments edge (pgvector RAG, eSewa order signing, image
+verification) plus object storage, and maps render natively via
+`expo-maps` (Google on Android, Apple on iOS) with no tile server of
+our own.
 
 ---
 
 ## TL;DR — The Stack at a Glance
 
-| Layer | Service | Free Tier | Card Required |
+| Layer | Service | Free Tier | No-Cost Quota |
 |-------|---------|-----------|---------------|
-| **Auth** | Firebase Authentication (Spark) | Unlimited MAU (Email + Google) | No |
-| **Database** | Cloud Firestore (Spark) | 1 GiB, 50K reads/day, 20K writes/day | No |
-| **Object Storage** | Supabase Storage | 1 GB across all buckets | No |
-| **Map Tiles** | OpenStreetMap (`tile.openstreetmap.org`) | Unlimited, keyless | No |
-| **Geocoding** | Nominatim (OpenStreetMap) | ~1 req/sec, no key | No |
-| **Location Math** | Client-side Haversine + KNN (in-app) | Free (just CPU) | No |
-| **RAG / Chatbot** | Groq Cloud API (Llama 3) **or** HuggingFace Serverless | Free dev tier | No |
-| **Push / In-app Notifications** | `expo-notifications` + Expo Push Service (inbox-mirror local notifications — no FCM server; tokens registered on `users/{uid}.pushTokens`, writes pass the owner rule) | Free, keyless, no card | No |
-| **Analytics (future)** | Firebase Analytics | Unlimited events | No |
-| **Animations** | Reanimated 4 worklets (press springs, splash particles, onboarding transitions) | MIT, on-device only | No |
-| **Illustrations** | `react-native-svg` (onboarding scenes) — the 3D stack (`expo-gl`/R3F/`three`) was **removed** in Phase 3.5 after a device crash (`WebGLCapabilities.getMaxPrecision`) | MIT, on-device only | No |
-| **UX / Haptics** | `expo-haptics` (Phase 2 UI overhaul: tactile 100ms press micro-interactions) | MIT, keyless, on-device only | No |
-| **Device capability** | `expo-device` (push layer gates token registration on `isDevice` — simulators/emulators are skipped) | MIT, keyless, on-device only | No |
-| **Map Markers** | `expo-image` + `react-native-view-shot` + bundled cluster PNGs (Aug 2026: teardrop pins with the tutor avatar are rasterized offscreen via `captureRef`, loaded through `Image.loadAsync` into `SharedRef<'image'>` Google Map markers) | MIT, keyless, on-device only | No |
-| **Dev / CI tooling** | `firebase-tools` (devDependency — the `firebase` CLI for `emulators:exec` rules testing and `deploy:rules`; runs headlessly on GitHub Actions runners) | Free, open-source (Apache-2.0), no card | No |
+| **Auth** | Firebase Authentication (Blaze — no-cost product) | Email + Google, unlimited MAU | ✓ free at any scale |
+| **Database** | Cloud Firestore (Blaze) | 1 GiB, 50K reads/day, 20K writes/day, 20K deletes/day | ✓ within daily quota |
+| **Object Storage** | Supabase Storage | 1 GB across all buckets (Firebase Storage 5 GB free is available, NOT migrated) | ✓ within quota |
+| **Map Tiles** | `expo-maps` native maps | Google Maps (Android, key from `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`), Apple Maps (iOS) — no OSM `UrlTile` | ✓ 10K Dynamic Maps calls/mo free |
+| **Geocoding** | Nominatim (OpenStreetMap) | ~1 req/sec, keyless (Google Geocoding optional: 10K calls/mo free, restricted key) | ✓ keyless |
+| **Location Math** | Client-side Haversine + KNN (in-app) | Free (just CPU) | ✓ |
+| **RAG / Chatbot** | Groq Cloud API (Llama 3) **or** HuggingFace Serverless | Free dev tier | ✓ within dev quota |
+| **Serverless** | Supabase Edge Functions (chat RAG, eSewa order signing, verify-identity) + **Firebase Cloud Functions** (`functions/`, Firestore-centric: scheduled sweeps, verification triggers, custom claims) | CF: 2M invocations/mo + 400K GB-sec free; deploys cost pennies (Artifact Registry) | ✓ within monthly quota, spend cap set |
+| **Push / In-app Notifications** | `expo-notifications` + Expo Push Service (inbox-mirror local notifications — no FCM server; tokens registered on `users/{uid}.pushTokens`, writes pass the owner rule) | Free, keyless, no card | ✓ keyless |
+| **Analytics (future)** | Firebase Analytics | Unlimited events | ✓ |
+| **Animations** | Reanimated 4 worklets (press springs, splash particles, onboarding transitions) | MIT, on-device only | ✓ on-device |
+| **Illustrations** | `react-native-svg` (onboarding scenes) — the 3D stack (`expo-gl`/R3F/`three`) was **removed** in Phase 3.5 after a device crash (`WebGLCapabilities.getMaxPrecision`) | MIT, on-device only | ✓ on-device |
+| **UX / Haptics** | `expo-haptics` (Phase 2 UI overhaul: tactile 100ms press micro-interactions) | MIT, keyless, on-device only | ✓ on-device |
+| **Device capability** | `expo-device` (push layer gates token registration on `isDevice` — simulators/emulators are skipped) | MIT, keyless, on-device only | ✓ on-device |
+| **Map Markers** | `expo-image` + `react-native-view-shot` + bundled cluster PNGs (Aug 2026: teardrop pins with the tutor avatar are rasterized offscreen via `captureRef`, loaded through `Image.loadAsync` into `SharedRef<'image'>` Google Map markers) | MIT, keyless, on-device only | ✓ on-device |
+| **Payments (Pro subscription)** | eSewa v2 sandbox via WebView (HMAC-SHA256 signed form — signing + verification run in the `create-esewa-order` Supabase Edge Function with the secret server-side; the client never holds a secret). `react-native-webview` renders the auto-submitting form; deep-link redirects are intercepted in `onShouldStartLoadWithRequest`. Verification is 4-check: HMAC → `transactions` ledger lookup/ownership (replay protection) → amount/product cross-check → server-to-server GET status API `COMPLETE`. **SANDBOX ONLY** (merchant code `EPAYTEST`) — live merchant credentials require a separate decision + registered business. | Free sandbox, no card | ✓ sandbox |
+| **Dev / CI tooling** | `firebase-tools` (devDependency — the `firebase` CLI for `emulators:exec` rules testing and `deploy:rules`; runs headlessly on GitHub Actions runners) | Free, open-source (Apache-2.0), no card | ✓ |
 
 If a future feature needs a service not on this list, **stop and add a
-row to this table before writing any code**. Do not introduce a paid
-dependency without explicit approval.
+row to this table (with quota math + spend-cap notes) before writing
+any code**. Do not introduce a paid service that can exceed its free
+quota at demo scale without explicit approval.
 
 ---
 
-## 1. Auth — Firebase Authentication (Spark)
+## 1. Auth — Firebase Authentication (Blaze — no-cost product)
 
 **Why**: We use `@react-native-firebase/auth` v24.x. Email + Password
 and Google Sign-In are wired up. The Clerk pivot (June 20) was reverted
 because Clerk discontinued its `integration_firebase` template for new
 accounts — see `Documentation/99-Archive/2026-06-21-clerk-revert/`.
 
-**Phone SMS OTP is intentionally NOT used.** Firebase Phone auth needs
-the Blaze plan to send SMS even on the free MAU quota.
+**Phone SMS OTP is intentionally NOT used.** Blaze unlocks it (10 free
+SMS/day), but the June 21 pivot removed the phone flow and the 10/day
+cap is too tight even for demos — re-add only with a real requirement.
 
 **Code map**:
 - `services/firebase/authService.ts` — modular RNFirebase API
@@ -75,11 +89,12 @@ the Blaze plan to send SMS even on the free MAU quota.
   its subcollections. Publish via `npm run deploy:rules`.
 
 **Hard rule**: do not introduce any other identity provider without
-checking that it works on Firebase Spark.
+checking that it stays inside Firebase Auth's no-cost quota (email +
+Google are free at any scale; phone is capped at 10 free SMS/day).
 
 ---
 
-## 2. Database — Cloud Firestore (Spark)
+## 2. Database — Cloud Firestore (Blaze)
 
 **Why**: Already shipped, already has rules, already deployed to
 `edumentx-dev`. The `users/{uid}` doc + `users/{uid}/{student,tutor}Profile/default`
@@ -209,18 +224,21 @@ This is a hard contract shared by every enrollment feature:
 - Any new writer (tests, seeds, scripts) MUST use the colon format or
   its data will never surface in the tutor dashboard.
 
-**Hard rule**: do not call Cloud Functions from the client. There is no
-Cloud Function runtime on Spark. All server-side logic (KNN, Haversine,
-prompt assembly) runs in-app.
+**Hard rule**: keep KNN / Haversine / prompt assembly in-app. Cloud
+Functions is available on Blaze's no-cost quota (2M invocations/mo) but
+only for Firestore-centric work that can't run client-side (scheduled
+sweeps, verification triggers, custom claims) — not per-request math
+that is free on-device.
 
 ---
 
 ## 3. Object Storage — Supabase Storage (free tier)
 
-**Why**: Firebase Cloud Storage requires Blaze (billing account + credit
-card) as of February 2026. Supabase gives us 1 GB of object storage
-with Row Level Security (RLS) policies, public avatars, and private
-verification docs — all without a card.
+**Why**: Supabase Storage (1 GB free) shipped first and Supabase stays
+for the pgvector RAG + edge functions, so object storage lives there.
+Firebase Cloud Storage is now available (Blaze, 5 GB free) but migrating
+the upload path, storage rules, and the verify-identity fetch buys no
+user-visible gain — revisit only if consolidating vendors.
 
 **Setup** (already complete on `edumentx-storage`):
 - Region: South Asia (Mumbai) — matches the Firebase database region.
@@ -277,7 +295,7 @@ of the bucket.
   Failed removals are surfaced with a pointer to
   `npm run delete:user -- <uid>` — the dev-laptop script
   (`scripts/deleteUser.ts`) that deletes the Firebase Auth identity
-  (`auth.deleteUser` — the *only* way on the Spark plan) and removes
+  (`auth.deleteUser` — the only way from a dev script) and removes
   the objects with the service-role key, which bypasses RLS.
 - Avatar objects are always `public-avatars/{uid}.jpg` (canonical path
   from `uploadAvatar`), verification docs `{uid}/{kind}.{ext}` — the
@@ -354,9 +372,12 @@ consideration — no `UrlTile` is used anywhere today.
 - `lib/location/nepalGeo.ts` — legacy-tutor centroid fallback ladder.
 - `scripts/generate-markers.mjs` + `assets/markers/*.png` — PNG pins.
 
-**Hard rule**: never add the Google Places API, Geocoding API, or a
-billing-keyed map SDK. Geocoding stays on Nominatim (§5); the Google
-API key stays dev-only.
+**Hard rule (Aug 2026 update)**: Google Maps Platform SKUs (Places
+Autocomplete, Geocoding) are now permitted **within their 10K free
+calls/month per-SKU quota**, with a restricted API key (Android package
++ SHA-1, iOS bundle ID) and debounced autocomplete + session tokens.
+Nominatim (§5) remains the default geocoder; map tiles stay native via
+`expo-maps` — no SDK switch, no OSM tile server.
 
 ---
 
@@ -437,10 +458,10 @@ biggest source of device-class crash risk in the project.
 ## 6. Location Math — Client-Side Haversine + KNN
 
 **Why**: The original proposal calls for bounding-box pre-filtering,
-Haversine distance, and weighted KNN ranking. There is no Cloud
-Functions runtime on Spark, so we run the math in-app. The dataset is
-small (a few hundred tutors), so the O(n) loop is fine on mid-range
-Android devices.
+Haversine distance, and weighted KNN ranking. The math is free
+on-device, so it runs in-app instead of burning Cloud Function
+invocations. The dataset is small (a few hundred tutors), so the O(n)
+loop is fine on mid-range Android devices.
 
 **Code map** (Phase 5.4):
 - `lib/location/haversine.ts` — `haversineMeters(a, b)`.
@@ -485,19 +506,24 @@ the client. They all require paid keys. Free providers only.
 
 ## 8. Anti-Patterns (what NOT to introduce)
 
-- ❌ **Firebase Cloud Storage** — gates everything behind Blaze.
-- ❌ **Firebase Cloud Functions** — same. Plus the free quota on Blaze
-  is "perpetual free", but the plan itself requires a card.
-- ❌ **Firebase Cloud Messaging on Blaze** — actually free on Spark,
-  OK to use.
-- ❌ **Google Maps SDK / Places API** — both require Cloud Billing.
-- ❌ **OpenAI / Anthropic / Cohere** — paid only.
-- ❌ **Mapbox** — paid above the hobby free tier; OSM is sufficient.
-- ❌ **Algolia / Elasticsearch** — paid for our usage; use Firestore
+- ✅ **Firebase Cloud Functions** — in use on Blaze's no-cost quota
+  (2M invocations/mo); `functions/` scaffolded for Firestore-centric
+  work (scheduled sweeps, verification triggers, custom claims).
+- ⚠️ **Firebase Cloud Storage** — available (Blaze, 5 GB free) but NOT
+  used; Supabase Storage covers object storage (§3).
+- ⚠️ **Google Maps SDK / Places / Geocoding API** — optional within the
+  10K free calls/mo per-SKU quota; Android already renders Google Maps
+  via `expo-maps` (key required: `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`).
+- ❌ **OpenAI / Anthropic / Cohere** — paid keys only, never.
+- ❌ **Mapbox** — paid above the hobby tier; native maps suffice.
+- ❌ **Algolia / Elasticsearch** — paid for our usage; Firestore
   client-side filters instead.
+- ❌ **Live eSewa / Khalti merchant credentials** — sandbox only
+  (`EPAYTEST`); a live key requires a separate, explicit decision.
 
-If a future feature needs one of these, **replace the feature** before
-adding the dependency.
+If a future feature needs a paid service, **add an ARCHITECTURE.md §0
+row with quota math + spend-cap notes first** — never introduce it
+silently.
 
 ---
 
@@ -639,9 +665,10 @@ database:
 
 1. **Working code**: the auth + Firestore flow is shipped and tested.
    Rewriting it would set the project back 2–3 weeks.
-2. **Spark plan is genuinely free**: Auth + Firestore never required a
-   card. The Blaze gate only hits Storage + Functions + Maps, which
-   we are bypassing anyway.
+2. **Firebase stays inside its no-cost quota**: Auth + Firestore were
+   always free; with Blaze (Aug 2026) Cloud Functions joined them on a
+   no-cost quota. A Supabase rewrite would not lower the bill — it
+   would just move the work.
 3. **Two-project complexity**: a Supabase rewrite would introduce a
    second set of credentials, second client SDK, second security-rule
    language (Postgres RLS vs Firestore rules), and a migration path
@@ -649,16 +676,19 @@ database:
 4. **Supabase Auth is fine but not better** than Firebase Auth for our
    shape (email + Google). No clear win on switching.
 
-The hybrid keeps what works and only swaps the parts that hit the
-Blaze gate.
+The hybrid keeps what works: Firebase owns identity + data, Supabase
+owns the AI/payments edge + storage, and the two serverless runtimes
+are split by where the data lives (Firestore → Firebase Functions,
+Postgres → Supabase Edge Functions).
 
 ---
 
 ## 12. References
 
-- Firebase Spark pricing: https://firebase.google.com/pricing
+- Firebase pricing (Blaze no-cost tiers): https://firebase.google.com/pricing
+- Google Maps Platform free quota (10K calls/mo per SKU): https://mapsplatform.google.com/pricing/
+- Google Cloud budget alerts + spend caps: https://cloud.google.com/billing/docs/how-to/budgets
 - Supabase pricing: https://supabase.com/pricing
-- OpenStreetMap tile usage policy: https://operations.osmfoundation.org/policies/tiles/
 - Nominatim usage policy: https://operations.osmfoundation.org/policies/nominatim/
 - Groq free tier: https://console.groq.com (Llama 3 inference)
 - HuggingFace Serverless Inference: https://huggingface.co/docs/api-inference

@@ -41,6 +41,7 @@ import { motion } from "@/lib/motion";
 import { registration } from "@/lib/registration";
 import { validateDegree, validateEmail, validateFullName, validateInstitution, validatePhone, validateUsername } from "@/lib/validation";
 import type { TutorDocument } from "@/lib/verification/documents";
+import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
 
 const SUBJECTS = [
@@ -423,6 +424,39 @@ export function TutorProfileScreen() {
         { merge: true },
       );
       await batch.commit();
+      // Automated AI image verification (Phase 3, Advanced
+      // Architecture): fire the `verify-identity` edge function at
+      // the citizenship/ID image + profile photo. Best-effort and
+      // NON-blocking — the verdict lands on the profile doc as an
+      // `aiReview` chip the admin queue surfaces as an AI pre-screen.
+      // If the service is unreachable, the tutor simply stays in the
+      // normal manual-review queue (the pipeline is an accelerator,
+      // never a hard gate). STRICTLY NO VIDEO — the demo clip is
+      // excluded by design.
+      void (async () => {
+        try {
+          const citizenship = Array.from(documents.values()).find(
+            (d) => d.kind === "citizenship",
+          );
+          if (citizenship || avatarUri) {
+            const { runAiVerification, persistAiReview } = await import(
+              "@/services/verification/aiReview"
+            );
+            const verdict = await runAiVerification({
+              docUrl: citizenship
+                ? getVerificationDocPublicUrl(citizenship.path)
+                : null,
+              photoUrl: avatarUri,
+              profileName: fullName.trim(),
+            });
+            if (verdict) {
+              await persistAiReview(user.uid, verdict);
+            }
+          }
+        } catch (err) {
+          console.warn("TutorProfileScreen: AI pre-screen failed", err);
+        }
+      })();
       // Mirror the role + verification status into the local store
       // so the layout guard in `app/_layout.tsx` keeps the tutor
       // on `/tutor-pending` (NOT `/tutor-home`) until the admin
