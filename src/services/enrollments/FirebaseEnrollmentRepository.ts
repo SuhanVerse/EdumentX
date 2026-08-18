@@ -50,6 +50,8 @@ import {
 import {
   BatchFullError,
   CapacityExceededError,
+  FREE_TIER_MAX_BATCHES,
+  FREE_TIER_MAX_STUDENTS,
   MAX_BATCH_MEMBERS,
   MAX_CAPACITY,
   RequestAlreadyDecidedError,
@@ -290,6 +292,16 @@ async function sweepExpiredEnrollments(
       removedAt: serverTimestamp(),
       removeReason: "Enrollment period ended",
     });
+    // Revoke location access for the same reason as removeEnrollment.
+    batch.delete(
+      doc(
+        db,
+        "users",
+        e.studentUid,
+        "locationAccess",
+        tutorUid,
+      ),
+    );
     decrement++;
   }
   const profileRef = doc(db, "users", tutorUid, "tutorProfile", "default");
@@ -371,7 +383,7 @@ function applyTutorDisplay(list: Enrollment[]): Enrollment[] {
  */
 const studentDisplayCache = new Map<
   string,
-  { name: string; avatar: string | null }
+  { name: string; avatar: string | null; locationLabel: string | null }
 >();
 
 /** Structural superset of the roster + request rows that carry the
@@ -380,6 +392,11 @@ type StudentDisplayRow = {
   studentUid: string;
   studentName: string;
   studentAvatar: string | null;
+  /** Resolved from the student's profile (rules-gated: only an
+   *  actively-enrolled tutor may read it). Undefined on rows whose
+   *  profile hasn't been resolved yet — the roster card renders
+   *  "Location hidden until enrolled" until then. */
+  studentLocationLabel?: string | null;
 };
 
 function applyStudentDisplay<T extends StudentDisplayRow>(list: T[]): T[] {
@@ -393,11 +410,21 @@ function applyStudentDisplay<T extends StudentDisplayRow>(list: T[]): T[] {
       // student renamed their profile later) stays authoritative.
       studentName: e.studentName || info.name,
       studentAvatar: e.studentAvatar || info.avatar,
+      studentLocationLabel:
+        e.studentLocationLabel ?? info.locationLabel ?? null,
     };
   });
 }
 
-/** Read + cache student display identity from the public profile doc. */
+/** Read + cache student display identity from the public profile doc.
+ *
+ *  Zero-trust location privacy: the `studentProfile/default` read is
+ *  rules-gated to the owner, an admin, OR a tutor whose uid has an
+ *  ACTIVE `locationAccess` marker under the student's doc (written by
+ *  `acceptRequest`, deleted on removal/expiry). So this read succeeds
+ *  (and resolves the precise `location` label) ONLY for enrolled
+ *  students — pending-request rows fail the read and stay masked.
+ */
 async function backfillStudentDisplay(
   db: ReturnType<typeof getFirestore>,
   studentUids: string[],
@@ -409,7 +436,11 @@ async function backfillStudentDisplay(
           doc(db, "users", studentUid, "studentProfile", "default"),
         );
         const d = snap.data() as
-          | { fullName?: unknown; photoUrl?: unknown }
+          | {
+              fullName?: unknown;
+              photoUrl?: unknown;
+              location?: { neighborhood?: unknown; city?: unknown };
+            }
           | undefined;
         studentDisplayCache.set(studentUid, {
           name:
@@ -420,14 +451,37 @@ async function backfillStudentDisplay(
             typeof d?.photoUrl === "string" && d.photoUrl.length > 0
               ? d.photoUrl
               : null,
+          locationLabel: resolveLocationLabel(d?.location),
         });
       } catch {
-        // Unreadable profile (deleted account, rules) — cache the
-        // empty identity so we don't re-read on every snapshot.
-        studentDisplayCache.set(studentUid, { name: "", avatar: null });
+        // Unreadable profile (deleted account, or NOT enrolled → the
+        // rules deny the read) — cache the empty identity so we
+        // don't re-read on every snapshot. Pending-request rows land
+        // here and render "Location hidden until enrolled".
+        studentDisplayCache.set(studentUid, {
+          name: "",
+          avatar: null,
+          locationLabel: null,
+        });
       }
     }),
   );
+}
+
+/** `{ neighborhood, city }` → "Neighborhood, City" (or city only). */
+function resolveLocationLabel(loc: {
+  neighborhood?: unknown;
+  city?: unknown;
+} | undefined): string | null {
+  if (!loc || typeof loc !== "object") return null;
+  const hood =
+    typeof loc.neighborhood === "string" && loc.neighborhood.length > 0
+      ? loc.neighborhood
+      : "";
+  const city =
+    typeof loc.city === "string" && loc.city.length > 0 ? loc.city : "";
+  if (!hood && !city) return null;
+  return hood && city ? `${hood}, ${city}` : hood || city;
 }
 
 /** Student uids whose identity isn't cached yet (rows with a blank
@@ -1029,10 +1083,19 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
             enrolledCount?: number;
             currentStudents?: number;
             studentCapacity?: number;
+            subscriptionTier?: string;
           }
         | undefined;
       const enrolledCount = num(profileData?.enrolledCount);
-      const cap = Math.max(num(profileData?.studentCapacity), MAX_CAPACITY);
+      // Pro subscription gate (Phase 2): FREE tutors are capped at
+      // `FREE_TIER_MAX_STUDENTS` (5); Pro tutors keep the existing
+      // `studentCapacity`/`MAX_CAPACITY` limits (raised, not
+      // removed). The same tier check lives in the roster create
+      // rule so the gate can't be bypassed client-side.
+      const isPro = profileData?.subscriptionTier === "pro";
+      const cap = isPro
+        ? Math.max(num(profileData?.studentCapacity), MAX_CAPACITY)
+        : FREE_TIER_MAX_STUDENTS;
       if (enrolledCount >= cap) {
         throw new CapacityExceededError();
       }
@@ -1069,6 +1132,29 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         batchId: input.batchId ?? null,
       });
       tx.set(enrollmentRef, enrollmentDoc);
+      // Location-access marker: proves to the security rules that
+      // THIS tutor has an ACTIVE enrollment with the student, which
+      // unlocks reading the student's precise location
+      // (`users/{studentUid}/studentProfile/default.location`). The
+      // marker rule re-verifies the roster row written above in the
+      // same transaction, so a forged marker for an arbitrary
+      // student is impossible. Deleted on removeEnrollment / sweep.
+      tx.set(
+        doc(
+          db,
+          "users",
+          input.student.uid,
+          "locationAccess",
+          input.tutorUid,
+        ),
+        {
+          studentUid: input.student.uid,
+          tutorUid: input.tutorUid,
+          status: "active",
+          enrollmentId: enrollmentRef.id,
+          acceptedAt: serverTimestamp(),
+        },
+      );
       tx.update(profileRef, {
         enrolledCount: enrolledCount + 1,
         currentStudents: enrolledCount + 1,
@@ -1246,6 +1332,21 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         removedAt: serverTimestamp(),
         removeReason: reason,
       });
+      // Revoke location access — the enrollment is no longer active,
+      // so the tutor loses the right to read the student's precise
+      // location. Best-effort: if the marker is already gone (legacy
+      // row), deleteDoc is a no-op.
+      if (studentUid) {
+        tx.delete(
+          doc(
+            db,
+            "users",
+            studentUid,
+            "locationAccess",
+            tutorUid,
+          ),
+        );
+      }
       tx.update(profileRef, {
         enrolledCount: Math.max(0, enrolledCount - 1),
         currentStudents: Math.max(0, num(profileData?.currentStudents) - 1),
@@ -1365,6 +1466,32 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     // Subcollection is `classes` for batches.
     const batchRef = doc(collection(db, "batches", input.tutorUid, "classes"));
     const batchId = batchRef.id;
+
+    // Pro subscription gate (Phase 2): FREE tutors may run at most
+    // `FREE_TIER_MAX_BATCHES` (1) active batch; Pro tutors are
+    // unlimited. This is a client-side pre-check (Firestore rules
+    // can't count subcollection docs transactionally) — the same
+    // fast-fail pattern as the capacity pre-check in acceptRequest.
+    {
+      const tierSnap = await getDoc(
+        doc(db, "users", input.tutorUid, "tutorProfile", "default"),
+      );
+      const tier = (tierSnap.data() as { subscriptionTier?: string } | undefined)
+        ?.subscriptionTier;
+      if (tier !== "pro") {
+        const activeSnap = await getDocs(
+          query(
+            collection(db, "batches", input.tutorUid, "classes"),
+            where("status", "==", "active"),
+          ),
+        );
+        if (activeSnap.size >= FREE_TIER_MAX_BATCHES) {
+          throw new Error(
+            `Free tutors can run ${FREE_TIER_MAX_BATCHES} active batch at a time. Upgrade to Pro for unlimited batches.`,
+          );
+        }
+      }
+    }
 
     await runTransaction(db, async (tx) => {
       const profileRef = doc(

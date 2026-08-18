@@ -290,6 +290,8 @@ export default function RootLayout() {
         // capacity card and `tutor_edit_profile`'s "Capacity &
         // schedule" row.
         "tutor-capacity",
+        // Pro Tutor upgrade — eSewa sandbox subscription flow.
+        "pro-upgrade",
         // Tutor high-risk edit screen. Reachable from
         // `tutor_edit_profile`'s "Subjects, rate & location" row.
         // The screen itself routes the user to /tutor-pending
@@ -945,6 +947,7 @@ export default function RootLayout() {
           <Stack.Screen name="tutor-inbox" />
           <Stack.Screen name="tutor_edit_profile" />
           <Stack.Screen name="tutor-capacity" />
+          <Stack.Screen name="pro-upgrade" />
           <Stack.Screen name="tutor_edit_teaching_details" />
           {/* Tutor under-review screen. Reached via the layout guard
               when `tutorVerificationStatus === "pending"`. */}

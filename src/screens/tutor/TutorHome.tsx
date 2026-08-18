@@ -815,6 +815,25 @@ export function TutorDashboard() {
                       <Text className="text-caption text-text-muted mt-0.5">
                         {e.studentGrade} · {formatRosterSlot(e.slotKey)}
                       </Text>
+                      <View className="flex-row items-center gap-1 mt-1">
+                        <Ionicons
+                          name={
+                            e.studentLocationLabel
+                              ? "location-outline"
+                              : "eye-off-outline"
+                          }
+                          size={12}
+                          color={
+                            e.studentLocationLabel
+                              ? colors.text.muted
+                              : colors.text.muted
+                          }
+                        />
+                        <Text className="text-micro text-text-muted">
+                          {e.studentLocationLabel ??
+                            "Location hidden until enrolled"}
+                        </Text>
+                      </View>
                       <View className="flex-row gap-1 mt-1.5 flex-wrap items-center">
                         {e.subjects.slice(0, 3).map((s) => (
                           <SubjectChip key={s} label={s} />

@@ -117,6 +117,13 @@ type Verification = {
   /** True if the admin has already decided (approved / rejected) on
    *  this tutor's initial verification — derived from `status`. */
   decided: boolean;
+  /** Automated AI image verification verdict (Phase 3 Advanced
+   *  Architecture) — written to `users/{uid}/tutorProfile/default.aiReview`
+   *  by the tutor's client after the `verify-identity` edge function
+   *  runs. Surfaced as an "AI pre-screen" chip so a high-confidence
+   *  pass can be fast-tracked. Null when the pipeline didn't run or
+   *  the service was unreachable (normal manual review). */
+  aiReview: { decision: string; confidence: number; reasons: string[] } | null;
 };
 
 /**
@@ -336,8 +343,6 @@ async function enrichMissingAvatars(
   const dicebearPattern = "api.dicebear.com";
   const enriched = await Promise.all(
     rows.map(async (row) => {
-      // Skip entries that already have a real avatar URL (not DiceBear).
-      if (!row.avatar.includes(dicebearPattern)) return row;
       try {
         const profileRef = doc(
           db,
@@ -348,26 +353,61 @@ async function enrichMissingAvatars(
         );
         const profileSnap = await getDoc(profileRef);
         const profileData = profileSnap.data() as
-          | { photoUrl?: string | null }
+          | { photoUrl?: string | null; aiReview?: unknown }
           | undefined;
-        const fallbackPhoto =
-          typeof profileData?.photoUrl === "string" &&
-          profileData.photoUrl.length > 0
-            ? profileData.photoUrl
-            : null;
-        if (fallbackPhoto) {
-          // Persist back to the verification doc so subsequent
-          // snapshot cycles don't need this extra read.
-          const verificationRef = doc(db, "tutorVerifications", row.id);
-          setDoc(verificationRef, { photoUrl: fallbackPhoto }, { merge: true }).catch(
-            () => {
-              /* non-fatal — next snapshot will re-enrich */
+
+        let next: Verification = row;
+
+        // 1. Attach the AI pre-screen verdict (Phase 3) when present.
+        //    Read from the profile doc — the tutor's client writes it
+        //    there after the verify-identity edge function runs.
+        const ai = profileData?.aiReview as
+          | {
+              decision?: unknown;
+              confidence?: unknown;
+              reasons?: unknown;
+            }
+          | undefined;
+        if (
+          ai &&
+          typeof ai === "object" &&
+          (ai.decision === "approved" || ai.decision === "manual_review")
+        ) {
+          next = {
+            ...next,
+            aiReview: {
+              decision: ai.decision,
+              confidence:
+                typeof ai.confidence === "number" ? ai.confidence : 0,
+              reasons: Array.isArray(ai.reasons)
+                ? (ai.reasons as string[])
+                : [],
             },
-          );
-          return { ...row, avatar: fallbackPhoto };
+          };
         }
+
+        // 2. Backfill DiceBear avatars from the profile photo.
+        if (next.avatar.includes(dicebearPattern)) {
+          const fallbackPhoto =
+            typeof profileData?.photoUrl === "string" &&
+            profileData.photoUrl.length > 0
+              ? profileData.photoUrl
+              : null;
+          if (fallbackPhoto) {
+            // Persist back to the verification doc so subsequent
+            // snapshot cycles don't need this extra read.
+            const verificationRef = doc(db, "tutorVerifications", row.id);
+            setDoc(verificationRef, { photoUrl: fallbackPhoto }, { merge: true }).catch(
+              () => {
+                /* non-fatal — next snapshot will re-enrich */
+              },
+            );
+            next = { ...next, avatar: fallbackPhoto };
+          }
+        }
+        return next;
       } catch {
-        // Fallback read failed — leave the DiceBear URL in place.
+        // Fallback read failed — leave the row as-is.
       }
       return row;
     }),
@@ -559,6 +599,10 @@ export function VerificationQueue() {
           status,
           adminNotes: data.adminNotes ?? null,
           decided: status === "approved" || status === "rejected",
+          // `aiReview` is read from the PROFILE doc (not the
+          // verification doc) — the owner-write path is the tutor's
+          // profile; the queue's async enrichment below attaches it.
+          aiReview: null,
         };
       });
 
@@ -1345,6 +1389,31 @@ function VerificationCard({
             ) : null}
           </View>
           <Text className="text-caption text-text-muted mt-1">Submitted {item.submitted}</Text>
+
+          {/* Automated AI image verification pre-screen (Phase 3
+              Advanced Architecture). The verify-identity edge
+              function OCR'd the citizenship card + checked the
+              profile photo; a high-confidence PASS is a fast-track
+              signal for the human reviewer, NOT an auto-approval. */}
+          {item.aiReview ? (
+            <View className="mt-2 self-start">
+              {item.aiReview.decision === "approved" ? (
+                <View className="flex-row items-center gap-1.5 bg-verification-light px-2.5 py-1 rounded-md">
+                  <Ionicons name="sparkles" size={12} className="text-verification" />
+                  <Text className="text-micro font-medium text-verification">
+                    AI pre-screen: PASS
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center gap-1.5 bg-accent-light px-2.5 py-1 rounded-md">
+                  <Ionicons name="eye-outline" size={12} className="text-amber" />
+                  <Text className="text-micro font-medium text-amber">
+                    AI pre-screen: needs review
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : null}
         </View>
         <View className="flex-shrink-0">
           <StatusBadge status={status} />

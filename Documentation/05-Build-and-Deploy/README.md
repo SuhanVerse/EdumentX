@@ -10,7 +10,7 @@ and payment-planning notes.
 | `install-guide.md` | Installing the app on iOS and Android (incl. borrowed-Mac setup) |
 | `borrowed-mac-checklist.md` | One-page checklist for building on a friend's Mac |
 | `firebase-auth-plan.md` / `firebase-auth-plan-audit.md` | Auth migration plan + audit |
-| `esewa_integration.md` | eSewa payment integration notes |
+| `esewa_integration.md` | eSewa ePay v2 WebView flow — credentials, deploy, sandbox testing, security model |
 
 ## What goes here
 

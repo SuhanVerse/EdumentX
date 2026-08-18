@@ -75,6 +75,42 @@ service cloud.firestore {
       // full profile (including documents for the demo video).
       // The more-specific rule below overrides the wildcard for
       // this specific subcollection path.
+      // Precise student location (the `location` field, incl.
+      // `location.coordinates`) is PII — readable only by the
+      // student, an admin, or a TUTOR WITH AN ACTIVE ENROLLMENT
+      // (proven by the `locationAccess` marker under this same user
+      // doc). Non-enrolled tutors get permission-denied, and the
+      // tutor-facing UI renders "Location hidden until enrolled" for
+      // that read. The marker is written in the SAME transaction as
+      // the roster row by `acceptRequest` and deleted on
+      // `removeEnrollment` / `sweepExpiredEnrollments`, so "can read
+      // the location" ⟺ "actively enrolled right now".
+      match /studentProfile/default {
+        allow read: if isOwner(userId) || isAdmin()
+          || exists(/databases/$(database)/documents/users/$(userId)/locationAccess/$(request.auth.uid));
+      }
+
+      // Per-(student, tutor) marker proving an ACTIVE enrollment
+      // exists, so the student's precise location can be shared with
+      // exactly that tutor. The tutor writes their own marker inside
+      // the `acceptRequest` transaction; the rule re-verifies the
+      // referenced roster row is real, points at this student, and is
+      // active — a forged marker for an arbitrary student is
+      // rejected because no such roster row exists.
+      match /locationAccess/{tutorUid} {
+        allow read: if isOwner(userId) || isAdmin()
+          || request.auth.uid == tutorUid;
+        allow create, update: if request.auth.uid == tutorUid
+          && request.resource.data.studentUid == userId
+          && request.resource.data.status == "active"
+          && request.resource.data.enrollmentId is string
+          && existsAfter(/databases/$(database)/documents/enrollments/$(tutorUid)/roster/$(request.resource.data.enrollmentId))
+          && getAfter(/databases/$(database)/documents/enrollments/$(tutorUid)/roster/$(request.resource.data.enrollmentId)).data.studentUid == userId
+          && getAfter(/databases/$(database)/documents/enrollments/$(tutorUid)/roster/$(request.resource.data.enrollmentId)).data.status == "active";
+        allow delete: if isOwner(userId) || isAdmin()
+          || request.auth.uid == tutorUid;
+      }
+
       match /tutorProfile/default {
         allow read: if isSignedIn();
         allow create, delete: if isOwner(userId) || isAdmin();
@@ -130,9 +166,24 @@ service cloud.firestore {
       // `diff(...).affectedKeys().hasOnly([...])` rejects any write
       // that touches any other field — the admin approval mirror is
       // the only other writer.
+      //
+      // Pro subscription mirror: the owner may also update their own
+      // `subscriptionTier` / `subscriptionExpiresAt` after a VERIFIED
+      // eSewa sandbox payment (the tier is granted by
+      // `applyProGrant`, which writes BOTH the profile doc and this
+      // mirror atomically — the secret-keyed HMAC verification ran
+      // server-side in the edge function BEFORE the client is allowed
+      // to write anything). Narrower than the availability flag, and
+      // still only owner-scoped: a tutor can never touch another
+      // tutor's doc.
       allow update: if isOwner(uid) && request.resource.data
         .diff(resource.data).affectedKeys()
-        .hasOnly(['isAvailableForNewStudents', 'updatedAt']);
+        .hasOnly([
+          'isAvailableForNewStudents',
+          'subscriptionTier',
+          'subscriptionExpiresAt',
+          'updatedAt'
+        ]);
       // Admin can purge the discovery copy when the user is deleted.
       allow delete: if isAdmin();
     }
@@ -394,25 +445,41 @@ service cloud.firestore {
             : 0
         )
           < (
-            (
-              'studentCapacity' in get(
+            // Pro subscription gate (Phase 2): FREE tutors are capped
+            // at 5 active students (FREE_TIER_MAX_STUDENTS); Pro
+            // tutors keep the existing `studentCapacity`/6 cap
+            // (raised, not removed — the quality-protection intent of
+            // the cap stays intact). Mirrors the client-side tier
+            // check in `acceptRequest`, so the gate can't be bypassed
+            // by a hand-rolled roster write.
+            ('subscriptionTier' in get(
+              /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+            ).data
+              && get(
                 /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-              ).data
-                ? get(
-                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-                ).data.studentCapacity
-                : 0
-            ) >= 6
+              ).data.subscriptionTier == "pro")
               ? (
-                'studentCapacity' in get(
-                  /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-                ).data
-                  ? get(
+                (
+                  'studentCapacity' in get(
                     /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
-                  ).data.studentCapacity
-                  : 0
+                  ).data
+                    ? get(
+                      /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                    ).data.studentCapacity
+                    : 0
+                ) >= 6
+                  ? (
+                    'studentCapacity' in get(
+                      /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                    ).data
+                      ? get(
+                        /databases/$(database)/documents/users/$(request.auth.uid)/tutorProfile/default
+                      ).data.studentCapacity
+                      : 0
+                  )
+                  : 6
               )
-              : 6
+              : 5
           );
       // Update: the tutor can flip status / removedAt / removeReason
       // (the three fields touched by `removeEnrollment`) and stamp

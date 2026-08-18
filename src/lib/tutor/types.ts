@@ -116,6 +116,12 @@ export interface TutorProfile {
   verificationStatus: "pending" | "approved" | "rejected" | "more_info";
   isVerifiedProfessional: boolean;
 
+  // ── Subscription ──
+  /** Pro Tutor tier (Phase 2 Advanced Architecture). Mirrored from
+   *  the profile doc onto `tutors/{uid}` after a verified eSewa
+   *  sandbox payment. Absent on legacy docs → free. */
+  subscriptionTier: "free" | "pro";
+
   // ── Stats ──
   rating: number;
   reviewCount: number;
@@ -184,6 +190,7 @@ export function createDefaultTutorProfile(overrides?: Partial<TutorProfile>): Tu
     coverUrl: null,
     verificationStatus: "pending",
     isVerifiedProfessional: false,
+    subscriptionTier: "free",
     rating: 0,
     reviewCount: 0,
     responseRate: 0,

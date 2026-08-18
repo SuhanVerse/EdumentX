@@ -71,6 +71,11 @@ export type TutorListing = {
   reviewCount: number;
   yearsExperience: number;
   gender: "male" | "female" | "other" | null;
+  /** Pro subscription tier (Phase 2 Advanced Architecture) — mirrored
+   *  onto the discovery doc after a verified eSewa sandbox payment so
+   *  search/map can rank + badge without a profile read. Absent on
+   *  legacy docs → free. */
+  subscriptionTier: "free" | "pro";
 };
 
 // ─── List subscription ───────────────────────────────────────────────────────
@@ -96,6 +101,7 @@ const DEFAULT_TUTOR_LISTING: TutorListing = {
   reviewCount: 0,
   yearsExperience: 0,
   gender: null,
+  subscriptionTier: "free",
 };
 
 /**
@@ -180,6 +186,7 @@ export function subscribeTutors(
             data.gender === "male" || data.gender === "female" || data.gender === "other"
               ? (data.gender as "male" | "female" | "other")
               : null,
+          subscriptionTier: data.subscriptionTier === "pro" ? "pro" : "free",
         };
       });
       onData(tutors);
@@ -420,6 +427,7 @@ function profileDocToTutorProfile(
     verificationStatus:
       (data.verificationStatus as TutorProfile["verificationStatus"]) ?? "pending",
     isVerifiedProfessional: data.isVerifiedProfessional === true,
+    subscriptionTier: data.subscriptionTier === "pro" ? "pro" : "free",
     degree: (data.degree as string) ?? "",
     institution: (data.institution as string) ?? "",
     // Gender — populated at onboarding (TutorProfileScreen). Fall back to
@@ -493,6 +501,7 @@ function tutorsDocToTutorProfile(
     verificationStatus:
       (data.verificationStatus as TutorProfile["verificationStatus"]) ?? "pending",
     isVerifiedProfessional: data.isVerifiedProfessional === true,
+    subscriptionTier: data.subscriptionTier === "pro" ? "pro" : "free",
     // Gender — admin-approval path writes it to tutors/{uid} (Batch 5 fix).
     gender:
       data.gender === "male" || data.gender === "female" || data.gender === "other"

@@ -60,6 +60,9 @@ export interface TutorListing {
   gender: "male" | "female" | "other" | null;
   tutoringMode: "home" | "online" | "both";
   languages: string[];
+  /** Pro subscription tier (Phase 2 Advanced Architecture). Free
+   *  tutors rank below Pro in discovery and don't get the badge. */
+  subscriptionTier: "free" | "pro";
 }
 
 /**

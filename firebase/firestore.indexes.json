@@ -23,6 +23,14 @@
         { "fieldPath": "studentUid", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "classes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "tutorUid", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

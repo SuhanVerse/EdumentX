@@ -25,6 +25,18 @@
 export const MAX_CAPACITY = 6;
 
 /**
+ * FREE-tier cap on simultaneous active students (Pro subscription
+ * gate, Phase 2 Advanced Architecture). Free tutors are limited to 5
+ * active students and 1 active batch; Pro tutors keep the existing
+ * `MAX_CAPACITY`/`studentCapacity` limits (raised, not removed — the
+ * quality-protection intent of the cap stays intact).
+ */
+export const FREE_TIER_MAX_STUDENTS = 5;
+
+/** FREE-tier cap on simultaneous active batches. */
+export const FREE_TIER_MAX_BATCHES = 1;
+
+/**
  * Maximum students in one group batch. The single source of truth
  * for the seat cap: batch creation (wizard min/max), the accept
  * transaction's `BatchFullError` guard, the student marketplace
@@ -227,6 +239,14 @@ export type Enrollment = {
    *  tutor's own roster subscription (not needed there). */
   tutorName?: string;
   tutorAvatar?: string | null;
+  /** TUTOR-facing location label, resolved from the student's
+   *  `studentProfile/default.location` doc. The read is rules-gated
+   *  to tutors with an ACTIVE `locationAccess` marker (written by
+   *  acceptRequest, deleted on removal/expiry), so this is only
+   *  populated for enrolled students — non-enrolled rows stay
+   *  `null` and the roster card renders "Location hidden until
+   *  enrolled". */
+  studentLocationLabel?: string | null;
   /** The batch this enrollment belongs to — set on session-code
    *  joins when the tutor accepts. Written onto the enrollment doc
    *  by `acceptRequest` (batchId), then enriched with the batch's
