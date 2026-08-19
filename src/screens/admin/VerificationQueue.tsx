@@ -1393,8 +1393,9 @@ function VerificationCard({
           {/* Automated AI image verification pre-screen (Phase 3
               Advanced Architecture). The verify-identity edge
               function OCR'd the citizenship card + checked the
-              profile photo; a high-confidence PASS is a fast-track
-              signal for the human reviewer, NOT an auto-approval. */}
+              profile photo; a high-confidence PASS shows a
+              "Quick Approve" button below so the admin can
+              approve in one tap while still making the final call. */}
           {item.aiReview ? (
             <View className="mt-2 self-start">
               {item.aiReview.decision === "approved" ? (
@@ -1464,6 +1465,31 @@ function VerificationCard({
           <Text className="text-micro text-danger uppercase tracking-wider mb-1">Admin note</Text>
           <Text className="text-body-sm text-text-secondary">{item.adminNotes}</Text>
         </View>
+      ) : null}
+
+      {/* Quick Approve — AI pre-screened fast-track.
+          When the verify-identity Edge Function returns a
+          high-confidence "approved" verdict (OCR name match +
+          face detected), the admin can tap this single button
+          to approve instantly — no confirmation dialog. The
+          human still makes the final call by tapping the button.
+          This cuts the review time from 3 taps to 1 for
+          clearly-legitimate submissions. */}
+      {status === "pending" &&
+      item.aiReview?.decision === "approved" &&
+      item.aiReview?.confidence >= 0.9 ? (
+        <Pressable
+          onPress={onApprove}
+          disabled={busy}
+          className="flex-row items-center justify-center gap-2 h-12 bg-success rounded-card mb-3 active:opacity-80 disabled:opacity-50"
+          accessibilityRole="button"
+          accessibilityLabel="Quick approve AI-pre-screened tutor"
+        >
+          <Ionicons name="sparkles" size={16} className="text-white" />
+          <Text className="text-button font-semibold text-text-inverse">
+            Quick Approve — AI Pre-screened
+          </Text>
+        </Pressable>
       ) : null}
 
       {/* Actions */}

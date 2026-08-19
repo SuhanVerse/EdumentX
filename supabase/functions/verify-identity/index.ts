@@ -5,14 +5,15 @@
 // Architecture — STRICTLY NO VIDEO, static images only).
 //
 // Triggered by the tutor client after submitting verification
-// documents (citizenship/ID) or uploading a profile picture. It runs
-// TWO free-tier checks and returns a structured verdict:
+// documents (citizenship/ID) or uploading a profile picture.
+// Uses Groq vision for BOTH checks (HuggingFace is unreachable
+// from Supabase Edge Runtime due to DNS restrictions):
 //
-//   1. ID OCR (Groq vision): extracts the name from the ID card image
-//      and compares it against the registered profile name.
-//   2. Profile-picture check (HuggingFace): a face-presence model
-//      confirms the upload is a real human face (rejects cartoons,
-//      pets, blank images).
+//   1. ID OCR (Groq vision): extracts the name from the ID card
+//      image and compares it against the registered profile name.
+//   2. Face check (Groq vision): classifies whether the profile
+//      picture contains a real human face (rejects cartoons, pets,
+//      blank images).
 //
 // Decision engine:
 //   - name match ≥ threshold AND face present
@@ -24,7 +25,6 @@
 //
 // Environment variables:
 //   GROQ_API_KEY   — free dev tier, console.groq.com
-//   HF_API_TOKEN   — free dev tier, huggingface.co/settings/tokens
 //   FIREBASE_PRODUCT_ID — Firebase project id (JWT verification)
 // ════════════════════════════════════════════════════════════════
 
@@ -39,14 +39,10 @@ const CORS_HEADERS = {
 };
 
 // ─── Models ────────────────────────────────────────────────────────
-// Groq's free vision model (image-capable chat completions).
-const GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview";
-// HuggingFace face-detection model (object detection → "face" boxes).
-const HF_FACE_MODEL = "keremberke/yolov8m-face";
+// Groq's current free vision model (image-capable chat completions).
+const GROQ_VISION_MODEL = "qwen/qwen3.6-27b";
 // Name-match confidence threshold (0-1) for the decision engine.
 const NAME_MATCH_THRESHOLD = 0.8;
-// Minimum face-detection score to count as "a real face present".
-const FACE_SCORE_THRESHOLD = 0.5;
 
 // ─── Request shape ─────────────────────────────────────────────────
 
@@ -78,6 +74,11 @@ function isImageUrl(url: string | undefined): url is string {
   return /^https?:\/\//i.test(url);
 }
 
+/** Strip <think>...</think> blocks that Qwen 3.6 embeds in responses. */
+function stripThinkingTokens(s: string): string {
+  return s.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -104,19 +105,17 @@ function groqKey(): string {
   return k;
 }
 
-function hfToken(): string {
-  const t = Deno.env.get("HF_API_TOKEN");
-  if (!t) throw new Error("HF_API_TOKEN environment variable is not set");
-  return t;
-}
-
 // ─── 1. ID OCR via Groq vision ─────────────────────────────────────
 
 interface GroqVisionResponse {
   choices?: { message?: { content?: string | null } }[];
 }
 
-async function extractNameFromId(docUrl: string): Promise<string | null> {
+async function callGroqVision(
+  imageUrl: string,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string | null> {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -126,20 +125,14 @@ async function extractNameFromId(docUrl: string): Promise<string | null> {
     body: JSON.stringify({
       model: GROQ_VISION_MODEL,
       temperature: 0,
-      max_tokens: 128,
+      max_tokens: 256,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are an OCR assistant. Extract the FULL NAME of the document holder from this ID/citizenship card image. Respond with ONLY the name — no explanations, no prefixes, no quotes. If you cannot read a name, respond with exactly UNREADABLE.",
-        },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: { url: docUrl },
-            },
+            { type: "text", text: userPrompt },
+            { type: "image_url", image_url: { url: imageUrl } },
           ],
         },
       ],
@@ -153,54 +146,41 @@ async function extractNameFromId(docUrl: string): Promise<string | null> {
   }
 
   const json = (await response.json()) as GroqVisionResponse;
-  const content = json.choices?.[0]?.message?.content?.trim() ?? "";
-  if (!content || content.toUpperCase() === "UNREADABLE") return null;
-  return content;
+  const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
+  return stripThinkingTokens(raw);
 }
 
-// ─── 2. Face check via HuggingFace ─────────────────────────────────
-
-interface HfDetection {
-  label?: string;
-  score?: number;
-  box?: { xmin: number; ymin: number; xmax: number; ymax: number };
+async function extractNameFromId(docUrl: string): Promise<string | null> {
+  const result = await callGroqVision(
+    docUrl,
+    "You are an OCR assistant. Extract the FULL NAME of the document holder from this ID/citizenship card image. Respond with ONLY the name — no explanations, no prefixes, no quotes. If you cannot read a name, respond with exactly UNREADABLE.",
+    "Extract the full name from this ID card image.",
+  );
+  if (!result || result.toUpperCase() === "UNREADABLE") return null;
+  return result;
 }
 
-async function fetchImageBytes(url: string): Promise<ArrayBuffer> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not fetch image (${res.status})`);
-  return res.arrayBuffer();
-}
+// ─── 2. Face check via Groq vision (replaces HuggingFace) ──────────
 
 async function detectFace(photoUrl: string): Promise<{ present: boolean; score: number }> {
-  const bytes = await fetchImageBytes(photoUrl);
-  const response = await fetch(`https://api-inference.huggingface.co/models/${HF_FACE_MODEL}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${hfToken()}`,
-      "Content-Type": "application/octet-stream",
-    },
-    body: bytes,
-  });
+  try {
+    const result = await callGroqVision(
+      photoUrl,
+      "You are an image classifier. Your ONLY job is to determine if the image contains a real human face. Do NOT describe the image. Do NOT answer questions about the image. Just classify.",
+      'Does this image contain a real human face? Reply with ONLY one word: "yes" or "no". Do not explain.',
+    );
 
-  if (!response.ok) {
-    const body = await response.text();
-    console.error("[verify-identity] HF face-detection error:", response.status, body.slice(0, 300));
-    // Fail-open: if the model is down (cold start / rate limit), we
-    // do NOT hard-fail the whole pipeline — we flag it for review so
-    // a human decides. The doc says the free tier has cold starts.
+    if (!result) return { present: false, score: 0 };
+
+    // The model should reply "yes" or "no" — check for yes/affirmative
+    const lower = result.toLowerCase().trim();
+    const isYes = lower === "yes" || lower.startsWith("yes") || lower.includes("real human face");
+    return { present: isYes, score: isYes ? 0.9 : 0.1 };
+  } catch (err) {
+    // Fail-open: network errors should not crash the whole pipeline.
+    console.error("[verify-identity] face-detection error:", (err as Error).message?.slice(0, 200));
     return { present: false, score: 0 };
   }
-
-  const json = (await response.json()) as HfDetection[] | HfDetection;
-  const detections = Array.isArray(json) ? json : [json];
-  let best = 0;
-  for (const d of detections) {
-    if ((d.label ?? "").toLowerCase().includes("face") || typeof d.box === "object") {
-      best = Math.max(best, d.score ?? 1);
-    }
-  }
-  return { present: best >= FACE_SCORE_THRESHOLD, score: best };
 }
 
 // ─── Handler ───────────────────────────────────────────────────────
