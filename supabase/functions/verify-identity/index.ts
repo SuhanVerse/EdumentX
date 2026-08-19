@@ -16,20 +16,23 @@
 //      blank images).
 //
 // Decision engine:
-//   - name match ≥ threshold AND face present
-//       → { decision: "approved", confidence } — the admin queue
-//         surfaces this as a fast-track "AI pre-screen: PASS" entry
-//         (a human still taps approve — the security rules make
-//         status flips admin-only by design).
+//   - name match ≥ threshold AND face present AND confidence ≥ 0.9
+//       → AUTO-APPROVE: writes directly to Firestore via Admin SDK
+//         (tutorVerifications, tutorProfile, tutors discovery doc).
+//         Returns { ...verdict, autoApproved: true }.
 //   - otherwise → { decision: "manual_review", confidence, reasons }
+//         Admin reviews manually in the Verification Queue.
 //
 // Environment variables:
-//   GROQ_API_KEY   — free dev tier, console.groq.com
-//   FIREBASE_PRODUCT_ID — Firebase project id (JWT verification)
+//   GROQ_API_KEY              — free dev tier, console.groq.com
+//   FIREBASE_PRODUCT_ID       — Firebase project id (JWT verification)
+//   FIREBASE_SERVICE_ACCOUNT  — JSON service account key (auto-approve)
 // ════════════════════════════════════════════════════════════════
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { AuthError, verifyFirebaseJwt } from "../_shared/firebase-auth.ts";
+import { initializeApp, cert, type App } from "npm:firebase-admin/app";
+import { getFirestore } from "npm:firebase-admin/firestore";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +46,28 @@ const CORS_HEADERS = {
 const GROQ_VISION_MODEL = "qwen/qwen3.6-27b";
 // Name-match confidence threshold (0-1) for the decision engine.
 const NAME_MATCH_THRESHOLD = 0.8;
+// Confidence threshold for auto-approval (skips admin queue).
+const AUTO_APPROVE_THRESHOLD = 0.9;
+
+// ─── Firebase Admin SDK ───────────────────────────────────────────
+// Initialized lazily on first invocation that needs Firestore writes.
+
+let firebaseApp: App | null = null;
+
+function getFirebaseAdmin(): App {
+  if (firebaseApp) return firebaseApp;
+  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+  if (!raw) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT not set — cannot auto-approve",
+    );
+  }
+  const serviceAccount = JSON.parse(raw);
+  firebaseApp = initializeApp({
+    credential: cert(serviceAccount),
+  });
+  return firebaseApp;
+}
 
 // ─── Request shape ─────────────────────────────────────────────────
 
@@ -62,6 +87,9 @@ interface VerifyIdentityVerdict {
   faceDetected: { present: boolean; score: number };
   reasons: string[];
   checkedAt: string;
+  /** True when the Edge Function auto-approved the tutor by writing
+   *  directly to Firestore via the Admin SDK (bypasses admin queue). */
+  autoApproved?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────
@@ -183,6 +211,95 @@ async function detectFace(photoUrl: string): Promise<{ present: boolean; score: 
   }
 }
 
+// ─── 3. Auto-approve via Firebase Admin SDK ────────────────────────
+// When the AI confidence is high enough (≥ 0.9), write the approval
+// directly to Firestore — bypassing the admin queue entirely. This
+// uses the Admin SDK which has unrestricted write access.
+
+async function autoApprove(
+  uid: string,
+  profileName: string,
+  verdict: VerifyIdentityVerdict,
+): Promise<boolean> {
+  try {
+    const app = getFirebaseAdmin();
+    const db = getFirestore(app);
+    const now = new Date();
+
+    // Use a batch for atomicity — all three writes succeed or none do.
+    const batch = db.batch();
+
+    // 1. tutorVerifications/{uid} → status: "approved"
+    const verificationRef = db.collection("tutorVerifications").doc(uid);
+    batch.set(verificationRef, {
+      status: "approved",
+      adminNotes: "Auto-approved by AI verification pipeline (confidence ≥ 0.9)",
+      reviewedBy: "ai-automation",
+      reviewedAt: now,
+      updatedAt: now,
+    }, { merge: true });
+
+    // 2. users/{uid}/tutorProfile/default → verificationStatus + flags
+    const profileRef = db.collection("users").doc(uid)
+      .collection("tutorProfile").doc("default");
+    batch.set(profileRef, {
+      verificationStatus: "approved",
+      isVerifiedProfessional: true,
+      hasPendingUpdate: false,
+      rejectionReason: null,
+      aiReview: {
+        decision: verdict.decision,
+        confidence: verdict.confidence,
+        reasons: verdict.reasons,
+        checkedAt: verdict.checkedAt,
+      },
+      updatedAt: now,
+    }, { merge: true });
+
+    // 3. tutors/{uid} → student-facing discovery doc
+    //    Read the profile first to mirror display fields.
+    const profileSnap = await profileRef.get();
+    const profileData = profileSnap.data ?? {};
+
+    const tutorRef = db.collection("tutors").doc(uid);
+    batch.set(tutorRef, {
+      uid,
+      fullName: profileData.fullName ?? profileName,
+      username: profileData.username ?? null,
+      headline: profileData.headline ?? null,
+      subjects: profileData.subjects ?? [],
+      gradesTeaching: profileData.gradesTeaching ?? [],
+      monthlyRateNpr: profileData.monthlyRateNpr ?? 0,
+      location: profileData.location ?? null,
+      photoUrl: profileData.photoUrl ?? null,
+      yearsExperience: profileData.yearsExperience ?? 0,
+      bio: profileData.bio ?? "",
+      gender: profileData.gender ?? null,
+      tutoringMode: profileData.tutoringMode ?? "both",
+      languages: profileData.languages ?? ["English", "Nepali"],
+      rating: typeof profileData.rating === "number" ? profileData.rating : 0,
+      reviewCount: typeof profileData.reviewCount === "number" ? profileData.reviewCount : 0,
+      responseRate: typeof profileData.responseRate === "number" ? profileData.responseRate : 0,
+      verificationStatus: "approved",
+      isVerifiedProfessional: true,
+      hasPendingUpdate: false,
+      isAvailableForNewStudents: true,
+      degree: profileData.degree ?? null,
+      institution: profileData.institution ?? null,
+      updatedAt: now,
+    }, { merge: true });
+
+    await batch.commit();
+    console.log(`[verify-identity] ✅ auto-approved ${uid} (confidence=${verdict.confidence})`);
+    return true;
+  } catch (err) {
+    // Auto-approve failure is non-fatal — the tutor stays in manual
+    // review queue. Log and return false so the client knows.
+    console.error("[verify-identity] auto-approve failed:", (err as Error).message?.slice(0, 300));
+    return false;
+  }
+}
+
 // ─── Handler ───────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -191,7 +308,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await verifyFirebaseJwt(req);
+    const auth = await verifyFirebaseJwt(req);
 
     let body: VerifyIdentityRequest;
     try {
@@ -247,6 +364,21 @@ Deno.serve(async (req) => {
       reasons,
       checkedAt,
     };
+
+    // 4. Auto-approve when confidence is high enough.
+    //    Write directly to Firestore via Admin SDK, bypassing the
+    //    admin queue. The human-in-the-loop is the initial policy
+    //    decision to set the threshold — once set, high-confidence
+    //    passes are fast-tracked automatically.
+    if (decision === "approved" && confidence >= AUTO_APPROVE_THRESHOLD) {
+      const uid = auth.uid;
+      const approved = await autoApprove(uid, profileName ?? "", verdict);
+      if (approved) {
+        verdict.autoApproved = true;
+      }
+      // If auto-approve failed, the tutor stays in manual review —
+      // the client still persists aiReview and the admin sees the chip.
+    }
 
     console.log("[verify-identity] verdict:", JSON.stringify(verdict));
     return json(verdict);
