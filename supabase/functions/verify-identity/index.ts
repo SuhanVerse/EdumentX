@@ -307,7 +307,11 @@ function isImageUrl(url?: string): boolean {
     url.includes("googleapis.com");
 }
 
-/** Simple string similarity (Jaccard on character 3-grams). */
+/**
+ * Name similarity using Levenshtein distance.
+ * Handles OCR typos (e.g., "SUHAN KHADEKA" vs "SUHAN KHADKA").
+ * Returns 0-1 where 1 = exact match.
+ */
 function nameSimilarity(a: string, b: string): number {
   const normalize = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
@@ -320,23 +324,31 @@ function nameSimilarity(a: string, b: string): number {
   // Check if one contains the other
   if (na.includes(nb) || nb.includes(na)) return 0.95;
 
-  // Jaccard on character 3-grams
-  const ngrams = (s: string): Set<string> => {
-    const grams = new Set<string>();
-    for (let i = 0; i <= s.length - 3; i++) {
-      grams.add(s.slice(i, i + 3));
-    }
-    return grams;
-  };
+  // Levenshtein distance
+  const lenA = na.length;
+  const lenB = nb.length;
+  if (lenA === 0 || lenB === 0) return 0;
 
-  const gramsA = ngrams(na);
-  const gramsB = ngrams(nb);
-  let intersection = 0;
-  for (const g of gramsA) {
-    if (gramsB.has(g)) intersection++;
+  const matrix: number[][] = Array.from({ length: lenA + 1 }, () =>
+    Array(lenB + 1).fill(0),
+  );
+  for (let i = 0; i <= lenA; i++) matrix[i][0] = i;
+  for (let j = 0; j <= lenB; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= lenA; i++) {
+    for (let j = 1; j <= lenB; j++) {
+      const cost = na[i - 1] === nb[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,       // deletion
+        matrix[i][j - 1] + 1,       // insertion
+        matrix[i - 1][j - 1] + cost, // substitution
+      );
+    }
   }
-  const union = gramsA.size + gramsB.size - intersection;
-  return union === 0 ? 0 : intersection / union;
+
+  const distance = matrix[lenA][lenB];
+  const maxLen = Math.max(lenA, lenB);
+  return 1 - distance / maxLen;
 }
 
 // ─── 1. ID OCR via Groq Vision ─────────────────────────────────────
