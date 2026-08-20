@@ -357,13 +357,14 @@ async function extractNameFromId(imageUrl: string): Promise<string | null> {
       },
       body: JSON.stringify({
         model: GROQ_VISION_MODEL,
+        reasoning_effort: "none",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extract the FULL NAME from this ID card or citizenship document. Return ONLY the name, nothing else. No thinking, no explanation.",
+                text: "This is a Nepalese citizenship certificate. The English text on the document contains the person's full name next to 'Full Name:'. Extract ONLY that English name. Reply with just the name — no explanation, no Nepali text, no reasoning.",
               },
               {
                 type: "image_url",
@@ -372,7 +373,7 @@ async function extractNameFromId(imageUrl: string): Promise<string | null> {
             ],
           },
         ],
-        max_tokens: 100,
+        max_tokens: 50,
         temperature: 0,
       }),
     });
@@ -414,13 +415,14 @@ async function detectFace(imageUrl: string): Promise<{ present: boolean; score: 
       },
       body: JSON.stringify({
         model: GROQ_VISION_MODEL,
+        reasoning_effort: "none",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Does this image contain a real human face? Reply with ONLY 'yes' or 'no'. No explanation.",
+                text: "Does this image show a real photograph of a human face? Reply with ONLY 'yes' or 'no'. No explanation.",
               },
               {
                 type: "image_url",
