@@ -1391,10 +1391,11 @@ function VerificationCard({
           <Text className="text-caption text-text-muted mt-1">Submitted {item.submitted}</Text>
 
           {/* Automated AI image verification pre-screen (Phase 3
-              Advanced Architecture). The verify-identity edge
-              function OCR'd the citizenship card + checked the
-              profile photo; a high-confidence PASS is a fast-track
-              signal for the human reviewer, NOT an auto-approval. */}
+              Advanced Architecture). When confidence is high
+              enough (≥ 0.9), the Edge Function auto-approves
+              via Admin SDK — this tutor never appears in the
+              queue. Lower-confidence passes show here for manual
+              review. */}
           {item.aiReview ? (
             <View className="mt-2 self-start">
               {item.aiReview.decision === "approved" ? (

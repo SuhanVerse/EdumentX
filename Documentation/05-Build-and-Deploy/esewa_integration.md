@@ -37,7 +37,7 @@ ProUpgradeScreen renders an AUTO-SUBMITTING HTML form in a WebView
   (react-native-webview; real-mobile user agent to dodge CAPTCHA)
         │
         ▼
-eSewa sandbox → redirects to edumentx://payment-success?data=<base64>
+eSewa sandbox → redirects to https://edumentx.dev/payment-success?data=<base64> (intercepted + cancelled by the WebView)
   (intercepted in onShouldStartLoadWithRequest — the deep link never
   actually opens)
         │
@@ -107,7 +107,7 @@ from any client that can host a web view:
 | Status (GET) URL | `https://uat.esewa.com.np/api/epay/transaction/status/` (see note below) |
 | Production form URL | `https://epay.esewa.com.np/api/epay/main/v2/form` |
 | Product code | `EPAYTEST` |
-| Secret key | `8gBm/:&EnhH.1/q(` (public UAT key from the docs) |
+| Secret key | `8gBm/:&EnhH.1/q` (public UAT key from the docs — NO trailing `(`; `8gBm/:&EnhH.1/q(` fails with ES104) |
 | Test eSewa IDs | `9806800001` … `9806800005` (password `Nepal@123`) |
 | Test MPIN / token | `1122` / `123456` |
 
@@ -145,9 +145,9 @@ Supabase Edge Function secrets (`supabase secrets set ...`):
 | `ESEWA_FORM_URL` | `https://rc-epay.esewa.com.np/api/epay/main/v2/form` |
 | `ESEWA_STATUS_URL` | sandbox status endpoint (see note above) |
 | `ESEWA_PRODUCT_CODE` | `EPAYTEST` |
-| `ESEWA_SECRET_KEY` | the matching sandbox secret |
-| `SUCCESS_URL` | `edumentx://payment-success` |
-| `FAILURE_URL` | `edumentx://payment-failed` |
+| `ESEWA_SECRET_KEY` | `8gBm/:&EnhH.1/q` (public UAT key) |
+| `SUCCESS_URL` | `https://edumentx.dev/payment-success` (synthetic https host — the WebView intercepts + cancels the redirect before it loads; eSewa rejects non-http(s) schemes with ES200) |
+| `FAILURE_URL` | `https://edumentx.dev/payment-failed` |
 | `FIREBASE_PRODUCT_ID` | Firebase project id (JWT verification) |
 | `EDUMENTX_SERVICE_KEY` | Supabase service role (ledger writes; already set for the chat function) |
 
@@ -167,9 +167,9 @@ supabase functions deploy create-esewa-order
 
 # 3. Set/verify secrets (only if not already set)
 supabase secrets set ESEWA_FORM_URL=... ESEWA_STATUS_URL=... \
-  ESEWA_PRODUCT_CODE=EPAYTEST ESEWA_SECRET_KEY='8gBm/:&EnhH.1/q(' \
-  SUCCESS_URL=edumentx://payment-success \
-  FAILURE_URL=edumentx://payment-failed
+  ESEWA_PRODUCT_CODE=EPAYTEST ESEWA_SECRET_KEY='8gBm/:&EnhH.1/q' \
+  SUCCESS_URL=https://edumentx.dev/payment-success \
+  FAILURE_URL=https://edumentx.dev/payment-failed
 ```
 
 Deploy order matters: the function's ledger reads/writes need migration
@@ -191,7 +191,7 @@ ledger + status API guard against):
 
 - Payment succeeds once → Pro granted, `transactions` row = `COMPLETE`
   with `esewa_ref_id`.
-- Replaying the same `edumentx://payment-success` URL → verify returns
+- Replaying the same `https://edumentx.dev/payment-success` URL → verify returns
   `alreadyGranted: true` and **no second grant / no stacked expiry**.
 - Tampering with the `data` payload → `signature_mismatch` (no grant).
 - The status API is unreachable → `status_check_unavailable`; the

@@ -1,28 +1,60 @@
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }Page of Approval}{ii}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }Copyright}{iii}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }Acknowledgements}{iv}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }Abstract}{v}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }Contents}{vi}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Figures}{vii}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Tables}{viii}{}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }List of Abbreviations}{ix}{}%
-\contentsline {chapter}{\numberline {1}Introduction}{1}{}%
-\contentsline {section}{\numberline {1.1}Background}{1}{}%
-\contentsline {section}{\numberline {1.2}Problem statements}{1}{}%
-\contentsline {section}{\numberline {1.3}Objectives}{1}{}%
-\contentsline {section}{\numberline {1.4}Scope}{1}{}%
-\contentsline {chapter}{\numberline {2}Literature Review}{2}{}%
-\contentsline {section}{\numberline {2.1}Related work}{2}{}%
-\contentsline {section}{\numberline {2.2}Related theory}{2}{}%
-\contentsline {chapter}{\numberline {3}Methodology}{3}{}%
-\contentsline {chapter}{\numberline {4}Hardware Configuration / Experimental Setup (if any)}{4}{}%
-\contentsline {chapter}{\numberline {5}System design}{5}{}%
-\contentsline {chapter}{\numberline {6}Results \& Discussion}{6}{}%
-\contentsline {section}{\numberline {6.1}Experiment setup}{6}{}%
-\contentsline {section}{\numberline {6.2}Software Development Approach}{6}{}%
-\contentsline {section}{\numberline {6.3}Model Deployment}{6}{}%
-\contentsline {section}{\numberline {6.4}Testing/evaluation/validation}{6}{}%
-\contentsline {chapter}{\numberline {7}Conclusions}{7}{}%
-\contentsline {chapter}{\numberline {8}Limitations and Future enhancement}{8}{}%
-\contentsline {section}{References}{8}{}%
-\contentsline {section}{Appendices}{9}{}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Page of Approval}{ii}{chapter*.1}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Copyright}{iii}{chapter*.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Acknowledgements}{iv}{chapter*.3}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Abstract}{v}{chapter*.4}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Figures}{viii}{chapter*.5}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Tables}{ix}{chapter*.6}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Abbreviations}{xi}{chapter*.8}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Background}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Problem Statement}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Objectives}{3}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Scope}{3}{section.1.4}%
+\contentsline {chapter}{\numberline {2}Literature Review}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Related Work}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Related Theory}{6}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Location-Based Services}{6}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Haversine Distance Formula}{6}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Geofencing and Radius-Based Filtering}{7}{subsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.2.4}K-Nearest Neighbors Algorithm}{7}{subsection.2.2.4}%
+\contentsline {subsection}{\numberline {2.2.5}Retrieval-Augmented Generation}{7}{subsection.2.2.5}%
+\contentsline {subsection}{\numberline {2.2.6}React Native and Expo}{8}{subsection.2.2.6}%
+\contentsline {subsection}{\numberline {2.2.7}Firebase and Supabase}{8}{subsection.2.2.7}%
+\contentsline {subsection}{\numberline {2.2.8}Google Maps via expo-maps}{8}{subsection.2.2.8}%
+\contentsline {chapter}{\numberline {3}Methodology}{9}{chapter.3}%
+\contentsline {section}{\numberline {3.1}System Design}{9}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}System Architecture}{9}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}Use Case Diagram}{10}{subsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.1.3}Data Flow Diagram}{12}{subsection.3.1.3}%
+\contentsline {subsection}{\numberline {3.1.4}RAG Chatbot Workflow}{13}{subsection.3.1.4}%
+\contentsline {section}{\numberline {3.2}Implementation Details}{14}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Frontend Development}{14}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Backend Development}{14}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Testing Strategy}{14}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Module Implementation}{15}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Onboarding and Authentication Module}{15}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Tutor Profile and Verification Module}{15}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Tutor Discovery and Map Module}{15}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Enrollment and Batches Module}{15}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Messaging Module}{16}{subsection.3.3.5}%
+\contentsline {subsection}{\numberline {3.3.6}Pro Subscription Module}{16}{subsection.3.3.6}%
+\contentsline {subsection}{\numberline {3.3.7}Admin Module}{16}{subsection.3.3.7}%
+\contentsline {chapter}{\numberline {4}System Design}{17}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Requirement Specification}{17}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Functional Requirements}{17}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Non-Functional Requirements}{18}{subsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.1.3}System Architecture}{19}{subsection.4.1.3}%
+\contentsline {subsection}{\numberline {4.1.4}Use Case Diagram}{19}{subsection.4.1.4}%
+\contentsline {chapter}{\numberline {5}Results and Discussion}{20}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Software Development Approach}{20}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Testing and Evaluation}{20}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Unit Test Results}{20}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Lint Rule Test Results}{20}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Security Rules Test Results}{21}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Build Verification}{21}{subsection.5.2.4}%
+\contentsline {section}{\numberline {5.3}Current Build}{21}{section.5.3}%
+\contentsline {chapter}{\numberline {6}Conclusions}{23}{chapter.6}%
+\contentsline {chapter}{\numberline {7}Limitations and Future Enhancement}{24}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Limitations}{24}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Future Enhancement}{24}{section.7.2}%
+\contentsline {chapter}{\numberline {8}References}{26}{chapter.8}%

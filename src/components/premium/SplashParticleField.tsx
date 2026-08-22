@@ -16,8 +16,8 @@
  *  (or `<Svg>`) without a GL context at all.
  *
  * Pure RN primitives (`View`) — Tailwind `className` for styling.
- * Color: rgba(251, 248, 242, opacity) at 30–70% so the particles
- * feel ambient and never compete with the logo.
+ * Color: rgba(15, 23, 42, opacity) at 10–20% — subtle dark specks
+ * on the light splash bg, never competing with the logo.
  */
 import { useEffect, useMemo } from 'react';
 import { useWindowDimensions, View, type ViewStyle } from 'react-native';
@@ -127,7 +127,7 @@ function Particle({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: `rgba(251, 248, 242, ${opacity})`,
+          backgroundColor: `rgba(15, 23, 42, ${opacity * 0.3})`,
         } as ViewStyle,
       ]}
     />

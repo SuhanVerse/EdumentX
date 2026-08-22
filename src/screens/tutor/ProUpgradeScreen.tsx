@@ -21,7 +21,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { InteractionManager } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import {
@@ -30,6 +32,7 @@ import {
   ScreenScroll,
 } from "@/components/shared/ScreenLayout";
 import { colors } from "@/constants/colors";
+import { theme } from "@/constants/theme";
 import { getSubscriptionRepository } from "@/services/subscription/dataSource";
 import type {
   EsewaFormFields,
@@ -51,8 +54,13 @@ const WEBVIEW_UA = Platform.select({
     "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
 });
 
-const SUCCESS_PREFIX = "edumentx://payment-success";
-const FAILED_PREFIX = "edumentx://payment-failed";
+// eSewa validates that success/failure URLs start with http(s) and
+// REJECTS custom deep-link schemes (ES200 "Missing http or https").
+// These are synthetic https hosts — the WebView intercepts the
+// redirect in `onShouldStartLoadWithRequest` and cancels it BEFORE
+// any network request happens, so the host never needs to resolve.
+const SUCCESS_PREFIX = "https://edumentx.dev/payment-success";
+const FAILED_PREFIX = "https://edumentx.dev/payment-failed";
 
 /** Parse a query string into key/value pairs. */
 function parseQuery(url: string): Record<string, string> {
@@ -83,8 +91,8 @@ function buildEsewaForm(fields: EsewaFormFields): string {
     { name: "product_code", value: fields.product_code },
     { name: "product_service_charge", value: fields.product_service_charge },
     { name: "product_delivery_charge", value: fields.product_delivery_charge },
-    { name: "success_url", value: fields.success_url },
-    { name: "failure_url", value: fields.failure_url },
+    { name: "success_url", value: "https://edumentx.dev/payment-success" },
+    { name: "failure_url", value: "https://edumentx.dev/payment-failed" },
     { name: "signed_field_names", value: fields.signed_field_names },
     { name: "signature", value: fields.signature },
   ];
@@ -129,6 +137,7 @@ export function ProUpgradeScreen() {
   const router = useRouter();
   const tutorUid = useAuthStore((s) => s.user?.uid ?? null);
   const repo = getSubscriptionRepository();
+  const insets = useSafeAreaInsets();
 
   const [subscription, setSubscription] = useState<SubscriptionState>({
     tier: "free",
@@ -236,15 +245,29 @@ export function ProUpgradeScreen() {
   const handleShouldStartLoad = useCallback(
     (request: { url: string }) => {
       const url = request.url;
-      if (url.startsWith(SUCCESS_PREFIX)) {
+      if (url.includes("/payment-success")) {
         finishPayment("success", parseQuery(url));
         return false;
       }
-      if (url.startsWith(FAILED_PREFIX)) {
+      if (url.includes("/payment-failed")) {
         finishPayment("failed", parseQuery(url));
         return false;
       }
       return true;
+    },
+    [finishPayment],
+  );
+
+  // Fallback interceptor — fires after navigation, catches deep links
+  // that onShouldStartLoadWithRequest misses on some platforms.
+  const handleNavigationStateChange = useCallback(
+    (navState: { url: string }) => {
+      const url = navState.url;
+      if (url.includes("/payment-success")) {
+        finishPayment("success", parseQuery(url));
+      } else if (url.includes("/payment-failed")) {
+        finishPayment("failed", parseQuery(url));
+      }
     },
     [finishPayment],
   );
@@ -288,46 +311,6 @@ export function ProUpgradeScreen() {
                 Back to dashboard
               </Text>
             </Pressable>
-          </View>
-        ) : formHtml ? (
-          <View className="flex-1 min-h-[600px]">
-            <View className="flex-row items-center justify-between px-5 py-3 border-b border-border bg-surface">
-              <Text className="text-button-sm font-medium text-text-primary">
-                eSewa Sandbox Payment
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={closeWebView}
-                className="w-8 h-8 rounded-pill bg-surface-muted items-center justify-center active:opacity-70"
-              >
-                <Ionicons name="close" size={16} color={colors.text.muted} />
-              </Pressable>
-            </View>
-            <WebView
-              ref={webViewRef}
-              source={{ html: formHtml, baseUrl }}
-              userAgent={WEBVIEW_UA}
-              onShouldStartLoadWithRequest={handleShouldStartLoad}
-              onLoadStart={() => setWebViewLoading(true)}
-              onLoadEnd={() => setWebViewLoading(false)}
-              startInLoadingState
-              javaScriptEnabled
-              domStorageEnabled
-              onError={(e) => {
-                console.error("eSewa WebView error:", e.nativeEvent.description);
-                setError("Payment page failed to load. Please try again.");
-              }}
-              className="flex-1"
-              style={{ flex: 1 }}
-            />
-            {webViewLoading && (
-              <View className="absolute inset-0 items-center justify-center bg-background/90">
-                <ActivityIndicator size="small" color={colors.brand.primary} />
-                <Text className="text-caption text-text-muted mt-3">
-                  Loading eSewa…
-                </Text>
-              </View>
-            )}
           </View>
         ) : (
           <>
@@ -436,10 +419,116 @@ export function ProUpgradeScreen() {
                 Sandbox test payment — no real charge. eSewa test PIN works in the
                 payment page.
               </Text>
+              {!isPro && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={creating || verifying}
+                  onPress={async () => {
+                    if (!tutorUid || creating || verifying) return;
+                    setCreating(true);
+                    try {
+                      await repo.applyProGrant(
+                        tutorUid,
+                        PRO_PLANS[selected].months,
+                      );
+                      setSuccess(true);
+                    } catch (err) {
+                      setError(
+                        err instanceof Error
+                          ? err.message
+                          : "Demo grant failed.",
+                      );
+                    } finally {
+                      setCreating(false);
+                    }
+                  }}
+                  className="h-10 mt-4 rounded-card border border-border bg-surface items-center justify-center active:opacity-80"
+                >
+                  <Text className="text-caption font-medium text-text-secondary">
+                    Demo — Skip eSewa (sandbox is down)
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </>
         )}
       </ScreenScroll>
+
+      {/* ── eSewa Payment Modal ──────────────────────────────────── */}
+      <Modal
+        visible={!!formHtml}
+        animationType="slide"
+        onRequestClose={closeWebView}
+      >
+        <View className="flex-1 bg-background">
+          {/* Header — branded, back-button, safe-area aware */}
+          <View
+            className="flex-row items-center gap-3 border-b border-border bg-surface px-4"
+            style={{ paddingTop: insets.top + 8, paddingBottom: 12 }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              onPress={closeWebView}
+              className="h-9 w-9 items-center justify-center rounded-pill bg-surface-muted active:opacity-70"
+            >
+              <Ionicons name="arrow-back" size={18} color={colors.text.primary} />
+            </Pressable>
+            <Text className="flex-1 text-button-sm font-medium text-text-primary">
+              eSewa Payment
+            </Text>
+          </View>
+
+          {/* WebView — fills remaining space */}
+          {formHtml ? (
+            <WebView
+              ref={webViewRef}
+              source={{ html: formHtml, baseUrl }}
+              userAgent={WEBVIEW_UA}
+              onShouldStartLoadWithRequest={handleShouldStartLoad}
+              onNavigationStateChange={handleNavigationStateChange}
+              onLoadEnd={() => setWebViewLoading(false)}
+              startInLoadingState
+              javaScriptEnabled
+              domStorageEnabled
+              // ── Cookie support (critical for reCAPTCHA) ──────────────
+              // Google reCAPTCHA validates sessions via third-party cookies.
+              // Without these, the captcha silently fails and eSewa's
+              // login rejects the request with "Invalid username or
+              // Password/MPIN" — the same symptom as wrong credentials.
+              // Verified by comparing with the working BasoBas reference
+              // project (Documentation/98-Reference-BasoBas/basobas-app).
+              sharedCookiesEnabled
+              thirdPartyCookiesEnabled
+              mixedContentMode="always"
+              // Allow all URL schemes — needed for deep-link interception
+              // (edumentx://…) and eSewa's redirect flow.
+              originWhitelist={["*"]}
+              // Disable swipe-back so the user doesn't accidentally
+              // navigate away mid-payment.
+              allowsBackForwardNavigationGestures={false}
+              onError={(e) => {
+                console.error("eSewa WebView error:", e.nativeEvent.description);
+                setError("Payment page failed to load. Please try again.");
+                setFormHtml(null);
+              }}
+              style={{ flex: 1, backgroundColor: theme.colors.background }}
+            />
+          ) : null}
+
+          {/* Branded loading overlay */}
+          {webViewLoading && (
+            <View className="absolute inset-0 items-center justify-center bg-background/80">
+              <View className="items-center rounded-card bg-surface px-8 py-6 shadow-sm">
+                <ActivityIndicator size="small" color={colors.brand.primary} />
+                <Text className="text-caption text-text-muted mt-3">
+                  Loading eSewa payment page…
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
+
     </ScreenLayout>
   );
 }
