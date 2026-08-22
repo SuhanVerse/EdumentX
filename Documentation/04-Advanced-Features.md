@@ -184,7 +184,7 @@ ProUpgradeScreen renders an AUTO-SUBMITTING HTML form in a WebView
   (react-native-webview; real-mobile user agent to dodge CAPTCHA)
         │
         ▼
-eSewa sandbox → redirects to edumentx://payment-success?data=…
+eSewa sandbox → redirects to https://edumentx.dev/payment-success?data=… (intercepted + cancelled by the WebView)
         │  (intercepted in onShouldStartLoadWithRequest)
         ▼
 Client calls the edge function again with { verify: data } — the
@@ -237,7 +237,7 @@ applyProGrant(uid, months) → writes tier + expiry to profile AND
 | `ESEWA_STATUS_URL` | `https://rc-epay.esewa.com.np/api/epay/transaction/status/` |
 | `ESEWA_PRODUCT_CODE` | `EPAYTEST` |
 | `ESEWA_SECRET_KEY` | the matching sandbox secret |
-| `SUCCESS_URL` / `FAILURE_URL` | `edumentx://payment-success` / `...-failed` |
+| `SUCCESS_URL` / `FAILURE_URL` | `https://edumentx.dev/payment-success` / `...-failed` (synthetic https hosts — eSewa rejects non-http(s) schemes with ES200; the WebView intercepts the redirect before it loads) |
 | `FIREBASE_PRODUCT_ID` | Firebase project id (JWT verification) |
 | `EDUMENTX_SERVICE_KEY` | Supabase service role (ledger writes; already set for the chat function) |
 

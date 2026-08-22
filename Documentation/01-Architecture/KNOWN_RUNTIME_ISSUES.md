@@ -83,15 +83,23 @@ Verification: `tsc` 0 errors, `eslint` 0 problems, `test:rules`
   with `@babel/parser`, flag `JSXText` matching `!value.includes('\n')
   && value.trim() === ''` under non-`Text` hosts.
 
-### C. `getIdToken` deprecation warnings (rNFirebase v22 namespaced API)
+### C. `getIdToken` deprecation warnings (rNFirebase v22 namespaced API) — FIXED
 
-- **Where:** `src/services/ai/chatService.ts:226` —
-  `idToken = await currentUser.getIdToken(false);`.
-- **Root cause:** this is the only call site in the repo; rNFirebase
-  warns when the legacy namespaced method form is used.
-- **Fix pointer:** switch to the modular function —
-  `import { getIdToken } from "@react-native-firebase/auth";` then
-  `getIdToken(currentUser, false)`.
+- **Where:** was `src/services/ai/chatService.ts:226` —
+  `idToken = await currentUser.getIdToken(false);`; also the same
+  legacy method form in `src/services/subscription/`
+  `FirebaseSubscriptionRepository.ts` (`createEsewaOrder` +
+  `verifyEsewaCallback`) and `src/services/verification/aiReview.ts`.
+  That made the warning fire four times on every cold app start
+  (Aug 18 device log).
+- **Root cause:** rNFirebase warns when the legacy namespaced method
+  form is used (the `User#getIdToken` method sits behind the v22
+  modular-deprecation shim).
+- **Fix (Aug 18):** switched all four call sites to the modular
+  function — `import { getIdToken } from "@react-native-firebase/auth"`
+  then `await getIdToken(user, false)` / `await getIdToken(user)`,
+  guarding for a possibly-null `currentUser`. The warnings are gone
+  from the device log; `tsc` + `eslint` stay clean.
 
 ### D. `ReviewModal: submitReview failed [firestore/permission-denied]` — FIXED
 
@@ -210,8 +218,8 @@ seeded `classes/seed-1` but its cleanup did a parent-only `delete()`
 docs (6 × `seed-1`, `batch-active-1`, `batch-ended-1`) were scrubbed
 from the live project and a re-run confirms no leftovers regenerate.
 
-Still open: **C. `getIdToken` deprecation warning** (single call
-site, cosmetic).
+Still open: none — **C. `getIdToken` deprecation warnings** fixed
+(Aug 18, all four call sites on the modular `getIdToken`).
 
 ## 3. Expected log noise (not bugs)
 

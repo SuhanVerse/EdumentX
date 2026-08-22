@@ -426,48 +426,51 @@ export function TutorProfileScreen() {
       await batch.commit();
       // Automated AI image verification (Phase 3, Advanced
       // Architecture): fire the `verify-identity` edge function at
-      // the citizenship/ID image + profile photo. Best-effort and
-      // NON-blocking — the verdict lands on the profile doc as an
-      // `aiReview` chip the admin queue surfaces as an AI pre-screen.
-      // If the service is unreachable, the tutor simply stays in the
-      // normal manual-review queue (the pipeline is an accelerator,
-      // never a hard gate). STRICTLY NO VIDEO — the demo clip is
-      // excluded by design.
-      void (async () => {
-        try {
-          const citizenship = Array.from(documents.values()).find(
-            (d) => d.kind === "citizenship",
+      // the citizenship/ID image + profile photo. BLOCKING — we need
+      // the verdict before routing so auto-approved tutors land on
+      // the live dashboard instead of the pending screen. If the
+      // service is unreachable, the tutor stays in manual review.
+      // STRICTLY NO VIDEO — the demo clip is excluded by design.
+      let autoApproved = false;
+      try {
+        const citizenship = Array.from(documents.values()).find(
+          (d) => d.kind === "citizenship",
+        );
+        if (citizenship || avatarUri) {
+          const { runAiVerification, persistAiReview } = await import(
+            "@/services/verification/aiReview"
           );
-          if (citizenship || avatarUri) {
-            const { runAiVerification, persistAiReview } = await import(
-              "@/services/verification/aiReview"
-            );
-            const verdict = await runAiVerification({
-              docUrl: citizenship
-                ? getVerificationDocPublicUrl(citizenship.path)
-                : null,
-              photoUrl: avatarUri,
-              profileName: fullName.trim(),
-            });
-            if (verdict) {
+          const verdict = await runAiVerification({
+            docUrl: citizenship
+              ? getVerificationDocPublicUrl(citizenship.path)
+              : null,
+            photoUrl: avatarUri,
+            profileName: fullName.trim(),
+          });
+          if (verdict) {
+            if (verdict.autoApproved) {
+              // Edge Function wrote approval directly via Admin SDK.
+              autoApproved = true;
+              console.log("TutorProfileScreen: AI auto-approved — routing to dashboard");
+            } else {
               await persistAiReview(user.uid, verdict);
             }
           }
-        } catch (err) {
-          console.warn("TutorProfileScreen: AI pre-screen failed", err);
         }
-      })();
-      // Mirror the role + verification status into the local store
-      // so the layout guard in `app/_layout.tsx` keeps the tutor
-      // on `/tutor-pending` (NOT `/tutor-home`) until the admin
-      // approves. Without this, a brand-new tutor who just finished
-      // onboarding would land on the real dashboard and see the
-      // dashboard's `ReviewBanner` — which the mid-term spec
-      // explicitly disallows (we want them fully gated out of
-      // /tutor-home until they're a verified professional).
+      } catch (err) {
+        console.warn("TutorProfileScreen: AI pre-screen failed", err);
+      }
+      // Mirror the role + verification status into the local store.
+      // If the AI auto-approved, the Edge Function already wrote
+      // status: "approved" + tutors/{uid} — skip the pending screen.
       useAuthStore.getState().setRole("tutor");
-      useAuthStore.getState().setTutorVerificationStatus("pending");
-      router.replace("/tutor-pending");
+      if (autoApproved) {
+        useAuthStore.getState().setTutorVerificationStatus("approved");
+        router.replace("/tutor-home");
+      } else {
+        useAuthStore.getState().setTutorVerificationStatus("pending");
+        router.replace("/tutor-pending");
+      }
     } catch (error: any) {
       console.error("TutorProfileScreen: failed to save profile", error);
       // Surface the actual Firebase error code so the user (and any

@@ -5,27 +5,32 @@
 // Architecture — STRICTLY NO VIDEO, static images only).
 //
 // Triggered by the tutor client after submitting verification
-// documents (citizenship/ID) or uploading a profile picture. It runs
-// TWO free-tier checks and returns a structured verdict:
+// documents (citizenship/ID) or uploading a profile picture.
+// Uses Groq vision for BOTH checks (HuggingFace is unreachable
+// from Supabase Edge Runtime due to DNS restrictions):
 //
-//   1. ID OCR (Groq vision): extracts the name from the ID card image
-//      and compares it against the registered profile name.
-//   2. Profile-picture check (HuggingFace): a face-presence model
-//      confirms the upload is a real human face (rejects cartoons,
-//      pets, blank images).
+//   1. ID OCR (Groq vision): extracts the name from the ID card
+//      image and compares it against the registered profile name.
+//   2. Face check (Groq vision): classifies whether the profile
+//      picture contains a real human face (rejects cartoons, pets,
+//      blank images).
 //
 // Decision engine:
-//   - name match ≥ threshold AND face present
-//       → { decision: "approved", confidence } — the admin queue
-//         surfaces this as a fast-track "AI pre-screen: PASS" entry
-//         (a human still taps approve — the security rules make
-//         status flips admin-only by design).
+//   - name match ≥ threshold AND face present AND confidence ≥ 0.9
+//       → AUTO-APPROVE: writes directly to Firestore via REST API
+//         (tutorVerifications, tutorProfile, tutors discovery doc).
+//         Returns { ...verdict, autoApproved: true }.
 //   - otherwise → { decision: "manual_review", confidence, reasons }
+//         Admin reviews manually in the Verification Queue.
 //
 // Environment variables:
-//   GROQ_API_KEY   — free dev tier, console.groq.com
-//   HF_API_TOKEN   — free dev tier, huggingface.co/settings/tokens
-//   FIREBASE_PRODUCT_ID — Firebase project id (JWT verification)
+//   GROQ_API_KEY              — free dev tier, console.groq.com
+//   FIREBASE_PRODUCT_ID       — Firebase project id (JWT verification)
+//   FIREBASE_SERVICE_ACCOUNT  — JSON service account key (auto-approve)
+//
+// NOTE: We use the Firestore REST API (HTTP/1.1) instead of the
+// Firebase Admin SDK's gRPC because Supabase Edge Runtime (Deno
+// Deploy) does not support HTTP/2 gRPC connections to Google APIs.
 // ════════════════════════════════════════════════════════════════
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -39,14 +44,236 @@ const CORS_HEADERS = {
 };
 
 // ─── Models ────────────────────────────────────────────────────────
-// Groq's free vision model (image-capable chat completions).
-const GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview";
-// HuggingFace face-detection model (object detection → "face" boxes).
-const HF_FACE_MODEL = "keremberke/yolov8m-face";
+// Groq's current free vision model (image-capable chat completions).
+const GROQ_VISION_MODEL = "qwen/qwen3.6-27b";
 // Name-match confidence threshold (0-1) for the decision engine.
 const NAME_MATCH_THRESHOLD = 0.8;
-// Minimum face-detection score to count as "a real face present".
-const FACE_SCORE_THRESHOLD = 0.5;
+// Confidence threshold for auto-approval (skips admin queue).
+const AUTO_APPROVE_THRESHOLD = 0.9;
+
+// ─── Firestore REST helpers ────────────────────────────────────────
+// Supabase Edge Runtime cannot use Firebase Admin SDK's gRPC
+// (HTTP/2) connection to Firestore. We use the REST API directly
+// via fetch (HTTP/1.1) with OAuth2 service account tokens.
+
+const FIREBASE_PROJECT_ID =
+  Deno.env.get("FIREBASE_PRODUCT_ID") ??
+  Deno.env.get("FIREBASE_PROJECT_ID") ??
+  "";
+
+const FIRESTORE_BASE =
+  `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+/**
+ * Get a short-lived OAuth2 access token from the service account.
+ * Cached for ~50 min (tokens last 60 min).
+ */
+async function getAccessToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT not set");
+  const sa = JSON.parse(raw);
+
+  // JWT header
+  const header = { alg: "RS256", typ: "JWT" };
+  // JWT claim
+  const now = Math.floor(Date.now() / 1000);
+  const claim = {
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/datastore",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const enc = (obj: unknown) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+  const signingInput = `${enc(header)}.${enc(claim)}`;
+  // Import the private key for RS256 signing
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToDer(sa.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signingInput));
+  const jwt = `${signingInput}.${btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+
+  const resp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  if (!resp.ok) {
+    throw new Error(`OAuth2 token error: ${resp.status} ${await resp.text()}`);
+  }
+  const data = await resp.json();
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 300) * 1000, // refresh 5 min early
+  };
+  return cachedToken.token;
+}
+
+/** Convert PEM private key string to DER ArrayBuffer. */
+function pemToDer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\s/g, "");
+  const raw = atob(b64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr.buffer;
+}
+
+/**
+ * Write a Firestore document via REST API (merge: true = patch).
+ */
+async function firestoreWrite(
+  collection: string,
+  docId: string,
+  data: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const token = await getAccessToken();
+    const url = `${FIRESTORE_BASE}/${collection}/${docId}`;
+    const fields = dataToFields(data);
+
+    const resp = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields, updateMask: { fieldPaths: Object.keys(fields).join(",") } }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[verify-identity] Firestore write failed (${collection}/${docId}):`, resp.status, errText.slice(0, 200));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`[verify-identity] Firestore write error (${collection}/${docId}):`, (err as Error).message?.slice(0, 200));
+    return false;
+  }
+}
+
+/**
+ * Write a Firestore document via REST API (create — fails if exists).
+ */
+async function firestoreCreate(
+  collection: string,
+  docId: string,
+  data: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const token = await getAccessToken();
+    const url = `${FIRESTORE_BASE}/${collection}/${docId}`;
+    const fields = dataToFields(data);
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[verify-identity] Firestore create failed (${collection}/${docId}):`, resp.status, errText.slice(0, 200));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`[verify-identity] Firestore create error (${collection}/${docId}):`, (err as Error).message?.slice(0, 200));
+    return false;
+  }
+}
+
+/** Read a Firestore document via REST API. Returns null if not found. */
+async function firestoreRead(
+  collection: string,
+  docId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const token = await getAccessToken();
+    const url = `${FIRESTORE_BASE}/${collection}/${docId}`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) return null;
+    const doc = await resp.json();
+    return fieldsToData(doc.fields ?? {});
+  } catch {
+    return null;
+  }
+}
+
+/** Convert JS values to Firestore REST API field format. */
+function dataToFields(data: Record<string, unknown>): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v === null || v === undefined) {
+      fields[k] = { nullValue: null };
+    } else if (typeof v === "string") {
+      fields[k] = { stringValue: v };
+    } else if (typeof v === "number") {
+      fields[k] = Number.isInteger(v)
+        ? { integerValue: String(v) }
+        : { doubleValue: v };
+    } else if (typeof v === "boolean") {
+      fields[k] = { booleanValue: v };
+    } else if (Array.isArray(v)) {
+      fields[k] = {
+        arrayValue: { values: v.map((item) => {
+          if (typeof item === "string") return { stringValue: item };
+          if (typeof item === "number") return { integerValue: String(item) };
+          return { stringValue: String(item) };
+        }) },
+      };
+    } else if (v instanceof Date) {
+      fields[k] = { timestampValue: v.toISOString() };
+    } else if (typeof v === "object") {
+      fields[k] = { mapValue: { fields: dataToFields(v as Record<string, unknown>) } };
+    } else {
+      fields[k] = { stringValue: String(v) };
+    }
+  }
+  return fields;
+}
+
+/** Convert Firestore REST API field format back to JS values. */
+function fieldsToData(fields: Record<string, unknown>): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields) as [string, Record<string, unknown>][]) {
+    if ("stringValue" in v) data[k] = v.stringValue;
+    else if ("integerValue" in v) data[k] = Number(v.integerValue);
+    else if ("doubleValue" in v) data[k] = v.doubleValue;
+    else if ("booleanValue" in v) data[k] = v.booleanValue;
+    else if ("nullValue" in v) data[k] = null;
+    else if ("arrayValue" in v) data[k] = (v.arrayValue as Record<string, unknown[]>).values?.map((item: Record<string, unknown>) => {
+      if ("stringValue" in item) return item.stringValue;
+      if ("integerValue" in item) return Number(item.integerValue);
+      return String(item);
+    }) ?? [];
+    else if ("mapValue" in v) data[k] = fieldsToData((v.mapValue as Record<string, Record<string, unknown>>).fields ?? {});
+    else if ("timestampValue" in v) data[k] = v.timestampValue;
+    else data[k] = String(v);
+  }
+  return data;
+}
 
 // ─── Request shape ─────────────────────────────────────────────────
 
@@ -66,141 +293,263 @@ interface VerifyIdentityVerdict {
   faceDetected: { present: boolean; score: number };
   reasons: string[];
   checkedAt: string;
+  autoApproved?: boolean;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────
 
-function isImageUrl(url: string | undefined): url is string {
+/** Check if a URL points to an image. */
+function isImageUrl(url?: string): boolean {
   if (!url) return false;
-  // Static images only — no video. The mission constraint is strict.
-  if (/(\.mp4|\.mov|\.webm|\.mkv|\.avi)(\?|$)/i.test(url)) return false;
-  if (/^data:video\//i.test(url)) return false;
-  return /^https?:\/\//i.test(url);
+  return /\.(jpg|jpeg|png|gif|webp|bmp|tiff|heic)(\?.*)?$/i.test(url) ||
+    url.includes("supabase.co/storage") ||
+    url.includes("firebase") ||
+    url.includes("googleapis.com");
 }
 
-function normalizeName(s: string): string {
-  return s.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
-}
-
-/** Token-overlap similarity between two names (0-1). Handles "Ram
- *  Poudel" vs "RAM POUDEL" and minor OCR typos without a full fuzzy
- *  library (zero extra deps). */
+/**
+ * Name similarity using Levenshtein distance.
+ * Handles OCR typos (e.g., "SUHAN KHADEKA" vs "SUHAN KHADKA").
+ * Returns 0-1 where 1 = exact match.
+ */
 function nameSimilarity(a: string, b: string): number {
-  const ta = normalizeName(a);
-  const tb = normalizeName(b);
-  if (!ta || !tb) return 0;
-  if (ta === tb) return 1;
-  const tokensA = new Set(ta.split(" "));
-  const tokensB = tb.split(" ");
-  if (tokensA.size === 0) return 0;
-  const hits = tokensB.filter((t) => tokensA.has(t)).length;
-  // Exact single-name match → high score; partial multi-token → scaled.
-  return Math.min(1, hits / Math.max(tokensA.size, 1) + (hits > 0 ? 0.1 : 0));
-}
+  const normalize = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+  const na = normalize(a);
+  const nb = normalize(b);
 
-function groqKey(): string {
-  const k = Deno.env.get("GROQ_API_KEY");
-  if (!k) throw new Error("GROQ_API_KEY environment variable is not set");
-  return k;
-}
+  // Exact match after normalization
+  if (na === nb) return 1;
 
-function hfToken(): string {
-  const t = Deno.env.get("HF_API_TOKEN");
-  if (!t) throw new Error("HF_API_TOKEN environment variable is not set");
-  return t;
-}
+  // Check if one contains the other
+  if (na.includes(nb) || nb.includes(na)) return 0.95;
 
-// ─── 1. ID OCR via Groq vision ─────────────────────────────────────
+  // Levenshtein distance
+  const lenA = na.length;
+  const lenB = nb.length;
+  if (lenA === 0 || lenB === 0) return 0;
 
-interface GroqVisionResponse {
-  choices?: { message?: { content?: string | null } }[];
-}
+  const matrix: number[][] = Array.from({ length: lenA + 1 }, () =>
+    Array(lenB + 1).fill(0),
+  );
+  for (let i = 0; i <= lenA; i++) matrix[i][0] = i;
+  for (let j = 0; j <= lenB; j++) matrix[0][j] = j;
 
-async function extractNameFromId(docUrl: string): Promise<string | null> {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${groqKey()}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_VISION_MODEL,
-      temperature: 0,
-      max_tokens: 128,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an OCR assistant. Extract the FULL NAME of the document holder from this ID/citizenship card image. Respond with ONLY the name — no explanations, no prefixes, no quotes. If you cannot read a name, respond with exactly UNREADABLE.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: docUrl },
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    console.error("[verify-identity] Groq vision error:", response.status, body.slice(0, 300));
-    return null;
-  }
-
-  const json = (await response.json()) as GroqVisionResponse;
-  const content = json.choices?.[0]?.message?.content?.trim() ?? "";
-  if (!content || content.toUpperCase() === "UNREADABLE") return null;
-  return content;
-}
-
-// ─── 2. Face check via HuggingFace ─────────────────────────────────
-
-interface HfDetection {
-  label?: string;
-  score?: number;
-  box?: { xmin: number; ymin: number; xmax: number; ymax: number };
-}
-
-async function fetchImageBytes(url: string): Promise<ArrayBuffer> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not fetch image (${res.status})`);
-  return res.arrayBuffer();
-}
-
-async function detectFace(photoUrl: string): Promise<{ present: boolean; score: number }> {
-  const bytes = await fetchImageBytes(photoUrl);
-  const response = await fetch(`https://api-inference.huggingface.co/models/${HF_FACE_MODEL}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${hfToken()}`,
-      "Content-Type": "application/octet-stream",
-    },
-    body: bytes,
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    console.error("[verify-identity] HF face-detection error:", response.status, body.slice(0, 300));
-    // Fail-open: if the model is down (cold start / rate limit), we
-    // do NOT hard-fail the whole pipeline — we flag it for review so
-    // a human decides. The doc says the free tier has cold starts.
-    return { present: false, score: 0 };
-  }
-
-  const json = (await response.json()) as HfDetection[] | HfDetection;
-  const detections = Array.isArray(json) ? json : [json];
-  let best = 0;
-  for (const d of detections) {
-    if ((d.label ?? "").toLowerCase().includes("face") || typeof d.box === "object") {
-      best = Math.max(best, d.score ?? 1);
+  for (let i = 1; i <= lenA; i++) {
+    for (let j = 1; j <= lenB; j++) {
+      const cost = na[i - 1] === nb[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,       // deletion
+        matrix[i][j - 1] + 1,       // insertion
+        matrix[i - 1][j - 1] + cost, // substitution
+      );
     }
   }
-  return { present: best >= FACE_SCORE_THRESHOLD, score: best };
+
+  const distance = matrix[lenA][lenB];
+  const maxLen = Math.max(lenA, lenB);
+  return 1 - distance / maxLen;
+}
+
+// ─── 1. ID OCR via Groq Vision ─────────────────────────────────────
+
+async function extractNameFromId(imageUrl: string): Promise<string | null> {
+  try {
+    const apiKey = Deno.env.get("GROQ_API_KEY");
+    if (!apiKey) {
+      console.warn("[verify-identity] GROQ_API_KEY not set");
+      return null;
+    }
+
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_VISION_MODEL,
+        reasoning_effort: "none",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "This is a Nepalese citizenship certificate. The English text on the document contains the person's full name next to 'Full Name:'. Extract ONLY that English name. Reply with just the name — no explanation, no Nepali text, no reasoning.",
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl },
+              },
+            ],
+          },
+        ],
+        max_tokens: 50,
+        temperature: 0,
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error("[verify-identity] Groq vision error:", resp.status, err.slice(0, 200));
+      return null;
+    }
+
+    const data = await resp.json();
+    let text = data.choices?.[0]?.message?.content?.trim() ?? "";
+
+    // Strip <think>...</think> reasoning blocks from Qwen 3.6
+    text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+    // If the model still wrapped in quotes, strip them
+    text = text.replace(/^["']|["']$/g, "").trim();
+
+    return text || null;
+  } catch (err) {
+    console.error("[verify-identity] OCR error:", (err as Error).message?.slice(0, 200));
+    return null;
+  }
+}
+
+// ─── 2. Face detection via Groq Vision ─────────────────────────────
+
+async function detectFace(imageUrl: string): Promise<{ present: boolean; score: number }> {
+  try {
+    const apiKey = Deno.env.get("GROQ_API_KEY");
+    if (!apiKey) return { present: false, score: 0 };
+
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_VISION_MODEL,
+        reasoning_effort: "none",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Does this image show a real photograph of a human face? Reply with ONLY 'yes' or 'no'. No explanation.",
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl },
+              },
+            ],
+          },
+        ],
+        max_tokens: 10,
+        temperature: 0,
+      }),
+    });
+
+    if (!resp.ok) return { present: false, score: 0 };
+
+    const data = await resp.json();
+    let result = data.choices?.[0]?.message?.content?.trim() ?? "";
+
+    // Strip <think>...</think> reasoning blocks from Qwen 3.6
+    result = result.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+    if (!result) return { present: false, score: 0 };
+
+    // The model should reply "yes" or "no" — check for yes/affirmative
+    const lower = result.toLowerCase().trim();
+    const isYes = lower === "yes" || lower.startsWith("yes") || lower.includes("real human face");
+    return { present: isYes, score: isYes ? 0.9 : 0.1 };
+  } catch (err) {
+    // Fail-open: network errors should not crash the whole pipeline.
+    console.error("[verify-identity] face-detection error:", (err as Error).message?.slice(0, 200));
+    return { present: false, score: 0 };
+  }
+}
+
+// ─── 3. Auto-approve via Firestore REST API ────────────────────────
+// When the AI confidence is high enough (≥ 0.9), write the approval
+// directly to Firestore — bypassing the admin queue entirely.
+
+async function autoApprove(
+  uid: string,
+  profileName: string,
+  verdict: VerifyIdentityVerdict,
+): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+
+    // 1. tutorVerifications/{uid} → status: "approved"
+    const v1 = await firestoreWrite("tutorVerifications", uid, {
+      status: "approved",
+      adminNotes: "Auto-approved by AI verification pipeline (confidence ≥ 0.9)",
+      reviewedBy: "ai-automation",
+      reviewedAt: now,
+      updatedAt: now,
+    });
+
+    // 2. Read the existing profile to get display fields
+    const profileData = await firestoreRead("users", `${uid}/tutorProfile/default`) ?? {};
+
+    // 3. users/{uid}/tutorProfile/default → verificationStatus + flags
+    const v2 = await firestoreWrite("users", `${uid}/tutorProfile/default`, {
+      verificationStatus: "approved",
+      isVerifiedProfessional: true,
+      hasPendingUpdate: false,
+      rejectionReason: null,
+      aiReview: {
+        decision: verdict.decision,
+        confidence: verdict.confidence,
+        reasons: verdict.reasons,
+        checkedAt: verdict.checkedAt,
+      },
+      updatedAt: now,
+    });
+
+    // 4. tutors/{uid} → student-facing discovery doc (create or merge)
+    const tutorDoc = {
+      uid,
+      fullName: (profileData.fullName as string) ?? profileName,
+      username: (profileData.username as string) ?? null,
+      headline: (profileData.headline as string) ?? null,
+      subjects: (profileData.subjects as string[]) ?? [],
+      gradesTeaching: (profileData.gradesTeaching as string[]) ?? [],
+      monthlyRateNpr: (profileData.monthlyRateNpr as number) ?? 0,
+      location: (profileData.location as Record<string, unknown>) ?? null,
+      photoUrl: (profileData.photoUrl as string) ?? null,
+      yearsExperience: (profileData.yearsExperience as number) ?? 0,
+      bio: (profileData.bio as string) ?? "",
+      gender: (profileData.gender as string) ?? null,
+      tutoringMode: (profileData.tutoringMode as string) ?? "both",
+      languages: (profileData.languages as string[]) ?? ["English", "Nepali"],
+      rating: typeof profileData.rating === "number" ? profileData.rating : 0,
+      reviewCount: typeof profileData.reviewCount === "number" ? profileData.reviewCount : 0,
+      responseRate: typeof profileData.responseRate === "number" ? profileData.responseRate : 0,
+      verificationStatus: "approved",
+      isVerifiedProfessional: true,
+      hasPendingUpdate: false,
+      isAvailableForNewStudents: true,
+      degree: (profileData.degree as string) ?? null,
+      institution: (profileData.institution as string) ?? null,
+      updatedAt: now,
+    };
+    const v3 = await firestoreWrite("tutors", uid, tutorDoc);
+
+    if (v1 && v2 && v3) {
+      console.log(`[verify-identity] ✅ auto-approved ${uid} (confidence=${verdict.confidence})`);
+      return true;
+    }
+
+    console.error(`[verify-identity] partial auto-approve failure: v1=${v1} v2=${v2} v3=${v3}`);
+    return false;
+  } catch (err) {
+    // Auto-approve failure is non-fatal — the tutor stays in manual
+    // review queue. Log and return false so the client knows.
+    console.error("[verify-identity] auto-approve failed:", (err as Error).message?.slice(0, 300));
+    return false;
+  }
 }
 
 // ─── Handler ───────────────────────────────────────────────────────
@@ -211,7 +560,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await verifyFirebaseJwt(req);
+    const auth = await verifyFirebaseJwt(req);
 
     let body: VerifyIdentityRequest;
     try {
@@ -267,6 +616,17 @@ Deno.serve(async (req) => {
       reasons,
       checkedAt,
     };
+
+    // 4. Auto-approve when confidence is high enough.
+    //    Write directly to Firestore via REST API, bypassing the
+    //    admin queue.
+    if (decision === "approved" && confidence >= AUTO_APPROVE_THRESHOLD) {
+      const uid = auth.uid;
+      const approved = await autoApprove(uid, profileName ?? "", verdict);
+      if (approved) {
+        verdict.autoApproved = true;
+      }
+    }
 
     console.log("[verify-identity] verdict:", JSON.stringify(verdict));
     return json(verdict);

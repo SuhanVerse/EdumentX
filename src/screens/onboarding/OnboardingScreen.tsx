@@ -19,6 +19,7 @@
  * the last slide's Next becomes "Get started" and routes to the
  * unified auth entry.
  */
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, View, useWindowDimensions } from "react-native";
@@ -125,12 +126,15 @@ export function OnboardingScreen() {
 
   return (
     <ScreenLayout variant="background">
-      {/* ── Header: title mark left, Skip right ── */}
+      {/* ── Header: logo mark left, Skip right ── */}
       <View className="h-14 flex-row items-center justify-between px-6">
         <View className="flex-row items-center gap-2">
-          <View className="h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Text className="text-micro font-bold text-white">Ex</Text>
-          </View>
+          <Image
+            source={require("../../../assets/logo-mark.png")}
+            style={{ width: 36, height: 36 }}
+            contentFit="contain"
+            accessibilityLabel="EdumentX logo"
+          />
           <Text className="text-body font-semibold text-ink">EdumentX</Text>
         </View>
         <OnboardingSkip onPress={handleSkip} />

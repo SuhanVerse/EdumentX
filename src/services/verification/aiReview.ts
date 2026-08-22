@@ -11,17 +11,20 @@
  *      cartoon / pet / blank image
  * and returns a structured verdict.
  *
- * The verdict is persisted as `users/{uid}/tutorProfile/default.aiReview`
- * (the OWNER may write their profile doc; the ADMIN queue reads it to
- * fast-track review). The verification STATUS itself stays
- * admin-gated by design — a high-confidence verdict surfaces as an
- * "AI pre-screen: PASS" chip in the admin queue, not an automatic
- * approval. STRICTLY NO VIDEO — static images only.
+ * When confidence ≥ 0.9 (name match + face detected), the Edge Function
+ * auto-approves via the Admin SDK — writing to tutorVerifications,
+ * tutorProfile, and the tutors discovery doc in one batch. The client
+ * receives { autoApproved: true } and routes the tutor directly to the
+ * live dashboard, bypassing the admin queue entirely.
+ *
+ * When confidence < 0.9 or either check fails, the verdict is persisted
+ * as `users/{uid}/tutorProfile/default.aiReview` for the admin queue.
+ * STRICTLY NO VIDEO — static images only.
  */
 
 import { doc, getFirestore, serverTimestamp, setDoc } from "@react-native-firebase/firestore";
 import { getApp } from "@react-native-firebase/app";
-import { getAuth } from "@react-native-firebase/auth";
+import { getAuth, getIdToken } from "@react-native-firebase/auth";
 
 const EDGE_FUNCTION = "verify-identity";
 
@@ -33,6 +36,11 @@ export interface AiReviewVerdict {
   faceDetected: { present: boolean; score: number };
   reasons: string[];
   checkedAt: string;
+  /** When true, the Edge Function auto-approved the tutor by writing
+   *  directly to Firestore via the Admin SDK — the client should skip
+   *  persistAiReview (already written server-side) and route the tutor
+   *  to the live dashboard instead of the pending screen. */
+  autoApproved?: boolean;
 }
 
 /** Persisted shape on `users/{uid}/tutorProfile/default.aiReview`. */
@@ -61,7 +69,9 @@ export async function runAiVerification(input: {
   profileName: string;
 }): Promise<AiReviewVerdict | null> {
   const auth = getAuth(getApp());
-  const idToken = await auth.currentUser?.getIdToken();
+  const idToken = auth.currentUser
+    ? await getIdToken(auth.currentUser)
+    : undefined;
   if (!idToken) return null;
   if (!input.docUrl && !input.photoUrl) return null;
 
