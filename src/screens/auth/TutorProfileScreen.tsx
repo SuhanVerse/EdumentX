@@ -34,9 +34,9 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { colors } from "@/constants/colors";
-import { useFieldScroll } from "@/hooks/useFieldScroll";
 import { INSTITUTION_LABELS } from "@/data/institutions";
 import { QUALIFICATION_LABELS } from "@/data/qualifications";
+import { useFieldScroll } from "@/hooks/useFieldScroll";
 import { motion } from "@/lib/motion";
 import { registration } from "@/lib/registration";
 import { validateDegree, validateEmail, validateFullName, validateInstitution, validatePhone, validateUsername } from "@/lib/validation";
@@ -705,7 +705,7 @@ export function TutorProfileScreen() {
                   onChangeText={(value) => setHeadline(value.slice(0, HEADLINE_MAX))}
                   onFocus={onFocus}
                   onBlur={onBlur}
-                  placeholder="e.g., Experienced Math & Physics tutor"
+                  placeholder="e.g., Experienced Math tutor"
                   placeholderTextColor={colors.text.muted}
                   className={inputBase}
                 />
