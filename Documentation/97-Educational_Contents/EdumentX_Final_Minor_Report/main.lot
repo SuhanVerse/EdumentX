@@ -1,11 +1,32 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {2.1}{\ignorespaces Comparison of Related Systems vs. EdumentX}}{6}{table.2.1}%
+\contentsline {table}{\numberline {2.2}{\ignorespaces Core Data Entities for EdumentX}}{7}{table.2.2}%
+\contentsline {table}{\numberline {2.3}{\ignorespaces KNN Feature Weights for Tutor Recommendation}}{9}{table.2.3}%
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Economic Feasibility and Free-Tier Quota Allocation}}{11}{table.3.1}%
 \addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Primary Firestore Document Collections and Schema}}{27}{table.4.1}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1}{\ignorespaces Unit Test Coverage Summary}}{20}{table.5.1}%
-\contentsline {table}{\numberline {5.2}{\ignorespaces ESLint Rule Test Results}}{21}{table.5.2}%
-\contentsline {table}{\numberline {5.3}{\ignorespaces Security Rules Test Suites}}{21}{table.5.3}%
-\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces Test Environment Specifications}}{28}{table.5.1}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Unit Test Case UT-01 -- Asia/Kathmandu Timezone Conversion}}{29}{table.5.2}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces Unit Test Case UT-02 -- SlotKey Syntax Validation}}{29}{table.5.3}%
+\contentsline {table}{\numberline {5.4}{\ignorespaces Unit Test Case UT-03 -- Haversine Great-Circle Distance Calculation}}{29}{table.5.4}%
+\contentsline {table}{\numberline {5.5}{\ignorespaces Unit Test Case UT-04 -- Dynamic Today's Sessions Derivation}}{30}{table.5.5}%
+\contentsline {table}{\numberline {5.6}{\ignorespaces Unit Test Case UT-05 -- SeatsRing SVG Capacity Math}}{30}{table.5.6}%
+\contentsline {table}{\numberline {5.7}{\ignorespaces Integration Test Case IT-01 -- Signup, Email Verification and Role Routing}}{30}{table.5.7}%
+\contentsline {table}{\numberline {5.8}{\ignorespaces Integration Test Case IT-02 -- Tutor Verification Upload and AI Screening}}{31}{table.5.8}%
+\contentsline {table}{\numberline {5.9}{\ignorespaces Integration Test Case IT-03 -- Map Pin Clustering and Selection}}{31}{table.5.9}%
+\contentsline {table}{\numberline {5.10}{\ignorespaces Integration Test Case IT-04 -- Enrollment Request to Roster Transaction}}{31}{table.5.10}%
+\contentsline {table}{\numberline {5.11}{\ignorespaces Integration Test Case IT-05 -- eSewa Payment and Pro Activation}}{32}{table.5.11}%
+\contentsline {table}{\numberline {5.12}{\ignorespaces System Journey Test Case SYS-J1 -- Student Discovery to Enrollment}}{32}{table.5.12}%
+\contentsline {table}{\numberline {5.13}{\ignorespaces System Journey Test Case SYS-J2 -- Tutor Onboarding and Schedule Setup}}{32}{table.5.13}%
+\contentsline {table}{\numberline {5.14}{\ignorespaces System Journey Test Case SYS-J3 -- Pro Subscription Upgrade}}{33}{table.5.14}%
+\contentsline {table}{\numberline {5.15}{\ignorespaces AI Identity Verification and Vision OCR Evaluation}}{33}{table.5.15}%
+\contentsline {table}{\numberline {5.16}{\ignorespaces Security Test Case ST-01 -- Student Location Privacy Protection}}{34}{table.5.16}%
+\contentsline {table}{\numberline {5.17}{\ignorespaces Security Test Case ST-02 -- Cross-User Profile Modification Guard}}{34}{table.5.17}%
+\contentsline {table}{\numberline {5.18}{\ignorespaces Security Test Case ST-03 -- Free Tier Capacity Cap Enforcement}}{34}{table.5.18}%
+\contentsline {table}{\numberline {5.19}{\ignorespaces Security Test Case ST-04 -- Chat Thread Access Authorization}}{35}{table.5.19}%
+\contentsline {table}{\numberline {5.20}{\ignorespaces Test Suite Traceability Matrix}}{35}{table.5.20}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

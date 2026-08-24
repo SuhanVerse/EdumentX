@@ -2,8 +2,8 @@
 \contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Copyright}{iii}{chapter*.2}%
 \contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Acknowledgements}{iv}{chapter*.3}%
 \contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Abstract}{v}{chapter*.4}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Figures}{viii}{chapter*.5}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Tables}{ix}{chapter*.6}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Figures}{ix}{chapter*.5}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Tables}{x}{chapter*.6}%
 \contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion List of Abbreviations}{xi}{chapter*.8}%
 \contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Background}{1}{section.1.1}%
@@ -13,48 +13,60 @@
 \contentsline {chapter}{\numberline {2}Literature Review}{5}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Related Work}{5}{section.2.1}%
 \contentsline {section}{\numberline {2.2}Related Theory}{6}{section.2.2}%
-\contentsline {subsection}{\numberline {2.2.1}Location-Based Services}{6}{subsection.2.2.1}%
-\contentsline {subsection}{\numberline {2.2.2}Haversine Distance Formula}{6}{subsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.2.3}Geofencing and Radius-Based Filtering}{7}{subsection.2.2.3}%
-\contentsline {subsection}{\numberline {2.2.4}K-Nearest Neighbors Algorithm}{7}{subsection.2.2.4}%
-\contentsline {subsection}{\numberline {2.2.5}Retrieval-Augmented Generation}{7}{subsection.2.2.5}%
-\contentsline {subsection}{\numberline {2.2.6}React Native and Expo}{8}{subsection.2.2.6}%
-\contentsline {subsection}{\numberline {2.2.7}Firebase and Supabase}{8}{subsection.2.2.7}%
-\contentsline {subsection}{\numberline {2.2.8}Google Maps via expo-maps}{8}{subsection.2.2.8}%
-\contentsline {chapter}{\numberline {3}Methodology}{9}{chapter.3}%
-\contentsline {section}{\numberline {3.1}System Design}{9}{section.3.1}%
-\contentsline {subsection}{\numberline {3.1.1}System Architecture}{9}{subsection.3.1.1}%
-\contentsline {subsection}{\numberline {3.1.2}Use Case Diagram}{10}{subsection.3.1.2}%
-\contentsline {subsection}{\numberline {3.1.3}Data Flow Diagram}{12}{subsection.3.1.3}%
-\contentsline {subsection}{\numberline {3.1.4}RAG Chatbot Workflow}{13}{subsection.3.1.4}%
-\contentsline {section}{\numberline {3.2}Implementation Details}{14}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Frontend Development}{14}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Backend Development}{14}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Testing Strategy}{14}{subsection.3.2.3}%
-\contentsline {section}{\numberline {3.3}Module Implementation}{15}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Onboarding and Authentication Module}{15}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Tutor Profile and Verification Module}{15}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {2.2.1}Two-Sided Marketplaces and Platform Matching}{6}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Core Data Entities and Relational Modeling}{6}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Location-Based Services and Haversine Distance Formula}{8}{subsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.2.4}Geofencing and Radius-Based Filtering}{8}{subsection.2.2.4}%
+\contentsline {subsection}{\numberline {2.2.5}K-Nearest Neighbors (KNN) Algorithm}{8}{subsection.2.2.5}%
+\contentsline {subsection}{\numberline {2.2.6}Retrieval-Augmented Generation (RAG) and Semantic Search}{9}{subsection.2.2.6}%
+\contentsline {subsection}{\numberline {2.2.7}Mobile Application Framework (React Native and Expo)}{9}{subsection.2.2.7}%
+\contentsline {subsection}{\numberline {2.2.8}Multi-Axis Rating Aggregation and Anti-Tampering}{9}{subsection.2.2.8}%
+\contentsline {chapter}{\numberline {3}Methodology}{10}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Feasibility Study}{10}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Technical Feasibility}{10}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}Operational Feasibility}{10}{subsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.1.3}Economic Feasibility}{11}{subsection.3.1.3}%
+\contentsline {subsection}{\numberline {3.1.4}Schedule Feasibility}{12}{subsection.3.1.4}%
+\contentsline {subsection}{\numberline {3.1.5}Legal and Ethical Feasibility}{12}{subsection.3.1.5}%
+\contentsline {section}{\numberline {3.2}System Architecture and Implementation Framework}{12}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Mobile Client Architecture}{12}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Backend Services and Serverless Compute}{13}{subsection.3.2.2}%
+\contentsline {section}{\numberline {3.3}Module Implementation}{13}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Authentication and Onboarding Module}{13}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}AI Tutor Verification Module}{14}{subsection.3.3.2}%
 \contentsline {subsection}{\numberline {3.3.3}Tutor Discovery and Map Module}{15}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {3.3.4}Enrollment and Batches Module}{15}{subsection.3.3.4}%
-\contentsline {subsection}{\numberline {3.3.5}Messaging Module}{16}{subsection.3.3.5}%
-\contentsline {subsection}{\numberline {3.3.6}Pro Subscription Module}{16}{subsection.3.3.6}%
-\contentsline {subsection}{\numberline {3.3.7}Admin Module}{16}{subsection.3.3.7}%
-\contentsline {chapter}{\numberline {4}System Design}{17}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Requirement Specification}{17}{section.4.1}%
-\contentsline {subsection}{\numberline {4.1.1}Functional Requirements}{17}{subsection.4.1.1}%
-\contentsline {subsection}{\numberline {4.1.2}Non-Functional Requirements}{18}{subsection.4.1.2}%
-\contentsline {subsection}{\numberline {4.1.3}System Architecture}{19}{subsection.4.1.3}%
-\contentsline {subsection}{\numberline {4.1.4}Use Case Diagram}{19}{subsection.4.1.4}%
-\contentsline {chapter}{\numberline {5}Results and Discussion}{20}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Software Development Approach}{20}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Testing and Evaluation}{20}{section.5.2}%
-\contentsline {subsection}{\numberline {5.2.1}Unit Test Results}{20}{subsection.5.2.1}%
-\contentsline {subsection}{\numberline {5.2.2}Lint Rule Test Results}{20}{subsection.5.2.2}%
-\contentsline {subsection}{\numberline {5.2.3}Security Rules Test Results}{21}{subsection.5.2.3}%
-\contentsline {subsection}{\numberline {5.2.4}Build Verification}{21}{subsection.5.2.4}%
-\contentsline {section}{\numberline {5.3}Current Build}{21}{section.5.3}%
-\contentsline {chapter}{\numberline {6}Conclusions}{23}{chapter.6}%
-\contentsline {chapter}{\numberline {7}Limitations and Future Enhancement}{24}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Limitations}{24}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Future Enhancement}{24}{section.7.2}%
-\contentsline {chapter}{\numberline {8}References}{26}{chapter.8}%
+\contentsline {subsection}{\numberline {3.3.4}Enrollment Request Workflow Module}{16}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Group Batches Management Module}{16}{subsection.3.3.5}%
+\contentsline {subsection}{\numberline {3.3.6}In-App Direct Messaging Module}{16}{subsection.3.3.6}%
+\contentsline {subsection}{\numberline {3.3.7}Pro Tier and eSewa Payment Module}{16}{subsection.3.3.7}%
+\contentsline {subsection}{\numberline {3.3.8}Ratings and Reviews Module}{18}{subsection.3.3.8}%
+\contentsline {subsection}{\numberline {3.3.9}AI Chatbot Module}{18}{subsection.3.3.9}%
+\contentsline {subsection}{\numberline {3.3.10}Admin Dashboard Module}{18}{subsection.3.3.10}%
+\contentsline {chapter}{\numberline {4}System Design}{19}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Requirement Specification}{19}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Functional Requirements}{19}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Non-Functional Requirements}{21}{subsection.4.1.2}%
+\contentsline {section}{\numberline {4.2}System Architecture}{21}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Data Flow Diagrams}{23}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}Level 0 Context Diagram}{23}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}Level 1 Data Flow Diagram}{23}{subsection.4.3.2}%
+\contentsline {section}{\numberline {4.4}Use Case Diagram}{24}{section.4.4}%
+\contentsline {section}{\numberline {4.5}AI RAG Chatbot Workflow}{26}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Database Schema}{27}{section.4.6}%
+\contentsline {chapter}{\numberline {5}Results and Discussion}{28}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Software Development Approach}{28}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Testing, Evaluation and Validation}{28}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Test Environment Specification}{28}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Unit Test Cases}{29}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Integration Test Cases}{30}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}System Journey Test Cases}{32}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}AI Identity Verification and Vision OCR Evaluation}{33}{subsection.5.2.5}%
+\contentsline {subsection}{\numberline {5.2.6}Security Test Cases}{34}{subsection.5.2.6}%
+\contentsline {subsection}{\numberline {5.2.7}Test Traceability Summary}{35}{subsection.5.2.7}%
+\contentsline {chapter}{\numberline {6}Conclusions}{36}{chapter.6}%
+\contentsline {chapter}{\numberline {7}Limitations and Future Enhancement}{37}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Limitations}{37}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Future Enhancement}{37}{section.7.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion References}{38}{section.7.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendices}{40}{chapter*.10}%
+\contentsline {section}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendix: Application Screenshots}{40}{section*.11}%
