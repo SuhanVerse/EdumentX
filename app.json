@@ -15,6 +15,7 @@
     },
     "android": {
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.edumentx",
       "googleServicesFile": "./google-services.json",
@@ -80,8 +81,5 @@
         "projectId": "d8524c04-2df7-4446-93fc-8a0bad7a6e54"
       }
     }
-  },
-  "android": {
-    "softwareKeyboardLayoutMode": "resize"
   }
 }

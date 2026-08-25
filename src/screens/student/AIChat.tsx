@@ -13,7 +13,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   Text,
@@ -27,6 +26,7 @@ import { getApp } from "@react-native-firebase/app";
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAiChat } from "@/hooks/useAiChat";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { QUICK_CHIPS, type ConstraintPreset } from "@/lib/ai/constraintPresets";
 import { parseMessageToConstraints } from "@/lib/ai/clientConstraintParser";
 import { motion } from "@/lib/motion";
@@ -50,6 +50,9 @@ export function AIChat() {
   } = useAiChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<ScrollView | null>(null);
+  // Keyboard height measured from raw events — the built-in
+  // KeyboardAvoidingView is unreliable on Android under edge-to-edge.
+  const keyboardInset = useKeyboardInset();
   const [savedLocation, setSavedLocation] = useState<{
     city: string;
     neighborhood: string;
@@ -200,13 +203,11 @@ export function AIChat() {
       </ScreenHeader>
 
       {/* Chat + input bar — light sheet overlapping the dark hero
-          (premium dark→light seam, shared `ScreenSheet` pattern) */}
+          (premium dark→light seam, shared `ScreenSheet` pattern).
+          Padded by the measured keyboard height instead of a
+          KeyboardAvoidingView (broken on Android under edge-to-edge). */}
       <ScreenSheet>
-      <KeyboardAvoidingView
-        behavior="padding"
-        keyboardVerticalOffset={0}
-        className="flex-1"
-      >
+      <View className="flex-1" style={{ paddingBottom: keyboardInset }}>
         <ScreenScroll
           ref={scrollRef}
           className="flex-1 bg-background"
@@ -261,10 +262,15 @@ export function AIChat() {
         </View>
       </View>
 
-      </KeyboardAvoidingView>
+      </View>
       </ScreenSheet>
 
-      <BottomNav role="student" current="/AI-chat" />
+      {/* The nav sits below the chat sheet; while the keyboard is open
+          it would be covered anyway and only squeeze the conversation,
+          so hide it until the keyboard dismisses. */}
+      {keyboardInset === 0 && (
+        <BottomNav role="student" current="/AI-chat" />
+      )}
     </ScreenLayout>
   );
 }
