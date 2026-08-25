@@ -15,7 +15,7 @@ import {
   type TutorDocKind,
   type TutorDocument,
 } from "@/lib/verification/documents";
-import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
+import { useSignedDocUrl } from "@/hooks/useSignedDocUrl";
 
 /**
  * EdumentX — Single-slot document uploader.
@@ -50,6 +50,9 @@ export function DocumentUploader({
   onUploaded: (doc: TutorDocument) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+
+  // Signed URL for the PII preview (Aug 24 audit: no more public URLs).
+  const { url: existingSignedUrl } = useSignedDocUrl(existing?.path ?? null, existing?.uploadedAt ?? null);
 
   async function handlePick() {
     setUploading(true);
@@ -138,20 +141,7 @@ export function DocumentUploader({
               {existing && (existing.kind === "citizenship" || existing.kind === "certificate") ? (
                 <View className="mt-2">
                   <ImageViewer
-                    uri={(() => {
-                      try {
-                        const url = getVerificationDocPublicUrl(existing.path);
-                        // Cache-bust: append uploadedAt timestamp so a
-                        // re-upload to the same Supabase path doesn't
-                        // show the old cached image.
-                        if (existing.uploadedAt) {
-                          return `${url}?t=${encodeURIComponent(existing.uploadedAt)}`;
-                        }
-                        return url;
-                      } catch {
-                        return "";
-                      }
-                    })()}
+                    uri={existingSignedUrl ?? ""}
                     label={TUTOR_DOC_LABEL[existing.kind]}
                     thumbnailWidth={72}
                     thumbnailHeight={54}
@@ -298,22 +288,8 @@ function DocumentRow({
   const isImage = kind === "citizenship" || kind === "certificate";
   const isVideo = kind === "demo";
 
-  // Resolve the public URL for the document if it exists.
-  // Append a cache-busting query param from uploadedAt so a
-  // re-upload to the same Supabase path doesn't show the old
-  // cached image.
-  let publicUrl: string | null = null;
-  if (doc && typeof doc.path === "string" && doc.path.length > 0) {
-    try {
-      let url = getVerificationDocPublicUrl(doc.path);
-      if (doc.uploadedAt) {
-        url = `${url}?t=${encodeURIComponent(doc.uploadedAt)}`;
-      }
-      publicUrl = url;
-    } catch {
-      // Non-fatal — fall through to the icon-only display.
-    }
-  }
+  // Signed (PII) or public (demo video) display URL — Aug 24 audit.
+  const { url: docUrl } = useSignedDocUrl(doc?.path ?? null, doc?.uploadedAt ?? null);
 
   return (
     <>
@@ -321,19 +297,19 @@ function DocumentRow({
         {/* Image preview for citizenship/certificate — no icon,
             no file-name text, just the actual document thumbnail.
             Matches the admin VerificationQueue document display. */}
-        {isImage && publicUrl ? (
+        {isImage && docUrl ? (
           <ImageViewer
-            uri={publicUrl}
+            uri={docUrl ?? ""}
             label={TUTOR_DOC_LABEL[kind]}
             thumbnailWidth={64}
             thumbnailHeight={48}
           />
-        ) : isVideo && publicUrl ? (
+        ) : isVideo && docUrl ? (
           <DocumentPlayButton
-            publicUrl={publicUrl}
+            publicUrl={docUrl}
             label={TUTOR_DOC_LABEL[kind]}
             onPress={() =>
-              setPreviewVideo({ uri: publicUrl, label: TUTOR_DOC_LABEL[kind] })
+              setPreviewVideo({ uri: docUrl, label: TUTOR_DOC_LABEL[kind] })
             }
           />
         ) : (
@@ -428,9 +404,9 @@ function kindIconName(kind: TutorDocKind): keyof typeof Ionicons.glyphMap {
 function kindAccent(kind: TutorDocKind): { bg: string; fg: string } {
   switch (kind) {
     case "citizenship":
-      return { bg: "bg-ai-light", fg: "#4A7FA5" };
+      return { bg: "bg-ai-light", fg: colors.brand.ai };
     case "certificate":
-      return { bg: "bg-verification-light", fg: "#3F8A5A" };
+      return { bg: "bg-verification-light", fg: colors.brand.verification };
     case "demo":
       return { bg: "bg-amber-light", fg: "#E5A03B" };
   }

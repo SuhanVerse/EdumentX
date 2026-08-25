@@ -23,8 +23,21 @@
 //                     4. server-to-server status check against
 //                        eSewa's GET /api/epay/transaction/status/
 //                        (the docs' anti-fraud step)
-//                     Only after ALL checks pass is the transaction
-//                     marked COMPLETE and the client allowed to grant.
+//                     Only after ALL checks pass is the Pro tier
+//                     granted SERVER-SIDE and the transaction marked
+//                     COMPLETE.
+//
+// ── SECURITY FIX (Aug 24 audit): server-side Pro grant ───────────
+// The client used to write `subscriptionTier:"pro"` itself via
+// `applyProGrant` under an owner carve-out in firestore.rules — any
+// modified client could mint Pro for free. The rules now REJECT
+// owner writes to `subscriptionTier` / `subscriptionExpiresAt` on
+// both `users/{uid}/tutorProfile/default` and `tutors/{uid}`; the
+// only writer is the service-role REST patch below, which runs AFTER
+// every verification step passed. Grant runs BEFORE the ledger row
+// is marked COMPLETE: if the COMPLETE write fails, the row stays
+// PENDING and a retry re-runs the full chain (idempotent — eSewa's
+// status API still reports COMPLETE, the grant just re-applies).
 //
 // ⚠️ SANDBOX ONLY — merchant code EPAYTEST. Never point at live
 // merchant credentials without an explicit, separate decision.
@@ -41,6 +54,10 @@ import {
   verifyCallbackSignature,
 } from "../_shared/esewa.ts";
 import { AuthError, verifyFirebaseJwt } from "../_shared/firebase-auth.ts";
+import {
+  firestoreExists,
+  firestorePatch,
+} from "../_shared/firestore-rest.ts";
 import { getSupabaseClient } from "../../ai/utils/supabaseClient.ts";
 
 const CORS_HEADERS = {
@@ -251,7 +268,40 @@ async function handleVerify(
     });
   }
 
-  // 7. All checks passed — mark the ledger row COMPLETE (one-time use).
+  // 7. All checks passed — grant Pro SERVER-SIDE, then mark the
+  //    ledger row COMPLETE (one-time use). Grant-first ordering: if
+  //    the COMPLETE write fails, the row stays PENDING and a retry
+  //    re-runs the whole chain (the grant re-applies harmlessly).
+  const plan = isValidPlan(row.plan) ? row.plan : null;
+  if (!plan) {
+    console.error(
+      "[create-esewa-order] ledger row has unknown plan:",
+      transactionUuid,
+      row.plan,
+    );
+    return json({ valid: false, reason: "invalid_ledger_plan", payload });
+  }
+
+  let granted = false;
+  try {
+    granted = await grantProToTutor(callerUid, PRODUCTS[plan].durationMonths);
+  } catch (err) {
+    console.error(
+      "[create-esewa-order] Pro grant failed for",
+      callerUid,
+      transactionUuid,
+      err,
+    );
+    // Leave the row PENDING so the user can retry verification; do
+    // NOT consume the one-time-use uuid on a failed grant.
+    return json({ valid: false, reason: "grant_failed", payload });
+  }
+  if (!granted) {
+    // Profile/discovery doc missing (tutor never onboarded?) — same
+    // retry semantics as a thrown grant.
+    return json({ valid: false, reason: "grant_target_missing", payload });
+  }
+
   await supabase
     .from("transactions")
     .update({
@@ -268,9 +318,53 @@ async function handleVerify(
   return json({
     valid: true,
     alreadyGranted: false,
+    granted: true,
     transaction_uuid: transactionUuid,
     payload,
   });
+}
+
+/**
+ * Server-side Pro tier grant. Writes BOTH surfaces the app reads:
+ *   - `users/{uid}/tutorProfile/default` (source of truth for the
+ *     dashboard/capacity gate)
+ *   - `tutors/{uid}` (discovery mirror for search/map badges)
+ * The discovery mirror is skipped when the doc doesn't exist yet
+ * (REST PATCH would otherwise create a junk public doc).
+ * Returns false when the profile doc is missing (nothing to grant
+ * onto); throws on transport/auth failures.
+ */
+async function grantProToTutor(
+  tutorUid: string,
+  months: number,
+): Promise<boolean> {
+  const profilePath = `users/${tutorUid}/tutorProfile/default`;
+  const discoveryPath = `tutors/${tutorUid}`;
+  const expiresAt = Date.now() + months * 30 * 24 * 60 * 60 * 1000;
+  const nowIso = new Date().toISOString();
+
+  if (!(await firestoreExists(profilePath))) {
+    return false;
+  }
+  await firestorePatch(profilePath, {
+    subscriptionTier: "pro",
+    subscriptionExpiresAt: expiresAt,
+    updatedAt: nowIso,
+  });
+  if (await firestoreExists(discoveryPath)) {
+    await firestorePatch(discoveryPath, {
+      subscriptionTier: "pro",
+      subscriptionExpiresAt: expiresAt,
+      updatedAt: nowIso,
+    });
+  } else {
+    console.warn(
+      "[create-esewa-order] no discovery doc for",
+      tutorUid,
+      "— profile granted, mirror skipped",
+    );
+  }
+  return true;
 }
 
 /** Mark a ledger row FAILED (bad amount/product/status). */

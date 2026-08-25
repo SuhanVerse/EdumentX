@@ -32,9 +32,24 @@ import { getSupabase } from "@/services/supabase/client";
 export const BUCKET = {
   /** Public read; image/* only; 5 MB cap. Holds {uid}.jpg avatars. */
   AVATARS: "public-avatars",
-  /** Owner + admin read; all MIME; 25 MB cap. Holds ID / education / video. */
+  /**
+   * Owner + admin read ONLY (Aug 24 audit fix — this bucket is now
+   * fully PRIVATE; previews go through the `verification-doc-url`
+   * Edge Function's short-lived signed URLs). Holds citizenship +
+   * certificate scans. NEVER store anything here that students must
+   * render.
+   */
   VERIFICATION_DOCS: "private-verification-docs",
+  /**
+   * Public read; tutor intro videos (`kind: "demo"`). Split out of
+   * VERIFICATION_DOCS by the Aug 24 audit so the private bucket can be
+   * flipped fully private without breaking the public details screen.
+   */
+  DEMO_VIDEOS: "tutor-demo-videos",
 } as const;
+
+/** Kinds that live in the PUBLIC demo bucket (student-facing media). */
+const PUBLIC_KINDS: ReadonlySet<string> = new Set(["demo"]);
 
 // ---------------------------------------------------------------------------
 // MIME detection
@@ -220,6 +235,24 @@ export type VerificationKind = "id" | "education" | "video";
  * Path convention: `{uid}/{kind}.{ext}` so the user's three docs are
  * grouped and easy to enumerate.
  */
+/**
+ * Uploads a tutor verification document.
+ *
+ * ── SECURITY HARDENING (Aug 25) ──
+ * Uploads now route through the `upload-verification-doc` Edge
+ * Function instead of writing to Storage with the anon key. The uid
+ * is taken from the VERIFIED FIREBASE JWT server-side — the path is
+ * built there, so a malicious client can no longer overwrite another
+ * user's `{victimUid}/id.jpg` via the bucket-scoped anon policies
+ * (which migration 017 removes entirely).
+ *
+ * Contract unchanged for callers: pass the Firebase uid + kind +
+ * local URI, get back the storage path. The uid param is still used
+ * for the optimistic local error messages but is NOT trusted by the
+ * server.
+ *
+ * Path convention: `{uid}/{kind}.{ext}` (server-derived).
+ */
 export async function uploadVerificationDoc(
   uid: string,
   kind: VerificationKind,
@@ -227,92 +260,128 @@ export async function uploadVerificationDoc(
 ): Promise<{ path: string }> {
   if (!uid) throw new Error("[uploadVerificationDoc] uid is required");
 
-  const bytes = await readBytes(uri);
+  // Demo videos are student-facing media → public bucket. Everything
+  // else is PII → private bucket (signed-URL access only). The server
+  // applies the same mapping; this only feeds its allow-list.
+  const serverKind = PUBLIC_KINDS.has(kind) ? "demo" : kind;
   const contentType = mimeFromUri(uri);
-  const ext = contentType.split("/")[1] ?? "bin";
-  const path = `${uid}/${kind}.${ext}`;
 
-  const supabase = getSupabase();
-  const { error } = await supabase.storage
-    .from(BUCKET.VERIFICATION_DOCS)
-    .upload(path, bytes, {
-      contentType,
-      upsert: true,
-      cacheControl: "0", // docs are private — no need to cache
+  // Fresh Firebase ID token — identity comes from this, not from any
+  // request field.
+  const { getApp } = await import("@react-native-firebase/app");
+  const { getAuth, getIdToken } = await import("@react-native-firebase/auth");
+  const user = getAuth(getApp()).currentUser;
+  if (!user) throw new Error("[uploadVerificationDoc] sign in required");
+  const idToken = await getIdToken(user);
+
+  // React Native's FormData file shape ({ uri, name, type }) streams
+  // straight off disk — no base64 round-trip needed.
+  const form = new FormData();
+  form.append("kind", serverKind);
+  form.append("file", {
+    uri,
+    name: `upload.${contentType.split("/")[1] ?? "bin"}`,
+    type: contentType,
+  } as unknown as Blob);
+
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("[uploadVerificationDoc] EXPO_PUBLIC_SUPABASE_URL not set");
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl}/functions/v1/upload-verification-doc`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` },
+      body: form,
     });
-
-  if (error) {
-    // The Storage SDK surfaces two failure shapes:
-    //   - `StorageApiError`     — HTTP responded but with 4xx/5xx
-    //                              (e.g. "Bucket not found", RLS denied).
-    //                              Carries `status` and `statusCode`.
-    //   - `StorageUnknownError` — transport-level failure
-    //                              (DNS, TLS, paused Supabase project,
-    //                              captive portal). Message is usually
-    //                              "Network request failed", no status.
-    //
-    // Both come back through the same `{ error }` field. We log the
-    // full error in `__DEV__` so the device console has the
-    // `originalError` / status, and we include the bucket + path in
-    // the thrown message so the user can copy-paste into an issue
-    // tracker. For the most common failure (bucket missing) we
-    // also surface a one-liner in the thrown message that points
-    // the user at the Supabase dashboard — saves the next 20
-    // minutes of debugging.
-    if (__DEV__) {
-       
-      console.warn("[uploadVerificationDoc] full error", error);
-    }
-    const status =
-      typeof error === "object" && error !== null && "status" in error
-        ? (error as { status?: number }).status
-        : undefined;
-    const hint =
-      error.message === "Bucket not found"
-        ? " — create the bucket in Supabase Storage (name: " +
-          BUCKET.VERIFICATION_DOCS +
-          ") before retrying"
-        : status === 401 || status === 403
-          ? " — the anon key upload is denied by RLS. In Supabase SQL editor: CREATE POLICY \"anon-upload\" ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = '" +
-            BUCKET.VERIFICATION_DOCS +
-            "')"
-          : "";
+  } catch (err) {
     throw new Error(
-      `[uploadVerificationDoc] ${error.message}${hint} (bucket=${BUCKET.VERIFICATION_DOCS}, path=${path})`,
+      `[uploadVerificationDoc] network request failed: ${(err as Error).message}`,
     );
   }
 
-  return { path };
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+    throw new Error(
+      `[uploadVerificationDoc] upload rejected (${res.status}): ${
+        body?.error ?? "unknown error"
+      }`,
+    );
+  }
+
+  const data = (await res.json()) as { path?: unknown };
+  if (typeof data.path !== "string" || data.path.length === 0) {
+    throw new Error("[uploadVerificationDoc] no path in response");
+  }
+  return { path: data.path };
 }
 
 /**
- * Public read URL for a verification doc inside the
- * `private-verification-docs` bucket.
+ * Resolve a display URL for a stored verification doc.
  *
- * Why we expose a *public* URL on a *private*-named bucket: the
- * EdumentX project is on the Supabase free tier (no card, no
- * Cloud Functions). The only way for the admin client to render
- * a tutor's citizenship scan / certificate is to make the file
- * readable without a signed URL. Writes remain owner-only — a
- * tutor can only upload to their own `{uid}/...` path because
- * `uploadVerificationDoc` is called with the signed-in user's
- * uid as the first segment. Reads are public so the admin queue
- * can render an `<Image>` preview and the admin can tap to
- * open the file in the system browser.
+ * ── SECURITY FIX (Aug 24 audit) ──
+ * The old implementation minted a PERMANENT PUBLIC URL into the
+ * private-verification-docs bucket — with guessable `{uid}/{kind}.{ext}`
+ * keys, anyone who learned a Firebase uid could fetch that user's
+ * citizenship scan.
  *
- * If we ever add a Cloud Function on a paid plan, this helper
- * becomes `getSignedUrl` (server-minted, time-limited) and the
- * bucket is flipped back to private-read. Until then this is
- * the cheapest path that keeps the admin flow working on the
- * free tier.
+ * Now:
+ *   - demo videos live in the PUBLIC `tutor-demo-videos` bucket and
+ *     resolve to plain public URLs (student-facing media), while
+ *   - PII scans (citizenship/certificate) resolve through the
+ *     `verification-doc-url` Edge Function, which returns a SHORT-LIVED
+ *     signed URL after checking owner-or-admin authority server-side.
  *
  * @param path Storage object path, e.g. `{uid}/id.jpg`.
  */
-export function getVerificationDocPublicUrl(path: string): string {
-  if (!path) throw new Error("[getVerificationDocPublicUrl] path is required");
+export function getVerificationDocPublicUrl(path: string): string | null {
+  if (!path) return null;
+  // Demo videos: public bucket, direct URL.
+  const kind = path.split("/")[1]?.split(".")[0] ?? "";
+  if (PUBLIC_KINDS.has(kind)) {
+    const supabase = getSupabase();
+    const { data } = supabase.storage.from(BUCKET.DEMO_VIDEOS).getPublicUrl(path);
+    return data.publicUrl;
+  }
+  // PII docs have NO synchronously-resolvable URL any more. Callers
+  // must use `getVerificationDocSignedUrl` (async). Returning null
+  // keeps sync call sites type-honest and fails closed.
+  return null;
+}
+
+/**
+ * Mint a SHORT-LIVED signed URL for a PII verification doc via the
+ * `verification-doc-url` Edge Function (owner-or-admin authorized,
+ * server-side). Use for admin queue previews and the uploader's own
+ * document thumbnails.
+ */
+export async function getVerificationDocSignedUrl(
+  path: string,
+): Promise<string> {
+  if (!path) throw new Error("[getVerificationDocSignedUrl] path is required");
+  const { getApp } = await import("@react-native-firebase/app");
+  const { getAuth, getIdToken } = await import("@react-native-firebase/auth");
+  const user = getAuth(getApp()).currentUser;
+  if (!user) throw new Error("[getVerificationDocSignedUrl] sign in required");
+  const idToken = await getIdToken(user);
+
   const supabase = getSupabase();
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET.VERIFICATION_DOCS).getPublicUrl(path);
-  return publicUrl;
+  const { data, error } = await supabase.functions.invoke(
+    "verification-doc-url",
+    { body: { path }, headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (error) {
+    throw new Error(
+      `[getVerificationDocSignedUrl] ${(error as { message?: string }).message ?? "request failed"}`,
+    );
+  }
+  const url = (data as { url?: unknown }).url;
+  if (typeof url !== "string" || url.length === 0) {
+    throw new Error("[getVerificationDocSignedUrl] no URL in response");
+  }
+  return url;
 }
