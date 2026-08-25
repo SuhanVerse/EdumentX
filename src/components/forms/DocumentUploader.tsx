@@ -408,6 +408,6 @@ function kindAccent(kind: TutorDocKind): { bg: string; fg: string } {
     case "certificate":
       return { bg: "bg-verification-light", fg: colors.brand.verification };
     case "demo":
-      return { bg: "bg-amber-light", fg: "#E5A03B" };
+      return { bg: "bg-amber-light", fg: colors.brand.accent };
   }
 }

@@ -239,23 +239,41 @@ export function EnrollmentInbox() {
     setCollapsed((prev) => ({ ...prev, [requestId]: !prev[requestId] }));
   }
 
-  // Accept opens the slot picker — the request carries no slotKey,
-  // and booking into a specific weekly slot is what the enrollment
-  // model requires.
+  // A requested slot is directly bookable when it parses, is still
+  // marked "available" on the tutor's live weekly grid, and isn't
+  // held by an active enrollment/batch. Used to skip the picker when
+  // the student's own pick is still open.
+  function firstBookableRequestedSlot(
+    req: EnrollmentRequest,
+  ): string | null {
+    if (!availability) return null; // schedule not loaded — verify via the picker
+    for (const key of req.pickedSlotKeys ?? []) {
+      const parsed = parseSlotKey(key);
+      if (!parsed) continue;
+      if (availability[parsed.day][parsed.slot] !== "available") continue;
+      if (bookedMap.has(key)) continue;
+      return key;
+    }
+    return null;
+  }
+
+  // Accept: when the student's requested slot is still open, accept
+  // straight into it — no picker round-trip. Otherwise open the slot
+  // picker (the request carries no bookable slotKey on its own),
+  // preselecting the student's first pick so confirming is one tap.
   function handleAccept(req: EnrollmentRequest) {
     if (busyId) return;
+    const direct = firstBookableRequestedSlot(req);
+    if (direct) {
+      void doAccept(req, direct);
+      return;
+    }
     setSlotPickerFor(req);
-    // Aug 25 UX: the student already picked slots in the request
-    // (`pickedSlotKeys`, rendered on the card as the schedule line).
-    // Preselect the first requested slot so manual approval is a
-    // single confirm — the tutor can still switch before confirming.
     setSelectedSlotKey(req.pickedSlotKeys?.[0] ?? null);
   }
 
-  async function confirmAccept() {
-    const req = slotPickerFor;
-    if (!req || !selectedSlotKey || busyId) return;
-    if (!user) return;
+  async function doAccept(req: EnrollmentRequest, slotKey: string) {
+    if (!user || busyId) return;
     setBusyId(req.requestId);
     try {
       await repo.acceptRequest({
@@ -269,7 +287,7 @@ export function EnrollmentInbox() {
           avatar: req.studentAvatar,
         },
         subjects: req.subjects,
-        slotKey: selectedSlotKey,
+        slotKey,
         startDate: req.startDate,
         endDate: req.endDate,
         // Session-code join requests carry the target batch — the
@@ -755,7 +773,9 @@ export function EnrollmentInbox() {
                 accessibilityRole="button"
                 accessibilityLabel="Confirm slot and accept"
                 onPress={() => {
-                  void confirmAccept();
+                  if (slotPickerFor && selectedSlotKey) {
+                    void doAccept(slotPickerFor, selectedSlotKey);
+                  }
                 }}
                 disabled={!selectedSlotKey || busyId !== null}
                 className={`min-h-btn rounded-card items-center justify-center ${

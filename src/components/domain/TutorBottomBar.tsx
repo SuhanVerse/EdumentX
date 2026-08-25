@@ -10,7 +10,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  ActivePill,
   AnimatedPressable,
   usePressScale,
 } from "@/components/motion";
@@ -147,22 +146,6 @@ export function TutorBottomBar({
       style={{ paddingBottom: 12 + insets.bottom }}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
-      {width > 0 ? (
-        <ActivePill
-          count={TUTOR_TABS.length}
-          activeIndex={activeIndex}
-          itemWidth={tabWidth}
-          pillClassName="absolute top-1.5 w-12 h-7 rounded-pill"
-          style={{
-            top: 6,
-            width: 48,
-            height: 28,
-            // Amber at 10% — same `bg-accent/10` tint the student +
-            // admin navs use for their active pill.
-            backgroundColor: `${colors.brand.accent}1A`,
-          }}
-        />
-      ) : null}
       {TUTOR_TABS.map((tab, i) => (
         <TutorTab
           key={tab.key}

@@ -70,7 +70,6 @@ interface TutorDashboardData {
    *  "Monthly revenue" metric (see the computed block in the
    *  render). */
   monthlyRateNpr: number;
-  profileCompletion: number;
   // `verificationStatus` and `hasPendingUpdate` come from the same
   // tutorProfile doc and drive the under-review banner above the
   // dashboard. They are kept as raw strings / booleans (not narrowed
@@ -94,7 +93,6 @@ const FALLBACK: TutorDashboardData = {
   capacity: 0,
   currentStudents: 0,
   monthlyRateNpr: 0,
-  profileCompletion: 0,
   verificationStatus: undefined,
   hasPendingUpdate: false,
   rejectionReason: null,
@@ -237,25 +235,6 @@ export function TutorDashboard() {
           monthlyRateNpr: toNum(
             (d as { monthlyRateNpr?: number }).monthlyRateNpr,
           ),
-          // Aug 25: computed client-side — the doc field was never
-          // written by any flow, so the tile always showed a dead 0%.
-          profileCompletion: (() => {
-            const rec = d as Record<string, unknown>;
-            const filled = [
-              typeof rec.fullName === "string" && rec.fullName.length > 0,
-              typeof rec.headline === "string" && rec.headline.length > 0,
-              typeof rec.bio === "string" && rec.bio.length > 0,
-              typeof rec.photoUrl === "string" && rec.photoUrl.length > 0,
-              Array.isArray(rec.subjects) && rec.subjects.length > 0,
-              toNum(rec.monthlyRateNpr as number) > 0,
-              Object.values(
-                (rec.availability ?? {}) as Record<string, Record<string, string>>,
-              ).some((day) => Object.values(day).some((v) => v === "available")),
-            ];
-            return Math.round(
-              (filled.filter(Boolean).length / filled.length) * 100,
-            );
-          })(),
           // Verification state — read but not yet written by the
           // tutor-side flows (those land in the next phase). The
           // dashboard uses these to render the ReviewBanner and to
@@ -719,24 +698,6 @@ export function TutorDashboard() {
             />
           </View>
         </Pressable>
-
-        {/* Profile completion */}
-        <View className="bg-surface border border-border rounded-card p-4 mb-3.5">
-          <Text className="text-button-sm font-medium text-text-primary mb-1.5">
-            Profile completion
-          </Text>
-          <View className="flex-row items-center gap-2.5">
-            <View className="flex-1 h-1.5 rounded-pill bg-border overflow-hidden">
-              <View
-                className="h-full bg-accent rounded-pill"
-                style={{ width: `${data.profileCompletion}%` }}
-              />
-            </View>
-            <Text className="text-button-sm text-accent font-medium">
-              {data.profileCompletion}%
-            </Text>
-          </View>
-        </View>
 
         {/* Today's sessions — derived live from the roster (active
             enrollments on today's weekday within their date window),

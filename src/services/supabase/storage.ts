@@ -48,8 +48,11 @@ export const BUCKET = {
   DEMO_VIDEOS: "tutor-demo-videos",
 } as const;
 
-/** Kinds that live in the PUBLIC demo bucket (student-facing media). */
-const PUBLIC_KINDS: ReadonlySet<string> = new Set(["demo"]);
+/** Kinds that live in the PUBLIC demo bucket (student-facing media).
+ *  "video" is the legacy kind written by the pre-gateway uploader
+ *  (docs store `kind: "demo"` with path `{uid}/video.mp4` — both
+ *  shapes must resolve to the public bucket). */
+const PUBLIC_KINDS: ReadonlySet<string> = new Set(["demo", "video"]);
 
 // ---------------------------------------------------------------------------
 // MIME detection
@@ -367,20 +370,35 @@ export async function getVerificationDocSignedUrl(
   const { getAuth, getIdToken } = await import("@react-native-firebase/auth");
   const user = getAuth(getApp()).currentUser;
   if (!user) throw new Error("[getVerificationDocSignedUrl] sign in required");
-  const idToken = await getIdToken(user);
+  // forceRefresh=true — a cached ID token older than 1h is rejected
+  // by the Edge Function (401 → thumbnails silently fall back to icons).
+  const idToken = await getIdToken(user, true);
 
-  const supabase = getSupabase();
-  const { data, error } = await supabase.functions.invoke(
-    "verification-doc-url",
-    { body: { path }, headers: { Authorization: `Bearer ${idToken}` } },
-  );
-  if (error) {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("[getVerificationDocSignedUrl] EXPO_PUBLIC_SUPABASE_URL not set");
+  }
+
+  // Direct fetch instead of supabase.functions.invoke — invoke collapses
+  // every failure into "non-2xx status code"; this surfaces the real
+  // status + body so a broken preview is diagnosable from the warn log.
+  const res = await fetch(`${supabaseUrl}/functions/v1/verification-doc-url`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) {
+    const body = (await res.text().catch(() => ""));
     throw new Error(
-      `[getVerificationDocSignedUrl] ${(error as { message?: string }).message ?? "request failed"}`,
+      `[getVerificationDocSignedUrl] Edge Function ${res.status}: ${body.slice(0, 160)}`,
     );
   }
-  const url = (data as { url?: unknown }).url;
-  if (typeof url !== "string" || url.length === 0) {
+  const data = (await res.json()) as { url?: unknown };
+  const url = typeof data.url === "string" ? data.url : null;
+  if (!url) {
     throw new Error("[getVerificationDocSignedUrl] no URL in response");
   }
   return url;

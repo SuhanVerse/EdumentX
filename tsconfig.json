@@ -18,6 +18,10 @@
   "exclude": [
     "node_modules",
     "supabase/**",
+    // Separate npm package with its own deps (firebase-functions) and
+    // its own tsconfig/tsc build — the root install never has its
+    // node_modules, so the root typecheck must not reach into it.
+    "functions/**",
     "Documentation/98-Reference-BasoBas/**",
     "Documentation/99-Archive/**",
     "_ragbot_reference/**",
