@@ -10,11 +10,34 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // ── Admin identity ────────────────────────────────────────────────
+    // Admin status lives in a Firebase Auth CUSTOM CLAIM (`admin:
+    // true`), set exclusively by `scripts/seedAdmin.ts` via the Admin
+    // SDK alongside the auditable `admins/{uid}` ledger doc. Clients
+    // cannot mint claims; there is no self-promotion path.
+    //
+    // SECURITY FIX (Aug 24 audit): an earlier revision trusted
+    // `users/{uid}.data.role == "admin"` here. Because the owner can
+    // write their own root user doc, that clause let ANY signed-in
+    // user promote themselves to full admin by patching their own
+    // `role` field — unlocking every student's PII (incl. precise
+    // location), self-approval of tutor verification, `tutors/*`
+    // writes and user deletion. The `users.role` clause is REMOVED.
+    // The client still reads `users/{uid}.role` for dashboard
+    // ROUTING (cosmetic), but rules no longer trust it for AUTHORITY.
+    //
+    // WHY A CLAIM (not `exists(admins/{uid})`): (1) zero Firestore
+    // reads per evaluation — the old form cost a document read on
+    // EVERY guarded request; (2) the local Firestore emulator
+    // (v1.22.0) THROWS on exists() targeting an absent doc, which
+    // poisoned whole rule blocks during test runs; claims evaluate to
+    // a plain boolean everywhere. Legacy admins must re-run
+    // `npm run seed:admin` once to receive the claim.
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
-      );
+      // .get(key, default) — plain indexing throws when the claim is
+      // absent (every regular user's token), and a throwing clause
+      // poisons its whole statement in the rules engine.
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
     // The single source of truth for which notification `type` values
@@ -36,6 +59,29 @@ service cloud.firestore {
       ];
     }
 
+    // ── Field-immutability primitive ──────────────────────────────────
+    // True when key `k` is UNCHANGED by the write: present before and
+    // after with an equal value, or absent from both views. Pins
+    // server-managed / sensitive fields without diff(), which the local
+    // Firestore emulator (v1.22.0) evaluates as no-change for some patch
+    // shapes, and without one-sided 'k' in request.resource.data checks,
+    // which misfire because the masked-update view MERGES existing doc
+    // fields into request.resource.data. Dynamic indexing (data[k]) is
+    // guarded by short-circuited `in` checks so absent keys never error.
+    function unchanged(k) {
+      return (
+        (
+          !(k in resource.data)
+          && !(k in request.resource.data)
+        )
+        || (
+          (k in resource.data)
+          && (k in request.resource.data)
+          && request.resource.data[k] == resource.data[k]
+        )
+      );
+    }
+
     // The root user doc — created by `RoleSelection` and read by
     // `app/_layout.tsx` to decide which dashboard to show.
     //
@@ -49,10 +95,70 @@ service cloud.firestore {
     //     current-user only) — that step runs on a dev laptop via
     //     `scripts/deleteUser.ts` (see ARCHITECTURE.md §11).
     match /users/{userId} {
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      // ── SECURITY FIX (Aug 24 audit): owner-write allowlist ──────────
+      // The owner update previously allowed ANY field, which (before
+      // the isAdmin() fix above) enabled self-promotion to admin and
+      // still allowed a suspended user to un-suspend themselves by
+      // flipping `status`. The allowlist below covers exactly the
+      // fields the client legitimately writes:
+      //   RoleSelection        → uid,email,displayName,username,
+      //                          createdAt,updatedAt
+      //   Student/TutorProfile → uid,email,role,updatedAt
+      //   pushService          → uid,pushTokens
+      //   _layout heal write   → uid,role,email,updatedAt
+      //   EditTeachingDetails  → updatedAt
+      // Deliberately EXCLUDED: `status` / `deletedAt` (admin-only
+      // suspension via UserManagement), `role:"admin"` (authority
+      // lives in admins/{uid}), subscription fields (server-granted
+      // only — see tutors/{uid} note), and any future privileged key
+      // must be added here consciously.
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'username',
+          'photoUrl', 'createdAt', 'updatedAt', 'role', 'pushTokens'
+        ])
+        // Guarded presence check — reading an absent key on
+        // request.resource.data errors (and denies) in rules.
+        && (!('uid' in request.resource.data)
+            || request.resource.data.uid == userId)
+        && (!('role' in request.resource.data)
+            || request.resource.data.role in ['student', 'tutor']);
       allow read: if isOwner(userId) || isAdmin();
-      allow update: if (isOwner(userId) && request.resource.data.uid == userId)
-                    || isAdmin();
+      // Owner update = presence-FORBID model: the owner may touch any
+      // field EXCEPT the ones enumerated below. Chosen over a
+      // keys()/diff() allowlist because those operators proved
+      // transport-dependent in the local emulator (v1.22.0 evaluates
+      // diff() as no-change for some patch shapes); simple key-
+      // presence checks and scalar/list/map equality behave
+      // identically everywhere.
+      //
+      // Forbidden for the owner (each with its reason):
+      //   status/deletedAt        — suspension is admin-only
+      //   subscriptionTier/
+      //   subscriptionExpiresAt   — server-granted only (eSewa edge fn)
+      // Role gets its own transition guard below (student/tutor only).
+      allow update: if (
+        isOwner(userId)
+        // uid is immutable IF the patch touches it at all — but
+        // uid-less maintenance patches (e.g. EditTeachingDetails'
+        // `updatedAt` touch) must stay legal, and reading an absent
+        // key on request.resource.data ERRORS in rules.
+        && (!('uid' in request.resource.data)
+            || request.resource.data.uid == userId)
+        && unchanged("status")
+        && unchanged("deletedAt")
+        && unchanged("subscriptionTier")
+        && unchanged("subscriptionExpiresAt")
+        // Role-transition guard: an existing role value may only be
+        // kept as-is or changed to student/tutor. Each arm guards
+        // against absent-key evaluation errors: the patch may omit
+        // `role` entirely, and docs created before any role existed
+        // have no `resource.data.role`.
+        && (!('role' in request.resource.data)
+            || !('role' in resource.data)
+            || request.resource.data.role == resource.data.role
+            || request.resource.data.role in ['student', 'tutor'])
+      ) || isAdmin();
       allow delete: if isAdmin();
 
       // Profile subcollection docs (one per role). The screens write
@@ -114,31 +220,74 @@ service cloud.firestore {
       match /tutorProfile/default {
         allow read: if isSignedIn();
         allow create, delete: if isOwner(userId) || isAdmin();
-        // The student review flow (`submitReview` in
-        // FirebaseReviewRepository) writes the tutor's rating
-        // aggregates in the SAME transaction that creates the review
-        // doc — there is no server-side writer, so the authoring
-        // student must be able to bump them. The carve-out is narrow:
-        // ONLY the five aggregate fields (+ updatedAt) may change,
-        // so a reviewer can never touch the tutor's personal fields
-        // (fullName, headline, bio, rate, availability, …). The
-        // review create rule (`reviews/{tutorUid}/reviews/{reviewId}`)
-        // is the enforcement point for who may submit at all.
-        allow update: if isOwner(userId) || isAdmin()
+        // ── SECURITY FIX (Aug 24 audit): Pro tier is server-granted ──
+        // `subscriptionTier` / `subscriptionExpiresAt` are the
+        // monetization gate (the roster-create rule reads them to set
+        // the capacity cap). They are written ONLY by the
+        // `create-esewa-order` edge function after a verified eSewa
+        // payment (service-role REST write bypasses rules entirely).
+        //
+        // Writer model (presence/equality constructs only — see the
+        // users/{userId} note on why not diff()/keys()):
+        //   owner   — anything EXCEPT the two tier keys
+        //   reviewer— the authoring student (submitReview) may bump
+        //             ONLY the five rating aggregates + updatedAt;
+        //             every personal field is pinned to its current
+        //             value via unchanged-or-absent equality guards.
+        allow update: if isAdmin()
+          || (isOwner(userId)
+            && unchanged("subscriptionTier")
+            && unchanged("subscriptionExpiresAt"))
           || (isSignedIn()
-            && request.resource.data.diff(resource.data).changedKeys()
-              .hasOnly([
-                "rating",
-                "reviewCount",
-                "categoryRatings",
-                "reviewBreakdown",
-                "updatedAt"
-              ]));
+            && unchanged("subscriptionTier")
+            && unchanged("subscriptionExpiresAt")
+            && unchanged("fullName")
+            && unchanged("headline")
+            && unchanged("bio")
+            && unchanged("photoUrl")
+            && unchanged("email")
+            && unchanged("monthlyRateNpr")
+            && unchanged("institution")
+            && unchanged("degree")
+            && unchanged("subjects")
+            && unchanged("gradesTeaching")
+            && unchanged("documents")
+            && unchanged("location")
+            && unchanged("availability")
+            && unchanged("studentCapacity")
+            && unchanged("enrolledCount")
+            && unchanged("verificationStatus")
+            && unchanged("hasPendingUpdate"));
       }
 
       match /{subcollection}/{document=**} {
         allow read: if isOwner(userId) || isAdmin();
-        allow write: if isOwner(userId) || isAdmin();
+        // ── SECURITY FIX (Aug 24 audit): this wildcard previously
+        // granted the owner full RW on EVERY subdoc, which silently
+        // re-opened the `tutorProfile/default` subscription keys
+        // closed by the specific rule above (an OR-across-matches
+        // hole caught live by the emulator suite).
+        //
+        // ── PROD FIX (Aug 25, live device repro) ────────────────────
+        // The tier pins MUST NOT be evaluated on CREATE: in production
+        // (unlike the emulator, which treats it as {}) reading
+        // `resource.data` while the doc does not exist THROWS — the
+        // thrown statement denies every FIRST-TIME subdoc save
+        // (StudentProfileScreen's studentProfile/default write was
+        // 403-ing on real devices). Verbs are therefore split:
+        //   create → tier keys may not exist at birth (no
+        //            resource.data access anywhere)
+        //   update → doc exists → unchanged() parity is safe
+        //   delete → owner/admin purge (as before the split)
+        allow create: if isAdmin()
+          || (isOwner(userId)
+            && !('subscriptionTier' in request.resource.data)
+            && !('subscriptionExpiresAt' in request.resource.data));
+        allow update: if isAdmin()
+          || (isOwner(userId)
+            && unchanged("subscriptionTier")
+            && unchanged("subscriptionExpiresAt"));
+        allow delete: if isAdmin() || isOwner(userId);
       }
     }
 
@@ -157,33 +306,68 @@ service cloud.firestore {
     //   2. Only the admin queue writes to this collection
     //   3. The richer user profile subcollection (`users/{uid}/tutorProfile/default`)
     //      remains protected by `isSignedIn()`
-    match /tutors/{uid} {
+    match /tutors/{tutorId} {
       allow read: if true;
-      allow create, update: if isAdmin();
-      // Tutor-driven search visibility: the owner may update ONLY
-      // their own `isAvailableForNewStudents` flag (plus the
-      // `updatedAt` sibling) on the discovery doc.
-      // `diff(...).affectedKeys().hasOnly([...])` rejects any write
-      // that touches any other field — the admin approval mirror is
-      // the only other writer.
+      // ── Owner visibility-flag carve-out + admin mirror ────────────
+      // SINGLE update statement, OWNER BRANCH FIRST: a signed-in
+      // owner short-circuits past isAdmin(), mirroring the
+      // users/{userId} update shape. This matters beyond style — the
+      // local Firestore emulator (v1.22.0) THROWS on exists() targeting
+      // an absent admins doc, and a throwing sibling statement poisons
+      // co-block statements; the short-circuit keeps the hot owner
+      // path provable locally while prod semantics are identical.
       //
-      // Pro subscription mirror: the owner may also update their own
-      // `subscriptionTier` / `subscriptionExpiresAt` after a VERIFIED
-      // eSewa sandbox payment (the tier is granted by
-      // `applyProGrant`, which writes BOTH the profile doc and this
-      // mirror atomically — the secret-keyed HMAC verification ran
-      // server-side in the edge function BEFORE the client is allowed
-      // to write anything). Narrower than the availability flag, and
-      // still only owner-scoped: a tutor can never touch another
-      // tutor's doc.
-      allow update: if isOwner(uid) && request.resource.data
-        .diff(resource.data).affectedKeys()
-        .hasOnly([
-          'isAvailableForNewStudents',
-          'subscriptionTier',
-          'subscriptionExpiresAt',
-          'updatedAt'
-        ]);
+      // ── SECURITY FIX (Aug 24 audit): Pro mirror is server-granted ──
+      // The previous allowlist also let the owner self-write
+      // `subscriptionTier` / `subscriptionExpiresAt` — a free tutor
+      // could mint Pro (and its capacity cap raise) with one PATCH.
+      // The owner may change ONLY the availability flag (+ updatedAt
+      // sibling); every other mirror field owned by the approval
+      // write or the Pro edge function is PINNED via unchanged().
+      allow update: if (
+        isOwner(tutorId)
+        && unchanged("uid")
+        && unchanged("fullName")
+        && unchanged("username")
+        && unchanged("headline")
+        && unchanged("bio")
+        && unchanged("photoUrl")
+        && unchanged("email")
+        && unchanged("subjects")
+        && unchanged("gradesTeaching")
+        && unchanged("monthlyRateNpr")
+        && unchanged("location")
+        && unchanged("yearsExperience")
+        && unchanged("gender")
+        && unchanged("tutoringMode")
+        && unchanged("languages")
+        && unchanged("degree")
+        && unchanged("institution")
+        && unchanged("responseRate")
+        && unchanged("rating")
+        && unchanged("reviewCount")
+        && unchanged("verificationStatus")
+        && unchanged("isVerifiedProfessional")
+        && unchanged("hasPendingUpdate")
+        && unchanged("subscriptionTier")
+        && unchanged("subscriptionExpiresAt")
+          // Flag: whenever it exists in the post-write view (merged) its
+          // type stays boolean — the owner may flip it, never retype it
+          // (removal counts as a change and is denied by unchanged()).
+          && (
+            !('isAvailableForNewStudents' in request.resource.data)
+            || request.resource.data.isAvailableForNewStudents is bool
+          )
+          // Aug 25: hasAvailability mirrors "at least one weekly slot
+          // enabled" so student discovery can hide slot-less tutors.
+          // Owner-writable (capacity-save flips it); boolean-only.
+          && (
+            !('hasAvailability' in request.resource.data)
+            || request.resource.data.hasAvailability is bool
+          )
+        || isAdmin()
+      );
+      allow create: if isAdmin();
       // Admin can purge the discovery copy when the user is deleted.
       allow delete: if isAdmin();
     }
@@ -389,14 +573,23 @@ service cloud.firestore {
     }
     match /reviews/{tutorUid}/reviews/{reviewId} {
       allow get, list: if isSignedIn();
+      // Aug 24 audit: score must be a bounded number (1-5) — an
+      // unbounded score poisoned the client-computed aggregates the
+      // reviewer carve-out then writes onto the profile.
       allow create: if isSignedIn()
         && request.resource.data.tutorUid == tutorUid
         && request.resource.data.studentUid == request.auth.uid
-        && request.resource.data.status == "active";
+        && request.resource.data.status == "active"
+        && request.resource.data.score is number
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5;
       allow update: if isSignedIn()
         && resource.data.studentUid == request.auth.uid
         && request.resource.data.diff(resource.data).changedKeys()
-          .hasOnly(["score", "comment", "updatedAt"]);
+          .hasOnly(["score", "comment", "updatedAt"])
+        && request.resource.data.score is number
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5;
       allow delete: if isSignedIn()
         && (resource.data.studentUid == request.auth.uid || isAdmin());
     }

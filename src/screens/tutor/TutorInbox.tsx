@@ -245,7 +245,11 @@ export function EnrollmentInbox() {
   function handleAccept(req: EnrollmentRequest) {
     if (busyId) return;
     setSlotPickerFor(req);
-    setSelectedSlotKey(null);
+    // Aug 25 UX: the student already picked slots in the request
+    // (`pickedSlotKeys`, rendered on the card as the schedule line).
+    // Preselect the first requested slot so manual approval is a
+    // single confirm — the tutor can still switch before confirming.
+    setSelectedSlotKey(req.pickedSlotKeys?.[0] ?? null);
   }
 
   async function confirmAccept() {

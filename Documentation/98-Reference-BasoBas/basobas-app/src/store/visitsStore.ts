@@ -131,6 +131,8 @@ export const useVisitsStore = create<VisitsState>((set, get) => ({
         rescheduleCount: partial.rescheduleCount ?? existing?.rescheduleCount ?? 0,
         landlordResponseNote:
           partial.landlordResponseNote ?? existing?.landlordResponseNote ?? null,
+        tenantRescheduleNote:
+          partial.tenantRescheduleNote ?? existing?.tenantRescheduleNote ?? null,
         previousRequestedDate:
           partial.previousRequestedDate ?? existing?.previousRequestedDate ?? null,
         previousTimeSlot: partial.previousTimeSlot ?? existing?.previousTimeSlot ?? null,

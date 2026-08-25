@@ -68,33 +68,18 @@ const SUPPORT_EMAIL = "support@edumentx.example";
 const REVIEW_CHECKLIST = [
   {
     icon: "person-outline" as const,
-    label: "Identity & contact details",
-    detail:
-      "We confirm your name, email, and phone number match your account.",
+    label: "Identity & documents",
+    detail: "Name, contact info, and uploaded ID.",
   },
   {
     icon: "school-outline" as const,
-    label: "Subjects and grade levels",
-    detail:
-      "Subjects you teach and the grade levels you cover are within the platform's scope.",
+    label: "Subjects & grades",
+    detail: "What you teach and the levels you cover.",
   },
   {
     icon: "cash-outline" as const,
     label: "Monthly rate",
-    detail:
-      "Your rate is in the marketplace's published range and clearly communicated to parents.",
-  },
-  {
-    icon: "location-outline" as const,
-    label: "Service area",
-    detail:
-      "Your city / neighborhood is within our current coverage (Kathmandu Valley).",
-  },
-  {
-    icon: "ribbon-outline" as const,
-    label: "Blue-Tick credentials (Phase 6)",
-    detail:
-      "Once you upload citizenship and degree documents we'll mark your profile with a Blue Tick.",
+    detail: "Your listed monthly fee.",
   },
 ];
 
@@ -228,7 +213,7 @@ export function TutorPendingReview() {
         </View>
         <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
           <Text className="text-screen-title font-medium text-text-primary">
-            Your account is being reviewed
+            We&apos;re reviewing your account
           </Text>
         </View>
         <Text className="text-body text-text-secondary mt-1.5">

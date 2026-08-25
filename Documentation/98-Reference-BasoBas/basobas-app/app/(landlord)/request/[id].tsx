@@ -15,6 +15,7 @@ import { ScreenHeader } from '../../../src/components/layout/ScreenHeader';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { getVisitRequest } from '@/src/services/visits.service';
 import {
+  FOLLOW_UP_RESPONSE_LABELS,
   formatVisitDate,
   TIME_SLOT_LABELS,
   type LandlordVisitRequest,
@@ -65,6 +66,11 @@ export default function RequestDetailScreen() {
 
   const isAccepted = request ? request.statusUi === 'accepted' : false;
   const canAct = request?.status === 'PENDING';
+  // ACCEPTED visits can also be countered: the tenant may propose a new time
+  // on an accepted visit, and the reschedule RPC accepts any non-final state.
+  const canSuggestTime =
+    (request?.status === 'PENDING' || request?.status === 'ACCEPTED') &&
+    (request?.rescheduleCount ?? 0) < 3;
 
   if (loading) {
     return (
@@ -180,6 +186,18 @@ export default function RequestDetailScreen() {
           </>
         ) : null}
 
+        {/* Tenant's note from a tenant-initiated reschedule proposal */}
+        {request.tenantRescheduleNote ? (
+          <>
+            <Text className="mb-2 font-semibold text-body-sm text-ink">Reschedule Note</Text>
+            <View className="mb-5 rounded-card border border-line bg-canvas p-4">
+              <Text className="text-body-sm leading-relaxed text-ink2">
+                {request.tenantRescheduleNote}
+              </Text>
+            </View>
+          </>
+        ) : null}
+
         {/* Your earlier response, if any */}
         {request.landlordResponseNote ? (
           <>
@@ -192,8 +210,25 @@ export default function RequestDetailScreen() {
           </>
         ) : null}
 
-        {/* Suggest Time — pending only, and the RPC caps this at 3 */}
-        {canAct && request.rescheduleCount < 3 && (
+        {/* Post-visit follow-up answer, when the tenant has shared one */}
+        {request.tenantFollowUpResponse ? (
+          <>
+            <Text className="mb-2 font-semibold text-body-sm text-ink">Post-Visit Feedback</Text>
+            <View className="mb-5 rounded-card border border-line bg-canvas p-4">
+              <Text className="font-medium text-body-sm text-ink">
+                {FOLLOW_UP_RESPONSE_LABELS[request.tenantFollowUpResponse]}
+              </Text>
+              {request.tenantFollowUpNote ? (
+                <Text className="mt-2 text-body-sm leading-relaxed text-ink2">
+                  {request.tenantFollowUpNote}
+                </Text>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* Suggest Time — pending + accepted (tenant may counter-propose), capped at 3 */}
+        {canSuggestTime && (
           <Pressable
             onPress={() =>
               router.push({

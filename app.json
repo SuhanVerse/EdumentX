@@ -30,7 +30,8 @@
       "expo-router",
       "expo-dev-client",
       "expo-font",
-      "expo-notifications",        [
+      "expo-notifications",
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
@@ -79,5 +80,8 @@
         "projectId": "d8524c04-2df7-4446-93fc-8a0bad7a6e54"
       }
     }
+  },
+  "android": {
+    "softwareKeyboardLayoutMode": "resize"
   }
 }

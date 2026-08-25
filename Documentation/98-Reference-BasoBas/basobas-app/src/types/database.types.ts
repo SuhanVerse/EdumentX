@@ -250,6 +250,80 @@ export type Database = {
           },
         ];
       };
+      notifications: {
+        Row: {
+          actor_id: string | null;
+          body: string;
+          created_at: string;
+          id: string;
+          kind: Database['public']['Enums']['notification_kind_enum'];
+          read_at: string | null;
+          recipient_id: string;
+          related_property_id: string | null;
+          related_visit_id: string | null;
+          target_id: string | null;
+          target_kind: string;
+          title: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          body: string;
+          created_at?: string;
+          id?: string;
+          kind: Database['public']['Enums']['notification_kind_enum'];
+          read_at?: string | null;
+          recipient_id: string;
+          related_property_id?: string | null;
+          related_visit_id?: string | null;
+          target_id?: string | null;
+          target_kind: string;
+          title: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          body?: string;
+          created_at?: string;
+          id?: string;
+          kind?: Database['public']['Enums']['notification_kind_enum'];
+          read_at?: string | null;
+          recipient_id?: string;
+          related_property_id?: string | null;
+          related_visit_id?: string | null;
+          target_id?: string | null;
+          target_kind?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_actor_id_fkey';
+            columns: ['actor_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['clerk_id'];
+          },
+          {
+            foreignKeyName: 'notifications_recipient_id_fkey';
+            columns: ['recipient_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['clerk_id'];
+          },
+          {
+            foreignKeyName: 'notifications_related_property_id_fkey';
+            columns: ['related_property_id'];
+            isOneToOne: false;
+            referencedRelation: 'properties';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notifications_related_visit_id_fkey';
+            columns: ['related_visit_id'];
+            isOneToOne: false;
+            referencedRelation: 'visit_requests';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       landlord_profiles: {
         Row: {
           avg_rating: number;
@@ -678,6 +752,7 @@ export type Database = {
           reschedule_count: number;
           responded_at: string | null;
           status: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note: string | null;
           tenant_follow_up_note: string | null;
           tenant_follow_up_response: string | null;
           tenant_id: string;
@@ -697,6 +772,7 @@ export type Database = {
           reschedule_count?: number;
           responded_at?: string | null;
           status?: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note?: string | null;
           tenant_follow_up_note?: string | null;
           tenant_follow_up_response?: string | null;
           tenant_id: string;
@@ -717,6 +793,7 @@ export type Database = {
           reschedule_count?: number;
           responded_at?: string | null;
           status?: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note?: string | null;
           tenant_follow_up_note?: string | null;
           tenant_follow_up_response?: string | null;
           tenant_id?: string;
@@ -768,6 +845,7 @@ export type Database = {
           reschedule_count: number;
           responded_at: string | null;
           status: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note: string | null;
           tenant_follow_up_note: string | null;
           tenant_follow_up_response: string | null;
           tenant_id: string;
@@ -801,6 +879,7 @@ export type Database = {
           reschedule_count: number;
           responded_at: string | null;
           status: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note: string | null;
           tenant_follow_up_note: string | null;
           tenant_follow_up_response: string | null;
           tenant_id: string;
@@ -984,6 +1063,7 @@ export type Database = {
           reschedule_count: number;
           responded_at: string | null;
           status: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note: string | null;
           tenant_follow_up_note: string | null;
           tenant_follow_up_response: string | null;
           tenant_id: string;
@@ -1059,6 +1139,7 @@ export type Database = {
           reschedule_count: number;
           responded_at: string | null;
           status: Database['public']['Enums']['visit_status_enum'];
+          tenant_reschedule_note: string | null;
           tenant_follow_up_note: string | null;
           tenant_follow_up_response: string | null;
           tenant_id: string;
@@ -1072,12 +1153,26 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      mark_all_notifications_read: { Args: never; Returns: number };
+      mark_notification_read: { Args: { p_notification_id: string }; Returns: number };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { '': string }; Returns: string[] };
     };
     Enums: {
       document_type_type: 'CITIZENSHIP' | 'NATIONAL_ID';
       kyc_status_type: 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED';
+      notification_kind_enum:
+        | 'VISIT_REQUESTED'
+        | 'VISIT_ACCEPTED'
+        | 'VISIT_RESCHEDULED'
+        | 'VISIT_REJECTED'
+        | 'VISIT_CANCELLED_BY_TENANT'
+        | 'RESCHEDULE_ACCEPTED'
+        | 'VISIT_RESCHEDULED_BY_TENANT'
+        | 'TENANT_FOLLOW_UP_SUBMITTED'
+        | 'LISTING_FINALIZED'
+        | 'LISTING_CLOSED'
+        | 'SYSTEM';
       property_status_enum: 'AVAILABLE' | 'HIGH_DEMAND' | 'UNDER_DISCUSSION' | 'OCCUPIED';
       property_type_enum: 'ROOM' | 'APARTMENT' | 'HOUSE' | 'OFFICE' | 'FLAT';
       time_slot_enum: 'MORNING' | 'AFTERNOON' | 'EVENING';
@@ -1219,6 +1314,19 @@ export const Constants = {
     Enums: {
       document_type_type: ['CITIZENSHIP', 'NATIONAL_ID'],
       kyc_status_type: ['UNDER_REVIEW', 'VERIFIED', 'REJECTED'],
+      notification_kind_enum: [
+        'VISIT_REQUESTED',
+        'VISIT_ACCEPTED',
+        'VISIT_RESCHEDULED',
+        'VISIT_REJECTED',
+        'VISIT_CANCELLED_BY_TENANT',
+        'RESCHEDULE_ACCEPTED',
+        'VISIT_RESCHEDULED_BY_TENANT',
+        'TENANT_FOLLOW_UP_SUBMITTED',
+        'LISTING_FINALIZED',
+        'LISTING_CLOSED',
+        'SYSTEM',
+      ],
       property_status_enum: ['AVAILABLE', 'HIGH_DEMAND', 'UNDER_DISCUSSION', 'OCCUPIED'],
       property_type_enum: ['ROOM', 'APARTMENT', 'HOUSE', 'OFFICE', 'FLAT'],
       time_slot_enum: ['MORNING', 'AFTERNOON', 'EVENING'],

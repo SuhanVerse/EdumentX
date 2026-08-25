@@ -65,7 +65,9 @@ export type TutorListing = {
    *  discovery (StudentHome / MapSearch) without touching their
    *  `verificationStatus`. The tutor toggles this on their own
    *  `tutors/{uid}` doc — the only field the rules let them write
-   *  there (see the `differsOnlyFrom` carve-out in firestore.rules). */
+   *  there — an `unchanged()`-pinned allowlist in firestore.rules
+   *  (Aug 24 audit: do NOT "simplify" this to `differsOnlyFrom`;
+   *  that is not a real rules function and fails closed). */
   isAvailableForNewStudents: boolean;
   rating: number;
   reviewCount: number;
@@ -129,6 +131,9 @@ export function subscribeTutors(
     // this field on the tutor's own `tutors/{uid}` doc (rules
     // carve-out), and discovery hides tutors who flipped it off.
     where("isAvailableForNewStudents", "==", true),
+    // Aug 25: slot-less tutors are hidden until they save at least
+    // one availability window (mirrored by saveAvailability).
+    where("hasAvailability", "==", true),
   );
 
   return onSnapshot(

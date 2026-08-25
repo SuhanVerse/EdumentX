@@ -136,6 +136,13 @@ export function EditTutorProfile() {
   const isLocked =
     verificationStatus === "pending" || hasPendingUpdateLocal;
 
+  // When verification is rejected or more_info, the tutor must
+  // resubmit from scratch via /profile-tutor — partial edits
+  // through the teaching-details screen won't clear the rejection.
+  const isRejected =
+    verificationStatus === "rejected" ||
+    verificationStatus === "more_info";
+
   /**
    * Persist a single live-editable field to the profile doc. Used
    * by the EditableField `onCommit` handlers. Writes are scoped to
@@ -556,17 +563,19 @@ export function EditTutorProfile() {
               icon="briefcase-outline"
               label="Subjects, rate & location"
               onPress={
-                hasPendingUpdateLocal
+                hasPendingUpdateLocal || isRejected
                   ? undefined
                   : () => router.push("/tutor_edit_teaching_details")
               }
-              disabled={hasPendingUpdateLocal}
+              disabled={hasPendingUpdateLocal || isRejected}
             />
           </View>
           <Text className="text-caption text-text-muted mt-2 px-1">
-            {hasPendingUpdateLocal
-              ? "Editing paused — pending admin review."
-              : "Teaching details require admin approval to go live."}
+            {isRejected
+              ? "Rejected — resubmit from scratch via the profile setup."
+              : hasPendingUpdateLocal
+                ? "Editing paused — pending admin review."
+                : "Teaching details require admin approval to go live."}
           </Text>
         </View>
 
@@ -585,15 +594,15 @@ export function EditTutorProfile() {
               accessibilityRole="button"
               accessibilityLabel="Edit verification documents"
               onPress={
-                hasPendingUpdateLocal
+                hasPendingUpdateLocal || isRejected
                   ? undefined
                   : () => router.push("/tutor_edit_teaching_details")
               }
-              disabled={hasPendingUpdateLocal}
+              disabled={hasPendingUpdateLocal || isRejected}
               className="active:opacity-70 disabled:opacity-40"
             >
               <Text className="text-button-sm font-medium text-accent">
-                {hasPendingUpdateLocal ? "Locked" : "Edit"}
+                {hasPendingUpdateLocal || isRejected ? "Locked" : "Edit"}
               </Text>
             </Pressable>
           </View>

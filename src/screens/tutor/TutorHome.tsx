@@ -237,9 +237,25 @@ export function TutorDashboard() {
           monthlyRateNpr: toNum(
             (d as { monthlyRateNpr?: number }).monthlyRateNpr,
           ),
-          profileCompletion: toNum(
-            (d as { profileCompletion?: number }).profileCompletion,
-          ),
+          // Aug 25: computed client-side — the doc field was never
+          // written by any flow, so the tile always showed a dead 0%.
+          profileCompletion: (() => {
+            const rec = d as Record<string, unknown>;
+            const filled = [
+              typeof rec.fullName === "string" && rec.fullName.length > 0,
+              typeof rec.headline === "string" && rec.headline.length > 0,
+              typeof rec.bio === "string" && rec.bio.length > 0,
+              typeof rec.photoUrl === "string" && rec.photoUrl.length > 0,
+              Array.isArray(rec.subjects) && rec.subjects.length > 0,
+              toNum(rec.monthlyRateNpr as number) > 0,
+              Object.values(
+                (rec.availability ?? {}) as Record<string, Record<string, string>>,
+              ).some((day) => Object.values(day).some((v) => v === "available")),
+            ];
+            return Math.round(
+              (filled.filter(Boolean).length / filled.length) * 100,
+            );
+          })(),
           // Verification state — read but not yet written by the
           // tutor-side flows (those land in the next phase). The
           // dashboard uses these to render the ReviewBanner and to

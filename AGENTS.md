@@ -88,7 +88,10 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
 **Files at play in this flow:**
 - ✅ `src/app/_layout.tsx` (Source-of-Truth routing + onAuthStateChanged)
 - ✅ `src/screens/auth/EmailSignUp.tsx` (signup + login + Google + "I've verified — continue")
-- ✅ `src/screens/auth/RoleSelection.tsx` (writes role, routes to /profile-* not dashboard)
+- ✅ `src/screens/auth/RoleSelection.tsx` (writes AUTH METADATA ONLY — role is
+  deliberately NOT written here; it lands atomically inside the profile-screen
+  batches: `StudentProfileScreen` / `TutorProfileScreen`. Routes to /profile-*
+  for new users or straight to the dashboard on re-login.)
 - ✅ `src/screens/auth/StudentProfileScreen.tsx` (writes
   `users/{uid}/studentProfile/default`)
 - ✅ `src/screens/auth/TutorProfileScreen.tsx` (writes

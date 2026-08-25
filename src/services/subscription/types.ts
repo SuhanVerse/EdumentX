@@ -67,13 +67,14 @@ export interface SubscriptionState {
  *
  *  `valid` means every server-side check passed (HMAC + ledger
  *  ownership/one-time-use + amount/product cross-check + eSewa status
- *  API COMPLETE). `alreadyGranted` is true when the SAME
- *  transaction_uuid was reconciled before — a replay — in which case
- *  the client must NOT re-grant (idempotent success). `reason` carries
- *  a machine-readable failure code for the error message. */
+ *  API COMPLETE) AND — for a first reconciliation — the Pro tier was
+ *  granted SERVER-SIDE by the edge function (`granted: true`). A
+ *  replayed callback reports `alreadyGranted: true` instead. `reason`
+ *  carries a machine-readable failure code for the error message. */
 export interface VerifyEsewaResult {
   valid: boolean;
   alreadyGranted?: boolean;
+  granted?: boolean;
   reason?: string;
   transaction_uuid?: string;
   payload?: Record<string, unknown>;

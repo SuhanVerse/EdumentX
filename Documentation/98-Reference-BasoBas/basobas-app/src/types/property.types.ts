@@ -122,6 +122,8 @@ export interface LandlordVisitRequest {
   note: string | null;
   rescheduleCount: number;
   landlordResponseNote: string | null;
+  /** Tenant's note sent with a tenant-initiated reschedule proposal. */
+  tenantRescheduleNote: string | null;
   /** Snapshot of the pre-reschedule date/slot — set only while RESCHEDULED. */
   previousRequestedDate: string | null;
   previousTimeSlot: TimeSlot | null;
@@ -350,6 +352,7 @@ export const toLandlordVisitRequest = (
   note: row.note,
   rescheduleCount: row.reschedule_count,
   landlordResponseNote: row.landlord_response_note,
+  tenantRescheduleNote: row.tenant_reschedule_note,
   previousRequestedDate: row.previous_requested_date,
   previousTimeSlot: row.previous_time_slot,
   tenantFollowUpResponse: row.tenant_follow_up_response as FollowUpResponse | null,

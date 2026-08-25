@@ -120,8 +120,12 @@ function mapConversation(
 const identityCache = new Map<string, ConversationMeta>();
 
 async function resolveOwnIdentity(uid: string): Promise<ConversationMeta> {
+  // Aug 25: only trust a NON-empty cached identity. The previous
+  // unconditional cache turned one early miss (profile not yet saved /
+  // race at first send) into a permanent empty name — peers saw
+  // "Chat" with a blank avatar until the OTHER side replied.
   const cached = identityCache.get(uid);
-  if (cached) return cached;
+  if (cached && cached.name) return cached;
   const db = getFirestore(getApp());
   let meta: ConversationMeta = { name: "", avatar: null };
   const tutorSnap = await getDoc(doc(db, "users", uid, "tutorProfile", "default"));

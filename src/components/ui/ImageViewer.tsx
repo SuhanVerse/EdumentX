@@ -50,8 +50,14 @@ import { motion } from "@/lib/motion";
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 export type ImageViewerProps = {
-  /** Public URL of the image to display. */
-  uri: string;
+  /**
+   * URL of the image to display. While a signed URL is still
+   * resolving (Aug 24 audit: PII docs have no permanent public URL)
+   * this may be null/empty — the component renders a neutral
+   * placeholder instead of passing an empty `source.uri` to
+   * React Native (which warns).
+   */
+  uri?: string | null;
   /** Accessible label / file name shown in the footer. */
   label: string;
   /** Width of the thumbnail in the list. Used for skeleton sizing. */
@@ -73,14 +79,23 @@ export function ImageViewer({
 
   return (
     <>
-      {/* Thumbnail trigger */}
-      <ImageThumbnail
-        uri={uri}
-        label={label}
-        width={thumbnailWidth}
-        height={thumbnailHeight}
-        onPress={() => setVisible(true)}
-      />
+      {/* Thumbnail trigger — placeholder while the signed URL resolves */}
+      {!uri ? (
+        <View
+          style={{ width: thumbnailWidth, height: thumbnailHeight }}
+          className="rounded-md bg-sand items-center justify-center"
+        >
+          <Ionicons name="document-outline" size={20} color={colors.text.muted} />
+        </View>
+      ) : (
+        <ImageThumbnail
+          uri={uri}
+          label={label}
+          width={thumbnailWidth}
+          height={thumbnailHeight}
+          onPress={() => setVisible(true)}
+        />
+      )}
 
       {/* Full-screen modal */}
       <Modal
@@ -119,7 +134,7 @@ export function ImageViewer({
                 centerContent
               >
                 <Image
-                  source={{ uri }}
+                  source={uri ? { uri } : undefined}
                   className="max-w-full max-h-full"
                   resizeMode="contain"
                   style={{
@@ -155,7 +170,7 @@ function ImageThumbnail({
   height,
   onPress,
 }: {
-  uri: string;
+  uri: string | null | undefined;
   label: string;
   width: number;
   height: number;
@@ -174,7 +189,7 @@ function ImageThumbnail({
       {...{ width, height }}
     >
       <Image
-        source={{ uri }}
+        source={uri ? { uri } : undefined}
         className="w-full h-full"
         resizeMode="cover"
       />

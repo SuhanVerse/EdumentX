@@ -354,7 +354,7 @@ export default function LandlordProfileTab() {
           </>
         )}
 
-        {/* ─── Reviews Tab Placeholder ───────────────────────────────── */}
+        {/* ─── Reviews Tab (coming soon) ─────────────────────────────── */}
         {activeTab === 'reviews' && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>Reviews coming soon</Text>

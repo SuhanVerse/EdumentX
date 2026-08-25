@@ -132,7 +132,7 @@ export default function SuggestTimeScreen() {
           </View>
           <View style={styles.infoTextWrap}>
             <Text style={styles.infoTitle}>Propose a new time</Text>
-            <Text style={styles.infoSub}>Aayush will be notified to confirm.</Text>
+            <Text style={styles.infoSub}>The tenant will be notified to confirm.</Text>
           </View>
         </View>
 
