@@ -84,7 +84,7 @@ export function NotificationBell({
     tone === "dark"
       ? "w-10 h-10 rounded-pill bg-glass-strong border border-glass-border items-center justify-center"
       : "w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center";
-  const glyphColor = tone === "dark" ? "#FFFFFF" : colors.text.primary;
+  const glyphColor = tone === "dark" ? colors.text.inverse : colors.text.primary;
 
   return (
     <AnimatedPressable

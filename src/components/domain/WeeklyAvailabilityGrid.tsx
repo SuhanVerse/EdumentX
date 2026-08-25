@@ -50,6 +50,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { colors } from "@/constants/colors";
+
 import {
   DAY_KEYS,
   DAY_LABELS,
@@ -124,7 +126,7 @@ function cellPalette(status: "off" | "available" | "booked"): CellPalette {
       borderClass: "border border-verification",
       text: "text-verification",
       icon: "checkmark",
-      iconColor: "#3F8A5A",
+      iconColor: colors.brand.verification,
     };
   }
   if (status === "booked") {
@@ -133,7 +135,7 @@ function cellPalette(status: "off" | "available" | "booked"): CellPalette {
       borderClass: "border border-ai",
       text: "text-ai",
       icon: "people",
-      iconColor: "#4A7FA5",
+      iconColor: colors.brand.ai,
     };
   }
   return {

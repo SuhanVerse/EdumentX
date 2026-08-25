@@ -55,9 +55,13 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm ci
-      # Runs the 6 rules suites against the LOCAL emulator with the
+      # Runs ALL rules suites against the LOCAL emulator with the
       # `demo-edumentx` project — no Firebase credentials needed (the
-      # emulator is fully offline).
+      # emulator is fully offline). Invoked via the npm script (not a
+      # hardcoded list) so the CI suite list can never drift from
+      # `npm run test:rules` again — the Aug 24 audit caught
+      # tutorDetailsRulesTest.mjs missing here after it was added to
+      # the npm script.
       #
       # The deployed-vs-local drift check runs separately in the
       # `rules-deployed` job (it needs real project credentials).
@@ -67,7 +71,9 @@ jobs:
           && node scripts/acceptRequestRulesTest.mjs
           && node scripts/messagesRulesTest.mjs
           && node scripts/reviewsListRulesTest.mjs
-          && node scripts/removeEnrollmentRulesTest.mjs"
+          && node scripts/removeEnrollmentRulesTest.mjs
+          && node scripts/tutorDetailsRulesTest.mjs
+          && node scripts/userRulesTest.mjs"
 
   # Credentialed checks: deployed-vs-local drift + LIVE smoke tests.
   # Requires two repo secrets:

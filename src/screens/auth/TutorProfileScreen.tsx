@@ -41,7 +41,6 @@ import { motion } from "@/lib/motion";
 import { registration } from "@/lib/registration";
 import { validateDegree, validateEmail, validateFullName, validateInstitution, validatePhone, validateUsername } from "@/lib/validation";
 import type { TutorDocument } from "@/lib/verification/documents";
-import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
 
 const SUBJECTS = [
@@ -440,10 +439,20 @@ export function TutorProfileScreen() {
           const { runAiVerification, persistAiReview } = await import(
             "@/services/verification/aiReview"
           );
+          // Aug 24 audit: PII docs have no public URL — mint a
+          // short-lived signed URL for the verify-identity function
+          // to fetch.
+          let citizenshipSignedUrl: string | null = null;
+          if (citizenship) {
+            const { getVerificationDocSignedUrl } = await import(
+              "@/services/supabase/storage"
+            );
+            citizenshipSignedUrl = await getVerificationDocSignedUrl(
+              citizenship.path,
+            );
+          }
           const verdict = await runAiVerification({
-            docUrl: citizenship
-              ? getVerificationDocPublicUrl(citizenship.path)
-              : null,
+            docUrl: citizenshipSignedUrl,
             photoUrl: avatarUri,
             profileName: fullName.trim(),
           });
@@ -493,7 +502,7 @@ export function TutorProfileScreen() {
   }
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -754,10 +763,10 @@ export function TutorProfileScreen() {
           <View onLayout={registerField("credentials")}>
             <Card className="gap-4">
               <Text className="text-label text-ink-muted">
-                Your credentials
+                Education
               </Text>
             <Text className="text-caption text-text-secondary -mt-3">
-              This is shown on your profile so parents know your background.
+              Highest degree and institution.
             </Text>
 
             {/* Degree — SearchableSelect with curated qualifications */}

@@ -198,7 +198,7 @@ function EmptyState() {
     <View className="bg-surface border border-border rounded-card p-6 items-center">
       <FloatingEmptyIcon
         iconName="calendar-outline"
-        iconColor="#E5A03B"
+        iconColor={colors.brand.accent}
         iconBgClass="bg-accent-soft"
         size={24}
         sizeClass="w-12 h-12"

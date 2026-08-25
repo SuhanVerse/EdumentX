@@ -10,6 +10,7 @@ import Animated, {
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
+import { colors } from "@/constants/colors";
 
 /**
  * Custom confirmation overlay (NOT a native Alert). Per Stage 5 spec:
@@ -119,7 +120,7 @@ export function ConfirmDialog({
               <Ionicons
                 name={destructive ? "log-out-outline" : "help-circle-outline"}
                 size={24}
-                color={destructive ? "#C1503D" : "#E5A03B"}
+                color={destructive ? colors.semantic.danger : colors.brand.accent}
               />
             </View>
           </View>

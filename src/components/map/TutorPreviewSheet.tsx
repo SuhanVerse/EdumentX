@@ -95,7 +95,7 @@ export function TutorPreviewSheet({ tutor, visible, onClose }: TutorPreviewSheet
                   </Text>
                   {tutor.isVerifiedProfessional && (
                     <View className="bg-verification rounded-pill p-[2px]">
-                      <Ionicons name="checkmark" size={10} color="white" />
+                      <Ionicons name="checkmark" size={10} color={colors.text.inverse} />
                     </View>
                   )}
                 </View>

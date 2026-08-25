@@ -257,13 +257,18 @@ export default function ChatScreen() {
           pads by the keyboard height; Android re-sizes (the app's
           adjustResize). */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // Aug 25: Android relies on the OS adjustResize (behavior
+        // "height" double-compensated and pushed messages under the
+        // keyboard); iOS pads by keyboard height.
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
         className="flex-1"
       >
       <FlatList
         className="flex-1"
         contentContainerClassName="px-4 py-4 gap-2"
+        contentContainerStyle={{ paddingBottom: 8 }}
+        keyboardShouldPersistTaps="handled"
         data={data}
         inverted
         keyExtractor={(m) => m.messageId}
@@ -383,7 +388,7 @@ export default function ChatScreen() {
           <Ionicons
             name="send"
             size={18}
-            color={canSend ? "#FFFFFF" : colors.text.muted}
+            color={canSend ? colors.text.inverse : colors.text.muted}
           />
         </Pressable>
       </View>

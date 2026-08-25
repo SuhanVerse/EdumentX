@@ -440,7 +440,7 @@ function RoleCardCheckmark({ color }: { color: string }) {
         },
       ]}
     >
-      <Ionicons color="white" name="checkmark" size={14} />
+      <Ionicons color={colors.text.inverse} name="checkmark" size={14} />
     </Animated.View>
   );
 }

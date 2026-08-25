@@ -65,24 +65,19 @@ export function PrimaryButton({
 }
 ```
 
-## Token map (tailwind.config.js → class)
+## Tokens
 
-| Concept | Tailwind class | Value |
-|---|---|---|
-| Night (primary) | `bg-night`, `text-night`, `border-night` | `#0F172A` |
-| Amber (accent) | `bg-amber`, `text-amber` | `#B45309` |
-| Sand (page bg) | `bg-background` | `#F1F5F9` |
-| Surface (card) | `bg-surface` | `#FFFFFF` |
-| Verification (green) | `bg-verification` | `#047857` |
-| AI (indigo) | `bg-ai` | `#4F46E5` |
-| Border default | `border-border` | `#E2E8F0` |
-| Text primary | `text-text-primary` | `#0F172A` |
-| Text muted | `text-text-muted` | `#64748B` |
-| Card radius (12) | `rounded-card` | 12px |
-| Pill radius (999) | `rounded-pill` | 9999px |
-| Primary button (52) | `min-h-btn` | 52px |
-| Touch target (44) | `min-h-touch` | 44px |
-| Hero title | `text-hero` | 28/34 medium |
+⚠️ This README previously published a hand-copied token table whose hex
+values had drifted from the real palette (wrong amber, sand, border,
+text-muted, radius…). Rather than maintain a second copy that rots,
+treat these as the ONLY sources of truth:
+
+- Class-facing tokens: `tailwind.config.js` (`theme.extend`)
+- Raw hex mirror (SVG illustrations + unreachable style slots):
+  `src/constants/colors.ts`
+- Typed style constants (StatusBar / shadows): `src/constants/theme.ts`
+
+If a value here ever disagrees with those files, THOSE WIN.
 
 ## References
 

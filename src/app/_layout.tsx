@@ -826,12 +826,22 @@ export default function RootLayout() {
             const needsRoleHeal =
               finalRole !== null && data?.role !== finalRole;
             if (needsUidHeal || needsRoleHeal) {
+              // Aug 24 audit: firestore.rules only let the OWNER write
+              // `role: "student" | "tutor"` on their own user doc
+              // (admin authority lives in `admins/{uid}`, which clients
+              // cannot write). When the normalized role is "admin" we
+              // keep the doc's existing value instead of attempting a
+              // denied owner-write.
+              const healRole =
+                finalRole === "student" || finalRole === "tutor"
+                  ? finalRole
+                  : (data?.role ?? null);
               try {
                 await setDoc(
                   userDocRef,
                   {
                     uid: nextUser.uid,
-                    role: finalRole ?? data?.role ?? null,
+                    role: healRole,
                     email: data?.email ?? nextUser.email ?? null,
                     updatedAt: serverTimestamp(),
                   },
@@ -947,6 +957,7 @@ export default function RootLayout() {
           <Stack.Screen name="tutor-inbox" />
           <Stack.Screen name="tutor_edit_profile" />
           <Stack.Screen name="tutor-capacity" />
+          <Stack.Screen name="pro-success" />
           <Stack.Screen name="pro-upgrade" />
           <Stack.Screen name="tutor_edit_teaching_details" />
           {/* Tutor under-review screen. Reached via the layout guard

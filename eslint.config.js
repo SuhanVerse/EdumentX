@@ -37,6 +37,7 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/**',
+      'functions/lib/**',
       // Expo-generated route types — rebuilt on every `expo start`;
       // gitignored and not source.
       '.expo/**',

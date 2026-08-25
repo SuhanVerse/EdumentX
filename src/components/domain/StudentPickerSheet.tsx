@@ -218,7 +218,7 @@ function EmptyState({ onCancel }: { onCancel: () => void }) {
       <View className="mb-2">
         <FloatingEmptyIcon
           iconName="calendar-outline"
-          iconColor="#E5A03B"
+          iconColor={colors.brand.accent}
           iconBgClass="bg-accent-soft"
           size={24}
           sizeClass="w-12 h-12"

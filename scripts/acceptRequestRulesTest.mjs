@@ -529,8 +529,12 @@ await seed(`/enrollmentRequests/${TUTOR}/requests/${REQ_ID}`, {
       updatedAt: "2026-08-17T00:00:00Z",
     }),
   );
-  check("owner mirrors subscriptionTier onto own discovery doc", tierWrite.status, 200);
-  if (tierWrite.status !== 200) console.log("   ", tierWrite.body);
+  // 9a. SECURITY (Aug 24 audit): the owner can NO LONGER self-write
+  // subscriptionTier on the discovery doc — Pro is granted exclusively
+  // by the create-esewa-order edge function after payment verification.
+  // This expectation used to assert the vulnerable carve-out (200).
+  check("owner CANNOT self-grant subscriptionTier on discovery doc", tierWrite.status, 403);
+  if (tierWrite.status !== 403) console.log("   ", tierWrite.body);
 
   // 9b. A stranger cannot touch another tutor's tier.
   const strangerTier = await req(

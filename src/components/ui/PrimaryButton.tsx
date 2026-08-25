@@ -30,6 +30,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { usePressScale } from '@/components/motion';
+import { colors } from "@/constants/colors";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -91,9 +92,9 @@ const SIZE: Record<'md' | 'lg', string> = {
 };
 
 const VARIANT_SPINNER: Record<'primary' | 'accent' | 'ghost', string> = {
-  primary: '#FFFFFF',
-  accent: '#FFFFFF',
-  ghost: '#2F5D50',
+  primary: colors.text.inverse,
+  accent: colors.text.inverse,
+  ghost: colors.brand.primary,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────

@@ -98,7 +98,7 @@ export function TutorBottomBar({
     transform: [{ translateX: underlineX.value }],
   }));
 
-  const accentColor = tone === "dark" ? "#E5A03B" : ACTIVE_COLOR;
+  const accentColor = tone === "dark" ? colors.brand.accent : ACTIVE_COLOR;
 
   if (tone === "dark") {
     return (
@@ -212,7 +212,7 @@ function TutorTab({
   const Icon = tab.icon;
   const color = active
     ? tone === "dark"
-      ? "#FFFFFF"
+      ? colors.text.inverse
       : ACTIVE_COLOR
     : tone === "dark"
       ? "rgba(255,255,255,0.45)"

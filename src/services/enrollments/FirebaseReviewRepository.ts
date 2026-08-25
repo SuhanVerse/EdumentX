@@ -87,6 +87,8 @@ function formatTimestamp(value: unknown): string {
   return "";
 }
 
+
+
 export const FirebaseReviewRepository: ReviewRepository = {
   subscribeReviews(
     tutorUid: string,
@@ -243,6 +245,14 @@ export const FirebaseReviewRepository: ReviewRepository = {
         unknown
       >;
       const categoryPatch: Record<string, number> = {};
+      // Category scores live NESTED under `categoryRatings` on the
+      // review doc (see submitReview) — reading the top level here
+      // (the Aug 24 audit bug) always subtracted 0, permanently
+      // skewing category averages upward on every delete.
+      const reviewCategories = (reviewData.categoryRatings ?? {}) as Record<
+        string,
+        unknown
+      >;
       for (const key of CATEGORY_KEYS) {
         const prevAvg =
           typeof oldCategory[key] === "number"
@@ -253,7 +263,8 @@ export const FirebaseReviewRepository: ReviewRepository = {
             ? 0
             : Math.max(
                 0,
-                (prevAvg * oldCount - clampScore(reviewData[key])) / newCount,
+                (prevAvg * oldCount - clampScore(reviewCategories[key])) /
+                  newCount,
               );
       }
 

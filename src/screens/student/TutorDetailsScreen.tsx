@@ -600,7 +600,7 @@ export function TutorDetailsScreen() {
       {/* ═══ Demo Video Modal ═══ */}
       <VideoViewerModal
         visible={demoVideoVisible}
-        uri={effectiveTutor.demoVideoUrl ?? ""}
+        uri={effectiveTutor.demoVideoUrl}
         label={`${effectiveTutor.fullName} — demo lesson`}
         onClose={() => setDemoVideoVisible(false)}
       />

@@ -39,8 +39,10 @@
     "backfill:tutor-availability:build": "npx tsc scripts/backfillTutorAvailability.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
     "backfill:tutor-availability": "npm run backfill:tutor-availability:build && node dist/scripts/backfillTutorAvailability.js",
     "test:rules:deployed": "node scripts/checkDeployedRules.mjs",
-    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs && node scripts/acceptRequestRulesTest.mjs && node scripts/messagesRulesTest.mjs && node scripts/reviewsListRulesTest.mjs && node scripts/removeEnrollmentRulesTest.mjs && node scripts/tutorDetailsRulesTest.mjs\"",
-    "probe:chat": "node scripts/probeChat.cjs"
+    "test:rules": "npm run test:rules:deployed && firebase emulators:exec --only firestore --project demo-edumentx \"node scripts/rulesEmulationTest.mjs && node scripts/batchesRulesTest.mjs && node scripts/acceptRequestRulesTest.mjs && node scripts/messagesRulesTest.mjs && node scripts/reviewsListRulesTest.mjs && node scripts/removeEnrollmentRulesTest.mjs && node scripts/tutorDetailsRulesTest.mjs && node scripts/userRulesTest.mjs\"",
+    "probe:chat": "node scripts/probeChat.cjs",
+    "backfill:has-availability:build": "npx tsc scripts/backfillHasAvailability.ts --esModuleInterop --module commonjs --target ES2020 --skipLibCheck --outDir dist/scripts",
+    "backfill:has-availability": "npm run backfill:has-availability:build && node dist/scripts/backfillHasAvailability.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

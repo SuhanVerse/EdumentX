@@ -21,14 +21,18 @@
  * mock repository's deterministic ranking (verified → rating → reviews)
  * stays authoritative — this layer only *re-orders* the input.
  *
- * Reachable from React Native because it reads `process.env` (Metro
- * injects `EXPO_PUBLIC_*` vars at bundle time). The server-side Groq
- * client lives in `supabase/ai/utils/groqClient.ts` (Deno) — do NOT
- * import from `supabase/` here.
+ * ── SECURITY (Aug 24 audit): the Groq key NEVER touches the client.
+ * Calls go through the authenticated `groq-proxy` Supabase Edge
+ * Function (Firebase JWT + per-user rate limit; the key lives in
+ * Supabase secrets). An earlier revision read EXPO_PUBLIC_GROQ_API_KEY
+ * and called api.groq.com directly — extractable from any shipped
+ * binary. Fail-open behaviour is unchanged: on proxy errors the
+ * deterministic ranking stays authoritative.
  */
 
 import type { ChatResponse } from "@/services/ai/chatService";
 import type { ClientSearchConstraints } from "@/lib/ai/minimumConstraints";
+import { getSupabase } from "@/services/supabase/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,22 +60,26 @@ export interface GroqRankOutput {
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const GROQ_API_BASE = "https://api.groq.com/openai/v1";
-// llama-3.1-70b-versatile was deprecated by Groq; use the newer variant.
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const GROQ_PROXY_FN = "groq-proxy";
 const TIMEOUT_MS = 20000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Read the Groq API key from the React Native / Metro environment.
- * `EXPO_PUBLIC_*` vars are bundled into the JS at build time by Expo.
- * Returns null when unset — caller treats this as "skip the LLM call".
+ * Firebase ID token for the groq-proxy Edge Function (which verifies
+ * it against Google's JWKS). Null when signed out — caller treats
+ * this as "skip the LLM call".
  */
-function getApiKey(): string | null {
-  const key = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-  if (!key || key.trim().length === 0) return null;
-  return key.trim();
+async function getProxyAuthToken(): Promise<string | null> {
+  try {
+    const { getApp } = await import("@react-native-firebase/app");
+    const { getAuth, getIdToken } = await import("@react-native-firebase/auth");
+    const user = getAuth(getApp()).currentUser;
+    if (!user) return null;
+    return await getIdToken(user);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -388,13 +396,6 @@ export async function groqRank(input: GroqRankInput): Promise<GroqRankOutput> {
     replyText: null,
   };
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    // No key — skip silently. The mock pipeline still returns the
-    // deterministic top-N from MockTutorRepository.
-    return fallback;
-  }
-
   if (input.candidates.length === 0) {
     // Nothing to re-rank — skip the network call.
     return fallback;
@@ -406,39 +407,36 @@ export async function groqRank(input: GroqRankInput): Promise<GroqRankOutput> {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${GROQ_API_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: "system", content: buildSystemPrompt() },
-          { role: "user", content: buildUserPrompt({ ...input, recentMessages }) },
-        ],
-        temperature: 0.2,
-        max_tokens: 512,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      // Log the response body to help debug the 400 error
-      try {
-        const errorBody = await response.text();
-        console.warn(`[groqRanker] Groq API error ${response.status} — body: ${errorBody.slice(0, 500)}`);
-      } catch {
-        console.warn(`[groqRanker] Groq API error ${response.status} — (could not read body)`);
-      }
+    const authToken = await getProxyAuthToken();
+    if (!authToken) {
+      // Signed out — skip silently. Deterministic order stays.
       return fallback;
     }
+    const supabase = getSupabase();
+    const { data: proxied, error } = await supabase.functions.invoke(
+      GROQ_PROXY_FN,
+      {
+        body: {
+          messages: [
+            { role: "system", content: buildSystemPrompt() },
+            { role: "user", content: buildUserPrompt({ ...input, recentMessages }) },
+          ],
+          temperature: 0.2,
+          max_tokens: 512,
+        },
+        headers: { Authorization: `Bearer ${authToken}` },
+      },
+    );
+    clearTimeout(timer);
 
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
+    if (error || !proxied) {
+      console.warn(
+        "[groqRanker] proxy error:",
+        (error as { message?: string } | null)?.message ?? "no response",
+      );
+      return fallback;
+    }
+    const content = (proxied as { content?: unknown }).content;
     if (typeof content !== "string") {
       console.warn("[groqRanker] Groq returned no content — using deterministic order");
       return fallback;

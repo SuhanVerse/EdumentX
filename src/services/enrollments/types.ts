@@ -198,6 +198,12 @@ export type EnrollmentRequest = {
    *  grid (one-to-one mode). The `schedule` string is derived from
    *  these for the inbox card. */
   pickedSlotKeys?: string[];
+  /** Enriched display info for the STUDENT's pending-request card:
+   *  resolved from the tutor's public profile during
+   *  `subscribeRequestsByStudent` (Aug 25 — the card previously had
+   *  no name/avatar until the tutor replied). */
+  tutorName?: string;
+  tutorAvatar?: string | null;
   /** Teaching address (one-to-one mode). */
   address?: string;
   /** Trial-week discount applied (one-to-one mode). */

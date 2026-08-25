@@ -286,7 +286,7 @@ export function BottomNav({
           white over the night canvas reads as frosted glass without
           a native blur (which would degrade on Android); the
           hairline `glass-border` gives it a crisp 1px edge. */}
-      <View className="flex-row relative rounded-xl bg-glass border glass-border px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
+      <View className="flex-row relative rounded-xl bg-glass border border-glass-border px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
         <TabRow
           tabs={tabs}
           activeIndex={activeIndex >= 0 ? activeIndex : 0}

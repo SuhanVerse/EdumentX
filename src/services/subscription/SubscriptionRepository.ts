@@ -11,7 +11,15 @@
  *   1. calls the function with a plan id → gets signed form fields
  *   2. renders them in a WebView (auto-submitting form)
  *   3. intercepts the `edumentx://payment-success` deep-link redirect
- *   4. writes the granted tier to the profile + discovery doc
+ *   4. verifies the callback server-side — on success THE EDGE
+ *      FUNCTION grants the tier server-side and the live
+ *      `subscribeSubscription` snapshot reflects it automatically.
+ *
+ * ── Aug 24 audit fix: there is NO client-side `applyProGrant` any
+ * more. The tier keys are owner-unwritable in firestore.rules; the
+ * edge function's service-role REST write is the single writer.
+ * (`MockSubscriptionRepository` keeps a local demo grant behind
+ * `applyDemoProGrant`, mock mode only.)
  *
  * ⚠️ SANDBOX ONLY — see `types.ts` + ARCHITECTURE.md §0.
  */
@@ -42,14 +50,9 @@ export interface SubscriptionRepository {
 
   /** Verifies an eSewa callback payload (base64 `data` param): HMAC
    *  signature + ledger one-time-use + amount/product cross-check +
-   *  server-to-server status API. `alreadyGranted` means a replay —
-   *  the caller must not re-grant. */
+   *  server-to-server status API + SERVER-SIDE tier grant. A replay
+   *  returns `alreadyGranted: true` (valid, no re-grant). */
   verifyEsewaCallback(data: string): Promise<VerifyEsewaResult>;
-
-  /** Applies a verified Pro grant: writes `subscriptionTier` +
-   *  `subscriptionExpiresAt` on the tutor profile AND mirrors onto
-   *  the `tutors/{uid}` discovery doc (owner carve-out in rules). */
-  applyProGrant(tutorUid: string, months: number): Promise<void>;
 
   /** Local-only read of the tier (for instant UI feedback) — the
    *  subscription itself stays in Firestore. */
