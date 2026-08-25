@@ -71,9 +71,7 @@ National College of Engineering, IOE, TU.
 \raggedleft
 .............................\\
 External examiner\\[0.15cm]
-\textbf{Full Name}\\
-Designation\\
-Affiliation
+
 \end{minipage}\\
 
 \vspace{2.0cm}
@@ -107,7 +105,7 @@ Finally, we acknowledge the open-source software community and researchers whose
 \addcontentsline{toc}{chapter}{\numberline{}Abstract}
 Finding a qualified and trustworthy home tutor in the Kathmandu Valley is mostly an informal and unorganized process. Parents and students usually depend on word-of-mouth recommendations, social media groups, or agency bureaus that charge high broker fees. These traditional methods lack credential verification, distance-based search, and structured scheduling. Existing educational platforms in Nepal mostly focus on online video classes or general classifieds, leaving a clear gap for localized home tutor discovery.
 
-EdumentX is a mobile application developed using React Native and Expo SDK 54 to help students and parents find verified home tutors in their nearby areas. The platform provides an interactive map interface using Google Maps with pin clustering, proximity ranking based on the Haversine distance formula, and an AI-based Retrieval-Augmented Generation (RAG) chatbot that helps users find tutors using natural language questions. To ensure safety and credibility, tutors go through an identity verification process where citizenship documents and profile photos are checked through optical character recognition (OCR) and face validation before approval. The application supports monthly enrollment requests with weekly time-slot scheduling, group tuition batches, in-app direct messaging, ratings and reviews, and a Pro subscription tier through the eSewa digital payment sandbox. The backend is built using Firebase Authentication, Cloud Firestore, and Supabase Edge Functions operating within free tier quotas. The system was tested through 47 unit tests, 21 lint tests, and seven Firestore security rule test suites, demonstrating a practical and cost-effective mobile platform for home tutor discovery in Kathmandu Valley.\\
+EdumentX is a mobile application developed using React Native and Expo SDK 54 to help students and parents find verified home tutors in their nearby areas. The platform provides an interactive map interface using Google Maps with pin clustering, proximity ranking based on the Haversine distance formula, and an AI-based Retrieval-Augmented Generation (RAG) chatbot that helps users find tutors using natural language questions. To ensure safety and credibility, tutors go through an identity verification process where citizenship documents and profile photos are checked through optical character recognition (OCR) and face validation before approval. The application supports monthly enrollment requests with weekly time-slot scheduling, group tuition batches, in-app direct messaging, ratings and reviews, and a Pro subscription tier through the eSewa digital payment sandbox. The backend is built using Firebase Authentication, Cloud Firestore, and Supabase Edge Functions operating within free tier quotas. The system was tested through 64 automated unit tests, 21 design-token lint tests, and seven Firestore security rule test suites, demonstrating a practical and cost-effective mobile platform for home tutor discovery in Kathmandu Valley.\\
 
 \noindent\textbf{Keywords:} \textit{Location-Based Services, Tutor Discovery, React Native, Firebase Firestore, Haversine Distance, Retrieval-Augmented Generation, eSewa Payment.}
 
@@ -187,15 +185,13 @@ The process of finding a home tutor in Nepal involves several practical difficul
 \end{itemize}
 
 EdumentX addresses these problems by providing an interactive map with clustered tutor pins, an AI-assisted tutor verification system, a natural language RAG chatbot, slot-based weekly scheduling, and transparent multi-axis reviews.
-\newpage`'
+\newpage
 \section{Objectives}
 The main objectives of this project are:
 \begin{itemize}
-\item To develop a location-based mobile application that allows students and parents to find nearby verified home tutors in Kathmandu Valley using an interactive map.
-\item To integrate an AI-powered RAG chatbot that answers student questions and suggests matching tutors from live platform data using natural language queries.
-\item To implement a tutor identity verification system using document OCR and face validation to help parents make safe and informed hiring decisions.
-\item To implement structured monthly enrollment workflows with slot-based scheduling and group tuition batch management.
-\item To provide in-app direct messaging, verified multi-axis reviews, and an eSewa Pro subscription option for tutors.
+\item To develop a location-based mobile application that allows students and parents to discover nearby home tutors in the Kathmandu Valley using interactive map search and a natural language AI chatbot.
+\item To implement a secure tutor verification system alongside transparent review mechanisms, helping parents make safe and informed hiring decisions.
+\item To provide a complete management system that streamlines monthly enrollments, slot-based scheduling, group tuition batches, and direct in-app communication between tutors and students.
 \end{itemize}
 
 \section{Scope}
@@ -245,7 +241,7 @@ Platform & Mobile Web & Flutter Android & Flutter / Flask & React Native / Expo 
 \hline
 Map Search & None & Basic Pins & Radius Filter & Clustered Avatar Pins \\
 \hline
-Distance Algorithm & None & Haversine & Haversine + KNN & Haversine + Clustered KNN \\
+Distance Algorithm & None & Haversine & Haversine + KNN & Haversine + Clustering + Pro Tiering \\
 \hline
 Conversational AI & None & None & None & RAG Chatbot (Groq API) \\
 \hline
@@ -325,34 +321,12 @@ Before executing the trigonometric Haversine formula, EdumentX applies a rectang
 \end{equation}
 Only tutors whose coordinates fall inside this bounding box proceed to the exact Haversine distance check, keeping query execution fast.
 
-\subsection{K-Nearest Neighbors (KNN) Algorithm}
-KNN is used to rank candidate tutors by overall suitability. Each tutor is evaluated across key decision dimensions: distance, monthly rate, qualifications, experience, and ratings \cite{Cover1967KNN}. Features are normalized to $[0, 1]$ using min-max scaling, and similarity is computed via weighted distance:
+\subsection{Nearest-Neighbor Ranking by Geographic Distance}
+The tutor recommendation problem is treated as a one-dimensional nearest-neighbor search over geographic distance, following the classical K-nearest neighbors formulation of Cover and Hart \cite{Cover1967KNN}. Candidate tutors inside the geofence bounding box (Section 2.2.4) are ranked by their exact Haversine distance from the student's location, in ascending order, so the closest tutors appear first:
 \begin{equation}
-D(s, t) = \sqrt{\sum_{j=1}^{n} w_j \cdot (s_j - t_j)^2}
+R = \operatorname{sort}_{d}\left(\{t_1, t_2, \dots, t_k\}\right), \quad d(t_i) = d_{\text{haversine}}(s, t_i)
 \end{equation}
-Table~\ref{tab:knn_weights} outlines the feature weights used for tutor recommendation.
-
-\begin{table}[H]
-\centering
-\caption{KNN Feature Weights for Tutor Recommendation}
-\label{tab:knn_weights}
-\small
-\begin{tabular}{|l|c|c|}
-\hline
-\textbf{Feature Dimension} & \textbf{Symbol} & \textbf{Weight ($w_j$)} \\
-\hline
-Geographic Distance & $d$ & 0.35 \\
-\hline
-Monthly Rate & $r$ & 0.25 \\
-\hline
-Qualification Score & $q$ & 0.20 \\
-\hline
-Average Rating & $v$ & 0.15 \\
-\hline
-Teaching Experience & $e$ & 0.05 \\
-\hline
-\end{tabular}
-\end{table}
+On top of this ordering, the platform applies a stable tier promotion: Pro-subscribed tutors are moved to the top of the list while preserving the original distance order within each tier. This keeps the ranking transparent and explainable — a student always sees why a tutor appears where they do — while still giving subscribers the visibility they pay for.
 
 \subsection{Retrieval-Augmented Generation (RAG) and Semantic Search}
 Retrieval-Augmented Generation (RAG) is an architecture that combines information retrieval with large language model generation to produce responses grounded in private, real-time data rather than static model weights \cite{Lewis2021RAG}. In EdumentX, RAG parses student natural language queries into structured parameters (subject, grade, budget, locality), fetches matching active tutor profiles from Firestore, and injects them as factual context into the Groq LLM prompt. This approach prevents model hallucinations and ensures recommendations reflect live platform listings \cite{Swacha2025RAG}.
@@ -372,75 +346,7 @@ R_{\text{new}} = \frac{R_{\text{old}} \cdot N_{\text{old}} + S_{\text{new}}}{N_{
 \newpage
 \chapter{Methodology}
 
-This chapter details the problem-solving methodology implemented in EdumentX, covering the feasibility assessment, system development framework, technical architecture, and module-level implementation across the application lifecycle.
-
-\section{Feasibility Study}
-
-\subsection{Technical Feasibility}
-The project was determined to be technically feasible using proven cross-platform and cloud-native technologies:
-\begin{itemize}
-\item Mobile Client: Developed with React Native (v0.81.5) and Expo SDK 54 using TypeScript. The UI is styled with NativeWind 4.2, mapping Tailwind CSS utility classes directly to native views without runtime overhead.
-\item Map Integration: Native Google Maps on Android via \texttt{expo-maps} provides smooth 60 FPS vector map rendering. Geospatial pin clustering is computed client-side using Supercluster with a 60-pixel radius, avoiding server roundtrips.
-\item Backend Services: Firebase Authentication provides secure identity management (Email/Password and native Google Sign-In). Cloud Firestore provides real-time reactive data synchronization (\texttt{onSnapshot}) and multi-document ACID transactions.
-\item Serverless Compute: Supabase Edge Functions (Deno runtime) execute backend business logic, including AI RAG inference, eSewa cryptographic HMAC-SHA256 signing, and OCR document verification.
-\item Development and Tooling: Built using VS Code with ESLint enforcing custom design-token constraints, and version-controlled via Git and GitHub.
-\end{itemize}
-
-\subsection{Operational Feasibility}
-The system was confirmed to be operationally feasible because target users already use smartphones for daily communication and digital searching. EdumentX organizes these behaviors into a clear, structured mobile workflow:
-\begin{itemize}
-\item For Students and Parents: The application replaces unorganized phone calls and social media posts with an intuitive map search, transparent pricing, verified badges, and natural language AI assistance.
-\item For Tutors: The platform provides an organized digital profile, weekly schedule coordination ($day:slot$), direct student discovery without middleman fees, and group batch management.
-\item For Administrators: A dedicated verification queue streamlines document review, OCR text validation, and user management.
-\end{itemize}
-
-\subsection{Economic Feasibility}
-The platform is designed to operate under a strict Zero-Cost Architecture during development and prototype demonstration. All cloud services operate strictly within free tier quotas as detailed in Table~\ref{tab:economic_feasibility}.
-
-\begin{table}[H]
-\centering
-\caption{Economic Feasibility and Free-Tier Quota Allocation}
-\label{tab:economic_feasibility}
-\small
-\begin{tabular}{|l|p{3.8cm}|p{3.5cm}|p{2.2cm}|}
-\hline
-\textbf{Service / Component} & \textbf{Provider / Service} & \textbf{Free Tier Quota} & \textbf{Cost (NPR)} \\
-\hline
-Mobile Client Framework & React Native / Expo OSS & Unlimited Open Source & NPR 0.00 \\
-\hline
-Identity Authentication & Firebase Authentication & Unlimited Email / Google & NPR 0.00 \\
-\hline
-Document Database & Cloud Firestore & 50K Reads, 20K Writes/day & NPR 0.00 \\
-\hline
-Object Storage (Docs/Photos) & Supabase Storage & 1.0 GB Free Bandwidth & NPR 0.00 \\
-\hline
-Serverless Compute & Supabase Edge Functions & 500K Invocations / month & NPR 0.00 \\
-\hline
-AI Model Inference & Groq Cloud API (Dev Tier) & 30 requests / minute & NPR 0.00 \\
-\hline
-Map Rendering & Google Maps (Android SDK) & Free on Native Mobile & NPR 0.00 \\
-\hline
-Geocoding Engine & OpenStreetMap Nominatim & Keyless (1 req/sec policy) & NPR 0.00 \\
-\hline
-Payment Gateway Sandbox & eSewa Developer Sandbox & EPAYTEST Environment & NPR 0.00 \\
-\hline
-\textbf{Total Operating Cost} & & & \textbf{NPR 0.00} \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{Schedule Feasibility}
-The project was scheduled across a 18-week period divided into seven iterative development stages: Requirements Collection and Problem Definition, UI/UX Design Tokens and React Native Setup, Map Search and Supercluster Pin Aggregation, Tutor Profile and AI Verification, Enrollment Workflow and Group Batches Management, AI RAG Chatbot and eSewa Payment Integration, and End-to-End System Testing, Bug Fixing, and Final Documentation.
-
-During this timeframe, all client screens and backend serverless functions of the EdumentX mobile application were designed, implemented, and validated on physical Android test devices. All functional requirements were successfully met, confirming that the project was completed within the planned schedule.
-
-\subsection{Legal and Ethical Feasibility}
-The platform enforces strict privacy safeguards:
-\begin{itemize}
-\item Student Location Privacy: Student exact home coordinates are treated as sensitive PII and are masked from all public views. A tutor can access a student's full address only after accepting an enrollment request, which generates a cryptographic \texttt{locationAccess} marker verified by Firestore Security Rules.
-\item Tutor Document Confidentiality: Tutor citizenship certificates are stored in private Supabase Storage buckets (\texttt{private-verification-docs}) with restricted read access, used solely for identity verification.
-\item Data Integrity: All client-server communication uses TLS encryption, and sensitive operations (e.g. eSewa order creation) are validated via server-side HMAC-SHA256 signatures.
-\end{itemize}
+This chapter details the problem-solving methodology implemented in EdumentX, covering the system development framework, technical architecture, and module-level implementation across the application lifecycle.
 
 \section{System Architecture and Implementation Framework}
 
@@ -474,7 +380,7 @@ The application uses Firebase Authentication for secure user sign-in. Users can 
 \end{figure}
 
 \subsection{AI Tutor Verification Module}
-To ensure platform safety, tutors must verify their identity before their profiles become public. The tutor uploads photos of their citizenship document and a self-portrait to Supabase Storage. A Supabase Edge Function then uses AI (Groq Vision OCR) to extract text from the document and compare it against the portrait. Submissions with a high confidence score are automatically approved, while lower scores are flagged for manual review by an administrator.
+To ensure platform safety, tutors must verify their identity before their profiles become public. The tutor uploads photos of their citizenship document and a self-portrait to Supabase Storage. A Supabase Edge Function then uses AI (Groq Vision OCR) to extract the holder's name from the document and compare it against the applicant's profile name, while the portrait is checked for a real human face. Submissions with a high confidence score are automatically approved, while lower scores are flagged for manual review by an administrator.
 
 \begin{figure}[H]
 \centering
@@ -749,11 +655,11 @@ Development OS & Linux x86\_64 & Node.js v20.19.4, npm 10.8.2 \\
 \hline
 Mobile Framework & React Native / Expo & React Native 0.81.5, Expo SDK 54 \\
 \hline
-Test Phones & Xiaomi Redmi Note 11, Samsung Galaxy A52 & Android 13 / 14 \\
+Test Phones & Realme 10, OnePlus Nord CE5 & Android 13 / 14 \\
 \hline
 Database Emulator & Firebase Firestore Emulator & firebase-tools v15.27.0 \\
 \hline
-AI Benchmark & Groq Cloud API & LLaMA 3.1 70B \\
+AI Models & Groq Cloud API (chatbot RAG / vision OCR) & LLaMA 3.1 70B / Qwen 3.6 27B \\
 \hline
 \end{tabular}
 \end{table}
@@ -935,9 +841,9 @@ Preconditions & Citizenship image uploaded to storage \\
 \hline
 Procedure & 1. Submit tutor profile. 2. Edge Function runs OCR check. \\
 \hline
-Expected Result & Name extracted matches profile with high confidence \\
+Expected Result & Extracted name matches profile name; portrait photo accepted \\
 \hline
-Actual Result & Function returns confidence score 0.94 \\
+Actual Result & Exact name match approved automatically with confidence score 1.0; a deliberate misspelling (one extra letter) scored below the match threshold and was correctly routed to the manual review queue \\
 \hline
 Status & PASS \\
 \hline
@@ -1103,26 +1009,26 @@ Status & PASS \\
 \end{table}
 
 \subsection{AI Identity Verification and Vision OCR Evaluation}
-Table~\ref{tab:ai_eval} shows the accuracy and performance results of the automated verification pipeline across test samples.
+The verification pipeline was exercised against real citizenship certificates and profile photographs submitted through the live sandbox environment during onboarding testing rather than against a synthetic benchmark dataset. Each submission produces a verdict recorded in the function logs and mirrored into the applicant's Firestore profile document, so every figure below is traceable to a stored verdict. Table~\ref{tab:ai_eval} summarizes the observed behaviour.
 
 \begin{table}[H]
 \centering
-\caption{AI Identity Verification and Vision OCR Evaluation}
+\caption{AI Identity Verification -- Observed Sandbox Behaviour}
 \label{tab:ai_eval}
 \small
-\begin{tabular}{|l|p{4.5cm}|p{6.0cm}|}
+\begin{tabular}{|p{4.5cm}|p{6.0cm}|}
 \hline
-\textbf{Metric} & \textbf{Sample Size ($N=50$)} & \textbf{Result} \\
+\textbf{Scenario} & \textbf{Observed Outcome} \\
 \hline
-OCR Name Extraction & English citizenship cards ($N=30$) & 93.3\% accurate extraction \\
+Citizenship card with English name matching the profile name & OCR extracted the full name exactly; similarity score 1.0; face detected (score 0.9); auto-approved \\
 \hline
-Name Matching & Levenshtein score $\ge 0.80$ & 96.6\% precision \\
+Citizenship card with a one-letter spelling difference from the profile name & Similarity fell below the acceptance threshold; routed to the admin manual-review queue instead of being rejected outright \\
 \hline
-Face Detection & Real portrait photos ($N=40$) & 100\% detected \\
+Profile photo containing a clear human portrait & Face detected with score 0.9 \\
 \hline
-Non-Human Photo Filter & Animal / object images ($N=10$) & 100\% filtered out \\
+Model output quality control & Chain-of-thought leakage from the vision model was detected in early runs and eliminated by disabling reasoning tokens at the API level \\
 \hline
-Average Response Time & Supabase Edge Function + Groq & 1.84 seconds \\
+Failure handling & When the upstream AI provider is unreachable, the function returns a \texttt{manual\_review} verdict instead of crashing, so no applicant is lost \\
 \hline
 \end{tabular}
 \end{table}
@@ -1237,27 +1143,25 @@ Table~\ref{tab:traceability} maps each functional requirement to its verified te
 \hline
 \textbf{Requirement} & \textbf{Description} & \textbf{Verified Test Case IDs} \\
 \hline
-FR1 & User Registration and Routing & IT-01, SYS-J1, ST-02 \\
+FR1 & User Authentication and Onboarding & IT-01, ST-02 \\
 \hline
-FR2 & Tutor Profile and Document Upload & IT-02, SYS-J2 \\
+FR2 & Tutor Profile Setup and Management & IT-02, SYS-J2 \\
 \hline
-FR3 & Map Search and Pin Clustering & UT-03, IT-03, SYS-J1 \\
+FR3 & Location-Based Discovery and Filtering & UT-03, IT-03, SYS-J1 \\
 \hline
-FR4 & AI Chatbot Search & IT-03, SYS-J1 \\
+FR4 & Enrollment and Scheduling & UT-01, UT-02, UT-04, IT-04, SYS-J1 \\
 \hline
-FR5 & Enrollment and Slot Scheduling & UT-01, UT-02, UT-04, IT-04, SYS-J1 \\
+FR5 & Group Batches Creation & UT-05, SYS-J2 \\
 \hline
-FR6 & Group Batch Management & UT-05, SYS-J2 \\
+FR6 & Real-Time In-App Messaging & ST-04 \\
 \hline
-FR7 & Real-Time In-App Messaging & ST-04 \\
+FR7 & Ratings and Reviews & ST-02 \\
 \hline
-FR8 & Ratings and Reviews & IT-04, ST-02 \\
+FR8 & AI Tutor Verification & IT-02, SYS-J2, Table~\ref{tab:ai_eval} \\
 \hline
-FR9 & Identity Verification & IT-02, Table~\ref{tab:ai_eval} \\
+FR9 & Pro Tier Subscription (eSewa) & IT-05, SYS-J3, ST-03 \\
 \hline
-FR10 & eSewa Pro Subscription & IT-05, SYS-J3, ST-03 \\
-\hline
-FR11 & Admin Verification Queue & SYS-J2, Table~\ref{tab:ai_eval} \\
+FR10 & Conversational AI Search (RAG) & Manual demonstration (live queries) \\
 \hline
 NFR1--NFR5 & Performance, Privacy, Security & UT-01--05, ST-01--04 \\
 \hline
@@ -1272,11 +1176,22 @@ NFR1--NFR5 & Performance, Privacy, Security & UT-01--05, ST-01--04 \\
 \newpage
 \chapter{Conclusions}
 
-This project successfully developed and implemented EdumentX, a mobile application designed to simplify how students and parents find home tutors in the Kathmandu Valley. Throughout the development process, the primary focus was on solving the unorganized nature of traditional tutor hiring, which often relies on word-of-mouth and lacks proper verification. By building the application with React Native and Expo, we were able to create a smooth, responsive interface for Android devices.
+This project set out to solve a problem we had all experienced in our own neighbourhoods: finding a dependable home tutor in the Kathmandu Valley still depends on word-of-mouth, pamphlets, and unverified social media posts. Over the minor project we built EdumentX, an
+Android application that replaces that guesswork with a searchable, verified marketplace
+connecting students directly with tutors. All of the objectives set out in our proposal were
+met, and some grew beyond what we first planned after the mid-term review.
 
-Instead of browsing through unorganized social media posts or relying on expensive agencies, the application allows students to visually find nearby tutors using an interactive map. The search process is further simplified by the AI chatbot, which understands natural language requests and recommends tutors based on actual database records. For security, we implemented a practical tutor verification system where uploaded citizenship documents are pre-screened by AI and verified, ensuring a safer environment for home tutoring.
+Our circumstances shaped the technical decisions as much as our preferences did. With no institutional funding or international payment method, we had to build on free tiers, and that constraint became one of the most useful lessons of the project. Firebase Authentication and Cloud Firestore handle identity and the primary database; their real-time listeners drive the live tutor dashboards and enrollment updates without any custom server. Object storage, serverless business logic and vector search for the chatbot run on Supabase. The platform costs nothing per month to operate at demo scale, and holding that line forced us to understand each service instead of reaching for paid shortcuts.
 
-The scheduling and enrollment workflows were also designed to be straightforward. Students can request specific time slots, and tutors have full control over managing their weekly rosters, creating group batches, and communicating via in-app messaging. The successful integration of the eSewa digital wallet in the testing environment proved that a reliable subscription model can be supported. After undergoing extensive unit testing, security rule validations, and manual testing on real Android phones, EdumentX has proven to be a technically sound and highly practical solution that successfully bridges the gap between students and qualified tutors.
+The features themselves came together into a coherent product. Students find tutors on an interactive Google Maps view where pins are clustered for performance and ranked by
+real Haversine distance from their location. The retrieval-augmented chatbot answers plain
+English questions from live database records rather than invented suggestions. Enrollment
+requests pass through an atomic transaction that respects capacity, group batches let
+one tutor teach many students together, and messaging keeps both sides coordinated
+inside the app. The eSewa integration, completed in the sandbox, showed that a local digital
+wallet can drive a subscription end to end.
+
+The part we are most satisfied with is tutor verification. A vision model reads the uploaded citizenship certificate and compares the holder's name with the profile, while the photograph is checked for a real human face. Clear passes are approved automatically; anything doubtful goes to the admin queue with an AI pre-screen verdict attached. Building this taught us how fragile AI features are in practice: a genuine certificate with one misspelled letter fell below our match threshold, and the vision model leaked its internal reasoning into outputs until we constrained it at the API level. Finally, we verified our own work seriously: sixty-four unit tests cover the scheduling, distance and capacity logic, twenty-one lint tests keep the design tokens consistent, and seven Firestore rule suites confirm that location privacy and chat access behave as specified. Together with manual testing on physical devices, this gives us confidence that EdumentX is a working platform, not merely a demonstration.
 
 % ====================================================================
 % CHAPTER 7: LIMITATIONS AND FUTURE ENHANCEMENT
@@ -1286,17 +1201,18 @@ The scheduling and enrollment workflows were also designed to be straightforward
 
 \section{Limitations}
 \begin{itemize}
-\item Android Platform: The application is currently built and tested only for Android devices. iOS support requires an Apple Developer account and testing with Apple Maps.
+\item iOS Platform Verification: The native iOS project has been generated from the shared codebase and compiles, but systematic testing on physical iPhone devices has not been carried out; all functional validation was performed on Android. Map rendering on iOS would also fall back to Apple Maps, as Google Maps credentials are currently provisioned for Android only.
 \item eSewa Sandbox: The payment integration runs in the eSewa test environment (\texttt{EPAYTEST}). Production deployment requires a registered business merchant account.
+\item Service Coverage: Tutor discovery content is concentrated in the Kathmandu Valley, where seed data exists, and geocoding relies on the keyless Nominatim service, which enforces a strict fair-use rate limit of roughly one request per second.
 \item In-Person Focus: The platform is designed specifically for physical home tutoring; online video classes are not included.
-\item Push Notifications: Background push notifications when the app is closed require Firebase Cloud Functions triggers; the current build uses in-app real-time listeners.
+\item Push Notification Delivery: Background message notifications are wired through a Cloud Function trigger and Expo push tokens; delivery behaviour still varies across device vendors because of aggressive battery optimization on some Android phones.
 \end{itemize}
 
 \section{Future Enhancement}
 \begin{itemize}
-\item iOS Build: Build and test the iOS version using Apple Maps via \texttt{expo-maps}.
+\item iOS Release: Complete on-device quality assurance of the existing iOS build, provision Google Maps for iOS, and distribute the app to testers through TestFlight.
 \item Production Payments: Integrate live eSewa and Khalti merchant payment gateways with automated escrow payout.
-\item Cloud Push Notifications: Deploy Firebase Cloud Functions to send push notifications for new messages and enrollment status updates when the app is closed.
+\item Online Tutoring Mode: Extend session delivery beyond physical home visits by adding integrated video calls and digital learning materials.
 \item Nepali Language Support: Add Nepali language translation for the user interface and AI chatbot replies.
 \item Tutor Analytics: Provide tutors with dashboard charts showing profile views, search appearances, and subject demand trends in their area.
 \end{itemize}
