@@ -1,57 +1,51 @@
-import { ScrollView, View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScreenHeader } from '../../src/components/layout/ScreenHeader';
+import { View } from 'react-native';
 
-export default function NotificationsScreen() {
+import {
+  NotificationsList,
+  type NotificationTab,
+} from '@/src/components/notifications/NotificationsList';
+
+/**
+ * Landlord notifications deep screen (linked from Profile → Notifications
+ * row). The tab screen (`/(landlord)/(tabs)/notifications.tsx`) shares the
+ * same tabs and just hides the ScreenHeader.
+ *
+ * Tabs mirror the dummy copy the screen carried before the module was
+ * built (All / Visits / Listings / System) so labels don't jump:
+ *   - All      → no kind filter
+ *   - Visits   → landlord-receives visit-lifecycle kinds
+ *   - Listings → landlord listing-scoped kinds (none emitted in v1 yet)
+ *   - System   → SYSTEM
+ */
+const LANDLORD_TABS: NotificationTab[] = [
+  { key: 'all', label: 'All', kinds: null },
+  {
+    key: 'visits',
+    label: 'Visits',
+    kinds: [
+      'VISIT_REQUESTED',
+      'RESCHEDULE_ACCEPTED',
+      'VISIT_CANCELLED_BY_TENANT',
+      'VISIT_RESCHEDULED_BY_TENANT',
+      'TENANT_FOLLOW_UP_SUBMITTED',
+    ],
+  },
+  { key: 'listings', label: 'Listings', kinds: [] },
+  { key: 'system', label: 'System', kinds: ['SYSTEM'] },
+];
+
+export default function LandlordNotificationsScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      <ScreenHeader
-        title="Notifications"
-        showBack
-        centerTitle
-        rightText={{ label: 'Mark all read' }}
-      />
-      <ScrollView className="px-6" contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
-        {/* Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
-          {['All', 'Visits', 'Listings', 'System'].map((tab, i) => (
-            <Pressable
-              key={tab}
-              className={`mr-2 rounded-pill px-4 py-2 ${i === 0 ? 'bg-ink' : 'bg-canvas'}`}>
-              <Text className={`font-medium text-body-sm ${i === 0 ? 'text-white' : 'text-ink'}`}>
-                {tab}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Today */}
-        <Text className="mb-3 font-semibold text-body-sm text-ink3">Today</Text>
-        {[
-          {
-            title: 'New Visit Request',
-            desc: 'Aayush Shrestha requested a visit for Baluwatar Apartment.',
-            time: '2h ago',
-          },
-          {
-            title: 'Listing Approved',
-            desc: 'Your listing "Jhamsikhel Flat" has been verified and published.',
-            time: '5h ago',
-          },
-        ].map((item, i) => (
-          <View key={i} className="mb-4 flex-row items-start border-b border-row-divider pb-4">
-            <View className="mr-3 h-10 w-10 items-center justify-center rounded-pill bg-brand-light">
-              <Text className="font-bold text-caption text-brand">L</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="font-semibold text-body text-ink">{item.title}</Text>
-              <Text className="font-sans text-body-sm text-ink2">{item.desc}</Text>
-              <Text className="mt-1 font-sans text-caption text-ink3">{item.time}</Text>
-            </View>
-            <View className="mt-2 h-2 w-2 rounded-pill bg-brand" />
-          </View>
-        ))}
-      </ScrollView>
+      <View className="flex-1">
+        <NotificationsList
+          viewer="landlord"
+          tabs={LANDLORD_TABS}
+          showHeader
+          showMarkAllRead
+        />
+      </View>
     </SafeAreaView>
   );
 }

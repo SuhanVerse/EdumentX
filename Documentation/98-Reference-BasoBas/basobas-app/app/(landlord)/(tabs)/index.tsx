@@ -16,7 +16,6 @@ import {
   Star,
   Eye,
   ChevronRight,
-  Plus,
   User,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -130,7 +129,7 @@ function AddNewListingButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// ─── Default demo data ──────────────────────────────────────────────────────
+// ─── Loading / empty state ───────────────────────────────────────────────────
 
 /** Shown while the first fetch is in flight, and if it fails. */
 const EMPTY_STATS: StatItem[] = [

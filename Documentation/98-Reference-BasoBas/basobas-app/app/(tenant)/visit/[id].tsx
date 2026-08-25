@@ -288,6 +288,11 @@ export default function VisitDetailScreen() {
     router.push({ pathname: '/(tenant)/visit/follow-up', params: { visitId: visit.id } } as any);
   }, [router, visit]);
 
+  const handleProposeNewTime = useCallback(() => {
+    if (!visit) return;
+    router.push({ pathname: '/(tenant)/visit/reschedule', params: { visitId: visit.id } } as any);
+  }, [router, visit]);
+
   if (loading && !visit) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -403,14 +408,32 @@ export default function VisitDetailScreen() {
               <Navigation size={16} color={color.bg} strokeWidth={2.2} />
               <Text style={styles.directionsButtonText}>Get Directions</Text>
             </Pressable>
-            <Pressable
-              onPress={handleCancel}
-              disabled={busy}
-              style={styles.cancelLink}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel Visit">
-              <Text style={styles.cancelLinkText}>Cancel Visit</Text>
-            </Pressable>
+          </DetailCard>
+        )}
+
+        {visit.statusUi === 'accepted' && (
+          <DetailCard
+            icon={<CalendarClock size={18} color={color.ink} strokeWidth={1.8} />}
+            title="Actions"
+            delay={400}>
+            <View style={styles.actionColumn}>
+              <Pressable
+                onPress={handleProposeNewTime}
+                disabled={busy}
+                style={styles.outlineButton}
+                accessibilityRole="button"
+                accessibilityLabel="Propose a New Time">
+                <Text style={styles.proposeLinkText}>Propose a New Time</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleCancel}
+                disabled={busy}
+                style={styles.outlineButton}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel Visit">
+                <Text style={styles.cancelLinkText}>Cancel Visit</Text>
+              </Pressable>
+            </View>
             <Text style={styles.cancelCourtesy}>Please cancel as early as possible.</Text>
           </DetailCard>
         )}
@@ -570,6 +593,14 @@ export default function VisitDetailScreen() {
             entering={FadeInDown.delay(650).duration(500).springify()}
             style={styles.bottomArea}>
             <PrimaryButton label="View My Visits" onPress={handleGoToVisits} />
+            <Pressable
+              onPress={handleProposeNewTime}
+              disabled={busy}
+              style={styles.cancelLink}
+              accessibilityRole="button"
+              accessibilityLabel="Propose a New Time">
+              <Text style={styles.proposeLinkText}>Propose a New Time</Text>
+            </Pressable>
             <Pressable
               onPress={handleCancel}
               disabled={busy}
@@ -848,6 +879,11 @@ const styles = StyleSheet.create({
     fontFamily: font.semibold,
     fontSize: size.bodySm,
     color: color.danger,
+  },
+  proposeLinkText: {
+    fontFamily: font.semibold,
+    fontSize: size.bodySm,
+    color: color.brand,
   },
   cancelCourtesy: {
     fontFamily: font.sans,

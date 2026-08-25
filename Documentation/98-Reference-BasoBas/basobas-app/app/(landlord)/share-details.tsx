@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, MapPin, Phone, Copy, User, Info, Send } from 'lucide-react-native';
 
+import { AppMapView } from '@/src/components/map/AppMap';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { useAuthStore } from '@/src/store/authStore';
 import { getVisitRequest, acceptVisit } from '@/src/services/visits.service';
@@ -148,27 +149,38 @@ export default function ShareDetailsScreen() {
             />
           </View>
 
-          {/* Conditional Map Placeholder */}
+          {/* Conditional Map — real preview when the property has a pin */}
           {locationEnabled && (
             <>
-              {/* Map area */}
-              <View className="relative my-3 h-32 w-full overflow-hidden rounded-2xl border border-gray-100 bg-[#E3E8E3]">
-                {/* Grid overlay lines */}
-                <View className="absolute inset-0">
-                  {/* Horizontal grid lines */}
-                  <View className="absolute left-0 right-0 top-1/4 h-[0.5px] bg-white/40" />
-                  <View className="absolute left-0 right-0 top-2/4 h-[0.5px] bg-white/40" />
-                  <View className="absolute left-0 right-0 top-3/4 h-[0.5px] bg-white/40" />
-                  {/* Vertical grid lines */}
-                  <View className="absolute bottom-0 left-1/4 top-0 w-[0.5px] bg-white/40" />
-                  <View className="absolute bottom-0 left-3/4 top-0 w-[0.5px] bg-white/40" />
+              {property?.locationLat != null && property?.locationLng != null ? (
+                <View
+                  pointerEvents="none"
+                  className="relative my-3 h-32 w-full overflow-hidden rounded-2xl border border-gray-100">
+                  <AppMapView
+                    style={{ height: 128, width: '100%' }}
+                    cameraPosition={{
+                      latitude: property.locationLat,
+                      longitude: property.locationLng,
+                      zoom: 15,
+                    }}
+                    markers={[
+                      {
+                        id: 'property',
+                        latitude: property.locationLat,
+                        longitude: property.locationLng,
+                        title: property.title ?? undefined,
+                      },
+                    ]}
+                  />
                 </View>
-
-                {/* Centered pin */}
-                <View className="absolute left-1/2 top-1/2 z-10 h-8 w-8 -ml-4 -mt-4 items-center justify-center rounded-full bg-black shadow-md">
-                  <MapPin size={14} color="#FFFFFF" fill="#FFFFFF" />
+              ) : (
+                <View className="my-3 flex h-32 w-full items-center justify-center rounded-2xl border border-gray-100 bg-[#F3F4F6]">
+                  <MapPin size={20} color="#9CA3AF" />
+                  <Text className="mt-1 text-xs font-medium text-gray-400">
+                    No map pin set yet
+                  </Text>
                 </View>
-              </View>
+              )}
 
               {/* Location address details — the private tier, if it's been set */}
               <Text className="mt-2 text-sm font-bold text-gray-900">

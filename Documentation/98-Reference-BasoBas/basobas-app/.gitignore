@@ -34,3 +34,4 @@ expo-env.d.ts
 graphify-out/
 cache/
 
+/minor-project-docs

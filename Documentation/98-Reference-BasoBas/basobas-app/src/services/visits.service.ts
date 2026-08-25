@@ -207,12 +207,17 @@ export async function tenantRescheduleVisit(
   visitId: string,
   newDate: string,
   newSlot: TimeSlot,
+  note: string | null,
   supabase: SupabaseClient<Database>
 ): Promise<Result<LandlordVisitRequest>> {
   try {
     const { data, error } = await supabase
       .from('visit_requests')
-      .update({ requested_date: newDate, time_slot: newSlot })
+      .update({
+        requested_date: newDate,
+        time_slot: newSlot,
+        tenant_reschedule_note: note ?? null,
+      })
       .eq('id', visitId)
       .select(VISIT_SELECT)
       .maybeSingle();
@@ -270,6 +275,7 @@ export async function acceptReschedule(
         status: 'ACCEPTED',
         previous_requested_date: null,
         previous_time_slot: null,
+        tenant_reschedule_note: null,
       })
       .eq('id', visitId)
       .select(VISIT_SELECT)

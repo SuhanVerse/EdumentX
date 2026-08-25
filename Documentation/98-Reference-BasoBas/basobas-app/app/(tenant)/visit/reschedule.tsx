@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,17 +15,28 @@ const { color, space, radius, font, size } = tokens;
 
 interface DayOption {
   label: string;
+  /** Day of month, shown on the card. */
   date: number;
+  /** ISO `YYYY-MM-DD` — what actually gets written. */
+  iso: string;
 }
 
-const DAYS: DayOption[] = [
-  { label: 'Mon', date: 9 },
-  { label: 'Tue', date: 10 },
-  { label: 'Wed', date: 11 },
-  { label: 'Thu', date: 12 },
-  { label: 'Fri', date: 13 },
-  { label: 'Sat', date: 14 },
-];
+/** The next six days starting tomorrow — a proposed visit must be in the future. */
+function buildDays(): DayOption[] {
+  const days: DayOption[] = [];
+  for (let offset = 1; offset <= 6; offset++) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    days.push({
+      label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: d.getDate(),
+      iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate(),
+      ).padStart(2, '0')}`,
+    });
+  }
+  return days;
+}
 
 // ─── Time slots ──────────────────────────────────────────────────────────────
 
@@ -37,7 +48,8 @@ export default function RescheduleVisitScreen() {
   const router = useRouter();
   const supabase = useClerkSupabase();
   const { visitId } = useLocalSearchParams<{ visitId?: string }>();
-  const [selectedDate, setSelectedDate] = useState<number>(11);
+  const DAYS = useMemo(buildDays, []);
+  const [selectedDate, setSelectedDate] = useState<number>(DAYS[0].date);
   const [selectedTime, setSelectedTime] = useState('4:00 PM');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
@@ -52,13 +64,16 @@ export default function RescheduleVisitScreen() {
       return;
     }
     setSending(true);
-    // DAYS are fixed day-of-month options in the current month.
-    const now = new Date();
-    const date = new Date(now.getFullYear(), now.getMonth(), selectedDate);
+    const day = DAYS.find((d) => d.date === selectedDate);
+    if (!day) {
+      setSending(false);
+      return;
+    }
     const result = await tenantRescheduleVisit(
       visitId,
-      date.toISOString().slice(0, 10),
+      day.iso,
       toTimeSlot(selectedTime),
+      note.trim() || null,
       supabase,
     );
     setSending(false);
@@ -68,7 +83,7 @@ export default function RescheduleVisitScreen() {
       return;
     }
     router.back();
-  }, [visitId, selectedDate, selectedTime, supabase, router]);
+  }, [visitId, selectedDate, selectedTime, note, DAYS, supabase, router]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -98,7 +113,7 @@ export default function RescheduleVisitScreen() {
           </View>
           <View style={styles.infoTextWrap}>
             <Text style={styles.infoTitle}>Propose a new time</Text>
-            <Text style={styles.infoSub}>Sandeep will be notified to confirm.</Text>
+            <Text style={styles.infoSub}>The landlord will be notified to confirm.</Text>
           </View>
         </View>
 
@@ -182,7 +197,7 @@ export default function RescheduleVisitScreen() {
         <View style={styles.noteCard}>
           <TextInput
             style={styles.noteInput}
-            placeholder="Note to tenant (optional)"
+            placeholder="Add a note for the landlord (optional)"
             placeholderTextColor={color.placeholder}
             multiline
             value={note}

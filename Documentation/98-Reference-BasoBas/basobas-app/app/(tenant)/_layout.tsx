@@ -1,7 +1,11 @@
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { useUser } from '@clerk/expo';
 import { useProfileBootstrap } from '@/src/hooks/useProfileBootstrap';
 import { useVisitRealtime } from '@/src/hooks/useVisitRealtime';
+import { useNotificationsRealtime } from '@/src/hooks/useNotificationsRealtime';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
+import { useNotificationsStore } from '@/src/store/notificationsStore';
 
 export default function TenantLayout() {
   // Load profile + Pro status early (on mount) so the Profile tab isn't blank.
@@ -11,6 +15,17 @@ export default function TenantLayout() {
   // outlives individual screens and keeps the visits store live everywhere.
   const { user: clerkUser } = useUser();
   useVisitRealtime(clerkUser?.id);
+
+  // Same pattern for the notifications inbox. The unread badge on the
+  // header bell (app/(tenant)/(tabs)/index.tsx) reads from this store.
+  useNotificationsRealtime(clerkUser?.id);
+  const supabase = useClerkSupabase();
+  const fetchUnreadCount = useNotificationsStore((s) => s.fetchUnreadCount);
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount(supabase);
+    }, [fetchUnreadCount, supabase]),
+  );
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
