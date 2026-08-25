@@ -37,7 +37,10 @@ module.exports = defineConfig([
   {
     ignores: [
       'dist/**',
-      'functions/lib/**',
+      // Separate npm package (own deps, own tsc build) — the root
+      // install never has firebase-functions, so import/no-unresolved
+      // fires on every file. Lint it from within functions/ instead.
+      'functions/**',
       // Expo-generated route types — rebuilt on every `expo start`;
       // gitignored and not source.
       '.expo/**',
