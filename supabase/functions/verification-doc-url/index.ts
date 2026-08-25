@@ -20,7 +20,6 @@
 // ════════════════════════════════════════════════════════════════
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
 import { AuthError, verifyFirebaseJwt } from "../_shared/firebase-auth.ts";
 
 const CORS_HEADERS = {
@@ -31,11 +30,14 @@ const CORS_HEADERS = {
 };
 
 const BUCKET = "private-verification-docs";
+const DEMO_BUCKET = "tutor-demo-videos";
 const SIGNED_URL_TTL_SECONDS = 600;
 /** Path shape: `{uid}/{kind}.{ext}` */
 const PATH_RE = /^([A-Za-z0-9:_-]+)\/([A-Za-z0-9_-]+)\.[A-Za-z0-9]{1,8}$/;
-/** Kinds any signed-in user may view (non-PII media). */
-const PUBLIC_KINDS = new Set(["demo"]);
+/** Kinds any signed-in user may view (non-PII media). "video" is the
+ *  legacy demo-video kind (docs store `kind: "demo"` with path
+ *  `{uid}/video.mp4` — both must resolve). */
+const PUBLIC_KINDS = new Set(["demo", "video"]);
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -79,6 +81,8 @@ Deno.serve(async (req) => {
 
     // 4. Mint a short-lived signed URL via raw Storage REST using a
     // JWT service key (role=service_role).
+    // Public media (demo videos) live in their own bucket.
+    const targetBucket = PUBLIC_KINDS.has(kind) ? DEMO_BUCKET : BUCKET;
     //   * STORAGE_SERVICE_JWT holds the legacy JWT key because the
     //     platform-injected SUPABASE_SERVICE_ROLE_KEY may be the new
     //     opaque sb_secret_… format, which the storage gateway
@@ -98,7 +102,7 @@ Deno.serve(async (req) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     const signRes = await fetch(
-      `${supabaseUrl}/storage/v1/object/sign/${BUCKET}/${path}`,
+      `${supabaseUrl}/storage/v1/object/sign/${targetBucket}/${path}`,
       {
         method: "POST",
         headers: {
@@ -126,11 +130,13 @@ Deno.serve(async (req) => {
     if (!signed.signedURL) {
       return json({ error: "Could not sign document URL" }, 502);
     }
-    // The storage API returns a relative signedURL (`/object/sign/…`);
-    // absolutize it.
+    // The storage API returns a relative signedURL (`/object/sign/…`).
+    // It MUST be fetched with the `/storage/v1` prefix — the plain
+    // project-URL form 404s ("requested path is invalid") on the
+    // new S3-backed storage backend.
     const absolute = signed.signedURL.startsWith("http")
       ? signed.signedURL
-      : `${supabaseUrl}${signed.signedURL}`;
+      : `${supabaseUrl}/storage/v1${signed.signedURL}`;
     return json({
       url: absolute,
       expiresInSeconds: SIGNED_URL_TTL_SECONDS,

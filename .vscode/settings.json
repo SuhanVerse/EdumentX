@@ -1,8 +1,12 @@
 {
-  "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit",
-    "source.organizeImports": "explicit",
-    "source.sortMembers": "explicit"
+  "deno.enable": true,
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.unstable": true,
+  // Keep the RN app on VS Code's normal TS server — only the Edge
+  // Functions folder is Deno-powered.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.watcherExclude": {
+    "**/node_modules/**": true
   },
   "ROS2.distro": "jazzy",
   "python.autoComplete.extraPaths": [

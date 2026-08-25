@@ -16,6 +16,20 @@ import {
   getVerificationDocPublicUrl,
 } from "@/services/supabase/storage";
 
+/**
+ * Append a cache-bust param WITHOUT breaking URLs that already carry a
+ * query string. Signed URLs look like `…?token=eyJ…` — appending `?t=`
+ * after that corrupts the token param and the storage gateway rejects
+ * the whole URL (the "documents don't render" bug). Signed URLs are
+ * unique per mint anyway, so busting is a no-op for them; public URLs
+ * (avatars, demo videos) are the ones that actually need it.
+ */
+function bust(url: string, cacheBust: string | number | null | undefined): string {
+  if (!cacheBust) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}t=${encodeURIComponent(String(cacheBust))}`;
+}
+
 export function useSignedDocUrl(
   path: string | null | undefined,
   cacheBust?: string | number | null,
@@ -32,7 +46,7 @@ export function useSignedDocUrl(
     // Public-bucket kinds resolve synchronously.
     const publicUrl = getVerificationDocPublicUrl(path);
     if (publicUrl) {
-      setUrl(cacheBust ? `${publicUrl}?t=${encodeURIComponent(cacheBust)}` : publicUrl);
+      setUrl(bust(publicUrl, cacheBust));
       setError(null);
       return;
     }
@@ -42,7 +56,7 @@ export function useSignedDocUrl(
     getVerificationDocSignedUrl(path)
       .then((signed) => {
         if (!cancelled) {
-          setUrl(cacheBust ? `${signed}?t=${encodeURIComponent(String(cacheBust))}` : signed);
+          setUrl(bust(signed, cacheBust));
         }
       })
       .catch((err: Error) => {

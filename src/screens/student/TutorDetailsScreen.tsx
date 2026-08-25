@@ -625,7 +625,7 @@ function TopBar({
   shareMessage: string;
 }) {
   return (
-    <View className="px-5 pb-2 bg-background z-10">
+    <View className="px-6 pb-2 bg-background z-10">
       <View className="flex-row items-center justify-between">
         <BackButton onPress={onBack} />
         <View className="flex-row gap-3">
@@ -654,7 +654,7 @@ function TopBar({
 
 function ProfileHeader({ tutor }: { tutor: TutorProfile }) {
   return (
-    <View className="px-5 pt-3">
+    <View className="px-6 pt-3">
       {/* Avatar — no longer overlapping a cover. Sits naturally
           inside the content flow with a small accent border. */}
       <View className="flex-row items-start gap-4">
@@ -1328,16 +1328,21 @@ function DemoLessonSection({
           onPress={onPlay}
           className="bg-surface border border-border rounded-xl overflow-hidden active:opacity-80"
         >
-          {/* Video preview area — soft light placeholder with the
-              amber play CTA (no harsh black box; real video
-              thumbnails were dropped along with the native
-              expo-video-thumbnails module). */}
-          <View className="w-full h-40 items-center justify-center relative overflow-hidden bg-surface-muted">
+          {/* Video preview area — dark cinema-style tile per the
+              design spec (§3.7): bg-night + dim scrim + layered
+              play button, so it reads as a video player instead of
+              an empty grey box. */}
+          <View className="w-full h-40 items-center justify-center relative overflow-hidden bg-night">
+            <View className="absolute inset-0 bg-black/20" />
             {/* Play button — layered circles with a central play arrow */}
-            <View className="w-16 h-16 rounded-pill bg-surface border border-border items-center justify-center">
-              <View className="w-14 h-14 rounded-pill bg-accent items-center justify-center">
-                <Ionicons name="play" size={30} color={colors.text.inverse} />
+            <View className="w-16 h-16 rounded-pill bg-white/20 items-center justify-center">
+              <View className="w-14 h-14 rounded-pill bg-white/30 items-center justify-center">
+                <Ionicons name="play" size={28} color={colors.text.inverse} />
               </View>
+            </View>
+            <View className="absolute bottom-2.5 left-3 flex-row items-center gap-1">
+              <Ionicons name="videocam" size={12} color={colors.text.inverse} />
+              <Text className="text-micro text-white/80">Watch demo</Text>
             </View>
           </View>
 
