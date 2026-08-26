@@ -154,7 +154,11 @@ console.log("   ✅ Supabase client initialized");
 async function generateEmbedding(text: string): Promise<number[] | null> {
   try {
     const response = await fetch(
-      `https://api-inference.huggingface.co/pipeline/feature-extraction/${EMBEDDING_MODEL}`,
+      // Aug 26: api-inference.huggingface.co (legacy Inference API) was
+      // retired — its DNS no longer resolves (ENOTFOUND). The replacement
+      // is the hf-inference provider behind router.huggingface.co; same
+      // auth header, request body, and response shape.
+      `https://router.huggingface.co/hf-inference/models/${EMBEDDING_MODEL}/pipeline/feature-extraction`,
       {
         method: "POST",
         headers: {

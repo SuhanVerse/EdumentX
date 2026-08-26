@@ -11,7 +11,11 @@
 
 import { getSupabaseClient } from "../utils/supabaseClient.ts";
 
-const HF_API_BASE = "https://api-inference.huggingface.co/pipeline/feature-extraction";
+// Aug 26: api-inference.huggingface.co (legacy Inference API) was retired
+// — its DNS no longer resolves. The replacement is the hf-inference
+// provider behind router.huggingface.co; same auth, body, response shape.
+const HF_API_BASE =
+  "https://router.huggingface.co/hf-inference/models";
 const DEFAULT_MODEL = "BAAI/bge-small-en-v1.5";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 15000; // 15 seconds (model cold start)
@@ -122,7 +126,7 @@ export async function generateEmbeddingsBatch(
 
   try {
     const response = await fetch(
-      `${HF_API_BASE}/${model}`,
+      `${HF_API_BASE}/${model}/pipeline/feature-extraction`,
       {
         method: "POST",
         headers: {
@@ -168,7 +172,9 @@ async function callHuggingFaceAPI(
   model: string,
   apiToken: string,
 ): Promise<number[] | null> {
-  const response = await fetch(`${HF_API_BASE}/${model}`, {
+  const response = await fetch(
+    `${HF_API_BASE}/${model}/pipeline/feature-extraction`,
+  {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiToken}`,
