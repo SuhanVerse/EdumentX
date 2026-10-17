@@ -6,7 +6,9 @@ EdumentX helps students and parents in Nepal find nearby tutors and request a pl
 
 The project is in development. This repository contains the mobile app, backend functions, and security rules.
 
-![Enrollment overview: a student browses tutors and sends a request; the tutor accepts and assigns an available slot.](Documentation/assets/enrollment-overview.png)
+<p align="center">
+  <img src="Documentation/assets/enrollment-overview.png" width="440" alt="Enrollment overview: a student browses tutors and sends a request; the tutor accepts and assigns an available slot.">
+</p>
 
 ## What you can do
 
