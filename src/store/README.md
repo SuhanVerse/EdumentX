@@ -145,4 +145,4 @@ async function signOut() {
 
 - `hooks/useAuth.ts` — wraps authStore with Firebase subscription
 - `services/firebase/auth.ts` — called by auth actions
-- `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md` — Phase 3 details
+- `Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md` — Phase 3 details

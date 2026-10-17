@@ -1,22 +1,13 @@
 /**
- * EdumentX — Registration State Shim (Phase 1 placeholder)
+ * EdumentX registration draft.
  *
- * A tiny module-level store for the multi-step signup draft. The real
- * `store/registrationStore.ts` (Zustand + AsyncStorage persist) is
- * built in Phase 4 per
- * `Documentation/06-Prompts/Claude-Code/00-MASTER-CLAUDE-CODE-PROMPT.md`
- * §7.5. Until then, this shim is enough to pass the draft fields
- * between StudentProfileScreen / TutorProfileScreen and any future
- * "Edit profile" screen without dropping data on navigation.
+ * This is a module-local, in-memory draft helper, not a persisted
+ * Zustand registration store. It currently exposes updateProfile.
+ * See Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md
+ * for the actual onboarding and profile-write flow.
  *
- * Data shape is intentionally identical to the planned Phase 4 store
- * so the Phase 4 replacement is a one-file body swap.
- *
- * **Auth model (June 21, 2026):** identity lives in Firebase Auth via
- * Email + Password or Google Sign-In. Phone OTP was removed — Clerk
- * and SMS providers are not in use. The `phone` field here is for the
- * optional contact number parents can use to reach a tutor from inside
- * the app; it is NOT used for sign-in.
+ * Identity uses native Firebase Auth (email/password or Google).
+ * Phone is a profile contact field, not an SMS/login credential.
  */
 
 export type Role = "student" | "tutor";

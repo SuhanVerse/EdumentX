@@ -1,79 +1,73 @@
+<img src="assets/logo-mark.png" width="72" height="72" alt="EdumentX book and map-pin logo">
+
 # EdumentX
 
-A location-based tutor-finding app for Nepal. Students and parents browse
-verified home tutors on a map, send enrollment requests, join group
-batches, message tutors directly, and leave reviews after sessions. Tutors
-manage availability, capacity, batches, and their inbox from one dashboard;
-admins review verifications and monitor platform stats.
+EdumentX helps students and parents in Nepal find nearby tutors and request a place in their schedule. Tutors manage availability, enrollments, and group batches in the same Android and iOS app.
 
-Everything runs on free tiers — no paid Firebase plan, maps SDK, or AI
-service. Storage is Supabase's free tier, map tiles come from
-OpenStreetMap, and all matching logic runs client-side.
+The project is in development. This repository contains the mobile app, backend functions, and security rules.
 
-## Features
+<p align="center">
+  <img src="Documentation/assets/enrollment-overview.png" width="440" alt="Enrollment overview: a student browses tutors and sends a request; the tutor accepts and assigns an available slot.">
+</p>
 
-- Map-based tutor discovery with subject, level, mode, distance, and budget filters
-- Tutor verification (ID + academic documents, admin-reviewed)
-- Enrollment requests with a weekly schedule picker and conflict checking
-- Group batches with session codes, seat limits, and a browse/join flow
-- In-app chat with read receipts and typing indicators
-- Reviews and ratings on tutor profiles
-- Saved tutors, notifications, and help & support
-- Separate dashboards for students, tutors, and admins
+## What you can do
 
-## Tech stack
+- Find tutors on a map, filter results, read reviews, and save profiles.
+- Send enrollment requests, choose preferred slots, and track enrollments.
+- Set tutoring availability, accept requests, and manage student rosters and group batches.
+- Send direct messages with read receipts and receive notifications.
+- Submit tutor documents for verification; review applications and manage accounts through the admin screens.
+- Search for tutors through an AI assistant and try the eSewa Pro upgrade demonstration with sandbox payments.
 
-- React Native + Expo SDK 54 (TypeScript, expo-router v6)
-- NativeWind 4 for styling — all colors/radii come from design tokens in `tailwind.config.js`, enforced by custom ESLint rules
-- Firebase: native Auth (email/password + Google Sign-In), Firestore, security rules
-- Supabase Storage for avatars
-- OpenStreetMap tiles via `react-native-maps`
-- Zustand for client state, Reanimated for animations
+Sign-in uses email/password with email verification, or Google. Students and tutors have separate onboarding and dashboards.
 
-## Getting started
+## Run locally
+
+Use Node 24 from [`.nvmrc`](.nvmrc) and npm. Android needs the Android SDK and an emulator or device; local iOS builds need macOS, Xcode, and CocoaPods. **This app requires a native development build; Expo Go is unsupported.**
+
+From the repository root:
 
 ```bash
 nvm use
 npm ci
-cp .env.example .env   # fill in the Firebase + Supabase keys
-npx expo run:android   # or npx expo start
+if [ ! -e .env ]; then cp .env.example .env; fi
 ```
 
-The app reads live Firestore data. Set `EXPO_PUBLIC_USE_MOCK_DATA=true`
-in `.env` to run against in-memory repositories instead.
+Fill in the public Supabase configuration and restricted Android Maps key in `.env`. Obtain the matching `google-services.json` and `GoogleService-Info.plist` from the project owner. The [setup guide](Documentation/03-Implementation-Guides/PROJECT_SETUP.md) covers configuration and Google Sign-In; [installation](Documentation/05-Build-and-Deploy/install-guide.md) covers devices and signing.
 
-Installing on a physical device (iOS or Android) is covered in
-[`Documentation/05-Build-and-Deploy/install-guide.md`](Documentation/05-Build-and-Deploy/install-guide.md).
+Build for your platform:
 
-## Scripts
-
-| Command | What it does |
-|---|---|
-| `npm run typecheck` | TypeScript check |
-| `npm run lint` | ESLint, including the design-token rules |
-| `npm run test:derived` | Unit tests for the enrollment helpers |
-| `npm run test:lint-rules` | Unit tests for the design-token lint rules |
-| `npm run test:rules` | Firestore rules: deployed-drift check + six emulator suites |
-| `npm run smoke:messages` | Live smoke tests against the deployed rules (needs a service-account key) |
-
-## Repository layout
-
-```
-src/app/          expo-router routes
-src/screens/      screen components (student, tutor, admin, shared, auth)
-src/components/   reusable UI and domain components
-src/services/     data layers (Firestore repositories + mocks)
-src/store/        Zustand stores
-src/lib/          helpers (validation, motion, tutor service)
-src/constants/    design tokens and colors
-firebase/         Firestore security rules
-scripts/          smoke tests, rules tests, seed scripts
-Documentation/    project docs — start at Documentation/README.md
+```bash
+npm run android
+# Or, on a Mac configured for iOS:
+npm run ios
 ```
 
-## CI
+With a compatible development client already installed, use `npx expo start --dev-client`. Sign in, complete a student profile, and browse available tutors.
 
-Every push to `main` runs typecheck, lint, unit tests, six Firestore
-rules suites, a deployed-vs-local rules drift check, and four live smoke
-suites (enrollments, reviews, batches, messages) in
-`.github/workflows/ci.yml`.
+`EXPO_PUBLIC_USE_MOCK_DATA=true` selects mocks in participating domains, including the assistant. Authentication and some Firestore reads remain live. Restart Metro after changing environment values.
+
+## Development
+
+The app uses Expo SDK 54, React Native, TypeScript, NativeWind, Expo Router, and Zustand. Firebase provides native authentication, Firestore, and push-trigger functions; Supabase provides storage and Edge Functions. Maps use Google on Android and Apple on iOS.
+
+Run the local checks:
+
+```bash
+npm run typecheck
+npm run lint
+npm run test:derived
+npm run test:lint-rules
+```
+
+See [local Firestore rules tests](Documentation/03-Implementation-Guides/PROJECT_SETUP.md#local-firestore-rules-tests) for emulator checks. `npm run test:rules` also requires credentials to compare deployed rules. [CI](.github/workflows/ci.yml) defines the automated checks and optional credentialed smoke tests.
+
+Live features depend on the configured backend, deployed rules, storage policies, and search data. eSewa remains sandbox-only. The project targets $0 at demo usage within service quotas; see the [architecture and cost policy](Documentation/01-Architecture/ARCHITECTURE.md).
+
+## Learn and contribute
+
+Start with the [codebase and learning guide](Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) for source-reading order, feature walkthroughs, and practice exercises. The [documentation index](Documentation/README.md) links the remaining guides; the [deployment runbook](Documentation/05-Build-and-Deploy/DEPLOYMENT_GUIDE.md) covers distribution.
+
+Read [AGENTS.md](AGENTS.md) before changing code. Keep credentials and private user data out of commits.
+
+Licensed under [GNU GPL v3](LICENSE). See [reference-asset attributions](Documentation/07-Design-Context/ASIM_DESIGN_ATTRIBUTIONS.md) for third-party material.

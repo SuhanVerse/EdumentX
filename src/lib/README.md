@@ -200,7 +200,7 @@ export const haptics = {
 
 The only file in `lib/` today is **`registration.ts`** — a `useSyncExternalStore`-based shim for the multi-step signup draft. It exposes `Role`, `LocationValue`, `RegistrationState`, `useRegistration(selector)`, and a `registration` action object (`get`, `set`, `update`, `updateProfile`, `reset`).
 
-The Phase 4 plan (see `Documentation/03-Implementation-Guides/IMPLEMENTATION_ROADMAP.md`) will replace this shim with a Zustand store under `store/registrationStore.ts`. The public API of `registration.ts` is intentionally identical to what the Zustand store will expose, so the swap will be a one-file body change with no call-site updates.
+The current registration helper is module-local and in-memory; a persisted `registrationStore.ts` is not implemented here. See `Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md` for the actual onboarding flow. Do not treat a historical phase plan as an existing store.
 
 > **Update (June 16, 2026)** — `RoleSelection` no longer writes to the `registration` shim. The role now lives in `useAuthStore` (Zustand) and is mirrored to Firestore `users/{uid}.role`. The shim still tracks the in-progress profile draft (name, subjects, location, etc.) but the *role* itself is the store's job. See `screens/auth/RoleSelection.tsx` and `app/_layout.tsx` for the new flow.
 

@@ -1,15 +1,17 @@
-# 04 — Firebase
+# Firebase operations
 
-Firebase-specific notes: rules, admin setup, deploy workflow, and the
-Firebase ↔ Supabase auth migration analysis.
+Start with the [codebase guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) and [project setup](../03-Implementation-Guides/PROJECT_SETUP.md). Firebase provides native authentication, Firestore and notification triggers; Supabase provides object storage and Edge Functions.
 
-## Files
-
-| File | Purpose |
+| Page | Use it for |
 |---|---|
-| `phase-3-notes.md` | Deploy workflow, rules, Firestore conventions |
-| `adminsetup.md` | Making an account an admin (service-account key walkthrough) |
-| `firebase-to-supabase-auth-migration-analysis.md` | Migration analysis (moved from the `Documentation/` root) |
+| [Auth and profile contract](./phase-3-notes.md) | Sign-in, routing, atomic onboarding and authorization boundaries |
+| [Admin access](./adminsetup.md) | Approved owner grants, custom claims and the admin ledger |
+| [Deployment runbook](../05-Build-and-Deploy/DEPLOYMENT_GUIDE.md) | Rules/index publication, functions and release checks |
 
-The canonical security rules live in `firebase/firestore.rules` (deployed
-via `npm run deploy:rules`; verified by `npm run test:rules`).
+Source authorities:
+
+- [`firebase/firestore.rules`](../../firebase/firestore.rules) and [`firestore.indexes.json`](../../firebase/firestore.indexes.json)
+- [`src/app/_layout.tsx`](../../src/app/_layout.tsx) and [`authService.ts`](../../src/services/firebase/authService.ts)
+- [`scripts/seedAdmin.ts`](../../scripts/seedAdmin.ts) and [`functions/src/index.ts`](../../functions/src/index.ts)
+
+Admin claims authorize backend access; profile roles and the `admins` ledger choose client screens. Cloud mutation commands are maintenance operations, not prerequisites for reading or building the project.
