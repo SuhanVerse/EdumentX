@@ -43,6 +43,8 @@ export interface NotificationsListProps {
   tabs: NotificationTab[];
   /** Render the ScreenHeader. False for the landlord tab screen (it has its own). */
   showHeader?: boolean;
+  /** Large page title rendered above the tabs when no ScreenHeader is shown. */
+  headerTitle?: string;
   /** Render the "Mark all read" affordance. Shown on every screen. */
   showMarkAllRead?: boolean;
 }
@@ -69,6 +71,7 @@ export const NotificationsList = ({
   viewer,
   tabs,
   showHeader = true,
+  headerTitle,
   showMarkAllRead = true,
 }: NotificationsListProps) => {
   const { user } = useUser();
@@ -153,6 +156,11 @@ export const NotificationsList = ({
       contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      {/* Large title — tab screens without a ScreenHeader */}
+      {!showHeader && headerTitle ? (
+        <Text className="mb-4 font-bold text-h1 text-ink">{headerTitle}</Text>
+      ) : null}
+
       {/* Tabs */}
       <ScrollView
         horizontal
@@ -216,7 +224,7 @@ export const NotificationsList = ({
   return (
     <View className="flex-1 bg-bg">
       <ScreenHeader
-        title="Notifications"
+        title="Notification"
         showBack
         centerTitle
         rightText={headerRight}
@@ -263,7 +271,7 @@ const NotificationRow = ({ item, onPress }: NotificationRowProps) => {
       onPress={() => onPress(item)}
       accessibilityRole="button"
       accessibilityLabel={item.title}
-      className={`mb-4 flex-row items-start border-b border-row-divider pb-4 ${
+      className={`mb-3 flex-row items-start border-b border-row-divider pt-2 pb-6 ${
         unread ? 'bg-brand-light/30 rounded-card px-3 -mx-3' : ''
       }`}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>

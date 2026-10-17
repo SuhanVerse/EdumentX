@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, View, Text, Image, StyleSheet } from 'react-native';
-import { CalendarDays, Clock, ChevronRight, ImageIcon } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, Clock } from 'lucide-react-native';
 import Animated, {
   Easing,
   interpolateColor,
@@ -11,22 +11,15 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { tokens } from '@/src/theme/tokens';
-import { TIME_SLOT_LABELS, type TenantVisitRequest } from '@/src/types/property.types';
+import {
+  TIME_SLOT_LABELS,
+  dayLabel,
+  initialsOf,
+  type TenantVisitRequest,
+} from '@/src/types/property.types';
 import { FollowUpPendingBadge, VISIT_CHIP_STYLES, VisitStatusChip } from './VisitStatusChip';
 
 const { color, space, radius, font, size } = tokens;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const formatDate = (d: Date) =>
-  d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-const parseVisitDate = (iso: string) => new Date(`${iso}T00:00:00`);
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -49,7 +42,7 @@ export const VisitListCard = ({
   flashAt,
   showFollowUpBadge = true,
 }: VisitListCardProps) => {
-  const tint = VISIT_CHIP_STYLES[visit.statusUi].bg;
+  const tint = VISIT_CHIP_STYLES[visit.statusUi].dot;
   const flash = useSharedValue(0);
   const lastFlash = useRef(flashAt ?? 0);
 
@@ -65,28 +58,37 @@ export const VisitListCard = ({
 
   const animatedStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(flash.value, [0, 1], [color.line, tint]),
-    backgroundColor: interpolateColor(flash.value, [0, 1], [color.bg, tint]),
   }));
 
-  const visitDate = useMemo(() => parseVisitDate(visit.requestedDate), [visit.requestedDate]);
-  const isToday = isSameDay(visitDate, new Date());
+  const displayDay = useMemo(() => dayLabel(visit.requestedDate), [visit.requestedDate]);
   const timeLabel = TIME_SLOT_LABELS[visit.timeSlot];
+  const isPending = visit.statusUi === 'pending';
 
   return (
-    <Animated.View style={[styles.card, animatedStyle]}>
-      <Pressable onPress={onPress} accessibilityRole="button" style={styles.pressable}>
-        {/* Thumbnail */}
-        <View style={styles.thumb}>
-          {visit.propertyPhotoUrl ? (
+    <View style={styles.card}>
+      {/* Flash overlay — animates only its own border layer, so the card's
+          static chrome (border / radius / background / inset) always renders
+          even if the animated layer misbehaves. */}
+      <Animated.View pointerEvents="none" style={[styles.flashOverlay, animatedStyle]} />
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Visit: ${visit.propertyTitle ?? 'Property'}`}
+        style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+        {/* Attention accent — pending only */}
+        {isPending && <View style={styles.accentBar} />}
+
+        {/* Landlord avatar */}
+        <View style={styles.avatar}>
+          {visit.landlordAvatarUrl ? (
             <Image
-              source={{ uri: visit.propertyPhotoUrl }}
-              style={styles.thumbImage}
+              source={{ uri: visit.landlordAvatarUrl }}
+              style={styles.avatarImage}
               resizeMode="cover"
+              accessible={false}
             />
           ) : (
-            <View style={styles.thumbPlaceholder}>
-              <ImageIcon size={20} color={color.ink3} strokeWidth={1.5} />
-            </View>
+            <Text style={styles.avatarInitials}>{initialsOf(visit.landlordName)}</Text>
           )}
         </View>
 
@@ -106,14 +108,18 @@ export const VisitListCard = ({
             </View>
           </View>
 
-          <View style={styles.metaRow}>
-            <CalendarDays size={14} color={color.ink2} />
-            <Text style={styles.metaText}>{isToday ? 'Today' : formatDate(visitDate)}</Text>
-            <View style={styles.metaDot} />
-            <Clock size={14} color={color.ink2} />
-            <Text numberOfLines={1} style={[styles.metaText, styles.metaTime]}>
-              {timeLabel}
-            </Text>
+          {/* Meta pills: day + slot */}
+          <View style={styles.pillsRow}>
+            <View style={styles.pill}>
+              <CalendarDays size={12} color={color.ink3} strokeWidth={2} />
+              <Text style={styles.pillText}>{displayDay}</Text>
+            </View>
+            <View style={[styles.pill, styles.pillFlex]}>
+              <Clock size={12} color={color.ink3} strokeWidth={2} />
+              <Text numberOfLines={1} style={[styles.pillText, styles.pillTextFlex]}>
+                {timeLabel}
+              </Text>
+            </View>
           </View>
 
           {showFollowUpBadge && visit.followUpPending && (
@@ -125,7 +131,7 @@ export const VisitListCard = ({
 
         <ChevronRight size={18} color={color.ink2} style={styles.chevron} />
       </Pressable>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -138,31 +144,55 @@ const styles = StyleSheet.create({
     borderColor: color.line,
     backgroundColor: color.bg,
     overflow: 'hidden',
+    // Inset the card box from the screen edges so it aligns with the
+    // header's px-6 (24) padding instead of running full-bleed.
+    marginHorizontal: space.screenH,
+  },
+  /** Absolutely-positioned ring that carries the realtime status flash. */
+  flashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.card,
+    borderWidth: 1,
   },
   pressable: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     padding: space.cardPad,
   },
-  thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    backgroundColor: color.canvas,
+  pressed: {
+    opacity: 0.86,
   },
-  thumbImage: {
+  accentBar: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 3,
+    backgroundColor: color.brand,
+    borderTopRightRadius: radius.pill,
+    borderBottomRightRadius: radius.pill,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: color.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
     width: '100%',
     height: '100%',
   },
-  thumbPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarInitials: {
+    fontFamily: font.semibold,
+    fontSize: size.bodySm,
+    color: color.ink2,
   },
   body: {
     flex: 1,
-    marginLeft: 12,
     minWidth: 0,
   },
   topRow: {
@@ -188,32 +218,38 @@ const styles = StyleSheet.create({
   chipWrap: {
     marginTop: 2,
   },
-  metaRow: {
+  pillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    gap: 8,
+    marginTop: 12,
   },
-  metaText: {
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radius.pill,
+    backgroundColor: color.input,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pillFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pillText: {
     fontFamily: font.sans,
-    fontSize: size.body,
-    color: color.ink,
-    marginLeft: 5,
+    fontSize: size.caption,
+    color: color.ink2,
   },
-  metaTime: {
+  pillTextFlex: {
     flexShrink: 1,
   },
-  metaDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: color.ink3,
-    marginHorizontal: 8,
-  },
   followUpWrap: {
-    marginTop: 8,
+    marginTop: 10,
     alignSelf: 'flex-start',
   },
   chevron: {
-    marginLeft: 8,
+    marginLeft: 4,
   },
 });

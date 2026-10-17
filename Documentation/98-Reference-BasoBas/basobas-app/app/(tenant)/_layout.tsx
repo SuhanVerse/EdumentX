@@ -6,6 +6,7 @@ import { useVisitRealtime } from '@/src/hooks/useVisitRealtime';
 import { useNotificationsRealtime } from '@/src/hooks/useNotificationsRealtime';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { useNotificationsStore } from '@/src/store/notificationsStore';
+import { FollowUpPrompt } from '@/src/components/visit/FollowUpPrompt';
 
 export default function TenantLayout() {
   // Load profile + Pro status early (on mount) so the Profile tab isn't blank.
@@ -29,6 +30,9 @@ export default function TenantLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* Auto post-visit follow-up drawer — prompts the tenant when a
+          visit's window has passed and their answer is still missing. */}
+      <FollowUpPrompt role="tenant" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="ai-preferences" />
       <Stack.Screen name="edit-profile" />

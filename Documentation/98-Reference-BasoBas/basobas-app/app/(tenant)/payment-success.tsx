@@ -159,7 +159,7 @@ export default function PaymentSuccessScreen() {
               year: 'numeric',
             })
           );
-          totalDays = pd.product_id === '3month' ? 90 : 30;
+          totalDays = pd.product_id === '15day' ? 15 : 30;
         }
       } catch (err) {
         console.error('Failed to fetch user_pass details:', err);

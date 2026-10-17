@@ -58,9 +58,9 @@
 \contentsline {subsection}{\numberline {5.2.6}Security Test Cases}{31}{subsection.5.2.6}%
 \contentsline {subsection}{\numberline {5.2.7}Test Traceability Summary}{32}{subsection.5.2.7}%
 \contentsline {chapter}{\numberline {6}Conclusions}{33}{chapter.6}%
-\contentsline {chapter}{\numberline {7}Limitations and Future Enhancement}{35}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Limitations}{35}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Future Enhancement}{35}{section.7.2}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion References}{37}{section.7.2}%
-\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendices}{39}{chapter*.10}%
-\contentsline {section}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendix: Application Screenshots}{39}{section*.11}%
+\contentsline {chapter}{\numberline {7}Limitations and Future Enhancement}{34}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Limitations}{34}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Future Enhancement}{34}{section.7.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion References}{36}{section.7.2}%
+\contentsline {chapter}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendices}{38}{chapter*.10}%
+\contentsline {section}{\hbox to\@tempdima {\hfil }\leftprotrusion Appendix: Application Screenshots}{38}{section*.11}%

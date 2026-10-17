@@ -17,17 +17,17 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // This prevents a tampered client from paying an arbitrary amount.
 
 export const PRODUCTS = {
-  monthly: {
-    id: "monthly",
-    name: "Monthly Pass",
-    price: 249.0,
-    durationMonths: 1,
+  "15day": {
+    id: "15day",
+    name: "15-Day Pass",
+    price: 149.0,
+    durationDays: 15,
   },
-  "3month": {
-    id: "3month",
-    name: "3-Month Pass (Discounted)",
-    price: 549.0,
-    durationMonths: 3,
+  "30day": {
+    id: "30day",
+    name: "30-Day Pass",
+    price: 249.0,
+    durationDays: 30,
   },
 } as const;
 
@@ -37,7 +37,7 @@ export type PlanId = keyof typeof PRODUCTS;
  * Validate that a plan identifier is one of the allowed values.
  */
 export function isValidPlan(plan: string): plan is PlanId {
-  return plan === "monthly" || plan === "3month";
+  return plan === "15day" || plan === "30day";
 }
 
 // ─── eSewa Configuration (from environment variables) ─────────────────
@@ -211,9 +211,9 @@ export async function checkEsewaTransactionStatus(
  *
  * @param supabaseAdmin - The Supabase admin client for writes
  * @param clerkId - Clerk user ID
- * @param productId - Product/plan ID ("monthly" | "3month")
+ * @param productId - Product/plan ID ("15day" | "30day")
  * @param transactionId - UUID of the COMPLETE transaction
- * @param durationMonths - How many months this pass lasts
+ * @param durationDays - How many days this pass lasts
  * @returns The created user_pass row, or throws on error
  */
 export async function grantUserPass(
@@ -221,7 +221,7 @@ export async function grantUserPass(
   clerkId: string,
   productId: string,
   transactionId: string,
-  durationMonths: number,
+  durationDays: number,
 ): Promise<Record<string, unknown>> {
   const now = new Date();
   let startsAt = now;
@@ -240,9 +240,9 @@ export async function grantUserPass(
     startsAt = new Date(activePass.expires_at);
   }
 
-  // Calculate the new expiry by adding duration_months from start
+  // Calculate the new expiry by adding duration_days from start
   const expiresAt = new Date(startsAt);
-  expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
+  expiresAt.setDate(expiresAt.getDate() + durationDays);
 
   const { data: pass, error } = await supabaseAdmin
     .from("user_passes")

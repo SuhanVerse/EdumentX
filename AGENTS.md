@@ -226,6 +226,12 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   `src/lib/tutor/firestoreTutorService.ts`). Discovery
   (`subscribeTutors` — backs both StudentHome and MapSearch) filters
   `where("isAvailableForNewStudents", "==", true)`.
+- **Aug 25 — availability gate:** discovery ALSO filters
+  `where("hasAvailability", "==", true)`. The flag is mirrored by
+  `saveAvailability` (any enabled slot ⇒ true), defaults `false` on
+  admin approval, is owner-writable (bool-only carve-out in rules),
+  and slot-less tutors are hidden from students entirely. Backfill:
+  `npm run backfill:has-availability -- --write`.
 - `tutors/{uid}` is otherwise admin-write-only; the rules carve-out
   (`firebase/firestore.rules`) lets the OWNER update only that flag
   (+ `updatedAt`) via
@@ -254,6 +260,79 @@ student-home        ← live dashboard (reads users/{uid} + profile subdoc)
   writes `isAvailableForNewStudents: true`); the backfill script
   (`npm run backfill:tutor-availability`) defaults legacy docs to
   `true` so the strict filter doesn't hide them.
+
+**Aug 25 session (security overhaul + prod-rule divergences + UX batch):**
+
+- **Rules authority model changed.** `isAdmin()` = Firebase Auth
+  **custom claim** `admin:true` (minted by `seedAdmin.ts`, which also
+  keeps the auditable `admins/{uid}` doc). The old
+  `users.role=="admin"` clause was a live privilege-escalation (owner
+  could patch own role). Legacy admins MUST re-run
+  `npm run seed:admin` once, then sign out/in.
+- **users/{uid} owner writes**: forbid-list model via the `unchanged(k)`
+  rules helper (presence-parity + value-equality; dynamic `data[k]`
+  indexing). Immutable to owners: `status`, `deletedAt`,
+  `subscriptionTier`, `subscriptionExpiresAt`; role transitions limited
+  to student/tutor; uid immutable-if-touched; uid-less maintenance
+  patches legal.
+- **Pro tier is server-granted only.** Tier keys are pinned on BOTH
+  `users/{uid}/tutorProfile/default` (+ wildcard subdoc path) AND
+  `tutors/{uid}`. Grant = `create-esewa-order` edge fn service-role
+  REST write AFTER verification (grant-before-COMPLETE ordering).
+  Client `applyProGrant` was deleted; demo grant is mock-mode-only
+  (`applyDemoProGrant`).
+- **⚠️ Emulator-vs-production rules divergences (cost us hours):**
+  1. `diff()` evaluates as no-change on some masked/unmasked patches
+     in the emulator → diff-based guards are UNPROVABLE locally.
+     Use `unchanged()` instead.
+  2. `exists()` on an absent doc THROWS locally (fine in prod); a
+     throwing statement poisons sibling statements.
+  3. Reading `resource.data` during CREATE throws in PRODUCTION but
+     the emulator treats it as `{}` — this denied every FIRST-TIME
+     subdoc save on real devices (StudentProfileScreen). Verb-split
+     any write rule that must cover creates.
+  4. Unmasked REST PATCH = full REPLACE (wipes untouched fields);
+     RN SDK always sends masks. Test harnesses MUST send
+     `updateMask.fieldPaths`.
+  5. `request.auth.token.get('admin', false)` — plain indexing of an
+     absent claim throws; always `.get(key, default)`.
+  Live probe tool: `node scripts/auditLiveReads.mjs` (zero-write).
+- **Signed document URLs.** PII scans are ONLY viewable via 10-min
+  signed URLs from the `verification-doc-url` edge fn (owner-or-admin;
+  `demo` kind any-signed-in). `getVerificationDocPublicUrl` returns
+  null for PII kinds; UI uses `useSignedDocUrl` (sep-aware cache-bust
+  — never raw-append `?t=` after a signed URL's `?token=`). Demo
+  videos moved to PUBLIC bucket `tutor-demo-videos`. Migration
+  `supabase/migrations/016_*.sql` (v2) flips the bucket private;
+  storage policies are BUCKET-scoped anon writes because Supabase
+  `auth.uid()` is always NULL under Firebase auth.
+- **Edge functions deploy with `--no-verify-jwt`** — the project uses
+  asymmetric JWT signing keys, so the gateway 401s Firebase tokens
+  otherwise (this silently broke chat→mock fallback + AI pre-screen).
+  Storage signing needs secret `STORAGE_SERVICE_JWT` (legacy JWT key)
+  because the platform-injected `SUPABASE_SERVICE_ROLE_KEY` may be the
+  opaque `sb_secret_…` format that storage rejects ("Invalid Compact
+  JWS").
+- **Groq re-rank goes through the `groq-proxy` edge fn** (JWT +
+  per-user rate limit). Client Groq/HF keys are dead — never add
+  `EXPO_PUBLIC_*` LLM keys back.
+- **Push on new message:** Gen1 Cloud Function
+  `onNewChatMessage` (Node **20**, asia-south1 — gen1 rejects node24;
+  gen2 needed Eventarc IAM we skipped) reads
+  `users/{uid}.pushTokens` and POSTs to the Expo push API (free, no
+  FCM SDK). firebase.json predeploy lint removed (ESLint8/9 --ext
+  conflict); root lint covers functions/src.
+- **Chat hub identity:** `resolveOwnIdentity` no longer negative-
+  caches empty names; hub enriches TUTOR peers via public
+  `tutors/{uid}` reads (emit-then-enrich, local-only).
+- **Student pending-tab** requests feed now backfills tutor
+  name/avatar (`EnrollmentRequest.tutorName/tutorAvatar`), and the
+  inbox accept-sheet preselects `pickedSlotKeys[0]`.
+- **UI:** profile-setup screens are light variant; credentials copy
+  tightened; PendingReview checklist pruned (no phase jargon);
+  TutorHome profile-completion computed client-side (doc field was
+  never written); chat KAV behavior=undefined on Android +
+  `softwareKeyboardLayoutMode:"resize"`.
 
 **Aug 16, 2026 session (rules deploy + Phase 1–5 polish):**
 - **Deployed to `edumentx-dev`** (`firebase deploy --only

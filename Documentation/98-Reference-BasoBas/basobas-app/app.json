@@ -2,7 +2,7 @@
   "expo": {
     "name": "BasoBas",
     "slug": "basobas-app",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "scheme": "basobas",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -17,38 +17,51 @@
       "expo-font",
       "@clerk/expo",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
         "expo-maps",
         {
           "requestLocationPermission": true,
-          "locationPermission":"Allow ${PRODUCT_NAME} to access this device's location?"
+          "locationPermission": "Allow ${PRODUCT_NAME} to access this device's location?"
         }
       ]
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": ["**/*"],
+    "backgroundColor": "#141416",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.wcc.basobas"
+      "bundleIdentifier": "com.wcc.basobas",
+      "appleTeamId": "4B67F6VF47"
     },
     "android": {
       "newArchEnabled": true,
       "package": "com.wcc.basobas",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#141416"
       },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA3-iCgl3Ow2fxbIuZUsklb3gZymYiPHJI"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "versionCode": 5
     }
   }
 }

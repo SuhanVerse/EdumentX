@@ -1,8 +1,37 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MapPin, Star, Heart, Bed, Bath, Wifi, Car, ChevronRight, Building2, TreePine, Shield, CookingPot, Users, Info } from 'lucide-react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  MapPin,
+  Heart,
+  Bed,
+  BedDouble,
+  Bath,
+  Wifi,
+  Car,
+  ChevronRight,
+  Building2,
+  TreePine,
+  Shield,
+  CookingPot,
+  Users,
+  Info,
+  Check,
+  Droplets,
+  Zap,
+  Globe,
+  ArrowUpDown,
+  Sun,
+  WashingMachine,
+  Flame,
+  Thermometer,
+  Wind,
+  Tv,
+  Dumbbell,
+  Sparkles,
+  LampDesk,
+} from 'lucide-react-native';
 import { useUser } from '@clerk/expo';
 
 import { PropertyHero } from '@/src/components/property/PropertyHero';
@@ -15,9 +44,14 @@ import {
   getLandlordOwnerProfile,
   getLandlordVerificationStatus,
 } from '@/src/services/properties.service';
-import { createVisitRequest } from '@/src/services/visits.service';
+import { createVisitRequest, getTenantVisitForProperty } from '@/src/services/visits.service';
 import { usePropertyStore } from '@/src/store/propertyStore';
-import { toTimeSlot, type PropertyPublic } from '@/src/types/property.types';
+import {
+  toTimeSlot,
+  type PropertyPublic,
+  type TenantVisitRequest,
+  type TenantVisitStatusUi,
+} from '@/src/types/property.types';
 import { tokens } from '@/src/theme/tokens';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -25,52 +59,107 @@ const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
 
 // ─── Amenity / Extra-Detail helpers ─────────────────────────────────────────
 
+/**
+ * Amenity strings are free text from the listing wizard (step-2), so the map
+ * is keyed on a normalized form (lowercase, collapsed whitespace) of every
+ * value the wizard can save — plus legacy short keys. Anything unknown falls
+ * back to its raw label with no icon rather than disappearing.
+ */
 const AMENITY_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
   bed: Bed,
   bath: Bath,
   wifi: Wifi,
+  'wi-fi': Wifi,
+  internet: Globe,
+  'internet ready': Globe,
   car: Car,
+  parking: Car,
+  kitchen: CookingPot,
+  ac: Wind,
+  heater: Thermometer,
+  tv: Tv,
+  laundry: WashingMachine,
+  gym: Dumbbell,
+  security: Shield,
+  garden: TreePine,
+  lift: ArrowUpDown,
+  elevator: ArrowUpDown,
+  power: Zap,
+  'power backup': Zap,
+  'backup power': Zap,
+  water: Droplets,
+  'water supply': Droplets,
+  'water tank': Droplets,
+  solar: Sun,
+  balcony: Sun,
+  rooftop: Building2,
+  'hot water': Flame,
+  cleaning: Sparkles,
+  'study desk': LampDesk,
+  'murphy bed': BedDouble,
+  'servant room': BedDouble,
 };
 
+/** Normalize an amenity string into a stable lookup/render key. */
+const normalizeAmenityKey = (raw: string): string =>
+  raw.trim().toLowerCase().replace(/\s+/g, ' ');
+
 const AMENITY_LABELS: Record<string, string> = {
-  bed:     'Bed',
-  bath:    'Bath',
-  wifi:    'Wi-Fi',
-  car:     'Parking',
+  bed: 'Bed',
+  bath: 'Bath',
+  wifi: 'Wi-Fi',
+  'wi-fi': 'Wi-Fi',
+  internet: 'Internet',
+  'internet ready': 'Internet Ready',
+  car: 'Parking',
+  parking: 'Parking',
   kitchen: 'Kitchen',
-  ac:      'AC',
-  heater:  'Heater',
-  tv:      'TV',
+  ac: 'AC',
+  heater: 'Heater',
+  tv: 'TV',
   laundry: 'Laundry',
-  gym:     'Gym',
+  gym: 'Gym',
   security: 'Security',
-  garden:  'Garden',
-  lift:    'Lift',
-  power:   'Power Backup',
-  water:   'Water Supply',
+  garden: 'Garden',
+  lift: 'Lift',
+  elevator: 'Elevator',
+  power: 'Power Backup',
+  'power backup': 'Power Backup',
+  'backup power': 'Backup Power',
+  water: 'Water Supply',
+  'water supply': 'Water Supply',
+  'water tank': 'Water Tank',
+  solar: 'Solar',
+  balcony: 'Balcony',
+  rooftop: 'Rooftop',
+  'hot water': 'Hot Water',
+  cleaning: 'Cleaning',
+  'study desk': 'Study Desk',
+  'murphy bed': 'Murphy Bed',
+  'servant room': 'Servant Room',
 };
 
 const EXTRA_DETAIL_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
-  parkingSpaces:  Car,
-  houseFloors:    Building2,
-  hasGarden:      TreePine,
-  hasGated:       Shield,
-  roomBathroom:   Bath,
-  kitchenAccess:  CookingPot,
-  tenantPref:     Users,
-  kitchenette:    CookingPot,
+  parkingSpaces: Car,
+  houseFloors: Building2,
+  hasGarden: TreePine,
+  hasGated: Shield,
+  roomBathroom: Bath,
+  kitchenAccess: CookingPot,
+  tenantPref: Users,
+  kitchenette: CookingPot,
   studioBathroom: Bath,
 };
 
 const EXTRA_DETAIL_LABELS: Record<string, string> = {
-  parkingSpaces:  'Parking Spaces',
-  houseFloors:    'Floors',
-  hasGarden:      'Garden',
-  hasGated:       'Gated Community',
-  roomBathroom:   'Bathroom Type',
-  kitchenAccess:  'Kitchen Access',
-  tenantPref:     'Tenant Preference',
-  kitchenette:    'Kitchenette',
+  parkingSpaces: 'Parking Spaces',
+  houseFloors: 'Floors',
+  hasGarden: 'Garden',
+  hasGated: 'Gated Community',
+  roomBathroom: 'Bathroom Type',
+  kitchenAccess: 'Kitchen Access',
+  tenantPref: 'Tenant Preference',
+  kitchenette: 'Kitchenette',
   studioBathroom: 'Bathroom Type',
 };
 
@@ -88,10 +177,24 @@ function toAmenityRows(
   const rows: AmenityRow[] = [];
   if (bedrooms != null) rows.push({ key: 'bed', label: `${bedrooms} Bed`, icon: Bed });
   if (bathrooms != null) rows.push({ key: 'bath', label: `${bathrooms} Bath`, icon: Bath });
+  const seen = new Set(rows.map((r) => r.key));
   for (const raw of rawAmenities) {
-    const key = raw.toLowerCase();
-    if (key === 'bed' || key === 'bath' || key === 'bedroom' || key === 'bathroom') continue;
-    rows.push({ key, label: AMENITY_LABELS[key] ?? raw, icon: AMENITY_ICONS[key] ?? null });
+    if (typeof raw !== 'string' || raw.trim() === '') continue;
+    const key = normalizeAmenityKey(raw);
+    // Skip duplicates and bedroom/bathroom counts already shown from columns.
+    if (
+      seen.has(key) ||
+      key === 'bed' ||
+      key === 'bath' ||
+      key === 'bedroom' ||
+      key === 'bedrooms' ||
+      key === 'bathroom' ||
+      key === 'bathrooms'
+    ) {
+      continue;
+    }
+    seen.add(key);
+    rows.push({ key, label: AMENITY_LABELS[key] ?? raw.trim(), icon: AMENITY_ICONS[key] ?? null });
   }
   return rows;
 }
@@ -131,6 +234,18 @@ function toExtraDetailRows(extraDetails: Record<string, unknown> | null): ExtraD
 
 const fmtNpr = (n: number) => `NPR ${n.toLocaleString('en-US')}`;
 
+/** CTA label while the tenant already has an open request for this property. */
+const VISIT_REQUEST_BUTTON_LABEL: Record<TenantVisitStatusUi, string> = {
+  pending: 'Visit Requested',
+  accepted: 'Visit Scheduled',
+  rescheduled: 'New Time Proposed',
+  discussion: 'Visit Under Discussion',
+  completed: 'Visit Completed',
+  rejected: 'Visit Declined',
+  cancelled: 'Visit Cancelled',
+  finalized: 'Rental Finalized',
+};
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function PropertyDetailScreen() {
@@ -151,9 +266,15 @@ export default function PropertyDetailScreen() {
   const [ownerVerified, setOwnerVerified] = useState(false);
   const [ownerListingsCount, setOwnerListingsCount] = useState(0);
 
+  /** The tenant's open visit request for this property, if any. */
+  const [existingVisit, setExistingVisit] = useState<TenantVisitRequest | null>(null);
+
   const savedPropertyIds = usePropertyStore((s) => s.savedPropertyIds);
   const toggleSaved = usePropertyStore((s) => s.toggleSaved);
   const saved = property != null && savedPropertyIds.includes(property.id);
+
+  /** One view per property per mount — guards StrictMode double-effects. */
+  const viewRecordedRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -170,6 +291,14 @@ export default function PropertyDetailScreen() {
       setError('This property is no longer available.');
       setLoading(false);
       return;
+    }
+
+    // Fire-and-forget view count — the landlord dashboard reads it.
+    if (viewRecordedRef.current !== id) {
+      viewRecordedRef.current = id;
+      supabase
+        .rpc('record_property_view', { p_property_id: id })
+        .then(null, () => {});
     }
 
     const p = result.data;
@@ -194,6 +323,27 @@ export default function PropertyDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Duplicate-request guard: whenever this screen regains focus, check whether
+  // the tenant already has an open (non-terminal, date-not-passed) request for
+  // the property. If so, the CTA routes back to it instead of re-scheduling.
+  useFocusEffect(
+    useCallback(() => {
+      if (!property || !clerkUser?.id) return;
+      let cancelled = false;
+      (async () => {
+        const result = await getTenantVisitForProperty(property.id, clerkUser.id, supabase);
+        if (cancelled || !result.success) return;
+        // A request whose date has passed reads as `completed` — the visit
+        // happened, so allow booking a fresh one.
+        const active = result.data && result.data.statusUi !== 'completed' ? result.data : null;
+        setExistingVisit(active);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [property, clerkUser?.id, supabase])
+  );
 
   const handleViewLandlord = useCallback(() => {
     if (!property) return;
@@ -230,8 +380,16 @@ export default function PropertyDetailScreen() {
   }, [property, clerkUser?.id, supabase, toggleSaved]);
 
   const handleScheduleVisit = useCallback(() => {
+    if (existingVisit) {
+      // Already have an open request — go track it, never open the sheet.
+      router.push({
+        pathname: '/(tenant)/visit/[id]',
+        params: { id: existingVisit.id },
+      } as any);
+      return;
+    }
     setShowScheduleDrawer(true);
-  }, []);
+  }, [existingVisit, router]);
 
   const handleScheduleClose = useCallback(() => {
     setShowScheduleDrawer(false);
@@ -254,6 +412,11 @@ export default function PropertyDetailScreen() {
       );
 
       if (!result.success) throw new Error(result.error);
+
+      // Flip the CTA to "Visit Requested" immediately — re-fetch the open
+      // request so the button reflects it without waiting for next focus.
+      const open = await getTenantVisitForProperty(property.id, clerkUser.id, supabase);
+      if (open.success && open.data) setExistingVisit(open.data);
 
       // Take the tenant to their request so they can track it.
       setTimeout(() => {
@@ -294,7 +457,7 @@ export default function PropertyDetailScreen() {
     .slice(0, 2)
     .toUpperCase();
 
-  const amenityRows = toAmenityRows(property.amenities, property.bedrooms, property.bathrooms).slice(0, 4);
+  const amenityRows = toAmenityRows(property.amenities, property.bedrooms, property.bathrooms);
   const extraDetailRows = toExtraDetailRows(property.extraDetails);
 
   return (
@@ -322,20 +485,10 @@ export default function PropertyDetailScreen() {
           {/* Title — serif */}
           <Text className="font-display text-h1 leading-tight text-ink">{property.title}</Text>
 
-          {/* Location + Rating row */}
-          <View className="mt-2 flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <MapPin size={14} color="#6B6B6B" />
-              <Text className="ml-1 font-sans text-body-sm text-ink2">{property.locationArea}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <Star size={14} color="#F5A623" fill="#F5A623" />
-              <Text className="ml-1 font-medium text-body-sm text-ink">
-                {property.bedrooms != null
-                  ? `${property.bedrooms} bed${property.bedrooms > 1 ? 's' : ''}`
-                  : '—'}
-              </Text>
-            </View>
+          {/* Location row */}
+          <View className="mt-2 flex-row items-center">
+            <MapPin size={14} color="#6B6B6B" />
+            <Text className="ml-1 font-sans text-body-sm text-ink2">{property.locationArea}</Text>
           </View>
 
           {/* Price row */}
@@ -346,19 +499,26 @@ export default function PropertyDetailScreen() {
 
           {/* ═══ Amenities Card ═══ */}
           {amenityRows.length > 0 && (
-            <View className="mt-5 flex-row items-center rounded-card bg-canvas px-4 py-4">
-              {amenityRows.map((amenity, i) => {
-                const IconComponent = amenity.icon;
-                return (
-                  <View key={amenity.key} className="flex-1 flex-row items-center">
-                    <View className="flex-1 items-center">
-                      {IconComponent && <IconComponent size={20} color="#6B6B6B" />}
-                      <Text className="mt-1.5 font-sans text-caption text-ink2">{amenity.label}</Text>
+            <View className="mt-5 rounded-card bg-canvas px-4 py-4">
+              <Text className="mb-3 font-semibold text-body text-ink">Amenities</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {amenityRows.map((amenity, i) => {
+                  const IconComponent = amenity.icon;
+                  return (
+                    <View
+                      key={`${amenity.key}-${i}`}
+                      className="min-h-[32px] flex-row items-center rounded-pill bg-bg px-3 py-1.5">
+                      {IconComponent && <IconComponent size={15} color="#1A6B4A" />}
+                      <Text
+                        className={`font-sans text-caption text-ink ${
+                          IconComponent ? 'ml-1.5' : ''
+                        }`}>
+                        {amenity.label}
+                      </Text>
                     </View>
-                    {i < amenityRows.length - 1 && <View className="h-8 w-[1px] bg-line" />}
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
           )}
 
@@ -430,13 +590,22 @@ export default function PropertyDetailScreen() {
           />
         </Pressable>
 
-        {/* Schedule a Visit */}
+        {/* Schedule a Visit — or view the existing open request */}
         <Pressable
           onPress={handleScheduleVisit}
           className="h-[48px] flex-1 items-center justify-center rounded-pill bg-ink"
           accessibilityRole="button"
-          accessibilityLabel="Schedule a Visit">
-          <Text className="font-semibold text-body text-white">Schedule a Visit</Text>
+          accessibilityLabel={existingVisit ? 'View your visit request' : 'Schedule a Visit'}>
+          {existingVisit ? (
+            <View className="flex-row items-center">
+              <Check size={18} color="#FFFFFF" strokeWidth={2.5} />
+              <Text className="ml-2 font-semibold text-body text-white">
+                {VISIT_REQUEST_BUTTON_LABEL[existingVisit.statusUi]}
+              </Text>
+            </View>
+          ) : (
+            <Text className="font-semibold text-body text-white">Schedule a Visit</Text>
+          )}
         </Pressable>
       </View>
 

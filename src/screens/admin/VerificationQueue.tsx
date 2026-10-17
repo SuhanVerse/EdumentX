@@ -1545,15 +1545,11 @@ function DocumentThumbnail({
     console.warn("[DocumentThumbnail] signed-url resolution failed", signError);
   }
   // Compute a single, consistent display URL that both the thumbnail
-  // <Image> and the lightbox use. Without this, the thumbnail would
-  // use the cache-busted URL (`?t=uploadedAt`) while the lightbox
-  // receives the raw `publicUrl` — React Native's <Image> caches by
-  // URI, so the lightbox would show a stale cached version while the
-  // thumbnail shows the correct new one.
-  const displayUrl =
-    isImage && publicUrl && doc.uploadedAt
-      ? `${publicUrl}?t=${encodeURIComponent(doc.uploadedAt)}`
-      : publicUrl;
+  // <Image> and the lightbox use. The hook has ALREADY cache-busted
+  // with `uploadedAt` (sep-aware: `&t=` after a signed URL's
+  // `?token=`) — appending another raw `?t=` here re-corrupts signed
+  // URLs, so `displayUrl` is just the hook output.
+  const displayUrl = publicUrl;
 
   return (
     <Pressable

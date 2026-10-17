@@ -283,6 +283,10 @@ export type Batch = {
   /** When the tutor ended the batch (`status: "ended"`), in epoch
    *  ms. Set by `endBatch`; absent on active/legacy docs. */
   endedAt?: number;
+  /** Aug 25 — join code for the session-code enrollment mode.
+   *  Generated at createBatch; students enter it (or open the batch
+   *  from Browse) to request membership. Absent on legacy docs. */
+  sessionCode?: string;
   /** Enriched display info for the STUDENT's "Browse Batches"
    *  screen: resolved from the tutor's public profile during
    *  `subscribePublicBatches`. Undefined on the tutor's own

@@ -1,15 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react-native';
+import { Clock } from 'lucide-react-native';
 
-import { tokens } from '@/src/theme/tokens';
+import { DetailHeader } from '@/src/components/visit/DetailHeader';
+import { VStack } from '@/src/components/visit/VStack';
+import { SectionLabel } from '@/src/components/visit/SectionLabel';
+import { Button } from '@/src/components/visit/Button';
+import { c, font, radius, sp, t } from '@/src/theme/visitTokens';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { tenantRescheduleVisit } from '@/src/services/visits.service';
 import { toTimeSlot } from '@/src/types/property.types';
-
-const { color, space, radius, font, size } = tokens;
 
 // ─── Day data ────────────────────────────────────────────────────────────────
 
@@ -31,7 +33,7 @@ function buildDays(): DayOption[] {
       label: d.toLocaleDateString('en-US', { weekday: 'short' }),
       date: d.getDate(),
       iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-        d.getDate(),
+        d.getDate()
       ).padStart(2, '0')}`,
     });
   }
@@ -54,10 +56,6 @@ export default function RescheduleVisitScreen() {
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
 
-  const handleGoBack = useCallback(() => {
-    router.back();
-  }, [router]);
-
   const handleSend = useCallback(async () => {
     if (!visitId) {
       router.back();
@@ -74,7 +72,7 @@ export default function RescheduleVisitScreen() {
       day.iso,
       toTimeSlot(selectedTime),
       note.trim() || null,
-      supabase,
+      supabase
     );
     setSending(false);
     if (!result.success) {
@@ -87,138 +85,108 @@ export default function RescheduleVisitScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      {/* ─── Header ──────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={handleGoBack}
-          style={styles.backButton}
-          accessibilityLabel="Go back"
-          accessibilityRole="button">
-          <ArrowLeft size={18} color={color.ink} strokeWidth={2.2} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Reschedule Visit</Text>
-        </View>
-      </View>
+      <DetailHeader title="Reschedule Visit" />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        {/* ─── Info Banner ───────────────────────────────────────────── */}
-        <View style={styles.infoBanner}>
-          <View style={styles.infoIcon}>
-            <Calendar size={20} color="#FFFFFF" strokeWidth={2} />
+        <VStack gap={sp.base}>
+          <Text style={styles.intro}>
+            Propose a new time — your host will be notified to confirm.
+          </Text>
+
+          {/* ─── Pick a Day ────────────────────────────────────────────── */}
+          <SectionLabel label="Pick a day" />
+
+          <View style={styles.dayRow}>
+            {DAYS.map((d, i) => {
+              const active = d.date === selectedDate;
+              return (
+                <Pressable
+                  key={d.date}
+                  onPress={() => setSelectedDate(d.date)}
+                  style={[
+                    styles.dayCard,
+                    active && styles.dayCardActive,
+                    i > 0 && styles.cellSpacing,
+                  ]}
+                  accessibilityLabel={`${d.label} ${d.date}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}>
+                  <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{d.label}</Text>
+                  <Text style={[styles.dayNumber, active && styles.dayNumberActive]}>{d.date}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-          <View style={styles.infoTextWrap}>
-            <Text style={styles.infoTitle}>Propose a new time</Text>
-            <Text style={styles.infoSub}>The landlord will be notified to confirm.</Text>
+
+          {/* ─── Pick a Time ───────────────────────────────────────────── */}
+          <SectionLabel label="Pick a time" />
+
+          <View style={styles.timeGrid}>
+            {TIME_SLOTS.slice(0, 3).map((time, i) => {
+              const active = time === selectedTime;
+              return (
+                <Pressable
+                  key={time}
+                  onPress={() => setSelectedTime(time)}
+                  style={[
+                    styles.timePill,
+                    active && styles.timePillActive,
+                    i > 0 && styles.cellSpacing,
+                  ]}
+                  accessibilityLabel={time}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}>
+                  <Clock size={14} color={active ? c.screenBg : c.meta} strokeWidth={1.75} />
+                  <Text style={[styles.timeText, active && styles.timeTextActive]}>{time}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
 
-        {/* ─── Pick a Day ────────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>PICK A DAY</Text>
+          <View style={styles.timeGrid}>
+            {TIME_SLOTS.slice(3).map((time, i) => {
+              const active = time === selectedTime;
+              return (
+                <Pressable
+                  key={time}
+                  onPress={() => setSelectedTime(time)}
+                  style={[
+                    styles.timePill,
+                    active && styles.timePillActive,
+                    i > 0 && styles.cellSpacing,
+                  ]}
+                  accessibilityLabel={time}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}>
+                  <Clock size={14} color={active ? c.screenBg : c.meta} strokeWidth={1.75} />
+                  <Text style={[styles.timeText, active && styles.timeTextActive]}>{time}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <View style={styles.dayRow}>
-          {DAYS.map((d) => {
-            const active = d.date === selectedDate;
-            return (
-              <Pressable
-                key={d.date}
-                onPress={() => setSelectedDate(d.date)}
-                style={[styles.dayCard, active && styles.dayCardActive]}
-                accessibilityLabel={`${d.label} ${d.date}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}>
-                <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>
-                  {d.label}
-                </Text>
-                <Text style={[styles.dayNumber, active && styles.dayNumberActive]}>
-                  {d.date}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          {/* ─── Note ──────────────────────────────────────────────────── */}
+          <SectionLabel label="Note for the host (optional)" />
 
-        {/* ─── Pick a Time ───────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>PICK A TIME</Text>
-
-        <View style={styles.timeGrid}>
-          {TIME_SLOTS.slice(0, 3).map((time) => {
-            const active = time === selectedTime;
-            return (
-              <Pressable
-                key={time}
-                onPress={() => setSelectedTime(time)}
-                style={[styles.timePill, active && styles.timePillActive]}
-                accessibilityLabel={time}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}>
-                <Clock
-                  size={14}
-                  color={active ? color.bg : color.ink2}
-                  strokeWidth={2}
-                />
-                <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                  {time}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.timeGrid}>
-          {TIME_SLOTS.slice(3).map((time) => {
-            const active = time === selectedTime;
-            return (
-              <Pressable
-                key={time}
-                onPress={() => setSelectedTime(time)}
-                style={[styles.timePill, active && styles.timePillActive]}
-                accessibilityLabel={time}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}>
-                <Clock
-                  size={14}
-                  color={active ? color.bg : color.ink2}
-                  strokeWidth={2}
-                />
-                <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                  {time}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* ─── Note ──────────────────────────────────────────────────── */}
-        <View style={styles.noteCard}>
           <TextInput
             style={styles.noteInput}
-            placeholder="Add a note for the landlord (optional)"
-            placeholderTextColor={color.placeholder}
+            placeholder="Write your thoughts here…"
+            placeholderTextColor={c.faint}
             multiline
             value={note}
             onChangeText={setNote}
             textAlignVertical="top"
           />
-        </View>
 
-        {/* ─── CTA ───────────────────────────────────────────────────── */}
-        <Pressable
-          onPress={handleSend}
-          disabled={sending}
-          style={[styles.cta, sending && styles.ctaDisabled]}
-          accessibilityLabel="Send new time"
-          accessibilityRole="button">
-          {sending ? (
-            <ActivityIndicator size="small" color={color.bg} />
-          ) : (
-            <Text style={styles.ctaText}>Send new time</Text>
-          )}
-        </Pressable>
+          {/* ─── CTA ───────────────────────────────────────────────────── */}
+          <Button variant="primary" onPress={handleSend} disabled={sending} style={styles.cta}>
+            Send new time
+          </Button>
+        </VStack>
       </ScrollView>
     </SafeAreaView>
   );
@@ -229,128 +197,57 @@ export default function RescheduleVisitScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: color.bg,
+    backgroundColor: c.screenBg,
   },
-
-  // Header
-  header: {
-    height: space.headerH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: color.line,
-    paddingHorizontal: space.screenH,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: color.input,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    paddingRight: 40,
-  },
-  headerTitle: {
-    fontFamily: font.semibold,
-    fontSize: 17,
-    color: color.ink,
-  },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: space.screenH,
-    paddingTop: 20,
+    paddingHorizontal: sp.lg,
+    paddingTop: sp.lg,
     paddingBottom: 48,
   },
-
-  // Info banner
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF3E8',
-    borderRadius: radius.card,
-    padding: space.cardPad,
-    gap: 12,
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E67E22',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoTextWrap: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontFamily: font.semibold,
-    fontSize: size.body,
-    color: color.ink,
-  },
-  infoSub: {
+  intro: {
     fontFamily: font.sans,
-    fontSize: size.bodySm,
-    color: '#A0522D',
-    marginTop: 2,
+    fontSize: t.meta,
+    color: c.meta,
+    lineHeight: 20,
   },
-
-  // Section label
-  sectionLabel: {
-    fontFamily: font.bold,
-    fontSize: size.caption,
-    color: color.ink3,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginTop: 24,
-  },
-
   // Day picker
   dayRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+  },
+  cellSpacing: {
+    marginLeft: sp.md,
   },
   dayCard: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: radius.card,
-    backgroundColor: color.input,
-    paddingVertical: 12,
+    borderRadius: radius.control,
+    backgroundColor: c.cardBg,
+    paddingVertical: sp.base,
   },
   dayCardActive: {
-    backgroundColor: color.ink,
+    backgroundColor: c.ink,
   },
   dayLabel: {
     fontFamily: font.sans,
-    fontSize: size.caption,
-    color: color.ink3,
+    fontSize: t.label,
+    color: c.meta,
   },
   dayLabelActive: {
-    color: color.bg,
+    color: c.screenBg,
   },
   dayNumber: {
-    fontFamily: font.bold,
+    fontFamily: font.sansSemi,
     fontSize: 17,
-    color: color.ink,
+    color: c.title,
     marginTop: 4,
   },
   dayNumberActive: {
-    color: color.bg,
+    color: c.screenBg,
   },
-
   // Time picker
   timeGrid: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
   },
   timePill: {
     flex: 1,
@@ -358,56 +255,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
-    backgroundColor: color.input,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    gap: 6,
+    backgroundColor: c.cardBg,
+    paddingVertical: sp.base,
+    paddingHorizontal: sp.md,
   },
   timePillActive: {
-    backgroundColor: color.ink,
+    backgroundColor: c.ink,
   },
   timeText: {
     fontFamily: font.sans,
-    fontSize: size.bodySm,
-    color: color.ink,
+    fontSize: t.meta,
+    color: c.title,
+    marginLeft: sp.sm,
   },
   timeTextActive: {
-    fontFamily: font.semibold,
-    color: color.bg,
+    fontFamily: font.sansSemi,
+    color: c.screenBg,
   },
-
   // Note input
-  noteCard: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: color.bg,
-    padding: space.cardPad,
-    marginTop: 12,
-  },
   noteInput: {
+    minHeight: 96,
+    borderRadius: radius.control,
+    backgroundColor: c.cardBg,
+    padding: sp.base,
     fontFamily: font.sans,
-    fontSize: size.body,
-    color: color.ink,
+    fontSize: t.body,
+    color: c.title,
     lineHeight: 22,
-    minHeight: 80,
   },
-
-  // CTA
   cta: {
-    height: space.buttonH,
-    borderRadius: radius.pill,
-    backgroundColor: color.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 32,
-  },
-  ctaDisabled: {
-    opacity: 0.6,
-  },
-  ctaText: {
-    fontFamily: font.semibold,
-    fontSize: size.body,
-    color: color.bg,
+    marginTop: sp.sm,
   },
 });

@@ -94,8 +94,12 @@ type Props = {
   tutorAvatar?: string | null;
   subjects?: string[];
   /** Number of confirmed sessions the student has with this tutor.
-   *  Below 2, the review form is locked (Figma S-14 gate). */
+   *  Below 2, the review form is locked (Figma S-14 gate).
+   *  Aug 25: `coursesCompleted` (expired enrollments) ALSO unlocks —
+   *  one finished course is a completed learning relationship. */
   sessionsCompleted?: number;
+  /** Expired (= completed) enrollments with this tutor. */
+  coursesCompleted?: number;
   onClose: () => void;
   onSubmitted: () => void;
 };
@@ -107,6 +111,7 @@ export function ReviewModal({
   tutorAvatar,
   subjects = [],
   sessionsCompleted = 0,
+  coursesCompleted = 0,
   onClose,
   onSubmitted,
 }: Props) {
@@ -115,7 +120,13 @@ export function ReviewModal({
   const studentName = useAuthStore((s) => s.user?.displayName ?? "");
   const studentAvatar = useAuthStore((s) => s.user?.photoURL ?? null);
 
-  const locked = sessionsCompleted < 2;
+  // Aug 25: a COMPLETED COURSE (any expired enrollment with this
+  // tutor) unlocks reviews — the previous flat ">= 2 enrollments" gate
+  // was unreachable in real usage and blocked the defence demo. The
+  // caller passes `sessionsCompleted` = total enrollments and
+  // `coursesCompleted` = expired ones; either satisfies the gate.
+  const locked =
+    sessionsCompleted < 2 && coursesCompleted < 1;
 
   const [ratings, setRatings] = useState<CategoryRatings>({
     teaching: 0,
@@ -334,8 +345,8 @@ export function ReviewModal({
                       Review locked
                     </Text>
                     <Text className="text-body-sm text-warning-text text-center mt-1.5 leading-5">
-                      You can submit a review after completing at least 2
-                      confirmed sessions with this tutor.
+                      You can submit a review after finishing a course
+                      with this tutor (or after 2 confirmed sessions).
                     </Text>
                   </View>
                 ) : (

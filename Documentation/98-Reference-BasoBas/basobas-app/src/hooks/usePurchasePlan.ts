@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { useUserStore } from '@/src/store/userStore';
 
-export type PlanId = 'monthly' | '3month';
+export type PlanId = '15day' | '30day';
 
 export interface EsewaFormFields {
   amount: string;

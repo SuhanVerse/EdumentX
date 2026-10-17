@@ -22,6 +22,8 @@ import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { updateProfile, updateAvatar } from '@/src/services/profile.service';
 import { deleteUserData, deleteClerkUser } from '@/src/services/delete-account.service';
 import { getErrorMessage } from '@/src/lib/result';
+import { validateImageAsset } from '@/src/lib/imageValidation';
+import { validateImageContent } from '@/src/services/imageValidation.service';
 
 const { color, space, radius, font, size } = tokens;
 
@@ -80,6 +82,17 @@ export default function EditProfileScreen() {
       setUploading(true);
       try {
         const compressed = await compressImage(localUri);
+
+        // AI content gate — reject non-face images before uploading.
+        const verdict = await validateImageContent(compressed, 'avatar', supabase);
+        if (!verdict.success || !verdict.data.valid) {
+          Alert.alert(
+            'Photo not suitable',
+            verdict.success ? verdict.data.reason ?? '' : '',
+          );
+          return;
+        }
+
         const result = await updateAvatar(userId, compressed, supabase);
         if (!result.success) {
           Alert.alert('Upload failed', result.error);
@@ -112,7 +125,13 @@ export default function EditProfileScreen() {
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      handleUpload(result.assets[0].uri);
+      const asset = result.assets[0];
+      const check = validateImageAsset(asset, 'avatar');
+      if (!check.ok) {
+        Alert.alert('Invalid photo', check.message);
+        return;
+      }
+      handleUpload(asset.uri);
     }
   }, [handleUpload, uploading]);
 
@@ -132,7 +151,13 @@ export default function EditProfileScreen() {
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      handleUpload(result.assets[0].uri);
+      const asset = result.assets[0];
+      const check = validateImageAsset(asset, 'avatar');
+      if (!check.ok) {
+        Alert.alert('Invalid photo', check.message);
+        return;
+      }
+      handleUpload(asset.uri);
     }
   }, [handleUpload, uploading]);
 

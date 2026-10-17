@@ -31,7 +31,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Pressable, Text, View } from "react-native";
 
 import { ActivePill } from "@/components/motion";
@@ -88,6 +88,7 @@ export function MyEnrollments() {
     tutorAvatar?: string | null;
     subjects?: string[];
     sessionsCompleted?: number;
+    coursesCompleted?: number;
   } | null>(null);
   // The request the student has tapped "Edit" on. The sheet
   // pre-fills from this and writes back via the repo on save.
@@ -151,19 +152,32 @@ export function MyEnrollments() {
         .sort((a, b) => b.submittedAt - a.submittedAt),
     [requests],
   );
+  // Aug 25: DATE-derived expiry. The expiry SWEEP only runs on the
+  // tutor's own subscription (student screens pass runSweep:false —
+  // rules forbid the student flipping status), so a fast-forwarded
+  // endDate stayed "active" here forever and the review gate could
+  // never unlock on a single device. We now treat an ACTIVE row whose
+  // endDate has passed as completed for tab placement AND the review
+  // gate — no writes needed.
+  const isCompleted = useCallback(
+    (e: LiveEnrollment) =>
+    e.status === "expired" ||
+    e.status === "removed" ||
+      (e.status === "active" && e.endDate < today),
+    [today],
+  );
   const activeList = useMemo(
     () =>
       enrollments
-        .filter((e) => e.status === "active")
+        .filter((e) => !isCompleted(e))
         .sort((a, b) => b.acceptedAt - a.acceptedAt),
-    [enrollments],
+    [enrollments, isCompleted],
   );
   const pastList = useMemo(
-    () =>
-      enrollments
-        .filter((e) => e.status === "removed" || e.status === "expired")
-        .sort((a, b) => (b.removedAt ?? 0) - (a.removedAt ?? 0)),
-    [enrollments],
+    () => enrollments.filter(isCompleted).sort(
+      (a, b) => (b.removedAt ?? b.acceptedAt) - (a.removedAt ?? a.acceptedAt),
+    ),
+    [enrollments, isCompleted],
   );
 
   const list = (() => {
@@ -290,11 +304,14 @@ export function MyEnrollments() {
                       tutorName: e.tutorName || `Tutor ${e.tutorUid.slice(0, 4)}`,
                       tutorAvatar: e.tutorAvatar,
                       subjects: e.subjects,
-                      // Confirmed-session proxy: any active/past
-                      // enrollment with this tutor counts toward the
-                      // Figma S-14 lock gate (≥ 2 sessions).
+                      // Review gate inputs: total enrollments with
+                      // this tutor + how many COMPLETED (expired).
+                      // Aug 25: one completed course unlocks reviews.
                       sessionsCompleted: enrollments.filter(
                         (x) => x.tutorUid === e.tutorUid,
+                      ).length,
+                      coursesCompleted: enrollments.filter(
+                        (x) => x.tutorUid === e.tutorUid && isCompleted(x),
                       ).length,
                     })
                   }
@@ -327,6 +344,9 @@ export function MyEnrollments() {
                       subjects: e.subjects,
                       sessionsCompleted: enrollments.filter(
                         (x) => x.tutorUid === e.tutorUid,
+                      ).length,
+                      coursesCompleted: enrollments.filter(
+                        (x) => x.tutorUid === e.tutorUid && isCompleted(x),
                       ).length,
                     })
                   }
@@ -402,13 +422,18 @@ function RequestCard({
       className="bg-surface border border-border rounded-card p-4 border-l-4 border-l-accent active:opacity-80"
     >
       <View className="flex-row gap-3 items-start">
-        {/* Initial avatar — the request doc doesn't carry a tutor
-            avatar, so we render a placeholder dot for now. A future
-            enhancement can pull the avatar from the tutor's profile
-            subdoc in the same render pass. */}
-        <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted border border-border items-center justify-center">
-          <Ionicons name="school-outline" size={22} color={colors.text.muted} />
-        </View>
+        {/* Aug 25: the requests feed backfills the tutor's name/avatar
+            from their public profile — show them when resolved. */}
+        {request.tutorAvatar ? (
+          <Image
+            source={{ uri: request.tutorAvatar }}
+            className="w-avatar-card h-avatar-card rounded-pill"
+          />
+        ) : (
+          <View className="w-avatar-card h-avatar-card rounded-pill bg-surface-muted border border-border items-center justify-center">
+            <Ionicons name="school-outline" size={22} color={colors.text.muted} />
+          </View>
+        )}
 
         <View className="flex-1 min-w-0">
           <View className="flex-row items-start justify-between gap-2 mb-1">
@@ -417,7 +442,7 @@ function RequestCard({
                 className="text-card-title font-medium text-text-primary"
                 numberOfLines={1}
               >
-                Request to tutor
+                {request.tutorName || "Request to tutor"}
               </Text>
             </View>
             <StatusBadge status="pending" />

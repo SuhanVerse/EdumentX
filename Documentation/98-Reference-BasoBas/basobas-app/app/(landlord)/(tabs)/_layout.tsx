@@ -1,32 +1,26 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useUser } from '@clerk/expo';
 import { Tabs, useFocusEffect } from 'expo-router';
 import { FloatingDock } from '@/src/components/navigation/FloatingDock';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
+import { useLandlordPendingCount } from '@/src/hooks/useLandlordPendingCount';
 import { useNotificationsRealtime } from '@/src/hooks/useNotificationsRealtime';
-import { getPendingVisitCount } from '@/src/services/visits.service';
 import { useNotificationsStore } from '@/src/store/notificationsStore';
 
 export default function LandlordTabsLayout() {
   const { user } = useUser();
   const supabase = useClerkSupabase();
   const clerkId = user?.id;
-  const [pendingCount, setPendingCount] = useState(0);
 
-  const loadPending = useCallback(async () => {
-    if (!clerkId) return;
-    const result = await getPendingVisitCount(clerkId, supabase);
-    if (result.success) setPendingCount(result.data);
-  }, [clerkId, supabase]);
+  // Live badge count — realtime-synced with the DB (re-queries on any
+  // visit_requests change for this landlord).
+  const { count: pendingCount, refresh } = useLandlordPendingCount(clerkId);
 
-  useEffect(() => {
-    loadPending();
-  }, [loadPending]);
-
+  // Fallback: re-check on focus in case an event was missed while backgrounded.
   useFocusEffect(
     useCallback(() => {
-      loadPending();
-    }, [loadPending]),
+      refresh();
+    }, [refresh])
   );
 
   // Notification inbox sync. Mounted here so the channel outlives the

@@ -10,10 +10,15 @@
  */
 import type { Database } from './database.types';
 
-/** Mirrors the DB enum. */
+/**
+ * Mirrors the DB enum plus the non-terminal states the live pipeline writes:
+ * 'PENDING' (insert RPC) and 'FLAGGED' (AI review needs a human).
+ */
 export type KYCStatus =
   | 'UNVERIFIED'
+  | 'PENDING'
   | 'UNDER_REVIEW'
+  | 'FLAGGED'
   | 'VERIFIED'
   | 'REJECTED';
 
@@ -42,6 +47,8 @@ export interface KYCSubmission {
   attemptNumber: number;
   frontImagePath: string | null;
   backImagePath: string | null;
+  /** Landlord-only optional walkthrough video (extra verification). */
+  homeTourVideoPath: string | null;
 }
 
 /** Helper: render UI state from a DB status. */
@@ -53,7 +60,9 @@ export const toKYCStatusUi = (
     return 'not_submitted';
   }
   switch (dbStatus) {
+    case 'PENDING':
     case 'UNDER_REVIEW':
+    case 'FLAGGED':
       return 'pending';
     case 'VERIFIED':
       return 'verified';

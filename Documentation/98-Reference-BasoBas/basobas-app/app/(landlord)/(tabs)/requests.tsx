@@ -1,37 +1,63 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
   ActivityIndicator,
+  Alert,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '@clerk/expo';
-import { User, Calendar, ArrowRight } from 'lucide-react-native';
+import { Calendar, ChevronRight, Clock, History } from 'lucide-react-native';
 
 import { ScreenBody } from '@/src/components/layout/ScreenBody';
+import { Avatar, StatusPill, type LdStatus } from '@/src/components/visit/LandlordUI';
+import { useVisitsStore, type LandlordRow } from '@/src/store/visitsStore';
+import { markPastVisitsCompleted } from '@/src/services/visits.service';
+import { DEMO_MODE } from '@/src/lib/demoMode';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
-import { getVisitRequestsForLandlord } from '@/src/services/visits.service';
-import {
-  formatVisitDate,
-  TIME_SLOT_LABELS,
-  type LandlordVisitRequest,
-  type RequestStatusUi,
-} from '@/src/types/property.types';
+import { c, font, radius, shadow } from '@/src/theme/visitTokens';
+import { TIME_SLOT_LABELS, dayLabel } from '@/src/types/property.types';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Status mapping ──────────────────────────────────────────────────────────
 
-type TabKey = 'all' | RequestStatusUi;
+const UI_TO_PILL: Record<LandlordRow['uiStatus'], LdStatus> = {
+  new: 'Pending',
+  upcoming: 'Accepted',
+  rescheduled: 'Rescheduled',
+  discussion: 'Pending',
+  completed: 'Accepted',
+  finalized: 'Accepted',
+  cancelled: 'Declined',
+  rejected: 'Declined',
+};
 
-const TAB_LABELS: { key: TabKey; label: string }[] = [
+const isOpen = (row: LandlordRow): boolean =>
+  ['new', 'upcoming', 'rescheduled', 'discussion', 'completed'].includes(row.uiStatus);
+
+type FilterKey = 'all' | 'pending' | 'accepted';
+
+const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'accepted', label: 'Accepted' },
 ];
 
-// ─── Component ──────────────────────────────────────────────────────────────
+const inFilter = (row: LandlordRow, filter: FilterKey): boolean => {
+  switch (filter) {
+    case 'pending':
+      return row.uiStatus === 'new';
+    case 'accepted':
+      return row.uiStatus === 'upcoming';
+    default:
+      return isOpen(row);
+  }
+};
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function VisitRequestsScreen() {
   const router = useRouter();
@@ -39,201 +65,381 @@ export default function VisitRequestsScreen() {
   const supabase = useClerkSupabase();
   const clerkId = user?.id;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
-  const [requests, setRequests] = useState<LandlordVisitRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const rows = useVisitsStore((s) => s.landlordVisits);
+  const isLoading = useVisitsStore((s) => s.isLoading);
+  const fetchLandlordVisits = useVisitsStore((s) => s.fetchLandlordVisits);
+
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(
-    async (mode: 'initial' | 'refresh' | 'poll' = 'initial') => {
+    async (mode: 'initial' | 'refresh' = 'initial') => {
       if (!clerkId) return;
       if (mode === 'refresh') setRefreshing(true);
-      else if (mode === 'initial') setLoading(true);
-
-      const result = await getVisitRequestsForLandlord(clerkId, supabase);
-
-      if (result.success) {
-        setRequests(result.data);
-        setErrorMessage(null);
-      } else if (mode !== 'poll') {
-        // A failed realtime-triggered refetch keeps the current list rather
-        // than replacing it with an error state.
-        setErrorMessage(result.error);
-      }
-
-      setLoading(false);
+      await fetchLandlordVisits(supabase, clerkId);
       setRefreshing(false);
     },
-    [clerkId, supabase],
+    [clerkId, supabase, fetchLandlordVisits]
   );
 
   useEffect(() => {
-    load('initial');
-  }, [load]);
+    if (clerkId && rows.length === 0) load('initial');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkId]);
 
-  // Live-update the tab counts when a tenant files or edits a request.
-  useEffect(() => {
-    if (!clerkId) return;
-
-    const channel = supabase
-      .channel(`visit_requests:landlord:${clerkId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'visit_requests',
-          filter: `landlord_id=eq.${clerkId}`,
-        },
-        () => load('poll'),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [clerkId, supabase, load]);
-
-  const filteredRequests = useMemo(
-    () =>
-      activeTab === 'all'
-        ? requests
-        : requests.filter((r) => r.statusUi === activeTab),
-    [requests, activeTab],
+  // DEMO ONLY — long-press an accepted request to fast-forward its window
+  // so the follow-up drawer can be demoed without waiting for real time.
+  const handleForceTimePassed = useCallback(
+    (visitId: string, title: string | null) => {
+      Alert.alert(
+        'Demo · Fast-forward visit',
+        `Treat the visit to ${title ?? 'this property'} as completed and open the follow-up?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Fast-forward',
+            onPress: async () => {
+              const result = await markPastVisitsCompleted(supabase, { forceVisitId: visitId });
+              if (result.success && clerkId) await fetchLandlordVisits(supabase, clerkId);
+            },
+          },
+        ]
+      );
+    },
+    [supabase, clerkId, fetchLandlordVisits]
   );
 
-  const countFor = useCallback(
-    (key: TabKey) =>
-      key === 'all'
-        ? requests.length
-        : requests.filter((r) => r.statusUi === key).length,
-    [requests],
+  const active = useMemo(() => rows.filter(isOpen), [rows]);
+  const pendingCount = useMemo(() => active.filter((r) => r.uiStatus === 'new').length, [active]);
+  const acceptedCount = useMemo(
+    () => active.filter((r) => r.uiStatus === 'upcoming').length,
+    [active]
   );
+  const filtered = useMemo(() => active.filter((r) => inFilter(r, filter)), [active, filter]);
 
   return (
-    <ScreenBody className="flex-1 bg-[#fafafa]">
-      {/* ── Header ────────────────────────────────────────── */}
-      <View className="border-b border-gray-200 px-4 pt-3 pb-3">
-        <Text className="text-xl font-bold text-gray-900">Visit Requests</Text>
-      </View>
-
-      {/* ── Filter Tabs ──────────────────────────────────── */}
-      <View className="flex-row items-center gap-2 px-4 py-3">
-        {TAB_LABELS.map((tab) => {
-          const isActive = tab.key === activeTab;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              className={`flex-row items-center gap-1 rounded-full px-4 py-2 ${
-                isActive ? 'bg-black' : 'bg-gray-100'
-              }`}>
-              <Text
-                className={`text-xs font-semibold ${
-                  isActive ? 'text-white' : 'text-gray-600'
-                }`}>
-                {tab.label} ({countFor(tab.key)})
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* ── Request Cards ────────────────────────────────── */}
-      <FlatList
-        data={filteredRequests}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-        className="flex-1"
+    <ScreenBody className="flex-1 bg-bg">
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View className="h-3" />}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load('refresh')} />
-        }
-        ListEmptyComponent={() =>
-          loading ? (
-            <View className="items-center py-20">
-              <ActivityIndicator color="#1A6B4A" />
-            </View>
-          ) : errorMessage ? (
-            <View className="items-center px-8 py-20">
-              <Text className="mb-1.5 font-semibold text-body text-ink">
-                Could not load requests
-              </Text>
-              <Text className="mb-4 text-center font-sans text-body-sm text-ink3">
-                {errorMessage}
-              </Text>
-              <Pressable
-                onPress={() => load('initial')}
-                className="h-[42px] items-center justify-center rounded-pill bg-black px-6">
-                <Text className="font-semibold text-body-sm text-white">Try again</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View className="items-center py-20">
-              <Text className="font-sans text-body-sm text-ink3">No requests found</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/(landlord)/request/[id]',
-                params: { id: item.id },
-              } as any)
-            }
-            className="rounded-2xl border border-gray-200/50 bg-white p-5 shadow-sm">
-            {/* User Info Row */}
-            <View className="flex-row items-center">
-              {/* Avatar */}
-              <View className="h-11 w-11 items-center justify-center rounded-full bg-gray-100">
-                <User size={18} color="#6B6B6B" />
-              </View>
-              {/* Name + Property */}
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-bold text-gray-900">
-                  {item.tenantName ?? 'Tenant'}
-                </Text>
-                <Text className="text-xs font-medium text-gray-400">
-                  {item.propertyTitle ?? 'Your listing'}
-                </Text>
-              </View>
-              {/* Status Pill */}
-              <View
-                className={`rounded-full px-3 py-1 ${
-                  item.statusUi === 'pending' ? 'bg-amber-100/80' : 'bg-emerald-100/80'
-                }`}>
-                <Text
-                  className={`text-xs font-semibold ${
-                    item.statusUi === 'pending' ? 'text-amber-800' : 'text-emerald-800'
-                  }`}>
-                  {item.statusLabel}
-                </Text>
-              </View>
-            </View>
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => load('refresh')}
+            tintColor="#1A6B4A"
+            colors={['#1A6B4A']}
+          />
+        }>
+        {/* Title row + history */}
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Visit Requests</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/(landlord)/visits' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Visit history"
+            activeOpacity={0.6}
+            style={styles.historyBtn}>
+            <History size={13} color={c.meta} strokeWidth={2} />
+            <Text style={styles.historyText}>History</Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* Date Row */}
-            <View className="mt-3 flex-row items-center gap-1.5">
-              <Calendar size={14} color="#9CA3AF" />
-              <Text className="text-xs font-medium text-gray-500">
-                {formatVisitDate(item.requestedDate)} · {TIME_SLOT_LABELS[item.timeSlot]}
-              </Text>
-            </View>
+        {/* Summary strip */}
+        <View style={styles.summaryRow}>
+          <View style={[styles.summaryCard, styles.summaryPending]}>
+            <Text style={styles.summaryNumber}>{pendingCount}</Text>
+            <Text style={styles.summaryLabel}>Awaiting review</Text>
+          </View>
+          <View style={[styles.summaryCard, styles.summaryAccepted]}>
+            <Text style={[styles.summaryNumber, styles.summaryNumberGreen]}>{acceptedCount}</Text>
+            <Text style={[styles.summaryLabel, styles.summaryLabelGreen]}>Accepted</Text>
+          </View>
+        </View>
 
-            {/* Conditional Action Link (Pending only) */}
-            {item.statusUi === 'pending' && (
-              <View className="mt-3 flex-row items-center gap-1">
-                <Text className="text-xs font-bold text-gray-900">Tap to review</Text>
-                <ArrowRight size={14} color="#111827" strokeWidth={2.5} />
-              </View>
-            )}
-          </Pressable>
+        {/* Segmented filter */}
+        <View style={styles.segmentWrap}>
+          {FILTERS.map((f) => {
+            const count =
+              f.key === 'pending'
+                ? pendingCount
+                : f.key === 'accepted'
+                  ? acceptedCount
+                  : active.length;
+            const isActive = f.key === filter;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                onPress={() => setFilter(f.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                activeOpacity={0.8}
+                style={[styles.segment, isActive && styles.segmentActive]}>
+                <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+                  {f.label} {count}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* List */}
+        {isLoading && rows.length === 0 ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="small" color="#1A6B4A" />
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.emptyText}>
+              No {filter === 'all' ? '' : `${filter} `}requests right now.
+            </Text>
+          </View>
+        ) : (
+          filtered.map((item) => (
+            <RequestCard
+              key={item.id}
+              row={item}
+              onPress={() =>
+                router.push({
+                  pathname: '/(landlord)/request/[id]',
+                  params: { id: item.id },
+                } as any)
+              }
+              onLongPress={
+                DEMO_MODE && item.uiStatus === 'upcoming'
+                  ? () => handleForceTimePassed(item.id, item.propertyTitle)
+                  : undefined
+              }
+            />
+          ))
         )}
-      />
+      </ScrollView>
     </ScreenBody>
   );
 }
+
+// ─── Request card ────────────────────────────────────────────────────────────
+
+const RequestCard = ({
+  row,
+  onPress,
+  onLongPress,
+}: {
+  row: LandlordRow;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) => {
+  const isPending = row.uiStatus === 'new';
+  const pill = UI_TO_PILL[row.uiStatus];
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={500}
+      accessibilityRole="button"
+      accessibilityLabel={`Request from ${row.tenantName ?? 'tenant'}`}
+      activeOpacity={0.85}
+      style={styles.card}>
+      <View style={styles.cardTop}>
+        <Avatar name={row.tenantName ?? 'Tenant'} size={44} />
+        <View style={styles.cardNameWrap}>
+          <Text numberOfLines={1} style={styles.cardName}>
+            {row.tenantName ?? 'A tenant'}
+          </Text>
+          <Text numberOfLines={1} style={styles.cardProperty}>
+            {row.propertyTitle ?? 'Your listing'}
+          </Text>
+        </View>
+        <StatusPill status={pill} />
+      </View>
+
+      <View style={styles.insetBar}>
+        <View style={styles.insetItem}>
+          <Calendar size={12} color={c.meta} strokeWidth={2} />
+          <Text style={styles.insetText}>{dayLabel(row.requestedDate)}</Text>
+        </View>
+        <View style={styles.insetDivider} />
+        <View style={styles.insetItem}>
+          <Clock size={12} color={c.meta} strokeWidth={2} />
+          <Text style={styles.insetText}>{TIME_SLOT_LABELS[row.timeSlot]}</Text>
+        </View>
+        {isPending ? (
+          <View style={styles.reviewWrap}>
+            <Text style={styles.reviewText}>Review</Text>
+            <ChevronRight size={13} color={c.ink} strokeWidth={2.2} />
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  body: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 130,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  title: {
+    fontFamily: font.sansSemi,
+    fontSize: 22,
+    color: c.ink,
+  },
+  historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: c.surfaceGrey,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  historyText: {
+    fontFamily: font.sansSemi,
+    fontSize: 12,
+    color: c.meta,
+    marginLeft: 6,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+  },
+  summaryCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 16,
+  },
+  summaryPending: {
+    backgroundColor: '#0A0A0A',
+    marginRight: 12,
+  },
+  summaryAccepted: {
+    backgroundColor: c.greenBg,
+  },
+  summaryNumber: {
+    fontFamily: font.sansSemi,
+    fontSize: 26,
+    color: '#FFFFFF',
+    lineHeight: 32,
+  },
+  summaryNumberGreen: {
+    color: c.accent,
+  },
+  summaryLabel: {
+    marginTop: 2,
+    fontFamily: font.sansSemi,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  summaryLabelGreen: {
+    color: 'rgba(26,107,74,0.7)',
+  },
+  segmentWrap: {
+    flexDirection: 'row',
+    borderRadius: radius.pill,
+    backgroundColor: c.hairlineSoft,
+    padding: 4,
+    marginTop: 16,
+  },
+  segment: {
+    flex: 1,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentActive: {
+    backgroundColor: '#FFFFFF',
+    ...shadow.card,
+  },
+  segmentText: {
+    fontFamily: font.sansSemi,
+    fontSize: 12,
+    color: '#8A8A8A',
+  },
+  segmentTextActive: {
+    color: c.ink,
+  },
+  center: {
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyText: {
+    fontFamily: font.sans,
+    fontSize: 12,
+    color: c.faint,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 12,
+    ...shadow.card,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardNameWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  cardName: {
+    fontFamily: font.sansSemi,
+    fontSize: 14,
+    color: c.ink,
+  },
+  cardProperty: {
+    marginTop: 2,
+    fontFamily: font.sans,
+    fontSize: 11,
+    color: c.faint,
+  },
+  insetBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: c.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 14,
+  },
+  insetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  insetText: {
+    fontFamily: font.sans,
+    fontSize: 11,
+    color: c.meta,
+    marginLeft: 6,
+  },
+  insetDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: c.hairline,
+    marginHorizontal: 12,
+  },
+  reviewWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  reviewText: {
+    fontFamily: font.sansSemi,
+    fontSize: 11,
+    color: c.ink,
+  },
+});

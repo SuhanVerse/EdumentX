@@ -10,7 +10,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Lock, ShieldCheck, Zap, CheckCheck } from 'lucide-react-native';
-import { useUser } from '@clerk/expo';
+import { useSession, useUser } from '@clerk/expo';
 
 import { ScreenHeader } from '@/src/components/layout/ScreenHeader';
 import { SectionLabel } from '@/src/components/layout/SectionLabel';
@@ -20,12 +20,16 @@ import {
   type DocumentUploadCardStatus,
 } from '@/src/components/kyc/DocumentUploadCard';
 import {
+  VideoUploadCard,
+  type VideoUploadCardStatus,
+} from '@/src/components/kyc/VideoUploadCard';
+import {
   DocumentTypeSelector,
   type KYCDocumentType,
 } from '@/src/components/kyc/DocumentTypeSelector';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { getLatestKYCSubmission, submitKYC } from '@/src/services/kyc.service';
-import type { KYCSubmission, KYCDocumentSlot } from '@/src/types/kyc.types';
+import type { KYCSubmission } from '@/src/types/kyc.types';
 import { tokens } from '@/src/theme/tokens';
 
 const { color, font, size, radius, space } = tokens;
@@ -38,6 +42,22 @@ interface SlotState {
   errorMessage?: string;
   progress?: number;
 }
+
+interface VideoSlotState {
+  status: VideoUploadCardStatus;
+  previewUri: string | null;
+  storagePath: string | null;
+  durationSeconds: number | null;
+  isPrefill: boolean;
+}
+
+const emptyVideoSlot = (): VideoSlotState => ({
+  status: 'empty',
+  previewUri: null,
+  storagePath: null,
+  durationSeconds: null,
+  isPrefill: false,
+});
 
 const emptySlot = (): SlotState => ({
   status: 'empty',
@@ -59,12 +79,14 @@ export default function LandlordKYCUploadScreen() {
   const isResubmit = params.resubmit === 'true';
 
   const { user: clerkUser } = useUser();
+  const { session } = useSession();
   const supabase = useClerkSupabase();
   const clerkId = clerkUser?.id;
 
   const [front, setFront] = useState<SlotState>(emptySlot);
   const [back, setBack] = useState<SlotState>(emptySlot);
   const [bill, setBill] = useState<SlotState>(emptySlot);
+  const [video, setVideo] = useState<VideoSlotState>(emptyVideoSlot);
   const [hydrating, setHydrating] = useState(true);
   const [hydratedSubmission, setHydratedSubmission] = useState<KYCSubmission | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -83,6 +105,14 @@ export default function LandlordKYCUploadScreen() {
         setHydratedSubmission(result.data);
         if (result.data.frontImagePath) setFront(uploadedFromServer(result.data.frontImagePath));
         if (result.data.backImagePath) setBack(uploadedFromServer(result.data.backImagePath));
+        if (result.data.homeTourVideoPath) {
+          setVideo((prev) => ({
+            ...prev,
+            status: 'uploaded',
+            storagePath: result.data!.homeTourVideoPath,
+            isPrefill: true,
+          }));
+        }
       }
       setHydrating(false);
     })();
@@ -92,11 +122,13 @@ export default function LandlordKYCUploadScreen() {
     const frontReady = front.status === 'uploaded' || front.status === 'selected';
     const backReady = back.status === 'uploaded' || back.status === 'selected';
     const billReady = bill.status === 'uploaded' || bill.status === 'selected';
+    const videoReady = video.status === 'uploaded' || video.status === 'selected';
     const frontBusy = front.status === 'uploading' || front.status === 'error';
     const backBusy = back.status === 'uploading' || back.status === 'error';
     const billBusy = bill.status === 'uploading' || bill.status === 'error';
-    return frontReady && backReady && billReady && !frontBusy && !backBusy && !billBusy;
-  }, [front.status, back.status, bill.status]);
+    const videoBusy = video.status === 'uploading';
+    return frontReady && backReady && billReady && videoReady && !frontBusy && !backBusy && !billBusy && !videoBusy;
+  }, [front.status, back.status, bill.status, video.status]);
 
   const updateSlot = useCallback(
     (slot: string, patch: Partial<SlotState>) => {
@@ -176,6 +208,8 @@ export default function LandlordKYCUploadScreen() {
       existingFrontPath: front.storagePath,
       existingBackPath: back.storagePath,
       electricityBillLocalUri: bill.previewUri ?? undefined,
+      homeTourVideoLocalUri: video.previewUri ?? undefined,
+      getToken: async () => (session ? await session.getToken() : null),
       supabase,
       onProgress: (side, progress) => {
         setSlot(side, { status: 'uploading', progress });
@@ -183,9 +217,10 @@ export default function LandlordKYCUploadScreen() {
     });
 
     if (!result.success) {
-      const which = result.error.toLowerCase().startsWith('front')
+      const lower = result.error.toLowerCase();
+      const which = lower.startsWith('front')
         ? 'front'
-        : result.error.toLowerCase().startsWith('back')
+        : lower.startsWith('back')
           ? 'back'
           : 'bill';
       setSlot(which, { status: 'error', progress: 0, errorMessage: result.error });
@@ -197,10 +232,13 @@ export default function LandlordKYCUploadScreen() {
     setSlot('front', { status: 'uploaded', progress: 1, isPrefill: false });
     setSlot('back', { status: 'uploaded', progress: 1, isPrefill: false });
     setSlot('bill', { status: 'uploaded', progress: 1, isPrefill: false });
+    if (video.previewUri) {
+      setVideo((prev) => ({ ...prev, status: 'uploaded', isPrefill: false }));
+    }
     setSubmitting(false);
 
     router.replace('/(landlord)/verification' as any);
-  }, [clerkId, documentType, front.previewUri, front.storagePath, back.previewUri, back.storagePath, bill.previewUri, bill.storagePath, supabase]);
+  }, [clerkId, documentType, front.previewUri, front.storagePath, back.previewUri, back.storagePath, bill.previewUri, bill.storagePath, video.previewUri, session, supabase]);
 
   if (hydrating) {
     return (
@@ -302,6 +340,33 @@ export default function LandlordKYCUploadScreen() {
             </View>
           )}
 
+          <View style={{ height: space.sectionGap }} />
+
+          <View style={styles.videoHeaderRow}>
+            <SectionLabel label="Extra Verification" className="ml-1" />
+            <View style={[styles.optionalBadge, styles.requiredBadge]}>
+              <Text style={[styles.optionalBadgeText, styles.requiredBadgeText]}>Required</Text>
+            </View>
+          </View>
+          <VideoUploadCard
+            label="Home tour video"
+            hint="A 1–2 minute walkthrough of your home — builds trust and speeds up review"
+            status={video.status}
+            previewUri={video.previewUri}
+            durationSeconds={video.durationSeconds}
+            isPrefill={video.isPrefill}
+            onPick={(uri, seconds) =>
+              setVideo({
+                status: 'selected',
+                previewUri: uri,
+                storagePath: null,
+                durationSeconds: seconds,
+                isPrefill: false,
+              })
+            }
+            onRemove={() => setVideo(emptyVideoSlot())}
+          />
+
           <View style={styles.privacy}>
             <Lock size={12} color={color.ink3} strokeWidth={2} />
             <Text style={styles.privacyText}>Documents are encrypted and used for verification only.</Text>
@@ -372,6 +437,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     marginTop: 12,
+  },
+  videoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  optionalBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: color.canvas,
+    borderWidth: 1,
+    borderColor: color.line,
+  },
+  optionalBadgeText: {
+    fontFamily: font.medium,
+    fontSize: size.micro + 1,
+    color: color.ink3,
+  },
+  requiredBadge: {
+    backgroundColor: '#FFF3E0',
+    borderColor: '#FFF3E0',
+  },
+  requiredBadgeText: {
+    color: '#B45309',
   },
   privacyText: { fontFamily: font.sans, fontSize: size.micro + 1, color: color.ink3 },
   bottom: {

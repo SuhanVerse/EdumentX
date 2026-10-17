@@ -56,10 +56,19 @@ export function useSignedDocUrl(
     getVerificationDocSignedUrl(path)
       .then((signed) => {
         if (!cancelled) {
-          setUrl(bust(signed, cacheBust));
+          const final = bust(signed, cacheBust);
+          if (__DEV__) {
+            console.log(
+              `[useSignedDocUrl] resolved ${path} → ${final.slice(0, 72)}…`,
+            );
+          }
+          setUrl(final);
         }
       })
       .catch((err: Error) => {
+        if (__DEV__) {
+          console.warn(`[useSignedDocUrl] FAILED ${path}:`, err.message);
+        }
         if (!cancelled) setError(err);
       });
     return () => {

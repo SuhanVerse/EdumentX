@@ -2,32 +2,34 @@ import { View, Text, StyleSheet } from 'react-native';
 import type { TenantVisitStatusUi } from '@/src/types/property.types';
 
 /**
- * Status chip for tenant-facing visit states. Same visual grammar as the
- * property-status chips and `VisitStatusBadge`: soft tinted background,
- * saturated text, small leading dot. No chip color is invented outside the
- * mapping below — it extends the property-chip palette:
+ * Minimal status label for visit states — a colored dot + letter-spaced
+ * label, no pill fill. Keeps the card surface clean while the dot carries
+ * the semantic state:
  *
- *   pending     → KYC "under review" amber      (#FFF3E0 / #B45309)
- *   rescheduled → "Under Discussion" blue       (#DBEAFE / #1E40AF)
- *   accepted    → "Available" green             (#DCFCE7 / #15803D)
- *   completed   → neutral gray                  (#F3F4F6 / #6B7280)
- *   rejected    → danger red                    (#FEE2E2 / #E53E3E)
- *   cancelled   → neutral gray (distinguished by ✕ icon / label)
+ *   pending     → amber "under review"   (#B45309)
+ *   rescheduled → blue "under discussion" (#1E40AF)
+ *   accepted    → green "available"       (#15803D)
+ *   completed   → neutral gray            (#6B7280)
+ *   rejected    → danger red              (#E53E3E)
+ *   cancelled   → hollow dot, muted gray  (#AAAAAA) — retired state
  */
 
 export interface VisitChipStyle {
-  bg: string;
   text: string;
   dot: string;
+  /** Outline variant: hollow dot, muted text — the "retired" state. */
+  outline?: boolean;
 }
 
 export const VISIT_CHIP_STYLES: Record<TenantVisitStatusUi, VisitChipStyle> = {
-  pending: { bg: '#FFF3E0', text: '#B45309', dot: '#B45309' },
-  rescheduled: { bg: '#DBEAFE', text: '#1E40AF', dot: '#1E40AF' },
-  accepted: { bg: '#DCFCE7', text: '#15803D', dot: '#15803D' },
-  completed: { bg: '#F3F4F6', text: '#6B7280', dot: '#6B7280' },
-  rejected: { bg: '#FEE2E2', text: '#E53E3E', dot: '#E53E3E' },
-  cancelled: { bg: '#F3F4F6', text: '#6B7280', dot: '#6B7280' },
+  pending: { text: '#B45309', dot: '#B45309' },
+  rescheduled: { text: '#1E40AF', dot: '#1E40AF' },
+  accepted: { text: '#15803D', dot: '#15803D' },
+  completed: { text: '#6B7280', dot: '#6B7280' },
+  rejected: { text: '#E53E3E', dot: '#E53E3E' },
+  cancelled: { text: '#AAAAAA', dot: '#AAAAAA', outline: true },
+  discussion: { text: '#1A6B4A', dot: '#1A6B4A' },
+  finalized: { text: '#0A0A0A', dot: '#0A0A0A' },
 };
 
 export const VISIT_CHIP_LABELS: Record<TenantVisitStatusUi, string> = {
@@ -37,6 +39,8 @@ export const VISIT_CHIP_LABELS: Record<TenantVisitStatusUi, string> = {
   completed: 'Completed',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
+  discussion: 'In Discussion',
+  finalized: 'Finalized',
 };
 
 interface VisitStatusChipProps {
@@ -48,8 +52,17 @@ interface VisitStatusChipProps {
 export const VisitStatusChip = ({ status, label }: VisitStatusChipProps) => {
   const style = VISIT_CHIP_STYLES[status];
   return (
-    <View style={[styles.chip, { backgroundColor: style.bg }]}>
-      <View style={[styles.dot, { backgroundColor: style.dot }]} />
+    <View style={styles.chip}>
+      <View
+        style={[
+          styles.dot,
+          style.outline && styles.dotOutline,
+          {
+            backgroundColor: style.outline ? 'transparent' : style.dot,
+            borderColor: style.dot,
+          },
+        ]}
+      />
       <Text style={[styles.label, { color: style.text }]}>
         {label ?? VISIT_CHIP_LABELS[status]}
       </Text>
@@ -58,11 +71,11 @@ export const VisitStatusChip = ({ status, label }: VisitStatusChipProps) => {
 };
 
 /**
- * Secondary "Follow-up pending" badge — amber (awaiting your input), shown
+ * Secondary "Follow-up pending" label — amber (awaiting your input), shown
  * only under a Completed chip when the tenant hasn't answered yet.
  */
 export const FollowUpPendingBadge = () => (
-  <View style={[styles.chip, { backgroundColor: '#FFF3E0' }]}>
+  <View style={styles.chip}>
     <View style={[styles.dot, { backgroundColor: '#B45309' }]} />
     <Text style={[styles.label, { color: '#B45309' }]}>Share feedback</Text>
   </View>
@@ -72,18 +85,20 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
   },
   dot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 999,
     marginRight: 6,
+  },
+  dotOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
   },
   label: {
     fontSize: 11,
     fontFamily: 'DMSans_600SemiBold',
+    letterSpacing: 0.3,
   },
 });

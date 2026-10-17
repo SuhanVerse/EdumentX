@@ -36,6 +36,7 @@ export default function LandlordNotificationsTab() {
           viewer="landlord"
           tabs={LANDLORD_TAB_TABS}
           showHeader={false}
+          headerTitle="Notification"
           showMarkAllRead
         />
       </View>

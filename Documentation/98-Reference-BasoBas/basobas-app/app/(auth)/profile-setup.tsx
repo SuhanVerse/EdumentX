@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   Alert,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -26,6 +27,9 @@ import { StepProgressBar } from '@/src/components/onboarding/StepProgressBar'
 import { OnboardingEyebrow } from '@/src/components/onboarding/OnboardingEyebrow'
 import { PrimaryButton } from '@/src/components/shared/PrimaryButton'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
+import { validateImageAsset } from '@/src/lib/imageValidation'
+import { validateImageContent } from '@/src/services/imageValidation.service'
 import { tokens } from '@/src/theme/tokens'
 import type { PropertyPreference } from '@/src/types/onboarding.types'
 
@@ -69,8 +73,40 @@ const compressImage = async (uri: string): Promise<string> => {
 
 const useAvatarPicker = () => {
   const { setAvatar, profile } = useOnboardingStore()
+  const supabase = useClerkSupabase()
+  const [isValidating, setIsValidating] = useState(false)
+
+  // Technical checks → compress → AI face gate → store. Runs at pick time
+  // so the user gets instant feedback before anything is saved.
+  const processAsset = async (
+    asset: ImagePicker.ImagePickerAsset,
+  ): Promise<void> => {
+    const check = validateImageAsset(asset, 'avatar')
+    if (!check.ok) {
+      Alert.alert('Invalid photo', check.message)
+      return
+    }
+    try {
+      setIsValidating(true)
+      const compressed = await compressImage(asset.uri)
+      const verdict = await validateImageContent(compressed, 'avatar', supabase)
+      if (!verdict.success || !verdict.data.valid) {
+        Alert.alert(
+          'Photo not suitable',
+          verdict.success ? verdict.data.reason ?? '' : '',
+        )
+        return
+      }
+      setAvatar(compressed)
+    } catch {
+      Alert.alert('Image error', 'Could not process the selected image.')
+    } finally {
+      setIsValidating(false)
+    }
+  }
 
   const pickFromGallery = async () => {
+    if (isValidating) return
     const permission =
       await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
@@ -87,12 +123,12 @@ const useAvatarPicker = () => {
       quality: 1,
     })
     if (!result.canceled && result.assets[0]) {
-      const compressed = await compressImage(result.assets[0].uri)
-      setAvatar(compressed)
+      await processAsset(result.assets[0])
     }
   }
 
   const pickFromCamera = async () => {
+    if (isValidating) return
     const permission = await ImagePicker.requestCameraPermissionsAsync()
     if (!permission.granted) {
       Alert.alert(
@@ -107,12 +143,12 @@ const useAvatarPicker = () => {
       quality: 1,
     })
     if (!result.canceled && result.assets[0]) {
-      const compressed = await compressImage(result.assets[0].uri)
-      setAvatar(compressed)
+      await processAsset(result.assets[0])
     }
   }
 
   const showOptions = () => {
+    if (isValidating) return
     Alert.alert('Profile Photo', 'Choose an option', [
       { text: 'Take Photo', onPress: pickFromCamera },
       { text: 'Choose from Library', onPress: pickFromGallery },
@@ -123,7 +159,7 @@ const useAvatarPicker = () => {
     ])
   }
 
-  return { showOptions, avatarUri: profile.avatarUri }
+  return { showOptions, avatarUri: profile.avatarUri, isValidating }
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -141,7 +177,7 @@ export default function ProfileSetupScreen() {
   const { roles } = useOnboardingStore.getState()
   const isLandlord = roles.includes('landlord')
 
-  const { showOptions, avatarUri } = useAvatarPicker()
+  const { showOptions, avatarUri, isValidating } = useAvatarPicker()
   const citySheetRef = useRef<BottomSheet>(null)
 
   const {
@@ -215,6 +251,7 @@ export default function ProfileSetupScreen() {
         <TouchableOpacity
           style={styles.avatarWrapper}
           onPress={showOptions}
+          disabled={isValidating}
           accessibilityLabel="Add profile photo"
           accessibilityRole="button"
         >
@@ -224,6 +261,11 @@ export default function ProfileSetupScreen() {
             <View style={styles.avatarPlaceholder}>
               <Camera size={24} color={color.ink3} strokeWidth={1.5} />
               <Text style={styles.avatarLabel}>Add photo</Text>
+            </View>
+          )}
+          {isValidating && (
+            <View style={styles.avatarCheckingOverlay} pointerEvents="none">
+              <ActivityIndicator color={color.bg} />
             </View>
           )}
         </TouchableOpacity>
@@ -433,6 +475,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  avatarCheckingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarLabel: {
     fontFamily: font.sans,

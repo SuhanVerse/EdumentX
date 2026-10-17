@@ -221,6 +221,10 @@ function mapBatch(id: string, raw: Record<string, unknown>): Batch {
     createdAt: tsToMs(raw.createdAt),
     memberCount: num(raw.memberCount),
     endedAt: raw.endedAt ? tsToMs(raw.endedAt) : undefined,
+    sessionCode:
+      typeof raw.sessionCode === "string" && raw.sessionCode.length > 0
+        ? raw.sessionCode
+        : undefined,
   };
 }
 
@@ -1620,6 +1624,16 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         if (rosterSnap.exists()) seedable.push(m);
       }
 
+      // Aug 25 — join code for the session-code enrollment mode.
+      // 6 chars from an unambiguous alphabet (no 0/O/1/I) so students
+      // can read it aloud; stored on the batch doc and shown in the
+      // tutor's batch detail screen.
+      const sessionCode = Array.from({ length: 6 }, () =>
+        "ABCDEFGHJKMNPQRSTUVWXYZ23456789".charAt(
+          Math.floor(Math.random() * 31),
+        ),
+      ).join("");
+
       const batchDoc = stripNulls({
         batchId,
         tutorUid: input.tutorUid,
@@ -1630,6 +1644,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         startDate: input.startDate,
         endDate: input.endDate ?? null,
         status: "active" as const,
+        sessionCode,
         createdAt: serverTimestamp(),
         memberCount: seedable.length,
       });

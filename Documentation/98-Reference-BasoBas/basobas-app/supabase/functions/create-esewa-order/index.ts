@@ -4,7 +4,7 @@
 // Called by the React Native app when a logged-in user taps "Buy"
 // on a pass plan. Requires a valid Clerk JWT (auth: 'user').
 //
-// The client sends ONLY the plan identifier ("monthly" or "3month").
+// The client sends ONLY the plan identifier ("15day" or "30day").
 // The price is looked up server-side from the products table to
 // prevent tampering (a client cannot pay Rs 1 for a Rs 249 pass).
 //
@@ -51,7 +51,7 @@ export default {
     if (!plan || !isValidPlan(plan)) {
       return Response.json(
         {
-          error: `Invalid plan "${plan ?? ""}". Must be "monthly" or "3month".`,
+          error: `Invalid plan "${plan ?? ""}". Must be "15day" or "30day".`,
         },
         { status: 400 },
       );

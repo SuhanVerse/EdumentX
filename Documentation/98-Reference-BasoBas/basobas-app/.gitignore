@@ -35,3 +35,5 @@ graphify-out/
 cache/
 
 /minor-project-docs
+# Release build artifacts
+/release

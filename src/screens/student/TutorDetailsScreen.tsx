@@ -56,7 +56,7 @@ import {
   type WeeklyAvailability,
   DEFAULT_AVAILABILITY,
 } from "@/services/enrollments/types";
-import { computeBookedMap } from "@/services/enrollments/derived";
+import { todayIsoInKtm,  computeBookedMap } from "@/services/enrollments/derived";
 import { computePendingMap, type PendingMap } from "@/services/enrollments/pending";
 import { StudentAvailabilityGrid } from "@/components/domain/StudentAvailabilityGrid";
 
@@ -286,7 +286,10 @@ export function TutorDetailsScreen() {
   // Live reviews subscription — drives the Reviews & Ratings section
   // and the header stats straight from the reviews collection.
   useEffect(() => {
-    if (!id) return;
+    // Aug 25: wait for the auth session BEFORE attaching listeners —
+    // attaching while `currentUser` is still null (cold-open race)
+    // denials the listener permanently (instrumented as auth=NULL).
+    if (!id || !user) return;
     const unsub = getReviewRepository().subscribeReviews(
       id,
       (list) => setReviews(list),
@@ -297,7 +300,7 @@ export function TutorDetailsScreen() {
         ),
     );
     return unsub;
-  }, [id]);
+  }, [id, user]);
 
   // Overlay the live reviews onto the fetched profile. Falls back to
   // the profile's own (mirrored) fields while the snapshot is in
@@ -329,7 +332,7 @@ export function TutorDetailsScreen() {
   // `{ availability, enrolledCount, studentCapacity }`; we only
   // need the availability grid for the time list.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return; // auth-ready gate (see reviews effect)
     const unsub = repo.subscribeAvailability(
       id,
       (snap: AvailabilitySnapshot) => {
@@ -339,13 +342,13 @@ export function TutorDetailsScreen() {
         console.warn("TutorDetailsScreen: availability subscribe failed", err),
     );
     return unsub;
-  }, [id, repo]);
+  }, [id, user, repo]);
 
   // Live enrollments + batches — together they build the BookedMap.
   // Students can read a tutor's roster (rules allow it) so they
   // know which slots are taken before requesting.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return; // auth-ready gate
     let latestEnrollments: Enrollment[] = [];
     let latestBatches: Batch[] = [];
     const recompute = () =>
@@ -355,9 +358,17 @@ export function TutorDetailsScreen() {
       (list) => {
         latestEnrollments = list;
         recompute();
+        // Aug 25: DATE-derived — a passed endDate means the course is
+        // finished even before the (tutor-side) sweep flips status, so
+        // the CTA returns to "Enroll" instead of a stale "Already
+        // enrolled".
+        const today = todayIsoInKtm();
         setAlreadyEnrolled(
           list.some(
-            (e) => e.studentUid === user?.uid && e.status === "active",
+            (e) =>
+              e.studentUid === user?.uid &&
+              e.status === "active" &&
+              e.endDate >= today,
           ),
         );
       },
@@ -380,7 +391,7 @@ export function TutorDetailsScreen() {
       unsubE();
       unsubB();
     };
-  }, [id, repo, user?.uid]);
+  }, [id, repo, user]);
 
   // Live enrollment requests — Phase 1 grid redesign. We need the
   // open requests to overlay an hourglass icon + count badge on
@@ -399,7 +410,7 @@ export function TutorDetailsScreen() {
   // overlay; this just gives the pending-hourglass a chance to
   // appear when other students have open requests.
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return; // auth-ready gate (see reviews effect)
     let unsub = (): void => {};
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
@@ -434,7 +445,7 @@ export function TutorDetailsScreen() {
       if (retryTimer) clearTimeout(retryTimer);
       unsub();
     };
-  }, [id, repo]);
+  }, [id, repo, user]);
 
   const pendingMap: PendingMap = useMemo(
     () => computePendingMap(requests),

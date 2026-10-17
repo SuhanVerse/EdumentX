@@ -18,10 +18,10 @@ export const tokens = {
     rating: '#F5A623',
     dockSurface: 'rgba(18, 18, 18, 0.78)',
     // KYC status palette — matches existing property-status chip pattern.
-    warn:        '#B45309',
-    warnBg:      '#FFF3E0',
-    success:     '#22C55E',
-    successBg:   '#DCFCE7',
+    warn: '#B45309',
+    warnBg: '#FFF3E0',
+    success: '#22C55E',
+    successBg: '#DCFCE7',
     successDark: '#15803D',
   },
   font: {
@@ -71,3 +71,52 @@ export const tokens = {
 } as const;
 
 export type Tokens = typeof tokens;
+
+// ─── Visit sub-theme ──────────────────────────────────────────────────────────
+//
+// Extends the shared tokens (per CLAUDE.md — extend, don't fork). Cards live
+// on a warm off-white, status reads as a small subtly-tinted chip, and
+// exactly one accent color (brand green) is reserved for price and the
+// positive terminal action (Finalize).
+
+export const visitTheme = {
+  cardBg: '#F3F5F0',
+  cardBgHover: '#EEF1EA',
+  cardBorder: 'transparent',
+  cardRadius: 20,
+  screenBg: '#FFFFFF',
+  divider: '#E2E5DE',
+
+  textTitle: '#0A0A0A', // DM Sans SemiBold (serif reserved for page headlines)
+  textPrice: '#1A6B4A', // brand green — price ONLY
+  textMeta: '#6B6B6B',
+  textIcon: '#8A8F85',
+
+  statusConfirmed: { text: '#1A6B4A', bg: '#E3EEE7' },
+  statusPending: { text: '#B8860B', bg: '#F5EDDD' },
+  statusCancelled: { text: '#8A8A8A', bg: '#EFEFEF' },
+  statusRescheduled: { text: '#3B5F8A', bg: '#E4EAF2' },
+  statusRejected: { text: '#A14545', bg: '#F5E5E5' },
+  // DISCUSSION inherits the confirmed family (same green), FINALIZED is a
+  // neutral black-on-tint so it never competes with the accent.
+  statusDiscussion: { text: '#1A6B4A', bg: '#E3EEE7' },
+  statusFinalized: { text: '#0A0A0A', bg: '#E2E5DE' },
+
+  tabActiveText: '#0A0A0A',
+  tabInactiveText: '#A0A0A0',
+  tabUnderline: '#0A0A0A',
+  tabUnderlineHeight: 2,
+
+  // Hairline shadows only — never glow.
+  shadow: {
+    card: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+  },
+} as const;
+
+export type VisitTheme = typeof visitTheme;

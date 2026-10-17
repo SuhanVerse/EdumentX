@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { tokens } from '@/src/theme/tokens';
 
@@ -45,10 +45,7 @@ export interface DocumentTypeSelectorProps {
  * a controlled input — it owns no internal state, so the parent can
  * pre-select from a previous submission or reset it on resubmit.
  */
-export const DocumentTypeSelector: React.FC<DocumentTypeSelectorProps> = ({
-  value,
-  onChange,
-}) => {
+export const DocumentTypeSelector: React.FC<DocumentTypeSelectorProps> = ({ value, onChange }) => {
   return (
     <View
       accessibilityRole="radiogroup"
@@ -57,29 +54,24 @@ export const DocumentTypeSelector: React.FC<DocumentTypeSelectorProps> = ({
       {OPTIONS.map((opt) => {
         const active = opt.value === value;
         return (
-          <Pressable
+          <TouchableOpacity
             key={opt.value}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
             accessibilityLabel={`${opt.title} — ${opt.description}`}
             onPress={() => onChange(opt.value)}
-            style={({ pressed }) => [
-              styles.card,
-              active && styles.cardActive,
-              pressed && styles.cardPressed,
-            ]}>
+            activeOpacity={0.7}
+            style={[styles.card, active ? styles.cardActive : null]}>
             <View style={[styles.radio, active && styles.radioActive]}>
               {active && <View style={styles.radioDot} />}
             </View>
             <View style={styles.cardCopy}>
-              <Text style={[styles.cardTitle, active && styles.cardTitleActive]}>
-                {opt.title}
-              </Text>
+              <Text style={[styles.cardTitle, active && styles.cardTitleActive]}>{opt.title}</Text>
               <Text style={styles.cardDescription} numberOfLines={2}>
                 {opt.description}
               </Text>
             </View>
-          </Pressable>
+          </TouchableOpacity>
         );
       })}
     </View>

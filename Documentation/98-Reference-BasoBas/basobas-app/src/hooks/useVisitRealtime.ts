@@ -34,8 +34,9 @@ export function useVisitRealtime(clerkId: string | undefined) {
     [session]
   );
 
-  const upsertPartial = useVisitsStore((s) => s.upsertPartial);
-  const removeVisit = useVisitsStore((s) => s.removeVisit);
+  const upsertTenantPartial = useVisitsStore((s) => s.upsertTenantPartial);
+  const removeTenantVisit = useVisitsStore((s) => s.removeTenantVisit);
+  const fetchTenantVisits = useVisitsStore((s) => s.fetchTenantVisits);
 
   useEffect(() => {
     if (!clerkId || !session) return;
@@ -53,11 +54,17 @@ export function useVisitRealtime(clerkId: string | undefined) {
 
     const onChange = (payload: RealtimePostgresChangesPayload<VisitRequestRow>) => {
       if (payload.eventType === 'DELETE') {
-        if (payload.old?.id) removeVisit(payload.old.id);
+        if (payload.old?.id) removeTenantVisit(payload.old.id);
         return;
       }
       if (!payload.new) return;
-      upsertPartial(rowToVisitPartial(payload.new));
+      if (payload.eventType === 'INSERT') {
+        // A brand-new row has no property/landlord joins in the payload —
+        // refetch the full list so real display details land immediately.
+        fetchTenantVisits(supabase, clerkId);
+        return;
+      }
+      upsertTenantPartial(rowToVisitPartial(payload.new));
     };
 
     const start = async () => {
@@ -94,7 +101,7 @@ export function useVisitRealtime(clerkId: string | undefined) {
       channel?.unsubscribe();
       channel = null;
     };
-  }, [clerkId, session, supabase, upsertPartial, removeVisit]);
+  }, [clerkId, session, supabase, upsertTenantPartial, removeTenantVisit, fetchTenantVisits]);
 }
 
 /**

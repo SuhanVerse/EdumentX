@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import * as FileSystem from 'expo-file-system/legacy'
 import { ok, err, getErrorMessage, type Result } from '@/src/lib/result'
 import type { Database } from '@/src/types/database.types'
 
@@ -182,6 +183,76 @@ export async function uploadKYCElectricityBill(
     return ok({ path })
   } catch (e) {
     console.error('[uploadKYCElectricityBill] exception:', e)
+    return err(getErrorMessage(e))
+  }
+}
+
+
+// ─── KYC Home Tour Video Upload ──────────────────────────────────────────────
+
+/** Max accepted home-tour video size (matches the kyc-videos bucket cap). */
+export const KYC_VIDEO_MAX_BYTES = 100 * 1024 * 1024
+
+/**
+ * Upload the landlord's optional home-tour walkthrough video to the private
+ * kyc-videos bucket.
+ * Path: kyc-videos/{clerkId}/{submissionId}/home-tour.mp4
+ *
+ * Uses expo-file-system `uploadAsync` so the file streams from disk —
+ * videos are far too large for the fetch→ArrayBuffer path used by images.
+ */
+export async function uploadKYCHomeTourVideo(
+  clerkId:      string,
+  submissionId: string,
+  localUri:     string,
+  options:      { supabaseUrl: string; getToken: () => Promise<string | null> }
+): Promise<Result<UploadedKYCDoc>> {
+  try {
+    // Pre-flight checks without loading the file into memory.
+    const info = await FileSystem.getInfoAsync(localUri)
+    if (!info.exists) {
+      return err('Video could not be found on the device.')
+    }
+    if ('size' in info && info.size && info.size > KYC_VIDEO_MAX_BYTES) {
+      return err('Video is too large — please keep it under 100MB.')
+    }
+
+    // Derive mime from extension — blob.type is unreliable for content:// URIs
+    // and a wrong type gets rejected by the bucket's allowed_mime_types.
+    const ext = localUri.split('.').pop()?.toLowerCase()
+    const isMov  = ext === 'mov' || ext === 'qt'
+    const isWebm = ext === 'webm'
+    const mimeType   = isMov ? 'video/quicktime' : isWebm ? 'video/webm' : 'video/mp4'
+    const pathExt    = isMov ? 'mov' : isWebm ? 'webm' : 'mp4'
+    const path       = `${clerkId}/${submissionId}/home-tour.${pathExt}`
+
+    const token = await options.getToken()
+    if (!token) {
+      return err('Your session expired — please sign in and try again.')
+    }
+
+    const response = await FileSystem.uploadAsync(
+      `${options.supabaseUrl}/storage/v1/object/kyc-videos/${path}`,
+      localUri,
+      {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': mimeType,
+          'x-upsert': 'false',
+        },
+      }
+    )
+
+    if (response.status >= 400) {
+      console.error('[uploadKYCHomeTourVideo] upload failed:', response.status, response.body)
+      return err(`Home tour video upload failed (${response.status}).`)
+    }
+
+    return ok({ path })
+  } catch (e) {
+    console.error('[uploadKYCHomeTourVideo] exception:', e)
     return err(getErrorMessage(e))
   }
 }

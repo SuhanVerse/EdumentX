@@ -17,7 +17,10 @@ export interface OnboardingInput {
     frontLocalUri:           string
     backLocalUri:            string
     electricityBillLocalUri?: string  // Landlord-only
+    homeTourVideoLocalUri?:  string   // Landlord-only optional walkthrough video
   } | null
+  /** Session token getter — needed for the optional home-tour video upload. */
+  getToken?: () => Promise<string | null>
   supabase: SupabaseClient<Database>
 }
 
@@ -26,7 +29,7 @@ export async function completeOnboarding(
 ): Promise<Result<{ onboardingComplete: true; kycSubmitted: boolean }>> {
   const {
     clerkId, phone, roles, fullName, city,
-    avatarLocalUri, preferences, kyc, supabase,
+    avatarLocalUri, preferences, kyc, getToken, supabase,
   } = input
 
   let avatarUrl:       string | null = null
@@ -73,6 +76,8 @@ export async function completeOnboarding(
       frontLocalUri:          kyc.frontLocalUri,
       backLocalUri:           kyc.backLocalUri,
       electricityBillLocalUri: kyc.electricityBillLocalUri,
+      homeTourVideoLocalUri:  kyc.homeTourVideoLocalUri,
+      getToken,
     })
     if (!r.success) return err(r.error)
     kycSubmissionId = r.data.submissionId

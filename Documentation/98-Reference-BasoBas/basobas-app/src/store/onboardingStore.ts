@@ -35,6 +35,7 @@ interface OnboardingState {
   setBackImage: (uri: string | null) => void
   setDocumentType: (type: 'CITIZENSHIP' | 'NATIONAL_ID' | null) => void
   setElectricityBill: (uri: string | null) => void
+  setHomeTourVideo: (uri: string | null) => void
 
   // Computed
   getPayload: () => OnboardingPayload
@@ -60,6 +61,7 @@ const initialKYC: OnboardingKYCData = {
   frontImageUri: null,
   backImageUri: null,
   electricityBillUri: null,
+  homeTourVideoUri: null,
 }
 
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
@@ -104,6 +106,9 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
 
   setElectricityBill: (uri) =>
     set((state) => ({ kyc: { ...state.kyc, electricityBillUri: uri } })),
+
+  setHomeTourVideo: (uri) =>
+    set((state) => ({ kyc: { ...state.kyc, homeTourVideoUri: uri } })),
 
   getPayload: (): OnboardingPayload => {
     const { roles, profile, kyc } = get()

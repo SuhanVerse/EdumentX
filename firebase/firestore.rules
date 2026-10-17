@@ -739,11 +739,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.tutorUid == request.auth.uid;
       match /members/{memberId} {
         allow read: if isSignedIn();
+        // Aug 25: getAfter() instead of get() — createBatch seeds the
+        // batch doc AND its members in ONE transaction, so the parent
+        // does not exist in the pre-transaction snapshot that get()
+        // reads (live permission-denied on every Save Batch).
+        // getAfter() reads the post-write state, covering both
+        // flows: existing batches (add member) and same-tx creation
+        // (createBatch seeding).
         allow create: if isSignedIn()
-          && get(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
+          && getAfter(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
         allow update: if false;
         allow delete: if isSignedIn()
-          && get(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
+          && getAfter(/databases/$(database)/documents/batches/$(tutorUid)/classes/$(batchId)).data.tutorUid == request.auth.uid;
       }
     }
 

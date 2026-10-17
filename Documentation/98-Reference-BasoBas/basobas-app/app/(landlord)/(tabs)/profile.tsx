@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '@clerk/expo';
 import {
-  Settings,
   MapPin,
   CheckCircle,
   Star,
@@ -167,22 +166,11 @@ export default function LandlordProfileTab() {
   const verificationCopy = VERIFICATION_COPY[verification];
   const isVerified = verification === 'VERIFIED';
 
-  const handleSettings = useCallback(() => {
-    router.push('/(landlord)/settings' as any);
-  }, [router]);
-
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       {/* ─── Header ──────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
-        <Pressable
-          onPress={handleSettings}
-          style={styles.settingsButton}
-          accessibilityLabel="Settings"
-          accessibilityRole="button">
-          <Settings size={18} color={color.ink} />
-        </Pressable>
       </View>
       <View style={styles.headerDivider} />
 
@@ -462,14 +450,6 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: 24,
     color: color.ink,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: color.input,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerDivider: {
     height: 1,

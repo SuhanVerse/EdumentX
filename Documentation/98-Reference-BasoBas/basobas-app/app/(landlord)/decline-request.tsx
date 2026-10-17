@@ -1,25 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  TextInput,
-  StyleSheet,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, X } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useUser } from '@clerk/expo';
+import { ArrowRight, Check, X } from 'lucide-react-native';
 
-import { tokens } from '@/src/theme/tokens';
+import { Avatar, ScreenShell } from '@/src/components/visit/LandlordUI';
+import { useVisitsStore } from '@/src/store/visitsStore';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
-import { rejectVisit } from '@/src/services/visits.service';
-
-const { color, space, radius, font, size } = tokens;
-
-// ─── Reason options ──────────────────────────────────────────────────────────
+import { c, font, radius } from '@/src/theme/visitTokens';
 
 const REASONS = [
   'Already rented out',
@@ -29,337 +26,361 @@ const REASONS = [
   'Other',
 ] as const;
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
-
 export default function DeclineRequestScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const supabase = useClerkSupabase();
+  const { user } = useUser();
 
-  const [selectedReason, setSelectedReason] = useState<string>('Already rented out');
-  const [message, setMessage] = useState(
-    'Thanks for your interest \u2014 wishing you luck finding the right place.',
-  );
-  const [submitting, setSubmitting] = useState(false);
+  const row = useVisitsStore((s) => s.landlordVisits.find((v) => v.id === id));
+  const landlordVisits = useVisitsStore((s) => s.landlordVisits);
+  const fetchLandlordVisits = useVisitsStore((s) => s.fetchLandlordVisits);
+  const declineVisit = useVisitsStore((s) => s.declineVisit);
 
-  const handleGoBack = useCallback(() => {
-    router.back();
-  }, [router]);
+  const [reason, setReason] = useState<string>(REASONS[0]);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  const handleSendDecline = useCallback(async () => {
-    if (!id) {
-      Alert.alert('Missing request', 'Could not tell which request to decline.');
+  useEffect(() => {
+    if (id && landlordVisits.length === 0 && user?.id) {
+      fetchLandlordVisits(supabase, user.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.id]);
+
+  const handleSend = useCallback(async () => {
+    if (!id || sending) return;
+    setSending(true);
+    const text = message.trim() ? `${reason} — ${message.trim()}` : reason;
+    const ok = await declineVisit(id, text, supabase);
+    setSending(false);
+    if (!ok) {
+      Alert.alert('Could not decline', 'Please try again.');
       return;
     }
-    if (submitting) return;
+    setSent(true);
+  }, [id, sending, reason, message, declineVisit, supabase]);
 
-    setSubmitting(true);
-    try {
-      // The reason is what the tenant sees, so send the picked reason plus any
-      // message the landlord typed.
-      const reason = message.trim()
-        ? `${selectedReason} \u2014 ${message.trim()}`
-        : selectedReason;
+  const tenantName = row?.tenantName ?? 'the tenant';
+  const propertyTitle = row?.propertyTitle ?? '';
 
-      const result = await rejectVisit(id, reason, supabase);
-      if (!result.success) {
-        Alert.alert('Could not decline', result.error);
-        return;
-      }
+  // ─── Sent state ────────────────────────────────────────────────────────────
+  if (sent) {
+    return (
+      <ScreenShell title="Request Declined" showBack paddingBottom={48}>
+        {/* Success hero — one block so the stack keeps its internal rhythm */}
+        <View style={styles.hero}>
+          <View style={styles.haloWrap}>
+            <View style={styles.halo}>
+              <View style={styles.haloInner}>
+                <X size={28} color="#FFFFFF" strokeWidth={2.6} />
+              </View>
+            </View>
+          </View>
+          <Text style={styles.headline}>Request declined</Text>
+          <Text style={styles.subcopy}>
+            {tenantName} has been notified politely. Your listing stays active for other tenants.
+          </Text>
+        </View>
 
-      router.replace('/(landlord)/(tabs)/requests' as any);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [id, submitting, message, selectedReason, supabase, router]);
+        <View style={styles.sentPanel}>
+          <Text style={styles.sentLabel}>REASON SENT</Text>
+          <Text style={styles.sentValue}>{reason}</Text>
+          <View style={styles.sentCheck}>
+            <Check size={15} color={c.accent} strokeWidth={3} />
+          </View>
+        </View>
 
-  const handleCancel = useCallback(() => {
-    router.back();
-  }, [router]);
+        <TouchableOpacity
+          onPress={() => router.replace('/(landlord)/(tabs)/requests' as any)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Back to requests"
+          style={styles.primaryBtn}>
+          <Text style={styles.primaryText}>Back to requests</Text>
+        </TouchableOpacity>
+      </ScreenShell>
+    );
+  }
 
+  // ─── Form state ────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      {/* ─── Header ──────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={handleGoBack}
-          style={styles.backButton}
-          accessibilityLabel="Go back"
-          accessibilityRole="button">
-          <ArrowLeft size={18} color={color.ink} strokeWidth={2.2} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Decline Request</Text>
+    <ScreenShell title="Decline Request" showBack paddingBottom={32}>
+      {/* Applicant context */}
+      <View style={styles.contextPanel}>
+        <Avatar name={row?.tenantName ?? 'Tenant'} size={40} />
+        <View style={styles.contextCopy}>
+          <Text style={styles.contextName}>{tenantName}</Text>
+          {propertyTitle ? <Text style={styles.contextMeta}>{propertyTitle}</Text> : null}
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
-        {/* ─── Warning Banner ────────────────────────────────────────── */}
-        <View style={styles.warningBanner}>
-          <View style={styles.warningIcon}>
-            <X size={20} color="#FFFFFF" strokeWidth={3} />
-          </View>
-          <View style={styles.warningTextWrap}>
-            <Text style={styles.warningTitle}>Decline this visit?</Text>
-            <Text style={styles.warningSub}>Sandeep will be notified with your reason.</Text>
-          </View>
-        </View>
-
-        {/* ─── Pick a Reason ─────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>PICK A REASON</Text>
-
-        <View style={styles.reasonCard} accessibilityRole="radiogroup">
-          {REASONS.map((reason, i) => {
-            const active = reason === selectedReason;
-            return (
-              <Pressable
-                key={reason}
-                onPress={() => setSelectedReason(reason)}
-                style={[
-                  styles.reasonRow,
-                  i < REASONS.length - 1 && styles.reasonRowBorder,
-                ]}
-                accessibilityLabel={reason}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active }}>
-                <Text style={styles.reasonText}>{reason}</Text>
-                <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
-                  {active && <View style={styles.radioInner} />}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* ─── Optional Message ──────────────────────────────────────── */}
-        <View style={styles.messageCard}>
-          <TextInput
-            style={styles.messageInput}
-            placeholder="Message (optional)"
-            placeholderTextColor={color.placeholder}
-            multiline
-            value={message}
-            onChangeText={setMessage}
-            textAlignVertical="top"
-          />
-        </View>
+      {/* Pick a reason */}
+      <Text style={styles.sectionLabel}>PICK A REASON</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.reasonList}>
+        {REASONS.map((option) => {
+          const active = option === reason;
+          return (
+            <TouchableOpacity
+              key={option}
+              onPress={() => setReason(option)}
+              activeOpacity={0.85}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              style={[styles.reasonRow, active && styles.reasonRowActive]}>
+              <Text style={[styles.reasonText, active && styles.reasonTextActive]}>{option}</Text>
+              <View style={[styles.reasonCheck, active && styles.reasonCheckActive]}>
+                {active ? <Check size={12} color={c.ink} strokeWidth={3} /> : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
-      {/* ─── Bottom Actions ──────────────────────────────────────────── */}
-      <View style={styles.bottomArea}>
-        <Pressable
-          onPress={handleSendDecline}
-          disabled={submitting}
-          style={[styles.destructiveCta, submitting && styles.ctaDisabled]}
-          accessibilityLabel="Send decline"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: submitting, busy: submitting }}>
-          {submitting ? (
-            <ActivityIndicator size="small" color={color.bg} />
-          ) : (
-            <Text style={styles.destructiveCtaText}>Send decline</Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          onPress={handleCancel}
-          disabled={submitting}
-          style={[styles.cancelCta, submitting && styles.ctaDisabled]}
-          accessibilityLabel="Cancel"
-          accessibilityRole="button">
-          <Text style={styles.cancelCtaText}>Cancel</Text>
-        </Pressable>
+      {/* Message (optional) */}
+      <Text style={styles.sectionLabel}>MESSAGE (OPTIONAL)</Text>
+      <View style={styles.messageCard}>
+        <TextInput
+          style={styles.messageInput}
+          placeholder="Thanks for your interest — wishing you luck finding the right place."
+          placeholderTextColor={c.faint}
+          multiline
+          value={message}
+          onChangeText={setMessage}
+          textAlignVertical="top"
+        />
       </View>
-    </SafeAreaView>
+
+      {/* Actions */}
+      <TouchableOpacity
+        onPress={handleSend}
+        disabled={sending}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Send decline"
+        style={[styles.sendBtn, sending && styles.disabled]}>
+        {sending ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <View style={styles.sendRow}>
+            <Text style={styles.sendText}>Send decline</Text>
+            <ArrowRight size={16} color="#FFFFFF" strokeWidth={2} />
+          </View>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => router.back()}
+        disabled={sending}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Cancel"
+        style={[styles.cancelBtn, sending && styles.disabled]}>
+        <Text style={styles.cancelText}>Cancel</Text>
+      </TouchableOpacity>
+    </ScreenShell>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: color.bg,
-  },
-
-  // Header
-  header: {
-    height: space.headerH,
+  contextPanel: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: color.line,
-    paddingHorizontal: space.screenH,
+    borderRadius: 18,
+    backgroundColor: c.surfaceAlt,
+    padding: 12,
+    marginBottom: 4,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: color.input,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
+  contextCopy: {
     flex: 1,
-    alignItems: 'center',
-    paddingRight: 40,
+    minWidth: 0,
+    marginLeft: 12,
   },
-  headerTitle: {
-    fontFamily: font.semibold,
-    fontSize: 17,
-    color: color.ink,
+  contextName: {
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: c.ink,
   },
-
-  // Scroll
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: space.screenH,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-
-  // Warning banner
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    borderRadius: radius.card,
-    padding: space.cardPad,
-    gap: 12,
-  },
-  warningIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: color.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  warningTextWrap: {
-    flex: 1,
-  },
-  warningTitle: {
-    fontFamily: font.semibold,
-    fontSize: size.body,
-    color: color.ink,
-  },
-  warningSub: {
+  contextMeta: {
+    marginTop: 3,
     fontFamily: font.sans,
-    fontSize: size.bodySm,
-    color: '#9B1C1C',
-    marginTop: 2,
+    fontSize: 11,
+    color: c.faint,
   },
-
-  // Section label
   sectionLabel: {
-    fontFamily: font.bold,
-    fontSize: size.caption,
-    color: color.ink3,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginTop: 24,
+    fontFamily: font.sansSemi,
+    fontSize: 10,
+    color: c.faint,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    marginBottom: 10,
   },
-
-  // Reason radio card
-  reasonCard: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: color.bg,
-    marginTop: 12,
+  reasonList: {
+    paddingBottom: 2,
   },
   reasonRow: {
+    height: 48,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: space.cardPad,
+    paddingHorizontal: 16,
+    backgroundColor: c.surfaceGrey,
+    marginBottom: 8,
   },
-  reasonRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: color.rowDivider,
+  reasonRowActive: {
+    backgroundColor: c.ink,
   },
   reasonText: {
-    fontFamily: font.sans,
-    fontSize: size.body,
-    color: color.ink,
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: c.ink,
   },
-  radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  reasonTextActive: {
+    color: '#FFFFFF',
+  },
+  reasonCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: color.ink3,
+    borderColor: '#DDDDDD',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioOuterActive: {
-    borderColor: color.ink,
+  reasonCheckActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: color.ink,
-  },
-
-  // Message input
   messageCard: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: color.bg,
-    padding: space.cardPad,
-    marginTop: 14,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    shadowColor: '#0A0A0A',
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   messageInput: {
+    minHeight: 72,
     fontFamily: font.sans,
-    fontSize: size.body,
-    color: color.ink,
-    lineHeight: 22,
-    minHeight: 80,
+    fontSize: 12,
+    lineHeight: 18,
+    color: c.inkSub,
   },
-
-  // Bottom buttons
-  bottomArea: {
-    paddingHorizontal: space.screenH,
-    paddingBottom: space.safeBottom + 8,
-    gap: 10,
-    paddingTop: 8,
-  },
-  destructiveCta: {
-    height: space.buttonH,
+  sendBtn: {
+    height: 48,
     borderRadius: radius.pill,
-    backgroundColor: '#E53935',
+    backgroundColor: '#E53E3E',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaDisabled: {
-    opacity: 0.6,
+  sendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  destructiveCtaText: {
-    fontFamily: font.semibold,
-    fontSize: size.body,
-    color: color.bg,
+  sendText: {
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: '#FFFFFF',
+    marginRight: 8,
   },
-  cancelCta: {
-    height: space.buttonH,
+  cancelBtn: {
+    height: 48,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: color.bg,
+    backgroundColor: c.surfaceGrey,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelCtaText: {
-    fontFamily: font.semibold,
-    fontSize: size.body,
-    color: color.ink,
+  cancelText: {
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: c.ink,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  haloWrap: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  halo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FDECEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  haloInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E53E3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headline: {
+    marginTop: 20,
+    fontFamily: font.serif,
+    fontSize: 24,
+    color: c.ink,
+    textAlign: 'center',
+  },
+  subcopy: {
+    marginTop: 8,
+    fontFamily: font.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: c.meta,
+    textAlign: 'center',
+    maxWidth: 280,
+    alignSelf: 'center',
+  },
+  hero: {
+    alignItems: 'center',
+  },
+  sentPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: c.surfaceAlt,
+    padding: 16,
+  },
+  sentLabel: {
+    fontFamily: font.sansSemi,
+    fontSize: 10,
+    color: c.faint,
+    letterSpacing: 1,
+    marginRight: 12,
+  },
+  sentValue: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: c.ink,
+  },
+  sentCheck: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: c.greenBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtn: {
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: c.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryText: {
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: '#FFFFFF',
   },
 });
