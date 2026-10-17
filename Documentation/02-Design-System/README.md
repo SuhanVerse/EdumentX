@@ -1,28 +1,11 @@
-# 02 — Design System
+# Design system
 
-This folder holds design-token reference docs and component
-specifications for EdumentX.
+The app uses React Native primitives and NativeWind. The source of truth for visual tokens is [tailwind.config.js](../../tailwind.config.js); native props that need raw color values use [src/constants/colors.ts](../../src/constants/colors.ts).
 
-The **canonical design-token source of truth** lives in two places:
+Read [AGENTS.md](../../AGENTS.md) for the exact color/radius rules and narrow styling exceptions. Five custom ESLint rules enforce part of this contract.
 
-1. **`tailwind.config.js`** at the project root — every color, spacing
-   value, radius, and font-size used in production code.
-2. **`01-Architecture/ARCHITECTURE.md` §0** — the conceptual token table
-   (Night / Sand / Amber / Surface / Verification / AI).
+Start reading UI code at [PrimaryButton.tsx](../../src/components/ui/PrimaryButton.tsx), [ScreenLayout.tsx](../../src/components/shared/ScreenLayout.tsx), and [inputs.ts](../../src/components/forms/inputs.ts). Then follow the [UI exercises](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) in the learning guide.
 
-## Documents in this folder
+[Motion notes](motion.md) explain the existing animation helpers. Verify examples against [motion hooks](../../src/components/motion/hooks.ts) before copying them; the notes do not certify reduced-motion or accessibility coverage.
 
-- [`premium_ui_ux_guidelines.md`](./premium_ui_ux_guidelines.md) —
-  premium-tier visual guidelines, type scale, and elevation tokens.
-- [`motion.md`](./motion.md) — **the motion & interactivity system.**
-  Token constants, hooks, primitives, patterns by surface, and the
-  CssInterop caveat. Read this before adding or modifying any
-  Reanimated motion in the app.
-
-## Future work
-
-- A `tokens.md` listing every Tailwind token with hex values and use-case
-  guidance ("use `bg-night` for primary CTAs, `text-amber` for links, etc.").
-- A `component-library.md` describing the shared components in
-  `components/ui/` and `components/forms/` with their props and
-  accessibility considerations.
+Original design PDFs and attribution are preserved under [design context](../07-Design-Context/README.md). The unrelated web export has been removed from the active tree; its markup was never the native app's implementation.

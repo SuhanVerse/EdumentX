@@ -1,72 +1,40 @@
-# Borrowed Mac + iPhone — one-page setup checklist
+# Borrowed Mac and iPhone checklist
 
-For when you don't own a Mac but a friend's MacBook + iPhone is available.
-Full context: [`install-guide.md`](./install-guide.md) §2. Budget **1–2 hours**
-(the Xcode download is the long pole). Everything below is checkbox-style;
-each command runs in the project root.
+For a temporary **development build** session. Read [project setup](../03-Implementation-Guides/PROJECT_SETUP.md) and [native installation](./install-guide.md) first; use the [codebase guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) to choose demo flows.
 
-## 0. Before you leave your machine
-- [ ] Push your latest branch so the Mac can clone it:
-      `git push origin develop` (or whatever your working branch is)
-- [ ] Copy `.env` somewhere portable (USB / cloud / chat) — it is
-      **gitignored** and the Mac's clone will not have it.
+## Before the session
 
-## 1. On the Mac — one-time tool install (terminal)
-- [ ] Install Xcode 16+ from the Mac App Store (~12 GB). First launch:
-      agree to the license, let components install.
-- [ ] `xcode-select --install` (Command Line Tools)
-- [ ] Install Node 20+: `brew install node@20` (or use nvm)
-- [ ] `sudo gem install cocoapods`
+- [ ] Agree on the commit/branch, device and signing account with the machine owner.
+- [ ] Make the source available through an authorized clone or local transfer. Include any intentional changes in ignored native directories separately; a clone will not contain them.
+- [ ] Prepare only the public application configuration needed by the build. Do not copy the full working `.env`, service-account JSON, service-role keys or provider credentials onto a borrowed machine.
+- [ ] Confirm Xcode supports the installed iOS device and is compatible with the project's Expo SDK. Check [Expo environment setup](https://docs.expo.dev/get-started/set-up-your-environment/); do not choose a historical Xcode version from an old checklist.
 
-## 2. Get the code
-- [ ] `git clone git@github.com:SuhanVerse/EdumentX.git` (friend needs
-      GitHub collaborator access for SSH; use HTTPS if the repo is public)
-- [ ] `cd EdumentX && git checkout develop`
-- [ ] **Copy your `.env` into the project root** (step 0) — without it the
-      app has no API keys.
-- [ ] Sanity check the Firebase config exists: `ls GoogleService-Info.plist`
-      (tracked in git, so the clone already has it)
+## Prepare the Mac
 
-## 3. Install dependencies
-- [ ] `npm ci`
+- [ ] Open Xcode, complete component/license setup and select its command-line tools.
+- [ ] Use `nvm use` with the repository's pinned Node 24, and install compatible CocoaPods.
+- [ ] Clone/open the intended checkout, run `npm ci`, and create a minimal local `.env` from `.env.example` with the owner's public values.
+- [ ] Confirm root `GoogleService-Info.plist` matches the intended Firebase iOS app and `app.json` identifier.
+- [ ] Inspect existing `ios/` changes before any native regeneration. Do not delete the folder or run `prebuild --clean` automatically.
 
-## 4. iPhone 13 Pro — one-time device setup
-- [ ] Connect via cable; on the phone tap **Trust**.
-- [ ] On the phone: **Settings → Privacy & Security → Developer Mode → ON**
-      → **restart**. (iOS 16+; the #1 forgotten step.)
-- [ ] Xcode → **Window → Devices and Simulators** → confirm the phone shows
-      up, and check "Connect via network" if you want wireless later.
+## Build and connect
 
-## 5. Signing (free Apple ID — the friend's)
-- [ ] Xcode → **Settings → Accounts** → add the friend's Apple ID
-- [ ] Open `ios/EdumentX.xcworkspace` → target → **Signing & Capabilities**
-      → select the personal team (free = 7-day expiry)
+- [ ] Connect the iPhone, trust the computer and enable Developer Mode if required by the device.
+- [ ] Use an authorized signing team in Xcode. A personal team has capability/provisioning limits; confirm [Apple account capabilities](https://developer.apple.com/help/account/basics/about-your-developer-account) and test the actual expiry before relying on it for a demo.
+- [ ] Run `npm run ios -- --device` from the project root. Open the generated `.xcworkspace` in Xcode if signing needs attention.
+- [ ] Start/reconnect Metro with `npx expo start --dev-client`; ensure the phone can reach the Mac.
 
-## 6. Build on the device
-- [ ] `npx expo run:ios --device` (same Wi-Fi so Metro reaches the phone)
-- [ ] First build: ~10–20 min. Then on the phone: **Settings → General →
-      VPN & Device Management → Trust** the developer certificate.
-- [ ] App opens → sign up / log in.
+## Exercise the build
 
-## 7. Smoke test (live mode)
-- [ ] `EXPO_PUBLIC_USE_MOCK_DATA=false` in the copied `.env` → live Firestore
-- [ ] Map shows tutors (Apple Maps — no API key needed on iOS)
-- [ ] Google Sign-In opens the `com.googleusercontent.apps.…` flow
-- [ ] AI chat replies (needs `EXPO_PUBLIC_GROQ_API_KEY` in `.env`)
+- [ ] Email signup, inbox verification and returning login work; Google sign-in uses the intended OAuth configuration.
+- [ ] Student/tutor routing and profile saving work with the intended backend.
+- [ ] Maps, request/enrollment flow and chat work. AI requests go through authenticated Edge Functions; no device-side LLM secret is needed.
+- [ ] Test push separately with valid delivery credentials and permissions. A successful local install alone does not prove remote notifications work.
 
-## 8. Demo-day reminder
-- [ ] Free signing expires after **7 days** — before a demo, re-run
-      `npx expo run:ios --device` on the Mac to re-sign (takes minutes).
-- [ ] If anything changed in the code: on the Mac, `git pull` + `npm ci`,
-      then rebuild.
+## Before returning the machine
 
----
+- [ ] Preserve useful logs and any intentional native changes without capturing secrets.
+- [ ] Remove the temporary app configuration and transferred credentials; sign out of personal development accounts as agreed with the owner.
+- [ ] Record which binary/device was tested and when signing expires. Rebuild/re-sign before that expiry if the demo needs it.
 
-### If a step fails
-| Symptom | Fix |
-|---|---|
-| `pod install` errors | `cd ios && pod install --repo-update`; confirm Xcode is up to date |
-| App won't install on the phone | Developer Mode off (step 4) or cert not trusted (step 6) |
-| "API key not found" on the map | Only Android — iOS uses Apple Maps; ignore |
-| Chat is silent / storage empty | `.env` missing the GROQ / HF / Supabase keys — re-copy it |
-| Build runs but Metro won't connect | Phone and Mac on the **same Wi-Fi**; or connect via cable + `--device` |
+For shareable tester artifacts or store distribution, use the [deployment runbook](./DEPLOYMENT_GUIDE.md). An installed development client still depends on reachable Metro in this workflow.

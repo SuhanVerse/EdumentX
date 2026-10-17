@@ -1,18 +1,14 @@
-# 05 — Build & Deploy
+# Build and deployment
 
-Building and shipping: EAS dev clients, app install guides (iOS + Android),
-and payment-planning notes.
+First read [project setup](../03-Implementation-Guides/PROJECT_SETUP.md) and the [codebase and learning guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md).
 
-## Files
-
-| File | Purpose |
+| Page | Use it for |
 |---|---|
-| `install-guide.md` | Installing the app on iOS and Android (incl. borrowed-Mac setup) |
-| `borrowed-mac-checklist.md` | One-page checklist for building on a friend's Mac |
-| `firebase-auth-plan.md` / `firebase-auth-plan-audit.md` | Auth migration plan + audit |
-| `esewa_integration.md` | eSewa ePay v2 WebView flow — credentials, deploy, sandbox testing, security model |
+| [Native installation](./install-guide.md) | Local Android/iOS development builds and EAS profiles |
+| [Borrowed-Mac checklist](./borrowed-mac-checklist.md) | Temporary Mac/iPhone development session |
+| [Deployment runbook](./DEPLOYMENT_GUIDE.md) | Owner-operated backend publication, testing and distribution |
+| [eSewa operations](./esewa_integration.md) | Sandbox order verification and server-side Pro grants |
 
-## What goes here
+The repository needs a native development client, not Expo Go. `app.json`, `eas.json`, `firebase.json`, function source and SQL migrations define the configuration; a historical deployment note does not prove live state.
 
-Anything about producing builds, releasing, and installing the app. Dev
-environment setup lives in `03-Implementation-Guides/`.
+Ordinary development does not require cloud publication, seeding admins or running write-capable live smoke scripts. EAS Update is not configured. Preserve existing app identifiers and inspect ignored native projects before regeneration.

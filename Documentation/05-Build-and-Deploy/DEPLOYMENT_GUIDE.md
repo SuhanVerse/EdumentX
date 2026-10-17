@@ -1,150 +1,76 @@
-# EdumentX — Deployment & Distribution Guide
+# Deployment and distribution runbook
 
-_Aug 25, 2026 · covers getting the app onto other phones, closed-app
-messaging, and the Blaze-plan features this project actually uses._
+Repository configuration checked 2026-10-17. This describes owner-operated publication; it does not certify current cloud state or store readiness. Start with [project setup](../03-Implementation-Guides/PROJECT_SETUP.md), the [codebase guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) and [native installation](./install-guide.md).
 
----
+## Choose the operation
 
-## 0. TL;DR — which command when
+| Goal | Existing path |
+|---|---|
+| Daily native development | `npm run android` / `npm run ios`, then `npx expo start --dev-client` |
+| EAS development client | `eas build --platform <android|ios> --profile development` |
+| Android internal tester build | `eas build --platform android --profile preview` |
+| Store candidate | `eas build --platform <android|ios> --profile production` |
+| Submission after release checks | `eas submit --platform <android|ios> --profile production` |
 
-| Goal | Command | Rebuild native? |
-|---|---|---|
-| Daily dev on YOUR phone | `npx expo run:android` (once), then Metro reload (`r`) | only when native deps/config change |
-| Give the app to OTHER testers (Android) | `eas build -p android --profile preview` → share APK link | no |
-| App stores / public release | `eas build -p android --profile production` + `eas submit` | no |
-| iOS on another iPhone | TestFlight: `eas build -p ios --profile production` + `eas submit -p ios` | no |
-| JS-only changes to an installed build | `eas update --branch production` (OTA, instant) | no |
+Replace `<android|ios>` with one platform. `eas.json` defines `development` (dev client/internal), `preview` (internal) and `production` (`autoIncrement: true`); app versions come from EAS remote state. Preview/development profiles do not set `ios.simulator`. The app is already linked to an EAS project.
 
-**`npx expo run:android` is a DEV-time command.** It compiles a debug APK
-with Metro hot-reload and installs it via USB. Other people's phones do
-NOT need it — they install a built artifact (APK from EAS, or store
-listing). You only re-run it locally when native plugins/deps change
-(e.g. we add `expo-video-thumbnails` next).
+There is no `expo-updates` dependency or update URL/runtime configuration. **EAS Update is not an available hotfix path here**; publish a new artifact for installed preview/release builds. Native changes always require a compatible new binary.
 
-iOS requires macOS + Xcode for `run:ios`; for other iPhones use
-TestFlight (needs Apple Developer account, $99/yr).
+## Before publishing an artifact
 
----
+1. Confirm the intended commit, app environment, EAS project, signing identity and backend targets. `.firebaserc` defaults to `edumentx-dev`; an EAS profile name does not choose a separate Firebase backend.
+2. Preserve `com.anonymous.edumentx` for Android and iOS. Renaming requires coordinated Firebase/OAuth, signing, EAS and store changes, not a last-minute edit.
+3. Supply public app configuration through the selected build environment. Exclude service-account/service-role keys and LLM secrets; `EXPO_PUBLIC_*` values are extractable from the shipped bundle. Select mock/live mode deliberately.
+4. Run `npm run typecheck`, `npm run lint`, `npm run test:derived` and `npm run test:lint-rules`. Native changes also need a build and device checks.
+5. Exercise email verification, Google sign-in, both onboarding paths, map discovery, requests, messages, notifications and relevant admin flows on the intended build. Verify private-document access and sandbox payments when those areas changed.
+6. Inspect local native changes before regeneration: ignored `android/` and `ios/` directories are not disposable backups.
 
-## 1. Current distribution state
+Immediately before a store release, verify current [Apple submission requirements](https://developer.apple.com/app-store/submitting/) and [Google Play policy requirements](https://play.google.com/about/developer-content-policy/) against the actual artifact, permissions, privacy disclosures and account configuration. The SDK/target values in `app.json` alone are not proof of compliance.
 
-- **Package name**: `com.anonymous.edumentx` ← placeholder; change in
-  `app.json` → `android.package` / `ios.bundleIdentifier` BEFORE any
-  store/EAS production build (e.g. `com.edumentx.app`).
-- **Dev client** is already built & working (your RMX3630).
-- **Backend**: Firebase project `edumentx-dev`; Supabase project
-  `cuedmkwgkpipczhedpem`.
+## Firebase publication — authorized owners only
 
-## 2. Android testers (fastest path)
+These commands mutate the selected cloud project. Confirm project access, reviewed changes and quota controls first; do not run them as beginner setup.
 
 ```bash
-npm i -g eas-cli          # once
-eas login                 # your Expo account
-eas build:init            # links project (accept defaults)
-
-eas build -p android --profile preview
+npx firebase deploy --project edumentx-dev --only firestore:rules,firestore:indexes
+npm --prefix functions ci
+npm --prefix functions run build
+npx firebase deploy --project edumentx-dev --only functions
 ```
 
-- `preview` profile builds a **direct-install APK**.
-- When done, EAS prints a URL → send it to testers → they open it on
-  Android, allow "install unknown apps", install.
-- Testers need **no Expo account and no USB**.
+`firebase.json` selects `firebase/firestore.rules`, `firestore.indexes.json` and the `functions/` codebase. It specifies Node 20. The four exported functions are **Gen1**, in `asia-south1`, each with `maxInstances: 5`:
 
-Subsequent updates:
-```bash
-# JS-only change? Instant OTA to everyone with the app:
-eas update --branch preview -m "fix chat + visibility"
+| Export | Trigger |
+|---|---|
+| `onNewChatMessage` | New conversation message |
+| `onEnrollmentRequestCreated` | New enrollment request |
+| `onEnrollmentRequestDecided` | Request becomes accepted |
+| `onEnrollmentRequestDeleted` | Deleted nonaccepted request |
 
-# Native change? Rebuild:
-eas build -p android --profile preview
-```
+These send Expo push notifications using `users/{uid}.pushTokens`. The Android channel is **`inbox`**, matching `pushService.ts`; APNs/FCM delivery credentials and device permission must also work. Verify with two devices and a background/closed app, then inspect function logs and delivery failures. An exported function is not proof it is deployed.
 
-## 3. iOS testers
+Budget alerts are notifications, not hard spending caps. `maxInstances` limits concurrency, not total invocations or all project costs. Keep demo usage within the documented free allowances and review [architecture §0](../01-Architecture/ARCHITECTURE.md) before adding dependencies/services.
 
-Requires **Apple Developer Program** membership.
+## Rules verification
 
-```bash
-eas build -p ios --profile production   # IPA, signed for TestFlight
-eas submit -p ios --latest              # uploads to App Store Connect
-```
+`npm run test:rules` first fetches the deployed ruleset (`GOOGLE_APPLICATION_CREDENTIALS` required), then runs local emulator suites. Planned local rule changes can therefore fail the drift stage before publication. Run the emulator portion from `package.json` separately while developing; after an approved deploy, verify drift again.
 
-Then in App Store Connect → TestFlight → add internal testers by email.
-They install TestFlight from the App Store and get your build.
+The `smoke:*` scripts exercise the live backend and create temporary accounts/documents. They need explicit owner authorization for the chosen project; their cleanup code is not a guarantee against all failed-run leftovers. Do not substitute them for local unit checks by default.
 
-> First iOS build needs certificates/credentials — EAS handles them
-> interactively (`eas credentials`) if you have a Mac; without a Mac,
-> use `--non-interactive` with App Store Connect API keys.
+## Supabase publication — authorized owners only
 
-## 4. Closed-app messaging (push when app is killed)
+Review migrations in order before applying pending SQL. Migration `015` provides the payment ledger; `016` separates private PII and public demo videos; **`017` removes anonymous verification/demo upload policies**. Uploads go through `upload-verification-doc`, which verifies Firebase identity and derives the object path server-side.
 
-Already implemented in this codebase — nothing to "enable":
-
-1. **Tokens**: app registers an Expo push token on login → stored in
-   `users/{uid}.pushTokens` (`pushService.ts`).
-2. **Trigger**: Cloud Function `onNewChatMessage`
-   (`functions/src/index.ts`) fires on every new chat message,
-   looks up the recipient's tokens, POSTs to the **Expo push API**
-   (`exp.host/--/api/v2/push/send`) — free, works with app killed,
-   shows in system tray.
-3. **Foreground taps**: handled by existing notification listeners;
-   tapping routes to `/chat`.
-
-Deploy it:
+For a reviewed function change, deploy its actual directory name, for example:
 
 ```bash
-firebase deploy --only functions
-firebase functions:log          # verify delivery logs
+supabase functions deploy upload-verification-doc --no-verify-jwt
+supabase functions deploy verification-doc-url --no-verify-jwt
+supabase functions deploy create-esewa-order --no-verify-jwt
 ```
 
-Test with two accounts: kill app A completely, message from B → A gets
-a system notification.
+Other callable services are `chat`, `groq-proxy` and `verify-identity`. `--no-verify-jwt` bypasses the Supabase gateway verifier because callers use Firebase tokens; each function must retain its own Firebase-token validation. Never interpret the flag as permission to remove authentication.
 
-### Android notification channel
-`pushService.ensureAndroidChannel()` creates the `messages` channel —
-the function sends `channelId: "messages"`, matching it. No action.
+Keep server secrets in Supabase: Firebase service credentials, provider credentials and storage signing credentials. Storage functions support `STORAGE_SERVICE_JWT` for storage-compatible signing; an opaque `sb_secret_…` value may not satisfy storage JWT validation. Never place this key in `.env` values shipped to clients. PII URLs are short-lived; demo-video public reads are intentional.
 
-### iOS caveat
-Push on iOS needs APNs credentials tied to your Apple account
-(`eas credentials -p ios` → push key). Skip until you set up TestFlight.
-
-## 5. What Firebase Blaze gives this project (and what we use)
-
-| Feature | Used for | Cost at demo scale |
-|---|---|---|
-| **Cloud Functions v2** | `onNewChatMessage` push trigger | free tier (2M invocations/mo) |
-| **Cloud Firestore** | all data | free tiers (50K reads / 20K writes daily) |
-| **Auth** | email+Google sign-in | free unlimited |
-| **Rules + Indexes deploys** | security model | free |
-| Budget alert ($5) + Functions spend cap | safety net | $0 unless breached |
-
-Supabase side: Edge Functions (chat LLM proxy, eSewa signing, doc
-signing) free tier; storage 1 GB. Nothing here bills at demo traffic.
-
-## 6. Pre-release checklist (do ONCE before first external build)
-
-1. [ ] `app.json`: real `android.package` + `ios.bundleIdentifier`,
-      name/version.
-2. [ ] `.env`: remove `SUPABASE_SERVICE_ROLE_KEY` from any env used by
-      EAS build profiles that ship to testers (it's script-only; keep
-      it out of `EXPO_PUBLIC_*` entirely).
-3. [ ] Firestore rules deployed (`npm run deploy:rules`) — ✅ current.
-4. [ ] Edge functions deployed (`--no-verify-jwt`) — ✅ current.
-5. [ ] Storage migration `016` applied in Supabase SQL editor.
-6. [ ] `npm run backfill:has-availability -- --write` (one-off, after
-      rules deploy) so existing tutors appear/disappear correctly.
-7. [ ] Smoke: `npm run test:rules` green.
-
-## 7. Release flow summary
-
-```
-git commit → CI green (GitHub Actions)
-    ↓
-eas build (preview APK for testers  /  production for stores)
-    ↓
-eas update for JS-only hotfixes (minutes, no reinstall)
-    ↓
-eas submit (store/TestFlight) when ready for public
-```
-
-Keep `Documentation/01-Architecture/ARCHITECTURE.md` §0 updated when a
-new paid-tier dependency appears (zero-cost rule).
+[eSewa operations](./esewa_integration.md) remain sandbox-only (`EPAYTEST`). Pro grants happen server-side after verification and before ledger completion. Cloud deployment, SQL application and backfills require review of the exact target and writes; they are not automatic release checklist commands.
