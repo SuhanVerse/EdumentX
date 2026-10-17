@@ -263,7 +263,7 @@ export function StudentProfileScreen() {
   }
 
   return (
-    <ScreenLayout variant="night">
+    <ScreenLayout variant="background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"

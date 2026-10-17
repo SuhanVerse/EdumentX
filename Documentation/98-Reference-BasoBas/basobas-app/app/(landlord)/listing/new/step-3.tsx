@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Camera, Upload, X, Play, Plus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { tokens } from '@/src/theme/tokens';
+import { validateImageAsset } from '@/src/lib/imageValidation';
+import { validateImageContent } from '@/src/services/imageValidation.service';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 
 const { color, space, radius, font, size } = tokens;
 
@@ -13,32 +16,91 @@ const MAX_MEDIA = 12;
 
 type MediaType = 'image' | 'video';
 
+/**
+ * `checking` = picked but not yet approved by the AI content gate.
+ * The Continue button blocks while any item is still checking.
+ */
+type MediaStatus = 'checking' | 'ready';
+
 interface MediaItem {
   uri: string;
   type: MediaType;
+  status: MediaStatus;
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function NewListingStep3() {
   const router = useRouter();
+  const supabase = useClerkSupabase();
   const params = useLocalSearchParams<{ propertyType: string; title: string; rent: string; deposit: string; location: string; availableFrom: string; bedrooms: string; bathrooms: string; area: string; floor: string; totalFloors: string; furnishing: string; amenities: string; }>();
 
   const [media, setMedia] = useState<MediaItem[]>([]);
 
   const handleGoBack = useCallback(() => router.back(), [router]);
 
-  const addAssets = useCallback((assets: ImagePicker.ImagePickerAsset[]) => {
-    setMedia((prev) => {
-      const next = [...prev];
-      for (const asset of assets) {
-        if (next.length >= MAX_MEDIA) break;
-        if (next.some((m) => m.uri === asset.uri)) continue;
-        next.push({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
+  /**
+   * Validate one picked image through the AI content gate. The item is added
+   * to the grid immediately in `checking` state (instant feedback), then
+   * flips to `ready` or is removed with the rejection reason.
+   */
+  const trackImageAsset = useCallback(
+    (asset: ImagePicker.ImagePickerAsset) => {
+      const technical = validateImageAsset(asset, 'property');
+      if (!technical.ok) {
+        Alert.alert('Invalid photo', technical.message);
+        return;
       }
-      return next;
+      setMedia((prev) => {
+        if (prev.some((m) => m.uri === asset.uri)) return prev;
+        if (prev.length >= MAX_MEDIA) return prev;
+        return [...prev, { uri: asset.uri, type: 'image' as const, status: 'checking' as const }];
+      });
+
+      void (async () => {
+        const verdict = await validateImageContent(asset.uri, 'property', supabase);
+        if (!verdict.success || !verdict.data.valid) {
+          setMedia((prev) => prev.filter((m) => m.uri !== asset.uri));
+          Alert.alert(
+            'Photo rejected',
+            verdict.success ? verdict.data.reason ?? '' : '',
+          );
+          return;
+        }
+        setMedia((prev) =>
+          prev.map((m) => (m.uri === asset.uri ? { ...m, status: 'ready' as const } : m)),
+        );
+      })();
+    },
+    [supabase],
+  );
+
+  /** Videos skip the AI gate — technical checks only (size/format). */
+  const trackVideoAsset = useCallback((asset: ImagePicker.ImagePickerAsset) => {
+    const technical = validateImageAsset(asset, 'video');
+    if (!technical.ok) {
+      Alert.alert('Invalid video', technical.message);
+      return;
+    }
+    setMedia((prev) => {
+      if (prev.some((m) => m.uri === asset.uri)) return prev;
+      if (prev.length >= MAX_MEDIA) return prev;
+      return [...prev, { uri: asset.uri, type: 'video' as const, status: 'ready' as const }];
     });
   }, []);
+
+  const addAssets = useCallback(
+    (assets: ImagePicker.ImagePickerAsset[]) => {
+      for (const asset of assets) {
+        if (asset.type === 'video') {
+          trackVideoAsset(asset);
+        } else {
+          trackImageAsset(asset);
+        }
+      }
+    },
+    [trackImageAsset, trackVideoAsset],
+  );
 
   const remaining = MAX_MEDIA - media.length;
 
@@ -110,6 +172,13 @@ export default function NewListingStep3() {
       );
       return;
     }
+    if (media.some((m) => m.status === 'checking')) {
+      Alert.alert(
+        'Checking photos',
+        'Hang on — still validating your photos.',
+      );
+      return;
+    }
     router.push({
       pathname: '/(landlord)/listing/new/step-4',
       params: { ...params, photos: JSON.stringify(media) },
@@ -174,6 +243,12 @@ export default function NewListingStep3() {
                 {item.type === 'video' && (
                   <View style={styles.videoBadge}>
                     <Play size={12} color={color.bg} strokeWidth={2} fill={color.bg} />
+                  </View>
+                )}
+
+                {item.status === 'checking' && (
+                  <View style={styles.checkingOverlay} pointerEvents="none">
+                    <ActivityIndicator color={color.bg} size="small" />
                   </View>
                 )}
 
@@ -368,6 +443,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },

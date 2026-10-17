@@ -14,14 +14,16 @@ import { Upload, X, Shield, Check, Zap, CheckCheck } from 'lucide-react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as Haptics from 'expo-haptics'
-import { useUser } from '@clerk/expo'
+import { useSession, useUser } from '@clerk/expo'
 
 import { OnboardingHeader } from '@/src/components/onboarding/OnboardingHeader'
 import { StepProgressBar } from '@/src/components/onboarding/StepProgressBar'
 import { OnboardingEyebrow } from '@/src/components/onboarding/OnboardingEyebrow'
 import { PrimaryButton } from '@/src/components/shared/PrimaryButton'
+import { VideoUploadCard } from '@/src/components/kyc/VideoUploadCard'
 import { useOnboardingStore } from '@/src/store/onboardingStore'
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase'
+import { validateImageAsset } from '@/src/lib/imageValidation'
 import { completeOnboarding } from '@/src/services/onboarding.service'
 import { tokens } from '@/src/theme/tokens'
 import type { DocumentType } from '@/src/types/onboarding.types'
@@ -101,6 +103,11 @@ const pickFromOptions = async (
           quality: 1,
         })
         if (!result.canceled && result.assets[0]) {
+          const check = validateImageAsset(result.assets[0], 'kyc_document')
+          if (!check.ok) {
+            Alert.alert('Invalid document', check.message)
+            return
+          }
           const uri = compress
             ? await compressDoc(result.assets[0].uri)
             : result.assets[0].uri
@@ -122,6 +129,11 @@ const pickFromOptions = async (
           quality: 1,
         })
         if (!result.canceled && result.assets[0]) {
+          const check = validateImageAsset(result.assets[0], 'kyc_document')
+          if (!check.ok) {
+            Alert.alert('Invalid document', check.message)
+            return
+          }
           const uri = compress
             ? await compressDoc(result.assets[0].uri)
             : result.assets[0].uri
@@ -164,6 +176,7 @@ const DocTypeChip: React.FC<DocTypeChipProps> = ({ label, active, onPress }) => 
 export default function KYCLandlordScreen() {
   const router = useRouter()
   const { user } = useUser()
+  const { session } = useSession()
   const supabase = useClerkSupabase()
 
   const {
@@ -174,19 +187,21 @@ export default function KYCLandlordScreen() {
     setBackImage,
     setDocumentType,
     setElectricityBill,
+    setHomeTourVideo,
     setSubmitting,
     setSubmitError,
     setOnboardingComplete,
     isSubmitting,
   } = useOnboardingStore()
 
-  const { frontImageUri, backImageUri, electricityBillUri, documentType } = kyc
+  const { frontImageUri, backImageUri, electricityBillUri, homeTourVideoUri, documentType } = kyc
 
   const canSubmit = !!(
     documentType &&
     frontImageUri &&
     backImageUri &&
-    electricityBillUri
+    electricityBillUri &&
+    homeTourVideoUri
   )
 
   const handleSubmit = useCallback(async () => {
@@ -209,7 +224,9 @@ export default function KYCLandlordScreen() {
         frontLocalUri:           frontImageUri!,
         backLocalUri:            backImageUri!,
         electricityBillLocalUri: electricityBillUri ?? undefined,
+        homeTourVideoLocalUri:   homeTourVideoUri ?? undefined,
       },
+      getToken: async () => (session ? await session.getToken() : null),
     })
 
     setSubmitting(false)
@@ -226,7 +243,7 @@ export default function KYCLandlordScreen() {
 
     setOnboardingComplete(true)
     router.replace('/(auth)/confirmation')
-  }, [canSubmit, user, roles, profile, kyc, frontImageUri, backImageUri, electricityBillUri, documentType, supabase, router, setSubmitting, setSubmitError, setOnboardingComplete])
+  }, [canSubmit, user, session, roles, profile, kyc, frontImageUri, backImageUri, electricityBillUri, homeTourVideoUri, documentType, supabase, router, setSubmitting, setSubmitError, setOnboardingComplete])
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -352,6 +369,35 @@ export default function KYCLandlordScreen() {
         )}
 
         <Text style={styles.fileNote}>JPEG or PNG · Max 5MB each</Text>
+
+        {/* ── Home Tour Video (required extra verification) ── */}
+        <View style={styles.videoSectionHeader}>
+          <Text style={styles.sectionTitle}>Home Tour Video</Text>
+          <View style={[styles.badge, styles.badgeRequired]}>
+            <Text style={styles.badgeTextRequired}>Required</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionSubtitle}>
+          Record a short 1–2 minute walkthrough of your home to build trust and verify faster
+        </Text>
+
+        <VideoUploadCard
+          label="Home tour video"
+          hint="Show the rooms, entrance and common areas"
+          status={homeTourVideoUri ? 'selected' : 'empty'}
+          onPick={(uri) => setHomeTourVideo(uri)}
+          onRemove={() => setHomeTourVideo(null)}
+        />
+
+        {!homeTourVideoUri && (
+          <Text style={styles.validationText}>
+            Please add a short home tour video for extra verification
+          </Text>
+        )}
+
+        <Text style={[styles.fileNote, styles.videoFileNote]}>
+          MP4 or MOV · Up to 2 minutes · Max 100MB
+        </Text>
       </ScrollView>
 
       {/* CTAs */}
@@ -572,6 +618,31 @@ const styles = StyleSheet.create({
     color: color.ink3,
     textAlign: 'center',
     marginTop: 4,
+  },
+
+  // Home tour video
+  videoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: space.cardPad,
+    marginBottom: 8,
+  },
+  optionalBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: color.canvas,
+    borderWidth: 1,
+    borderColor: color.line,
+  },
+  optionalBadgeText: {
+    fontFamily: font.medium,
+    fontSize: size.micro + 1,
+    color: color.ink3,
+  },
+  videoFileNote: {
+    marginTop: 8,
   },
 
   // Bottom

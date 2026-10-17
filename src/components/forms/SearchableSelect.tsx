@@ -176,7 +176,7 @@ export function SearchableSelect({
   }
 
   return (
-    <View className="gap-1 relative">
+    <View className="gap-1">
       {/* Label + description */}
       <View className="flex-row items-center justify-between">
         <Text className="text-caption text-text-secondary">{label}</Text>
@@ -243,16 +243,17 @@ export function SearchableSelect({
         <Text className="text-caption text-danger">{error}</Text>
       ) : null}
 
-      {/* Dropdown — ScrollView instead of FlatList to avoid
-          VirtualizedList-inside-ScrollView nesting warning. We cap at
-          8 items so performance is not a concern. */}
+      {/* Dropdown — rendered inline (not absolute) so it doesn't get
+          clipped by ancestor overflow-hidden (ScreenSheet, ScrollView).
+          The max-h keeps it compact; 8 items max avoids perf concerns. */}
       {showDropdown ? (
-        <View className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 border border-border rounded-card bg-surface shadow-lg">
+        <View className="mt-1 border border-border rounded-card bg-surface shadow-lg">
           <ScrollView
             keyboardShouldPersistTaps="always"
-            className="max-h-64"
+            nestedScrollEnabled
+            style={{ maxHeight: 256 }}
           >
-{filtered.map((s, i) => (
+            {filtered.map((s, i) => (
               <SelectOptionRow
                 key={`opt-${i}`}
                 onPress={() => selectOption(s.option)}

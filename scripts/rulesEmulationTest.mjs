@@ -46,7 +46,10 @@ async function req(method, path, uid, body) {
 }
 
 // Firestore REST update payload shape: { fields: { ... } }
-const field = (v) => ({ stringValue: String(v) });
+// Booleans stay boolean — the rules type-check the availability flag
+// (`is bool`), and the real client sends actual booleans.
+const field = (v) =>
+  typeof v === "boolean" ? { booleanValue: v } : { stringValue: String(v) };
 function updatePayload(fields) {
   return { fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, field(v)])) };
 }
@@ -81,7 +84,7 @@ async function seedDoc() {
       Authorization: "Bearer owner", // emulator admin bypass
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(updatePayload({ isAvailableForNewStudents: "true" })),
+    body: JSON.stringify(updatePayload({ isAvailableForNewStudents: true })),
   });
   if (res.status !== 200) {
     console.error("seed failed:", res.status, await res.text());
@@ -94,7 +97,7 @@ await seedDoc();
 console.log("  seeded. Running rules checks:\n");  // 1. Owner flips the flag (+ updatedAt) — must be ALLOWED (200/OK)
   {
     const r = await req("PATCH", `${DOC}?updateMask.fieldPaths=isAvailableForNewStudents&updateMask.fieldPaths=updatedAt`, OWNER,
-      updatePayload({ isAvailableForNewStudents: "false", updatedAt: "2026-08-15T00:00:00Z" }));
+      updatePayload({ isAvailableForNewStudents: false, updatedAt: "2026-08-15T00:00:00Z" }));
     check("owner flips availability flag", r.status, 200);
     if (r.status !== 200) console.log("     ", r.body.slice(0, 200));
   }
@@ -109,7 +112,7 @@ console.log("  seeded. Running rules checks:\n");  // 1. Owner flips the flag (+
 // 3. Stranger flips the flag — must be DENIED (403)
 {
   const r = await req("PATCH", `${DOC}?updateMask.fieldPaths=isAvailableForNewStudents`, STRANGER,
-    updatePayload({ isAvailableForNewStudents: "true" }));
+    updatePayload({ isAvailableForNewStudents: true }));
   check("stranger flips flag (should deny)", r.status, 403);
 }
 
@@ -118,7 +121,7 @@ console.log("  seeded. Running rules checks:\n");  // 1. Owner flips the flag (+
 //    write is actually allowed too (affectedKeys ⊆ allowed set). Verify:
 {
   const r = await req("PATCH", `${DOC}?updateMask.fieldPaths=isAvailableForNewStudents`, OWNER,
-    updatePayload({ isAvailableForNewStudents: "true" }));
+    updatePayload({ isAvailableForNewStudents: true }));
   check("owner flips flag alone (allowed subset)", r.status, 200);
 }
 

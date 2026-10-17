@@ -80,8 +80,11 @@ if (!fs.existsSync(envPath) && fs.existsSync(parentEnvPath)) {
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || "";
-const HF_API_TOKEN = process.env.HF_API_TOKEN || process.env.EXPO_PUBLIC_HF_API_TOKEN || "";
+// Aug 24 audit: NEVER fall back to an EXPO_PUBLIC_* service-role var —
+// EXPO_PUBLIC_ values are bundled into shipped client JS. This script
+// runs locally only; require the plain (non-public) var.
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const HF_API_TOKEN = process.env.HF_API_TOKEN || "";
 
 // Try both possible filenames (user may have named it differently)
 const POSSIBLE_SA_NAMES = ["private_key_firebase.json", "firebase-service-account.json", "service-account.json", "serviceAccountKey.json"];

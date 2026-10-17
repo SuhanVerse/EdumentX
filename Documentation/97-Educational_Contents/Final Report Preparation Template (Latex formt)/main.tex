@@ -1,0 +1,146 @@
+\documentclass[12pt]{report}
+\usepackage{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage{natbib}%referencing
+\usepackage[left=1.0in,right=1.0in,top=.8in,bottom=.8in]{geometry}
+\usepackage{float}
+\linespread{1.3}
+\usepackage{graphicx}%figures
+\usepackage{rotating}%landscape
+\usepackage{amsmath}%math
+\usepackage{titlesec} %formatting chapters
+%\titlespacing*{<command>}{<left>}{<before-sep>}{<after-sep>}
+\titlespacing*{\chapter}{-15pt}{10pt}{15pt}
+\titlespacing*{\section}{0pt}{0pt}{5pt}
+\titlespacing*{\subsection}{0pt}{5pt}{5pt}
+\titleformat{\chapter}[hang] 
+{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter.}{1em}{}
+\renewcommand{\chaptername}{}
+\graphicspath{{Images/}}%image folder name
+%Cover page contents
+\title{
+{\includegraphics[scale=1.4]{Images/image.png}}\\
+\uppercase\large{
+    {Tribhuvan University}\\
+    {Institute of Engineering}\\
+    {National College of Engineering}\\
+    \vspace{.5cm}
+    {A \\Major / Minor Project Report\\On\\Title of project}\\
+    \vspace{.5cm}
+    {\textbf{Submitted By:}\\Person A (NCE079BCT037) \\Person 2 \\person 3\\person 4}\\
+    \vspace{.5cm}
+    {\textbf{Submitted To:}\\ Department of Electronics \& Computer engineering}\\
+                }
+    }
+\date{Month, Year} %{Month Year}
+
+\begin{document}
+\maketitle
+\pagenumbering{roman}
+\setcounter{page}{2}
+\chapter*{Page of Approval}
+\addcontentsline{toc}{chapter}{\numberline{}Page of Approval}
+\vspace{1.5cm}
+\begin{center}
+\uppercase{
+Tribhuvan Universiy\\
+Institute of Engineering\\
+National College of Engineering\\
+Department of Electronics and Computer Engineering
+    }
+    \end{center}
+\vspace{.5cm}
+The undersigned certifies that they have read and recommended to the Institute of Engineering for acceptance of a project report entitled \textbf{"Project Name"} submitted by \textbf{Person A}, \textbf{person B}, \textbf{person C}, \textbf{person D} in partial fulfillment of the requirements for the Bachelor's degree in Electronics, Information and Communication Engineering \& Computer Engineering.\\
+
+\vspace{1cm}
+\begin{minipage}{.5\textwidth}
+        \raggedright
+    .............................\\
+    Supervisor\\
+    \textbf{Full Name}\\
+    Designation\\
+    Department of Electronics and Computer Engineering,\\
+    National College of Engineering, IOE, TU.\\
+    \end{minipage}%
+    \begin{minipage}{0.5\textwidth}
+    \raggedleft
+    .............................\\
+    External examiner\\
+    \textbf{Full Name}\\
+    Designation \\
+    Affilation\\
+    \end{minipage}\\
+ \newline
+ \newline
+ \newline
+\centerline{Date of approval:}
+%new chapter
+\chapter*{Copyright}
+\addcontentsline{toc}{chapter}{\numberline{}Copyright}
+The author has agreed that the Library, Department of Electronics and Computer Engineering, National College of Engineering, and Institute of Engineering may make this report freely available for inspection. Moreover, the author has agreed that permission for extensive copying of this project report for scholarly purposes may be granted by the supervisors who supervised the work recorded herein or, in their absence, by the Head of the Department wherein the project report was done. It is understood that recognition will be given to the author of this report and the Department of Electronics and Computer Engineering, National College of Engineering, IOE for any use of the material of this project report. Copying publication or the other use of this report for financial gain without the approval of to the Department of Electronics and Computer Engineering, National College of Engineering, Institute of Engineering, and the author's written permission is prohibited.\\
+Request for permission to copy or to make any other use of the material in this report in whole or in part should be addressed to:\\
+\newline
+\newline
+\newline
+Head\\
+Department of Electronics and Computer Engineering\\
+National College of Engineering\\
+Talchhikhel, Lalitpur.
+%new chapter
+\chapter*{Acknowledgments}
+\addcontentsline{toc}{chapter}{\numberline{}Acknowledgements}
+On this page, the author expresses his gratitude and concern by using praising and thanksgiving words.  don’t forget to include your project supervisor's name. p.s. all the names must be bold.
+%new chapter
+\chapter*{Abstract}
+Abstract represents a summarized report of the complete project in a very concise and informative format covering the main objective and aim of the project, the background information, processes and methods used, and methodologies implemented, a brief conclusion of two to three lines talking about the results and scope of the project followed with 3 to 5 keywords (italic). The entire abstract of a project report should be written in about 250 to 350 words.\\
+\newline
+Keywords: \textit{keyword 1, keyword 2, keyword 3, keyword 4, Keyword 5}
+\addcontentsline{toc}{chapter}{\numberline{}Abstract}
+\tableofcontents
+\addcontentsline{toc}{chapter}{\numberline{}Contents}
+\listoffigures
+\addcontentsline{toc}{chapter}{\numberline{}List of Figures}
+\listoftables
+\addcontentsline{toc}{chapter}{\numberline{}List of Tables}
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{\numberline{}List of Abbreviations}
+\begin{tabular}{c l}
+\textbf{LAH}     &  List of Abbreviations Here\\
+\textbf{AMC}     &  Add More Contents
+\end{tabular}
+\chapter{Introduction}
+\pagenumbering{arabic}%start arabic numbering(1,2,3..) from here
+This chapter should contain brief background information and an overview of the project, the problem statement, scope \& objective of the project. It rarely contains drawings and graphical illustrations.
+\section{Background}
+This is my first {\LaTeX} file using overleaf. it uses \textbf{report class}, at present there is nothing in \textit{table of contents} and \textit{table of figures}. we set the counter (2) for \textit{roman} numbering because the title page doesn't contain the page number and from chapter 1 the numbering is \textit{arabic}.
+\section{Problem statements}
+\section{Objectives}
+\section{Scope}
+\chapter{Literature Review}
+This chapter should contain related work and related theory "basic theoretical information" of the project. It evaluates the current work with the previous one. It depicts the current implementations that overcome the previous problems and limitations of the project and draws attention and focus on the foreknowledge work that would be conducted based on the current ongoing work. It must be clear and simple to understand.
+\section{Related work}
+\section{Related theory}
+\chapter{Methodology}
+This chapter should contain the methodology implemented for problem-solving. It should contain all the work done from feasibility study, requirement analysis and data collection, system design to testing and implementation.
+\chapter{Hardware Configuration / Experimental Setup (if any)}
+In this section, you describe how the hardware setup or experiment setup was done and summarize how the data was taken. One typically describes the instruments and detectors that were used. Describe the procedure that was followed to collect the data etc.
+\chapter{System design}
+This chapter should include Requirement Specification (Functional and Non- Functional requirement) and all the diagrams that contribute to best graphically representing the system, its components \& operations. They may be Context, Interaction, Structural, Behavioral models, network diagrams, model architecture or circuit diagrams etc.
+\chapter{Results \& Discussion}
+\section{Experiment setup}
+\section{Software Development Approach}
+\section{Model Deployment}
+\section{Testing/evaluation/validation}
+This chapter should include results of software implementation, statistical analysis, calculations, results gained, and so on. The results should always be represented by pictorial representations, tabular demonstrations, diagrams, charts, visible graphs, images, photos, and other representations along with a good description and clarity.
+\chapter{Conclusions}
+The conclusion part summarizes the whole report by highlighting all the chapters and their significance and the importance of the project and the achievements.
+\chapter{Limitations and Future enhancement}
+This chapter should contain major limitations of the project and the further enhancement of the project soon with a different but related approach. \textbf{Referencing checking here}\cite{giri2019transfer}
+\addcontentsline{toc}{section}{References}
+\renewcommand{\bibname}{References}
+\bibliographystyle{unsrt}
+\bibliography{ref}
+\chapter*{Appendices}
+\addcontentsline{toc}{section}{Appendices}
+It should contain the information that is somehow missing in the main body and it presents extra information about your project like program source code, raw data, and so on.
+\end{document}

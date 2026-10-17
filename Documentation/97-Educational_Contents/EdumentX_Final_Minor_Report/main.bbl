@@ -17,11 +17,7 @@ M.~Bray and C.~Lykins.
 \bibitem{Kim2019Shadow}
 Y.~C. Kim and J.~H. Jung.
 \newblock Shadow education as worldwide curriculum studies.
-\newblock {\em Curriculum Studies Worldwide}, 1(1):1--15, April 2019.
-
-\bibitem{CBS2023}
-{Central Bureau of Statistics}.
-\newblock National population and housing census 2021: National report, 2023.
+\newblock {\em Curriculum Studies Worldwide}, 1(1):1--15, 2019.
 
 \bibitem{Thapa2013Private}
 Amrit Thapa.
@@ -30,39 +26,59 @@ Amrit Thapa.
 \newblock {\em International Journal of Educational Development},
   33(4):358--366, 2013.
 
+\bibitem{CBS2023}
+{Central Bureau of Statistics}.
+\newblock National population and housing census 2021: National report, 2023.
+
 \bibitem{Chung2022MENTOR}
 Sheng-Hung Chung and Seng~Chee Tan.
 \newblock Mentor -- intelligent mobile online peer tutoring application for
   face-to-face and remote peer tutoring.
-\newblock {\em ASCILITE Publications}, pages 386--391, September 2022.
+\newblock {\em ASCILITE Publications}, pages 386--391, 2022.
 
 \bibitem{Sharma2026LocalTutor}
 R.~K. Sharma, A.~Patel, and M.~Singh.
 \newblock Local tutor finder application using flutter.
 \newblock {\em Journal of Emerging Technologies and Innovative Research
-  (JETIR)}, 13(2):267--275, February 2026.
+  (JETIR)}, 13(2):267--275, 2026.
 
 \bibitem{Shari2025iTeachU}
 N.~Shari, F.~Ahmad, and R.~Hassan.
 \newblock iteachu: Ai-driven tutor matching with geolocation integration.
 \newblock {\em International Journal of Research in Science and Innovation
-  (IJRSI)}, 12(3):145--158, March 2025.
+  (IJRSI)}, 12(3):145--158, 2025.
+
+\bibitem{Rochet2003TwoSided}
+Jean-Charles Rochet and Jean Tirole.
+\newblock Platform competition in two-sided markets.
+\newblock {\em Journal of the European Economic Association}, 1(4):990--1029,
+  2003.
+
+\bibitem{Sinnott1984Haversine}
+Roger~W. Sinnott.
+\newblock Virtues of the haversine.
+\newblock {\em Sky and Telescope}, 68(2):158, 1984.
 
 \bibitem{Shevchenko2023Geofencing}
 Yury Shevchenko and Ulf-Dietrich Reips.
 \newblock Geofencing in location-based behavioral research: Methodology,
   challenges, and implementation.
-\newblock {\em Behavior Research Methods}, 56, August 2023.
+\newblock {\em Behavior Research Methods}, 56, 2023.
+
+\bibitem{Cover1967KNN}
+Thomas Cover and Peter Hart.
+\newblock Nearest neighbor pattern classification.
+\newblock {\em IEEE Transactions on Information Theory}, 13(1):21--27, 1967.
 
 \bibitem{Lewis2021RAG}
 Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir
-  Karpukhin, Naman Goyal, Heinrich K\"{u}ttler, Mike Lewis, Wen-tau Yih, Tim
-  Rockt\"{a}schel, Sebastian Riedel, and Douwe Kiela.
+  Karpukhin, Naman Goyal, Heinrich K"{u}ttler, Mike Lewis, Wen-tau Yih, Tim
+  Rockt"{a}schel, Sebastian Riedel, and Douwe Kiela.
 \newblock Retrieval-augmented generation for knowledge-intensive nlp tasks,
   2021.
 
 \bibitem{Swacha2025RAG}
-Jakub Swacha and Micha{l} Gracel.
+Jakub Swacha and Micha{\l} Gracel.
 \newblock Retrieval-augmented generation (rag) chatbots for education: A survey
   of applications.
 \newblock {\em Applied Sciences}, 15(8):4234, 2025.

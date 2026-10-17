@@ -21,6 +21,8 @@ export interface OnboardingKYCData {
   frontImageUri: string | null
   backImageUri: string | null
   electricityBillUri: string | null
+  /** Landlord-only optional home-tour walkthrough video. */
+  homeTourVideoUri: string | null
 }
 
 // Shape that goes to the backend after onboarding

@@ -393,7 +393,7 @@ export function EditRequestSheet({
                     name="save-outline"
                     size={16}
                     color={
-                      canSubmit && isDirty ? "#FFFFFF" : colors.text.muted
+                      canSubmit && isDirty ? colors.text.inverse : colors.text.muted
                     }
                   />
                   <Text

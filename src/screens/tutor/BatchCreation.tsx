@@ -244,9 +244,14 @@ export function BatchesScreen() {
       setSlotKeys([]);
     } catch (err) {
       setCreating(false);
+      // Aug 25: surface the Firestore CODE on-device too — terminal
+      // logs don't show when testing on a phone, and codes like
+      // failed-precondition carry the exact missing-index detail.
+      const code = (err as { code?: string }).code ?? "";
+      console.error("[BatchCreation] save failed:", code, err);
       Alert.alert(
         "Couldn't create batch",
-        err instanceof Error ? err.message : "Unknown error",
+        `${err instanceof Error ? err.message : "Unknown error"}${code ? `\n(code: ${code})` : ""}`,
       );
     }
   };

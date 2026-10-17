@@ -5,6 +5,7 @@ import { Bell, Search } from 'lucide-react-native';
 
 import { ScreenBody } from '@/src/components/layout/ScreenBody';
 import { usePropertyStore } from '@/src/store/propertyStore';
+import { useNotificationsStore } from '@/src/store/notificationsStore';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { useUser } from '@clerk/expo';
 import { tokens } from '@/src/theme/tokens';
@@ -24,6 +25,7 @@ export default function HomeTab() {
   const router = useRouter();
   const supabase = useClerkSupabase();
   const { user: clerkUser } = useUser();
+  const notificationCount = useNotificationsStore((s) => s.unreadCount);
   const [activeCity, setActiveCity] = useState<City>('Kathmandu');
 
   const { properties, hydrated, hydrate, hydrateError, setFilter } = usePropertyStore(
@@ -76,9 +78,22 @@ export default function HomeTab() {
           <Link href={'/(tenant)/notifications' as any} asChild>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              className="h-[48px] w-[48px] items-center justify-center rounded-pill bg-input">
+              accessibilityLabel={
+                notificationCount > 0
+                  ? `Notifications (${notificationCount} unread)`
+                  : 'Notifications'
+              }
+              className="relative h-[48px] w-[48px] items-center justify-center rounded-pill bg-input">
               <Bell size={20} color="#0A0A0A" />
+              {notificationCount > 0 && (
+                <View
+                  pointerEvents="none"
+                  className="absolute right-[6px] top-[6px] min-w-[18px] items-center justify-center rounded-pill bg-danger px-[5px] py-[2px]">
+                  <Text className="font-bold text-micro text-white">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </Text>
+                </View>
+              )}
             </Pressable>
           </Link>
         </View>

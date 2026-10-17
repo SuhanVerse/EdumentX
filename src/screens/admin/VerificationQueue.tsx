@@ -42,7 +42,7 @@ import {
   notificationCopy,
   writeNotification,
 } from "@/lib/verification/notifications";
-import { getVerificationDocPublicUrl } from "@/services/supabase/storage";
+import { useSignedDocUrl } from "@/hooks/useSignedDocUrl";
 import { useAuthStore } from "@/store/authStore";
 
 
@@ -848,6 +848,10 @@ export function VerificationQueue() {
             // Newly-approved tutors start visible in discovery; the
             // tutor can hide themselves from the dashboard toggle.
             isAvailableForNewStudents: true,
+            // Aug 25: hidden until the tutor saves at least one
+            // availability slot (students can't enroll against a
+            // slot-less schedule).
+            hasAvailability: false,
             degree: profileData?.degree ?? null,
             institution: profileData?.institution ?? null,
             updatedAt: serverTimestamp(),
@@ -872,6 +876,7 @@ export function VerificationQueue() {
             isVerifiedProfessional: true,
             hasPendingUpdate: false,
             isAvailableForNewStudents: true,
+            hasAvailability: false,
             updatedAt: serverTimestamp(),
           },
           { merge: true },
@@ -1529,29 +1534,22 @@ function DocumentThumbnail({
   onPreviewVideo?: (url: string, label: string) => void;
 }) {
   const isImage = doc.kind === "citizenship" || doc.kind === "certificate";
-  let publicUrl: string | null = null;
-  if (typeof doc.path === "string" && doc.path.length > 0) {
-    try {
-      publicUrl = getVerificationDocPublicUrl(doc.path);
-    } catch (err) {
-      if (__DEV__) {
-        console.warn(
-          "[DocumentThumbnail] getVerificationDocPublicUrl failed",
-          err,
-        );
-      }
-    }
+  // Aug 24 audit: PII docs resolve via short-lived SIGNED URLs
+  // (admin-authorized edge function); demo videos stay public-bucket.
+  const { url: signedUrl, error: signError } = useSignedDocUrl(
+    typeof doc.path === "string" && doc.path.length > 0 ? doc.path : null,
+    doc.uploadedAt ?? null,
+  );
+  const publicUrl = signedUrl;
+  if (__DEV__ && signError) {
+    console.warn("[DocumentThumbnail] signed-url resolution failed", signError);
   }
   // Compute a single, consistent display URL that both the thumbnail
-  // <Image> and the lightbox use. Without this, the thumbnail would
-  // use the cache-busted URL (`?t=uploadedAt`) while the lightbox
-  // receives the raw `publicUrl` — React Native's <Image> caches by
-  // URI, so the lightbox would show a stale cached version while the
-  // thumbnail shows the correct new one.
-  const displayUrl =
-    isImage && publicUrl && doc.uploadedAt
-      ? `${publicUrl}?t=${encodeURIComponent(doc.uploadedAt)}`
-      : publicUrl;
+  // <Image> and the lightbox use. The hook has ALREADY cache-busted
+  // with `uploadedAt` (sep-aware: `&t=` after a signed URL's
+  // `?token=`) — appending another raw `?t=` here re-corrupts signed
+  // URLs, so `displayUrl` is just the hook output.
+  const displayUrl = publicUrl;
 
   return (
     <Pressable

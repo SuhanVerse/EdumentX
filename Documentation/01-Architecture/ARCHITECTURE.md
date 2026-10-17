@@ -243,20 +243,32 @@ user-visible gain — revisit only if consolidating vendors.
 **Setup** (already complete on `edumentx-storage`):
 - Region: South Asia (Mumbai) — matches the Firebase database region.
 - Bucket `public-avatars` — public read, image/* MIME only, 5 MB cap.
-- Bucket `private-verification-docs` — owner + admin read, all MIME
-  types, 25 MB cap.
+- Bucket `private-verification-docs` — FULLY PRIVATE (migration 016);
+  reads only via 10-min signed URLs from the `verification-doc-url`
+  Edge Function. All MIME types, 25 MB cap.
+- Bucket `tutor-demo-videos` — public read; tutor intro videos were
+  split out of the private bucket by migration 016 so student-facing
+  media survives the privacy flip.
+- Migrations: `supabase/migrations/016_private_verification_docs.sql`
+  (bucket flip + policy rework) and `017_server_side_uploads.sql`
+  (anon write policies REMOVED — uploads are service-role-only now).
 
 **Code map**:
 - `.env` — `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 - `services/supabase/client.ts` — singleton `createClient` instance
-  (no Supabase Auth — Firebase owns identity; the anon key talks to
-  the Storage REST API only).
+  (no Supabase Auth — Firebase owns identity; the anon key is read-
+  only after migration 017: it can no longer write to ANY bucket).
 - `services/supabase/storage.ts` — `uploadAvatar`,
-  `uploadVerificationDoc`, `getVerificationDocPublicUrl`.
+  `uploadVerificationDoc`, `getVerificationDocSignedUrl`,
+  `getVerificationDocPublicUrl` (PII paths return null — fail closed).
 - `components/forms/AvatarUploader.tsx` — picks + compresses + uploads,
   writes the returned URL into the profile doc.
 - `lib/verification/documents.ts` + `components/forms/DocumentUploader.tsx` —
-  citizenship / certificate / demo uploads into `private-verification-docs`.
+  citizenship / certificate / demo uploads via the gateway function.
+- Edge Functions: `upload-verification-doc` (writes),
+  `verification-doc-url` (signed reads). Both verify the Firebase JWT
+  from the `Authorization: Bearer` header against Google's JWKS
+  (`supabase/functions/_shared/firebase-auth.ts`).
 
 **Flow** (tutor uploads avatar):
 1. User picks image in `expo-image-picker`.
@@ -266,15 +278,27 @@ user-visible gain — revisit only if consolidating vendors.
 5. URL is written into `users/{uid}/{role}Profile/default.avatarUrl` via
    the existing `writeBatch` in `screens/auth/*ProfileScreen.tsx`.
 
-**Flow** (tutor uploads verification doc):
+**Flow** (tutor uploads verification doc — server-side gateway,
+Aug 25 hardening):
 1. `DocumentUploader` → `pickAndUploadTutorDoc` validates size + MIME,
-   then `uploadVerificationDoc` writes `{uid}/{kind}.{ext}` (upsert).
-2. The returned `TutorDocument` is persisted to Firestore on submit.
-3. Upload failures (RLS, bucket missing, missing env) surface the
-   bucket/path in the alert, with a ready-to-paste RLS INSERT policy
-   hint for the anon key (see `storage.ts`). The anon key MUST have an
-   INSERT policy on both buckets — Firebase is not a Supabase Auth
-   session, so `authenticated`-only policies reject every upload.
+   then `uploadVerificationDoc` POSTs multipart/form-data to the
+   `upload-verification-doc` Edge Function with a fresh Firebase ID
+   token. The client never touches Storage directly for PII docs.
+2. The function verifies the JWT, then builds the path SERVER-SIDE:
+   `{tokenUid}/{allowListedKind}.{extFromMimeType}` — the uid comes
+   from the token, NEVER from the request body, so one user cannot
+   overwrite another's `{victimUid}/id.jpg`. Writes use the service
+   role (`STORAGE_SERVICE_JWT` secret; the opaque `sb_secret_` format
+   is rejected by the storage gateway).
+3. The returned path is persisted to Firestore on submit.
+4. Reads: PII docs render ONLY through `verification-doc-url`, which
+   authorizes owner-or-admin from the path and mints a 10-minute
+   signed URL. Demo videos resolve to plain public URLs in their own
+   bucket.
+5. Why not RLS: Supabase's `auth.uid()` is always NULL here because
+   the app authenticates via FIREBASE — storage policies cannot bind
+   an upload to its owner. Hence the gateway pattern (per-user path
+   isolation enforced in code) instead of per-user RLS.
 
 **Hard rule**: never write a Supabase URL into a Firestore doc that the
 user can later rename or delete; the URL must be stable for the lifetime

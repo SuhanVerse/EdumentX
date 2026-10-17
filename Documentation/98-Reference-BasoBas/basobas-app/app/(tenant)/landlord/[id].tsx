@@ -318,7 +318,7 @@ export default function PublicLandlordProfileScreen() {
               </View>
             ))}
 
-          {/* ─── Reviews Tab Placeholder ───────────────────────────────── */}
+          {/* ─── Reviews Tab ──────────────────────────────────────────── */}
           {activeTab === 'reviews' && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>

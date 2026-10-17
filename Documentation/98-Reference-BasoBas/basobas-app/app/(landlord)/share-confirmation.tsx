@@ -1,137 +1,289 @@
-import { useState } from 'react';
-import { Alert, ScrollView, View, Text, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { ChevronLeft, CheckCircle2, MapPin, Phone, Calendar, ShieldX } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Calendar, CheckCircle2, MapPin, Phone, X } from 'lucide-react-native';
 
-export default function ShareConfirmationScreen() {
+import { Avatar, ScreenShell, StatusPill } from '@/src/components/visit/LandlordUI';
+import { useVisitsStore } from '@/src/store/visitsStore';
+import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
+import { useAuthStore } from '@/src/store/authStore';
+import { getVisitRequest } from '@/src/services/visits.service';
+import { getPropertyWithUnlockedLocation } from '@/src/services/properties.service';
+import { c, font, radius, shadow } from '@/src/theme/visitTokens';
+import {
+  dayLabel,
+  TIME_SLOT_LABELS,
+  type LandlordVisitRequest,
+  type PropertyUnlocked,
+} from '@/src/types/property.types';
+
+export default function DetailsSharedScreen() {
   const router = useRouter();
-  const [locationShared] = useState(true);
-  const [contactShared] = useState(true);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const supabase = useClerkSupabase();
+  const profile = useAuthStore((st) => st.profile);
+
+  const storeRow = useVisitsStore((s) => s.landlordVisits.find((v) => v.id === id));
+
+  // Store row paints instantly when navigated from share-details; the direct
+  // fetch covers cold deep-links where the store is empty.
+  const [visit, setVisit] = useState<LandlordVisitRequest | null>(storeRow ?? null);
+  const [property, setProperty] = useState<PropertyUnlocked | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) return;
+    getVisitRequest(id, supabase).then((r) => {
+      if (!cancelled && r.success && r.data) setVisit(r.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!visit?.propertyId) return;
+    getPropertyWithUnlockedLocation(visit.propertyId, supabase).then((detail) => {
+      if (!cancelled && detail.success) setProperty(detail.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visit?.propertyId, supabase]);
+
+  const name = visit?.tenantName ?? 'the tenant';
+  const firstName = name.split(' ')[0] ?? name;
+  const visitLine = visit
+    ? `${dayLabel(visit.requestedDate)} · ${TIME_SLOT_LABELS[visit.timeSlot]}`
+    : '—';
+  const sharedAddress =
+    property?.locationAddress ?? property?.title ?? 'Your listing pin';
+  const phone = profile?.phone ?? 'No number on file';
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-white">
-      {/* ── Header Bar ──────────────────────────────────── */}
-      <View className="mb-4 flex-row items-center justify-between border-b border-gray-100 bg-white py-3">
-        <Pressable onPress={() => router.back()} className="ml-4 h-8 w-8 items-center justify-center">
-          <ChevronLeft size={22} color="#000000" />
-        </Pressable>
-        <Text className="self-center text-base font-bold text-gray-900">Details Sent</Text>
-        <View className="mr-4 w-6" />
+    <ScreenShell title="Visit Accepted" showBack paddingBottom={48}>
+      {/* Success hero — one block so the stack keeps its internal rhythm */}
+      <View style={styles.hero}>
+        <View style={styles.haloWrap}>
+          <View style={styles.halo}>
+            <View style={styles.haloInner}>
+              <CheckCircle2 size={28} color="#FFFFFF" strokeWidth={2.2} />
+            </View>
+          </View>
+        </View>
+        <Text style={styles.headline}>Details sent to {firstName}</Text>
+        <Text style={styles.subcopy}>
+          They&apos;ll get a notification with your pin location and contact number.
+        </Text>
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* ── Success Header ──────────────────────────────── */}
-        <View className="mb-6 items-center pt-4">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-[#E6F4EA]">
-            <CheckCircle2 size={32} color="#137333" />
+      {/* Tenant details card — same grammar as the Share Details screen */}
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <Avatar name={name} size={48} />
+          <View style={styles.summaryNameWrap}>
+            <Text numberOfLines={1} style={styles.summaryName}>
+              {name}
+            </Text>
+            <Text style={styles.summarySub}>Requesting tenant</Text>
           </View>
-          <Text className="mb-1 text-2xl font-extrabold tracking-tight text-gray-900">
-            Sent to Sandeep
-          </Text>
-          <Text className="text-sm font-medium leading-snug text-gray-500">
-            Details will be available for the visit window.
-          </Text>
+          <StatusPill status="Accepted" />
         </View>
 
-        {/* ── Visit Summary Card ─────────────────────────── */}
-        <View className="mb-6 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-          <Text className="mb-4 text-base font-bold text-gray-900">Visit Summary</Text>
-
-          {/* Visit Time */}
-          <View className="mb-4 flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6]">
-              <Calendar size={18} color="#6B7280" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs font-medium text-gray-500">Visit time</Text>
-              <Text className="mt-0.5 text-sm font-bold text-gray-900">
-                Tomorrow, June 16 · 4:00 PM - 5:00 PM
-              </Text>
-            </View>
-          </View>
-
-          <View className="mb-4 ml-1 h-px bg-gray-100" />
-
-          {/* Location Shared */}
-          <View className="mb-4 flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#E6F4EA]">
-              <MapPin size={18} color="#137333" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs font-medium text-gray-500">Location</Text>
-              <Text className="mt-0.5 text-sm font-bold text-gray-900">
-                Baluwatar Heights, Block B
-              </Text>
-            </View>
-            {locationShared && (
-              <View className="rounded-full bg-[#E6F4EA] px-3 py-1">
-                <Text className="text-xs font-semibold text-[#137333]">Shared</Text>
-              </View>
-            )}
-          </View>
-
-          <View className="mb-4 ml-1 h-px bg-gray-100" />
-
-          {/* Contact Shared */}
-          <View className="flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#E6F4EA]">
-              <Phone size={18} color="#137333" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs font-medium text-gray-500">Contact</Text>
-              <Text className="mt-0.5 text-sm font-bold text-gray-900">
-                +977 98XX-XX1234
-              </Text>
-            </View>
-            {contactShared && (
-              <View className="rounded-full bg-[#E6F4EA] px-3 py-1">
-                <Text className="text-xs font-semibold text-[#137333]">Shared</Text>
-              </View>
-            )}
+        <View style={styles.row}>
+          <Calendar size={15} color={c.meta} strokeWidth={2} />
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowLabel}>Requested</Text>
+            <Text style={styles.rowValue}>{visitLine}</Text>
           </View>
         </View>
 
-        {/* ── Recipient Reminder ─────────────────────────── */}
-        <View className="mb-6 flex-row items-center gap-3 rounded-2xl border border-gray-100/60 bg-[#F9FAFB] p-3.5">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-gray-200/70">
-            <Text className="text-xs font-bold text-gray-500">SK</Text>
+        <View style={[styles.row, styles.rowBorder]}>
+          <MapPin size={15} color={c.meta} strokeWidth={2} />
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowLabel}>Location</Text>
+            <Text numberOfLines={1} style={styles.rowValue}>
+              {sharedAddress}
+            </Text>
           </View>
-          <Text className="text-sm font-semibold text-gray-700">
-            Shared with <Text className="font-bold text-gray-900">Sandeep Khatri</Text>
-          </Text>
+          <View style={styles.onBadge}>
+            <Text style={styles.onText}>SHARED</Text>
+          </View>
         </View>
 
-        {/* ── Revoke Button ──────────────────────────────── */}
-        <Pressable
-          onPress={() =>
-            Alert.alert(
-              'Revoke shared details?',
-              'Sandeep will lose access to the location and contact info immediately.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Revoke',
-                  style: 'destructive',
-                  onPress: () => router.back(),
-                },
-              ],
-            )
-          }
-          className="flex-row items-center justify-center gap-2 rounded-pill border border-red-200 bg-red-50 py-3.5">
-          <ShieldX size={16} color="#DC2626" />
-          <Text className="text-sm font-semibold text-red-600">Revoke shared details</Text>
-        </Pressable>
-      </ScrollView>
-
-      {/* ── Sticky Done Button ───────────────────────────── */}
-      <View className="absolute inset-x-4 bottom-8">
-        <Pressable
-          onPress={() => router.back()}
-          className="h-14 items-center justify-center rounded-pill bg-black">
-          <Text className="text-base font-bold text-white">Done</Text>
-        </Pressable>
+        <View style={[styles.row, styles.rowBorder]}>
+          <Phone size={15} color={c.meta} strokeWidth={2} />
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowLabel}>Contact</Text>
+            <Text style={styles.rowValue}>{phone}</Text>
+          </View>
+          <View style={styles.onBadge}>
+            <Text style={styles.onText}>SHARED</Text>
+          </View>
+        </View>
       </View>
-    </SafeAreaView>
+
+      {/* Revoke */}
+      <TouchableOpacity
+        onPress={() => router.replace('/(landlord)/(tabs)/requests' as any)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Revoke shared details"
+        style={styles.revokeBtn}>
+        <X size={14} color="#C0392B" strokeWidth={2.4} />
+        <Text style={styles.revokeText}>Revoke shared details</Text>
+      </TouchableOpacity>
+
+      {/* Done */}
+      <TouchableOpacity
+        onPress={() => router.replace('/(landlord)/(tabs)/requests' as any)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Done"
+        style={styles.doneBtn}>
+        <Text style={styles.doneText}>Done</Text>
+      </TouchableOpacity>
+    </ScreenShell>
   );
 }
+
+const styles = StyleSheet.create({
+  haloWrap: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  halo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E8F5EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  haloInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: c.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headline: {
+    marginTop: 20,
+    fontFamily: font.serif,
+    fontSize: 24,
+    color: c.ink,
+    textAlign: 'center',
+  },
+  subcopy: {
+    marginTop: 8,
+    marginBottom: 24,
+    fontFamily: font.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: c.meta,
+    textAlign: 'center',
+    maxWidth: 280,
+    alignSelf: 'center',
+  },
+  hero: {
+    alignItems: 'center',
+  },
+  summaryCard: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: c.hairlineSoft,
+    overflow: 'hidden',
+    ...shadow.card,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.hairlineSoft,
+  },
+  summaryNameWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  summaryName: {
+    fontFamily: font.sansSemi,
+    fontSize: 17,
+    color: c.ink,
+  },
+  summarySub: {
+    marginTop: 2,
+    fontFamily: font.sans,
+    fontSize: 11,
+    color: c.faint,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  rowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: c.hairlineSoft,
+  },
+  rowCopy: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+  },
+  rowLabel: {
+    fontFamily: font.sans,
+    fontSize: 10,
+    color: c.faint,
+  },
+  rowValue: {
+    marginTop: 2,
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: c.ink,
+  },
+  onBadge: {
+    borderRadius: radius.pill,
+    backgroundColor: c.greenBg,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  onText: {
+    fontFamily: font.sansSemi,
+    fontSize: 9,
+    color: c.accent,
+  },
+  revokeBtn: {
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: '#FDECEC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revokeText: {
+    fontFamily: font.sansSemi,
+    fontSize: 12,
+    color: '#C0392B',
+    marginLeft: 6,
+  },
+  doneBtn: {
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: c.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneText: {
+    fontFamily: font.sansSemi,
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+});

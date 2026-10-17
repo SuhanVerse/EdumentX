@@ -39,8 +39,12 @@ import { motion } from "@/lib/motion";
 
 export type VideoViewerModalProps = {
   visible: boolean;
-  /** Public URL of the video to play. */
-  uri: string;
+  /**
+   * URL of the video to play. Empty/null while a signed URL resolves
+   * (Aug 24 audit) — the trigger renders a placeholder instead of
+   * mounting the player with an empty source.
+   */
+  uri?: string | null;
   /** Accessible label shown in the footer overlay. */
   label: string;
   /** Called when the user dismisses the player. */
@@ -56,7 +60,7 @@ export function VideoViewerModal({
   // Create a player for the given source. The hook manages the
   // player lifecycle automatically — it's created when the source
   // changes and cleaned up on unmount.
-  const player = useVideoPlayer({ uri });
+  const player = useVideoPlayer(uri ? { uri } : null);
 
   // Auto-play when the modal opens, pause when it closes.
   // Using a useEffect ensures this runs reactively every time

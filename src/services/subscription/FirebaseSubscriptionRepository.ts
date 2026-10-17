@@ -2,24 +2,27 @@
  * EdumentX — Firebase subscription repository
  *
  * Production impl. The tier lives on `users/{uid}/tutorProfile/default`
- * (owner-writable) and is mirrored onto `tutors/{uid}` (discovery doc)
- * via the same owner carve-out pattern as `isAvailableForNewStudents`
- * — so search/map can rank + badge without N profile reads.
+ * and is mirrored onto `tutors/{uid}` (discovery doc) so search/map can
+ * rank + badge without N profile reads.
  *
- * The eSewa order is created by the `create-esewa-order` Supabase
- * Edge Function (HMAC-SHA256 signing server-side, secret never on the
- * client). Callback verification runs through the same function so a
- * forged `data` param can't grant Pro.
+ * ── SECURITY (Aug 24 audit): the tier is granted SERVER-SIDE only —
+ * the `create-esewa-order` edge function patches both docs via a
+ * service-role REST write after full payment verification. There is
+ * deliberately NO client grant method: firestore.rules reject owner
+ * writes to `subscriptionTier` / `subscriptionExpiresAt` on both
+ * surfaces, so a tampered client cannot mint Pro.
+ *
+ * The eSewa order is created by the same edge function (HMAC-SHA256
+ * signing server-side, secret never on the client). Callback
+ * verification runs through it so a forged `data` param can't grant
+ * Pro.
  */
 
 import {
-  deleteField,
   doc,
   getDoc,
   getFirestore,
   onSnapshot,
-  serverTimestamp,
-  setDoc,
 } from "@react-native-firebase/firestore";
 import { getApp } from "@react-native-firebase/app";
 import { getAuth, getIdToken } from "@react-native-firebase/auth";
@@ -38,11 +41,6 @@ const EDGE_FUNCTION = "create-esewa-order";
 /** `users/{uid}/tutorProfile/default` → tier field path. */
 function profileRef(db: ReturnType<typeof getFirestore>, tutorUid: string) {
   return doc(db, "users", tutorUid, "tutorProfile", "default");
-}
-
-/** `tutors/{uid}` discovery doc (mirror). */
-function discoveryRef(db: ReturnType<typeof getFirestore>, tutorUid: string) {
-  return doc(db, "tutors", tutorUid);
 }
 
 function mapTier(raw: unknown): SubscriptionTier {
@@ -122,33 +120,6 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
     return res as VerifyEsewaResult;
   },
 
-  async applyProGrant(tutorUid: string, months: number) {
-    const db = getFirestore(getApp());
-    const now = Date.now();
-    const expiresAt = now + months * 30 * 24 * 60 * 60 * 1000;
-    // Owner writes BOTH docs. The discovery doc update is gated by the
-    // `hasOnly(["subscriptionTier", "subscriptionExpiresAt", "updatedAt"])`
-    // carve-out in firestore.rules — same shape as the availability flag.
-    await setDoc(
-      profileRef(db, tutorUid),
-      {
-        subscriptionTier: "pro",
-        subscriptionExpiresAt: expiresAt,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    await setDoc(
-      discoveryRef(db, tutorUid),
-      {
-        subscriptionTier: "pro",
-        subscriptionExpiresAt: expiresAt,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-  },
-
   async readTier(tutorUid: string): Promise<SubscriptionTier> {
     const db = getFirestore(getApp());
     const snap = await getDoc(profileRef(db, tutorUid));
@@ -156,7 +127,3 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
     return mapTier(d?.subscriptionTier);
   },
 };
-
-/** Re-exported so `deleteField` typing stays consistent if a revoke
- *  path is added later. */
-export { deleteField };

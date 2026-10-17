@@ -143,7 +143,7 @@ export default {
             transaction.clerk_id,
             product.id,
             transaction.id,
-            product.duration_months,
+            product.duration_days,
           );
         } catch (passError) {
           console.error(

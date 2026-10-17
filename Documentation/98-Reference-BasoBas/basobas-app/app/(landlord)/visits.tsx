@@ -1,25 +1,44 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  ScrollView,
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import { ScrollView, View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '@clerk/expo';
-import { Calendar, User } from 'lucide-react-native';
+import { Clock } from 'lucide-react-native';
 
 import { ScreenHeader } from '../../src/components/layout/ScreenHeader';
+import { VisitStatusChip } from '@/src/components/visits/VisitStatusChip';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { getVisitRequestsForLandlord } from '@/src/services/visits.service';
 import {
-  formatVisitDate,
   TIME_SLOT_LABELS,
   type LandlordVisitRequest,
+  type TenantVisitStatusUi,
+  type VisitStatusLabel,
 } from '@/src/types/property.types';
+
+// History pills use the same chip grammar as the tenant visit chips.
+const LABEL_TO_CHIP: Record<VisitStatusLabel, TenantVisitStatusUi> = {
+  'Pending Approval': 'pending',
+  Scheduled: 'accepted',
+  'New Time Proposed': 'rescheduled',
+  Completed: 'completed',
+  Cancelled: 'cancelled',
+  'Still Deciding': 'discussion',
+  'Rental Finalized': 'finalized',
+  Declined: 'rejected',
+  'Not Interested': 'cancelled',
+  'Need Another Visit': 'cancelled',
+};
+
+/** Day tile parts: "JUN" + 16, and a "Mon · 4:00 PM" meta line. */
+const visitDay = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return {
+    month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    day: d.getDate(),
+    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
+  };
+};
 
 export default function LandlordVisitsScreen() {
   const router = useRouter();
@@ -50,7 +69,7 @@ export default function LandlordVisitsScreen() {
       setLoading(false);
       setRefreshing(false);
     },
-    [clerkId, supabase],
+    [clerkId, supabase]
   );
 
   useEffect(() => {
@@ -64,7 +83,12 @@ export default function LandlordVisitsScreen() {
         className="px-6"
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load('refresh')} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => load('refresh')}
+            tintColor="#1A6B4A"
+            colors={['#1A6B4A']}
+          />
         }>
         {loading ? (
           <View className="items-center py-20">
@@ -78,7 +102,7 @@ export default function LandlordVisitsScreen() {
             <Text className="mb-5 text-center text-body-sm text-ink2">{errorMessage}</Text>
             <Pressable
               onPress={() => load('initial')}
-              className="h-[48px] items-center justify-center rounded-pill bg-black px-8">
+              className="h-[48px] items-center justify-center rounded-pill bg-ink px-8">
               <Text className="font-semibold text-body text-white">Try again</Text>
             </Pressable>
           </View>
@@ -87,60 +111,54 @@ export default function LandlordVisitsScreen() {
             <Text className="text-body-sm text-ink3">No visits yet</Text>
           </View>
         ) : (
-          visits.map((visit) => (
-          <Pressable
-            key={visit.id}
-            onPress={() =>
-              router.push({
-                pathname: '/(landlord)/request/[id]',
-                params: { id: visit.id },
-              } as any)
-            }
-            className="mb-4 rounded-card border border-line bg-bg p-4">
-            <View className="mb-2 flex-row items-center justify-between">
-              <Text className="font-semibold text-body text-ink">
-                {visit.propertyTitle ?? 'Your listing'}
-              </Text>
-              <View
-                className={`rounded-pill px-2.5 py-0.5 ${
-                  visit.statusLabel === 'Completed'
-                    ? 'bg-green-100'
-                    : visit.statusLabel === 'Scheduled'
-                      ? 'bg-blue-100'
-                      : visit.statusLabel === 'Cancelled'
-                        ? 'bg-red-100'
-                        : 'bg-amber-100'
-                }`}>
-                <Text
-                  className={`font-semibold text-[11px] ${
-                    visit.statusLabel === 'Completed'
-                      ? 'text-green-800'
-                      : visit.statusLabel === 'Scheduled'
-                        ? 'text-blue-800'
-                        : visit.statusLabel === 'Cancelled'
-                          ? 'text-red-800'
-                          : 'text-amber-800'
-                  }`}>
-                  {visit.statusLabel}
-                </Text>
-              </View>
-            </View>
+          visits.map((visit) => {
+            const day = visitDay(visit.requestedDate);
+            return (
+              <Pressable
+                key={visit.id}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(landlord)/request/[id]',
+                    params: { id: visit.id },
+                  } as any)
+                }
+                className="mb-3 rounded-card border border-line bg-bg p-card-pad">
+                <View className="flex-row items-center">
+                  {/* Date tile — the visual anchor */}
+                  <View className="h-[52px] w-[46px] items-center justify-center rounded-lg bg-canvas">
+                    <Text className="font-semibold text-micro uppercase tracking-wide text-ink3">
+                      {day.month}
+                    </Text>
+                    <Text className="mt-0.5 font-bold text-[17px] text-ink">{day.day}</Text>
+                  </View>
 
-            <View className="mb-1.5 flex-row items-center gap-1.5">
-              <User size={14} color="#6B6B6B" />
-              <Text className="text-body-sm text-ink2">
-                {visit.tenantName ?? 'Tenant'}
-              </Text>
-            </View>
+                  {/* Property + status */}
+                  <View className="ml-3 flex-1 flex-row items-start justify-between gap-2">
+                    <View className="flex-1">
+                      <Text numberOfLines={1} className="font-semibold text-body text-ink">
+                        {visit.propertyTitle ?? 'Your listing'}
+                      </Text>
+                      <Text numberOfLines={1} className="mt-0.5 font-sans text-caption text-ink2">
+                        {visit.tenantName ?? 'Tenant'}
+                      </Text>
+                    </View>
+                    <VisitStatusChip
+                      status={LABEL_TO_CHIP[visit.statusLabel]}
+                      label={visit.statusLabel}
+                    />
+                  </View>
+                </View>
 
-            <View className="flex-row items-center gap-1.5">
-              <Calendar size={14} color="#6B6B6B" />
-              <Text className="text-body-sm text-ink2">
-                {formatVisitDate(visit.requestedDate)} · {TIME_SLOT_LABELS[visit.timeSlot]}
-              </Text>
-            </View>
-          </Pressable>
-          ))
+                {/* Meta line: weekday + slot */}
+                <View className="mt-3 flex-row items-center gap-1.5">
+                  <Clock size={13} color="#AAAAAA" />
+                  <Text className="font-sans text-caption text-ink3">
+                    {day.weekday} · {TIME_SLOT_LABELS[visit.timeSlot]}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

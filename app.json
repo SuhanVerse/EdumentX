@@ -15,6 +15,7 @@
     },
     "android": {
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.edumentx",
       "googleServicesFile": "./google-services.json",
@@ -30,7 +31,8 @@
       "expo-router",
       "expo-dev-client",
       "expo-font",
-      "expo-notifications",        [
+      "expo-notifications",
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",

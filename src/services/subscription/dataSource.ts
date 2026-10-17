@@ -24,6 +24,10 @@ if (isMockEnabled) {
   );
 }
 
+/** True when mock mode is active — gates the "Demo — Skip eSewa"
+ *  grant button (production never shows it; see ProUpgradeScreen). */
+export const isMockSubscriptionEnabled = isMockEnabled;
+
 /** Returns the active `SubscriptionRepository` singleton (chosen once
  *  at module load — restart the app to change it). */
 export function getSubscriptionRepository(): SubscriptionRepository {

@@ -14,30 +14,19 @@ import { ProPill } from '@/src/components/shared/ProPill';
 import { useUserStore } from '@/src/store/userStore';
 import { usePurchasePlan } from '@/src/hooks/usePurchasePlan';
 
-type PlanId = 'monthly' | 'quarterly';
+type PlanId = '15day' | '30day';
 
 type Plan = {
   id: PlanId;
   label: string;
   price: string;
-  /** Strikethrough price, only for the selected/savings case. */
-  compareAt?: string;
-  /** "NPR 249 / month" — only for quarterly. */
-  perMonth?: string;
-  /** "Save NPR 198" — only for quarterly. */
-  saveLine?: string;
+  /** "for 15 days" — shown under the big price. */
+  subtitle: string;
 };
 
 const PLANS: Plan[] = [
-  { id: 'monthly', label: '1 Month', price: 'NPR 249' },
-  {
-    id: 'quarterly',
-    label: '3 Months',
-    price: 'NPR 549',
-    compareAt: 'NPR 747',
-    perMonth: 'NPR 183 / month',
-    saveLine: 'Save NPR 198',
-  },
+  { id: '15day', label: '15 Days', price: 'NPR 149', subtitle: 'for 15 days' },
+  { id: '30day', label: '30 Days', price: 'NPR 249', subtitle: 'for 30 days' },
 ];
 
 type Feature = {
@@ -88,15 +77,12 @@ const FEATURES: Feature[] = [
 
 export default function ProPlanScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<PlanId>('quarterly');
+  const [selected, setSelected] = useState<PlanId>('30day');
   const isPro = useUserStore((s) => s.profile.pro.active);
   const proExpiresAt = useUserStore((s) => s.profile.pro.expiresAt);
   const { loading, error, formFields, purchasePlan, reset } = usePurchasePlan();
 
   const currentPlan = PLANS.find((p) => p.id === selected)!;
-
-  // ── Map UI PlanId to Edge Function plan identifier ─────────────
-  const esewaPlan = selected === 'monthly' ? 'monthly' : '3month';
 
   // ── Navigate to WebView when form fields arrive from eSewa ────
   const prevFieldsRef = useRef<typeof formFields>(null);
@@ -117,7 +103,7 @@ export default function ProPlanScreen() {
   }, [reset]);
 
   const onStart = async () => {
-    await purchasePlan(esewaPlan);
+    await purchasePlan(selected);
   };
 
   // ── Format expiry date for already-Pro users ──────────────────
@@ -218,29 +204,15 @@ export default function ProPlanScreen() {
             })}
           </View>
 
-          {/* Price display (only for the selected plan with a compare-at) */}
-          {currentPlan.compareAt ? (
-            <View className="mt-5 items-center">
-              <Text className="font-display text-[48px] leading-[52px] text-ink">
-                {currentPlan.price}
-              </Text>
-              <Text
-                className="mt-2 font-sans text-[14px] text-ink3"
-                style={{ textDecorationLine: 'line-through' }}>
-                {currentPlan.compareAt}
-              </Text>
-              <Text className="mt-1.5 font-sans text-[13px] text-ink3">
-                {currentPlan.perMonth} · {currentPlan.saveLine}
-              </Text>
-            </View>
-          ) : (
-            <View className="mt-5 items-center">
-              <Text className="font-display text-[48px] leading-[52px] text-ink">
-                {currentPlan.price}
-              </Text>
-              <Text className="mt-2 font-sans text-[13px] text-ink3">per month</Text>
-            </View>
-          )}
+          {/* Price display for the selected plan */}
+          <View className="mt-5 items-center">
+            <Text className="font-display text-[48px] leading-[52px] text-ink">
+              {currentPlan.price}
+            </Text>
+            <Text className="mt-2 font-sans text-[13px] text-ink3">
+              {currentPlan.subtitle}
+            </Text>
+          </View>
 
           {/* Feature list */}
           <View className="mt-6">
@@ -299,7 +271,7 @@ export default function ProPlanScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            selected === 'quarterly' ? 'Start 3-Month Pass' : 'Start Monthly Pass'
+            selected === '15day' ? 'Start 15-Day Pass' : 'Start 30-Day Pass'
           }
           onPress={onStart}
           disabled={loading}
@@ -314,7 +286,7 @@ export default function ProPlanScreen() {
             </View>
           ) : (
             <Text className="font-sans text-[16px] font-semibold text-white">
-              {selected === 'quarterly' ? 'Start 3-Month Pass →' : 'Start Monthly Pass →'}
+              {selected === '15day' ? 'Start 15-Day Pass →' : 'Start 30-Day Pass →'}
             </Text>
           )}
         </Pressable>

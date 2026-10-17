@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 
 import { AnimatedPressable, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
+import { colors } from "@/constants/colors";
 
 /**
  * EdumentX — Review Banner
@@ -125,7 +126,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         buttonBgClass: "bg-ai/15",
         buttonTextClass: "text-ai",
         icon: "information-circle" as const,
-        iconColor: "#4A7FA5",
+        iconColor: colors.brand.ai,
       };
     case "rejected":
       return {
@@ -138,7 +139,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         buttonBgClass: "bg-danger/15",
         buttonTextClass: "text-danger",
         icon: "close-circle" as const,
-        iconColor: "#C1503D",
+        iconColor: colors.semantic.danger,
       };
     case "pending":
     default:
@@ -154,7 +155,7 @@ function getToneConfig(tone: ReviewBannerTone) {
         buttonBgClass: "bg-warning/15",
         buttonTextClass: "text-warning-text",
         icon: "time-outline" as const,
-        iconColor: "#E5A03B",
+        iconColor: colors.brand.accent,
       };
   }
 }

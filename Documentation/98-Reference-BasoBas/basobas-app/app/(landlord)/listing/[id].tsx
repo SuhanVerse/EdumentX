@@ -15,6 +15,7 @@ import {
   MapPin,
   Star,
   Bed,
+  BedDouble,
   Bath,
   Wifi,
   Car,
@@ -29,6 +30,19 @@ import {
   Shield,
   CookingPot,
   Info,
+  Droplets,
+  Zap,
+  Globe,
+  ArrowUpDown,
+  Sun,
+  WashingMachine,
+  Flame,
+  Thermometer,
+  Wind,
+  Tv,
+  Dumbbell,
+  Sparkles,
+  LampDesk,
 } from 'lucide-react-native';
 
 import { PropertyHero } from '@/src/components/property/PropertyHero';
@@ -53,25 +67,60 @@ const HERO_HEIGHT = SCREEN_HEIGHT * 0.42;
 
 const FORMATTER = new Intl.NumberFormat('en-IN');
 
-// ─── Icon map (DB amenity strings → Lucide components) ───────────────────────
-
+/**
+ * Amenity strings are free text from the listing wizard (step-2), so the map
+ * is keyed on a normalized form (lowercase, collapsed whitespace) of every
+ * value the wizard can save — plus legacy short keys. Anything unknown falls
+ * back to a text-only chip rather than crashing.
+ */
 const AMENITY_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
   bed: Bed,
   bath: Bath,
   wifi: Wifi,
+  'wi-fi': Wifi,
+  internet: Globe,
+  'internet ready': Globe,
   car: Car,
+  parking: Car,
+  kitchen: CookingPot,
+  ac: Wind,
+  heater: Thermometer,
+  tv: Tv,
+  laundry: WashingMachine,
+  gym: Dumbbell,
+  security: Shield,
+  garden: TreePine,
+  lift: ArrowUpDown,
+  elevator: ArrowUpDown,
+  power: Zap,
+  'power backup': Zap,
+  'backup power': Zap,
+  water: Droplets,
+  'water supply': Droplets,
+  'water tank': Droplets,
+  solar: Sun,
+  balcony: Sun,
+  rooftop: Building2,
+  'hot water': Flame,
+  cleaning: Sparkles,
+  'study desk': LampDesk,
+  'murphy bed': BedDouble,
+  'servant room': BedDouble,
 };
 
-/**
- * Translate the DB's free-text amenity array into iconified rows. The DB
- * doesn't constrain amenity strings, so anything we don't recognise falls
- * back to a text-only chip rather than crashing.
- */
+/** Normalize an amenity string into a stable lookup/render key. */
+const normalizeAmenityKey = (raw: string): string =>
+  raw.trim().toLowerCase().replace(/\s+/g, ' ');
+
 const AMENITY_LABELS: Record<string, string> = {
   bed:    'Bed',
   bath:   'Bath',
   wifi:   'Wi-Fi',
+  'wi-fi': 'Wi-Fi',
+  internet: 'Internet',
+  'internet ready': 'Internet Ready',
   car:    'Parking',
+  parking: 'Parking',
   kitchen:'Kitchen',
   ac:     'AC',
   heater: 'Heater',
@@ -81,8 +130,21 @@ const AMENITY_LABELS: Record<string, string> = {
   security:'Security',
   garden: 'Garden',
   lift:   'Lift',
+  elevator: 'Elevator',
   power:  'Power Backup',
+  'power backup': 'Power Backup',
+  'backup power': 'Backup Power',
   water:  'Water Supply',
+  'water supply': 'Water Supply',
+  'water tank': 'Water Tank',
+  solar:  'Solar',
+  balcony: 'Balcony',
+  rooftop: 'Rooftop',
+  'hot water': 'Hot Water',
+  cleaning: 'Cleaning',
+  'study desk': 'Study Desk',
+  'murphy bed': 'Murphy Bed',
+  'servant room': 'Servant Room',
 };
 
 interface AmenityRow {
@@ -102,12 +164,25 @@ function toAmenityRows(rawAmenities: string[], bedrooms: number | null, bathroom
   if (bathrooms != null) {
     rows.push({ key: 'bath', label: `${bathrooms} Bath`, icon: Bath });
   }
+  const seen = new Set(rows.map((r) => r.key));
   for (const raw of rawAmenities) {
-    const key = raw.toLowerCase();
-    if (key === 'bed' || key === 'bath' || key === 'bedroom' || key === 'bathroom') continue;
+    if (typeof raw !== 'string' || raw.trim() === '') continue;
+    const key = normalizeAmenityKey(raw);
+    if (
+      seen.has(key) ||
+      key === 'bed' ||
+      key === 'bath' ||
+      key === 'bedroom' ||
+      key === 'bedrooms' ||
+      key === 'bathroom' ||
+      key === 'bathrooms'
+    ) {
+      continue;
+    }
+    seen.add(key);
     rows.push({
       key,
-      label: AMENITY_LABELS[key] ?? raw,
+      label: AMENITY_LABELS[key] ?? raw.trim(),
       icon: AMENITY_ICONS[key] ?? null,
     });
   }

@@ -23,18 +23,18 @@
 import { getApp } from "@react-native-firebase/app";
 import {
   collectionGroup,
-  deleteDoc,
   doc,
   getDoc,
   getFirestore,
-  increment,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
 } from "@react-native-firebase/firestore";
+
+import { MAX_BATCH_MEMBERS } from "@/services/enrollments/types";
 
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import { mapBatch } from "@/services/enrollments/FirebaseEnrollmentRepository";
@@ -189,6 +189,7 @@ export const FirebaseBatchesRepository: BatchesRepository = {
 
   async addBatchMember(input: AddMemberInput) {
     const db = getFirestore(getApp());
+    const batchRef = doc(db, "batches", input.tutorUid, "classes", input.batchId);
     // Keyed by enrollmentId — re-adding the same student is a no-op.
     const memberRef = doc(
       db,
@@ -199,33 +200,71 @@ export const FirebaseBatchesRepository: BatchesRepository = {
       "members",
       input.enrollmentId,
     );
-    await setDoc(
-      memberRef,
-      {
+    // ── Aug 24 audit fix: transactional add with seat cap. ──
+    // The previous get-then-set (setDoc merge + unconditional
+    // increment) inflated memberCount on re-adds and could push a
+    // batch past MAX_BATCH_MEMBERS.
+    await runTransaction(db, async (tx) => {
+      const [batchSnap, memberSnap] = await Promise.all([
+        tx.get(batchRef),
+        tx.get(memberRef),
+      ]);
+      if (!batchSnap.exists()) {
+        throw new Error("Batch not found");
+      }
+      if (memberSnap.exists()) {
+        // Already a member — idempotent no-op, counter untouched.
+        return;
+      }
+      const batchData = batchSnap.data();
+      const memberCount =
+        typeof batchData?.memberCount === "number"
+          ? batchData.memberCount
+          : 0;
+      if (memberCount >= MAX_BATCH_MEMBERS) {
+        throw new Error("This group is full.");
+      }
+      tx.set(memberRef, {
         memberId: memberRef.id,
         enrollmentId: input.enrollmentId,
         studentUid: input.studentUid,
         studentName: input.studentName,
         studentAvatar: input.studentAvatar,
         joinedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    // Keep the denormalized memberCount in sync (marketplace
-    // capacity bar). Re-adding the same student is idempotent —
-    // the counter only bumps when the member doc is new.
-    await updateDoc(doc(db, "batches", input.tutorUid, "classes", input.batchId), {
-      memberCount: increment(1),
-      updatedAt: serverTimestamp(),
+      });
+      tx.update(batchRef, {
+        memberCount: memberCount + 1,
+        updatedAt: serverTimestamp(),
+      });
     });
   },
 
   async removeBatchMember(tutorUid: string, batchId: string, memberId: string) {
     const db = getFirestore(getApp());
-    await deleteDoc(doc(db, "batches", tutorUid, "classes", batchId, "members", memberId));
-    await updateDoc(doc(db, "batches", tutorUid, "classes", batchId), {
-      memberCount: increment(-1),
-      updatedAt: serverTimestamp(),
+    const batchRef = doc(db, "batches", tutorUid, "classes", batchId);
+    const memberRef = doc(db, "batches", tutorUid, "classes", batchId, "members", memberId);
+    // ── Aug 24 audit fix: transactional remove. The old
+    // deleteDoc+unconditional decrement drove memberCount negative
+    // when the member doc didn't exist and threw raw on ended batches.
+    await runTransaction(db, async (tx) => {
+      const [batchSnap, memberSnap] = await Promise.all([
+        tx.get(batchRef),
+        tx.get(memberRef),
+      ]);
+      if (!batchSnap.exists() || !memberSnap.exists()) {
+        // Nothing to remove — treat as an idempotent no-op.
+        return;
+      }
+      const batchData = batchSnap.data();
+      const memberCount =
+        typeof batchData?.memberCount === "number"
+          ? batchData.memberCount
+          : 0;
+      tx.delete(memberRef);
+      tx.update(batchRef, {
+        memberCount: Math.max(0, memberCount - 1),
+        updatedAt: serverTimestamp(),
+      });
     });
   },
 

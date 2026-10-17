@@ -21,7 +21,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager } from "react-native";
 import { ActivityIndicator, Modal, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -33,7 +32,11 @@ import {
 } from "@/components/shared/ScreenLayout";
 import { colors } from "@/constants/colors";
 import { theme } from "@/constants/theme";
-import { getSubscriptionRepository } from "@/services/subscription/dataSource";
+import {
+  getSubscriptionRepository,
+  isMockSubscriptionEnabled,
+} from "@/services/subscription/dataSource";
+import { applyDemoProGrant } from "@/services/subscription/MockSubscriptionRepository";
 import type {
   EsewaFormFields,
   ProPlanId,
@@ -59,9 +62,6 @@ const WEBVIEW_UA = Platform.select({
 // These are synthetic https hosts — the WebView intercepts the
 // redirect in `onShouldStartLoadWithRequest` and cancels it BEFORE
 // any network request happens, so the host never needs to resolve.
-const SUCCESS_PREFIX = "https://edumentx.dev/payment-success";
-const FAILED_PREFIX = "https://edumentx.dev/payment-failed";
-
 /** Parse a query string into key/value pairs. */
 function parseQuery(url: string): Record<string, string> {
   const params: Record<string, string> = {};
@@ -196,9 +196,10 @@ export function ProUpgradeScreen() {
       setWebViewLoading(false);
       const data = query.data;
       if (status === "success") {
-        // Verify the callback payload server-side before granting Pro:
-        // HMAC signature + ledger one-time-use + amount/product
-        // cross-check + eSewa status API.
+        // Verify the callback payload server-side — HMAC signature +
+        // ledger one-time-use + amount/product cross-check + eSewa
+        // status API. On success the SAME edge-function call grants
+        // the tier server-side (no client grant exists).
         setVerifying(true);
         try {
           const result: VerifyEsewaResult = data
@@ -213,17 +214,19 @@ export function ProUpgradeScreen() {
             return;
           }
           // Replays of an already-reconciled transaction report valid
-          // with alreadyGranted=true — never re-grant (no stacking).
-          if (!result.alreadyGranted) {
-            // The months come from OUR product table (server PRODUCTS
-            // is the price source), not from the eSewa payload.
-            await repo.applyProGrant(
-              tutorUid ?? "",
-              PRO_PLANS[selected].months,
-            );
-          }
+          // with alreadyGranted=true — success either way (no stacking:
+          // the uuid stays one-time-use). The tier itself was granted
+          // SERVER-SIDE by the edge function before it reported valid
+          // (Aug 24 audit fix — no client grant path exists any more);
+          // the live subscribeSubscription snapshot flips the UI to Pro.
           setSuccess(true);
           setFormHtml(null);
+          // Aug 25: dedicated activation screen (tier already granted
+          // server-side; live snapshot confirms).
+          router.replace({
+            pathname: "/pro-success" as never,
+            params: { plan: selected },
+          });
         } catch (err) {
           setError(
             err instanceof Error
@@ -238,7 +241,7 @@ export function ProUpgradeScreen() {
         setFormHtml(null);
       }
     },
-    [repo, selected, tutorUid],
+    [repo, router, selected],
   );
 
   // Intercept the deep-link redirect BEFORE the WebView loads it.
@@ -419,7 +422,7 @@ export function ProUpgradeScreen() {
                 Sandbox test payment — no real charge. eSewa test PIN works in the
                 payment page.
               </Text>
-              {!isPro && (
+              {!isPro && isMockSubscriptionEnabled && (
                 <Pressable
                   accessibilityRole="button"
                   disabled={creating || verifying}
@@ -427,11 +430,19 @@ export function ProUpgradeScreen() {
                     if (!tutorUid || creating || verifying) return;
                     setCreating(true);
                     try {
-                      await repo.applyProGrant(
+                      // MOCK MODE ONLY — mock mode has no rules and no
+                      // edge function, so a local store grant is correct
+                      // there. In production this button never renders;
+                      // firestore.rules reject client tier writes.
+                      await applyDemoProGrant(
                         tutorUid,
                         PRO_PLANS[selected].months,
                       );
                       setSuccess(true);
+                      router.replace({
+                        pathname: "/pro-success" as never,
+                        params: { plan: selected },
+                      });
                     } catch (err) {
                       setError(
                         err instanceof Error

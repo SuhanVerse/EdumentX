@@ -42,7 +42,7 @@ export function useProfileBootstrap() {
 
         if (passData) {
           const pd = passData as any;
-          const totalDays = pd.product_id === '3month' ? 90 : 30;
+          const totalDays = pd.product_id === '15day' ? 15 : 30;
           activatePro(totalDays);
         }
       } catch (err) {

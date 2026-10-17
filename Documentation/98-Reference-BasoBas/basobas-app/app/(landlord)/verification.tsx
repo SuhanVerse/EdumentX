@@ -32,8 +32,8 @@ import { PrimaryButton } from '@/src/components/shared/PrimaryButton';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { getLatestKYCSubmission } from '@/src/services/kyc.service';
 import {
-  getLandlordVerificationStatus,
-  type LandlordVerificationStatus,
+  getLandlordVerificationDetail,
+  type LandlordVerificationDetail,
 } from '@/src/services/properties.service';
 import type { KYCStatus, KYCStatusUi, KYCSubmission } from '@/src/types/kyc.types';
 import { toKYCStatusUi } from '@/src/types/kyc.types';
@@ -69,7 +69,7 @@ export default function LandlordVerificationScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [profileStatus, setProfileStatus] = useState<LandlordVerificationStatus | null>(null);
+  const [profileStatus, setProfileStatus] = useState<LandlordVerificationDetail | null>(null);
 
   const load = useCallback(
     async (mode: 'initial' | 'refresh' | 'poll') => {
@@ -80,7 +80,7 @@ export default function LandlordVerificationScreen() {
 
       const [subResult, profileResult] = await Promise.all([
         getLatestKYCSubmission(clerkId, supabase),
-        getLandlordVerificationStatus(clerkId, supabase),
+        getLandlordVerificationDetail(clerkId, supabase),
       ]);
 
       if (!subResult.success) {
@@ -111,7 +111,11 @@ export default function LandlordVerificationScreen() {
       pollHandleRef.current = null;
     }
 
-    if (submission?.status === 'UNDER_REVIEW') {
+    if (
+      submission?.status === 'UNDER_REVIEW' ||
+      submission?.status === 'PENDING' ||
+      submission?.status === 'FLAGGED'
+    ) {
       pollHandleRef.current = setInterval(() => {
         load('poll');
       }, POLL_INTERVAL_MS);
@@ -129,11 +133,26 @@ export default function LandlordVerificationScreen() {
     load('refresh');
   }, [load]);
 
-  const uiStatus: KYCStatusUi = submission
-    ? toKYCStatusUi(submission.status, true)
-    : profileStatus
-      ? toKYCStatusUi(profileStatus as KYCStatus, true)
-      : 'not_submitted';
+  // landlord_profiles.verification_status is the app-wide source of truth
+  // (profile badge, publish gate). If it says VERIFIED but the latest kyc
+  // row is stale or in-flight (e.g. a failed resubmission), trust the
+  // profile so the timeline reaches Decision instead of appearing stuck.
+  const isProfileVerified = profileStatus?.status === 'VERIFIED';
+
+  const effectiveStatus: KYCStatus = isProfileVerified
+    ? 'VERIFIED'
+    : ((submission?.status ?? 'UNVERIFIED') as KYCStatus);
+
+  const uiStatus: KYCStatusUi = toKYCStatusUi(
+    effectiveStatus,
+    !!submission || isProfileVerified
+  );
+
+  // Timeline inputs — fall back to the profile's timestamps when there is
+  // no submission row (e.g. approved directly on landlord_profiles).
+  const timelineSubmittedAt = submission?.submittedAt ?? profileStatus?.submittedAt ?? null;
+  const timelineReviewedAt =
+    submission?.reviewedAt ?? (isProfileVerified ? profileStatus?.reviewedAt : null);
 
   const handleSubmit = useCallback(() => {
     router.push('/(landlord)/kyc-upload' as any);
@@ -167,7 +186,7 @@ export default function LandlordVerificationScreen() {
     );
   }
 
-  const showTimeline = submission !== null;
+  const showTimeline = timelineSubmittedAt != null;
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
@@ -190,14 +209,15 @@ export default function LandlordVerificationScreen() {
         }>
         <KYCStatusHero status={uiStatus} />
 
-        {showTimeline && submission && (
+        {showTimeline && (
           <View style={styles.section}>
             <SectionLabel label="Progress" className="mb-3 ml-1" />
             <View style={styles.timelineCard}>
               <KYCStatusTimeline
-                status={submission.status as KYCStatus}
-                submittedAt={submission.submittedAt}
-                reviewedAt={submission.reviewedAt}
+                status={effectiveStatus}
+                submittedAt={timelineSubmittedAt!}
+                reviewedAt={timelineReviewedAt}
+                decidedAt={timelineReviewedAt}
               />
             </View>
           </View>
@@ -286,7 +306,8 @@ export default function LandlordVerificationScreen() {
         </Pressable>
       </ScrollView>
 
-      {uiStatus !== 'verified' && (
+      {/* Verified landlords have nothing left to do here — no CTA at all. */}
+      {!isProfileVerified && uiStatus !== 'verified' && (
         <View style={[styles.bottomCta, { paddingBottom: insets.bottom + 16 }]}>
           <PrimaryButton
             label={

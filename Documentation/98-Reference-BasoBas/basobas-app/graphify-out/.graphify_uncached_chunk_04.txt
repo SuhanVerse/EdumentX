@@ -1,6 +1,0 @@
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/CLAUDE.md
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/README.md
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/adaptive-icon.png
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/favicon.png
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/icon.png
-/Users/utsavbhattarai/Developer/Code/react-native/basobas-app/assets/splash.png

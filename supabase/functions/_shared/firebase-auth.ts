@@ -38,7 +38,13 @@ export class AuthError extends Error {
 
 export async function verifyFirebaseJwt(
   req: Request,
-): Promise<{ uid: string; email?: string }> {
+): Promise<{
+  uid: string;
+  email?: string;
+  /** Full decoded token claims (custom claims like `admin: true`
+   *  minted by scripts/seedAdmin.ts live here). */
+  claims: Record<string, unknown>;
+}> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     throw new AuthError("Missing or invalid Authorization header", 401);
@@ -52,9 +58,11 @@ export async function verifyFirebaseJwt(
       issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
       audience: FIREBASE_PROJECT_ID,
     });
+    const { sub, email, ...claims } = payload as Record<string, unknown>;
     return {
-      uid: payload.sub as string,
-      email: payload.email as string | undefined,
+      uid: sub as string,
+      email: email as string | undefined,
+      claims,
     };
   } catch (err) {
     console.warn("[firebase-auth] JWT verification failed:", (err as Error).message);

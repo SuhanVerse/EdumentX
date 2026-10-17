@@ -431,3 +431,8 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/reverse-geocode/deno.json"
 entrypoint = "./functions/reverse-geocode/index.ts"
+
+[functions.validate-image]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/validate-image/index.ts"

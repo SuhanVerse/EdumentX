@@ -1,12 +1,12 @@
 import { Text, TextInput, View } from "react-native";
 
-import { colors } from "@/constants/colors";
-import { FieldShell } from "@/components/motion";
 import {
   INPUT_BASE,
   INPUT_BORDER_ERROR,
   INPUT_BORDER_OK,
 } from "@/components/forms/inputs";
+import { FieldShell } from "@/components/motion";
+import { colors } from "@/constants/colors";
 
 type NameEmailFieldsProps = {
   fullName: string;
@@ -68,7 +68,7 @@ export function NameEmailFields({
                 onChangeText={onChangeFullName}
                 onFocus={onFocus}
                 onBlur={onBlur}
-                placeholder="e.g., Aarav Tamang"
+                placeholder="Your Name"
                 placeholderTextColor={colors.text.muted}
                 autoCapitalize="words"
                 autoComplete="name"
@@ -81,7 +81,7 @@ export function NameEmailFields({
           <TextInput
             value={fullName}
             onChangeText={onChangeFullName}
-            placeholder="e.g., Aarav Tamang"
+            placeholder="Your Name"
             placeholderTextColor={colors.text.muted}
             autoCapitalize="words"
             autoComplete="name"
@@ -113,7 +113,7 @@ export function NameEmailFields({
           <TextInput
             value={email}
             onChangeText={onChangeEmail}
-            placeholder="e.g., aarav@gmail.com"
+            placeholder="example@gmail.com"
             placeholderTextColor={colors.text.muted}
             autoCapitalize="none"
             autoComplete="email"

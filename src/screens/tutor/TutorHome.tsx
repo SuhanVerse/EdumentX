@@ -70,7 +70,6 @@ interface TutorDashboardData {
    *  "Monthly revenue" metric (see the computed block in the
    *  render). */
   monthlyRateNpr: number;
-  profileCompletion: number;
   // `verificationStatus` and `hasPendingUpdate` come from the same
   // tutorProfile doc and drive the under-review banner above the
   // dashboard. They are kept as raw strings / booleans (not narrowed
@@ -94,7 +93,6 @@ const FALLBACK: TutorDashboardData = {
   capacity: 0,
   currentStudents: 0,
   monthlyRateNpr: 0,
-  profileCompletion: 0,
   verificationStatus: undefined,
   hasPendingUpdate: false,
   rejectionReason: null,
@@ -236,9 +234,6 @@ export function TutorDashboard() {
           currentStudents: toNum((d as { currentStudents?: number }).currentStudents),
           monthlyRateNpr: toNum(
             (d as { monthlyRateNpr?: number }).monthlyRateNpr,
-          ),
-          profileCompletion: toNum(
-            (d as { profileCompletion?: number }).profileCompletion,
           ),
           // Verification state — read but not yet written by the
           // tutor-side flows (those land in the next phase). The
@@ -703,24 +698,6 @@ export function TutorDashboard() {
             />
           </View>
         </Pressable>
-
-        {/* Profile completion */}
-        <View className="bg-surface border border-border rounded-card p-4 mb-3.5">
-          <Text className="text-button-sm font-medium text-text-primary mb-1.5">
-            Profile completion
-          </Text>
-          <View className="flex-row items-center gap-2.5">
-            <View className="flex-1 h-1.5 rounded-pill bg-border overflow-hidden">
-              <View
-                className="h-full bg-accent rounded-pill"
-                style={{ width: `${data.profileCompletion}%` }}
-              />
-            </View>
-            <Text className="text-button-sm text-accent font-medium">
-              {data.profileCompletion}%
-            </Text>
-          </View>
-        </View>
 
         {/* Today's sessions — derived live from the roster (active
             enrollments on today's weekday within their date window),

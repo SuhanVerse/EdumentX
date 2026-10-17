@@ -52,6 +52,7 @@ import {
 import { colors } from "@/constants/colors";
 import { getBatchesRepository } from "@/services/batches/dataSource";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
+import { StudentPickerSheet } from "@/components/domain/StudentPickerSheet";
 import {
   DAY_LABELS,
   MAX_BATCH_MEMBERS,
@@ -116,6 +117,24 @@ export function BatchDetailScreen() {
 
   const batchesRepo = useMemo(() => getBatchesRepository(), []);
   const enrollRepo = useMemo(() => getEnrollmentRepository(), []);
+
+  // ── Aug 25: ADD STUDENT to an existing batch ──
+  // The wizard only picks students at creation; post-creation adds
+  // were orphaned (StudentPickerSheet + addBatchMember had no UI).
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [roster, setRoster] = useState<Enrollment[]>([]);
+  useEffect(() => {
+    if (!isTutor || !user?.uid || !pickerOpen) return;
+    const unsub = enrollRepo.subscribeEnrollments(
+      user.uid,
+      (list: Enrollment[]) =>
+        setRoster(list.filter((e) => e.status === "active")),
+      (err: Error) => console.warn("BatchDetail: roster failed", err),
+    );
+    return unsub;
+  }, [isTutor, user?.uid, pickerOpen, enrollRepo]);
+
 
   // Batch doc — read by DIRECT PATH so ended batches still render
   // (the student marketplace feed filters to `active`, which made
@@ -195,7 +214,7 @@ export function BatchDetailScreen() {
     const unsub = enrollRepo.subscribeEnrollmentsByStudent(
       user.uid,
       setMyEnrollments,
-      (err) => console.warn("BatchDetail: enrollments failed", err),
+      (err: Error) => console.warn("BatchDetail: enrollments failed", err),
     );
     return unsub;
   }, [enrollRepo, isTutor, user?.uid]);
@@ -263,6 +282,35 @@ export function BatchDetailScreen() {
 
   function handleRemove(member: BatchMember) {
     setRemoveTarget(member);
+  }
+
+  async function handleAddMember(student: Enrollment) {
+    if (!tutorUid || !batchId || adding) return;
+    if (members.some((m) => m.enrollmentId === student.enrollmentId)) {
+      Alert.alert("Already in this batch", `${student.studentName} is a member.`);
+      return;
+    }
+    setAdding(true);
+    try {
+      await batchesRepo.addBatchMember({
+        tutorUid,
+        batchId,
+        enrollmentId: student.enrollmentId,
+        studentUid: student.studentUid,
+        studentName: student.studentName,
+        studentAvatar: student.studentAvatar,
+      });
+      setPickerOpen(false); // member list updates live via snapshot
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? "";
+      console.error("[BatchDetail] addBatchMember failed:", code, err);
+      Alert.alert(
+        "Couldn't add student",
+        `${err instanceof Error ? err.message : "Unknown error"}${code ? `\n(code: ${code})` : ""}`,
+      );
+    } finally {
+      setAdding(false);
+    }
   }
 
   async function handleRemoveEnrollment(reason: string) {
@@ -504,9 +552,32 @@ export function BatchDetailScreen() {
 
             {/* ── Members (tutor) / seats (student) ── */}
             <View className="bg-surface border border-border rounded-card p-4">
-              <Text className="text-card-title font-medium text-text-primary mb-3">
-                {isTutor ? "Students in this batch" : "Who's in this batch"}
-              </Text>
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-card-title font-medium text-text-primary">
+                  {isTutor ? "Students in this batch" : "Who's in this batch"}
+                </Text>
+                {isTutor && batch?.status === "active" && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Add student to batch"
+                    onPress={() => setPickerOpen(true)}
+                    className="flex-row items-center gap-1 bg-primary px-3 h-9 rounded-pill active:opacity-80"
+                  >
+                    <Ionicons name="person-add" size={14} color={colors.text.inverse} />
+                    <Text className="text-button-sm font-semibold text-white">Add</Text>
+                  </Pressable>
+                )}
+              </View>
+              {/* Session-code display — tutor shares this for direct joins */}
+              {isTutor && batch?.sessionCode && (
+                <View className="flex-row items-center gap-2 mb-3 bg-sand rounded-md px-3 py-2 self-start">
+                  <Ionicons name="key-outline" size={13} color={colors.text.muted} />
+                  <Text className="text-caption text-text-muted">Join code</Text>
+                  <Text className="text-button-sm font-bold tracking-[0.15em] text-text-primary">
+                    {batch.sessionCode}
+                  </Text>
+                </View>
+              )}
 
               {isTutor ? (
                 members.length === 0 ? (
@@ -657,6 +728,23 @@ export function BatchDetailScreen() {
         loading={removing}
         onConfirm={(reason) => void handleRemoveEnrollment(reason)}
         onCancel={() => setRemoveTarget(null)}
+      />
+
+      {/* ── Aug 25: add-student picker (tutor, active batch) ── */}
+      <StudentPickerSheet
+        visible={pickerOpen}
+        enrolledStudents={roster.filter(
+          (e) => !members.some((m) => m.enrollmentId === e.enrollmentId),
+        )}
+        selectedIds={new Set<string>()}
+        onToggle={(enrollmentId) => {
+          const student = roster.find((e) => e.enrollmentId === enrollmentId);
+          if (student) void handleAddMember(student);
+        }}
+        onConfirm={() => setPickerOpen(false)}
+        onCancel={() => setPickerOpen(false)}
+        minSelection={0}
+        maxSelection={1}
       />
     </ScreenLayout>
   );

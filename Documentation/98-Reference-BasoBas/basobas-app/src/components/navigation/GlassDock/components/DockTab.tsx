@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import type { DockItem } from '../types/dock';
@@ -27,14 +27,14 @@ export const DockTab = React.memo(({ item, isActive, onPress }: DockTabProps) =>
   const Icon: LucideIcon = item.icon;
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={() => onPress(item.key)}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
       accessibilityLabel={item.key}
       hitSlop={8}
-      className="flex-1 items-center justify-center self-stretch"
-      style={({ pressed }) => (pressed ? { opacity: 0.5 } : undefined)}>
+      activeOpacity={0.5}
+      className="flex-1 items-center justify-center self-stretch">
       {/* Black circle — shown only for the active tab */}
       {isActive && <View className="absolute h-[52px] w-[52px] rounded-pill bg-ink" />}
 
@@ -51,7 +51,7 @@ export const DockTab = React.memo(({ item, isActive, onPress }: DockTabProps) =>
           <Text style={styles.badgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
         </View>
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 });
 

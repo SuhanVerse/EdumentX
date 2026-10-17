@@ -19,8 +19,6 @@ import { colors } from "@/constants/colors";
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -32,6 +30,7 @@ import { doc, getDoc, getFirestore } from "@react-native-firebase/firestore";
 
 import { ScreenLayout } from "@/components/shared/ScreenLayout";
 import { Avatar } from "@/components/ui/Avatar";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { getMessagesRepository } from "@/services/messages/dataSource";
 import type { ChatMessage, Conversation } from "@/services/messages/types";
 import { useAuthStore } from "@/store/authStore";
@@ -55,6 +54,9 @@ export default function ChatScreen() {
   }>();
   const peerId = params.peerId ?? "";
   const currentUser = useAuthStore((s) => s.user);
+  // Keyboard height measured from raw events — the built-in
+  // KeyboardAvoidingView is unreliable on Android under edge-to-edge.
+  const keyboardInset = useKeyboardInset();
 
   const repo = getMessagesRepository();
   const conversationId = currentUser
@@ -250,20 +252,16 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* Messages + composer — anchored above the keyboard. The
-          KeyboardAvoidingView wraps the list AND the composer so the
-          whole thread lifts (and the composer rides the keyboard)
-          instead of the keyboard covering the newest message. iOS
-          pads by the keyboard height; Android re-sizes (the app's
-          adjustResize). */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-        className="flex-1"
-      >
+      {/* Messages + composer — anchored above the keyboard. The app
+          runs edge-to-edge, where Android's adjustResize never fires
+          and the built-in KeyboardAvoidingView is broken, so we pad by
+          the keyboard height measured from raw Keyboard events instead. */}
+      <View className="flex-1" style={{ paddingBottom: keyboardInset }}>
       <FlatList
         className="flex-1"
         contentContainerClassName="px-4 py-4 gap-2"
+        contentContainerStyle={{ paddingBottom: 8 }}
+        keyboardShouldPersistTaps="handled"
         data={data}
         inverted
         keyExtractor={(m) => m.messageId}
@@ -383,11 +381,11 @@ export default function ChatScreen() {
           <Ionicons
             name="send"
             size={18}
-            color={canSend ? "#FFFFFF" : colors.text.muted}
+            color={canSend ? colors.text.inverse : colors.text.muted}
           />
         </Pressable>
       </View>
-      </KeyboardAvoidingView>
+      </View>
     </ScreenLayout>
   );
 }

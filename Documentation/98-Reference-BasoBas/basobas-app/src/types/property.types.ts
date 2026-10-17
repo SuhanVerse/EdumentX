@@ -29,11 +29,25 @@ export type TimeSlot = Database['public']['Enums']['time_slot_enum'];
 /** My Properties list — [listings.tsx](<../../app/(landlord)/(tabs)/listings.tsx>) */
 export type PropertyStatusUi = 'active' | 'draft' | 'paused' | 'archived';
 
-/** Visit Requests tabs — [requests.tsx](<../../app/(landlord)/(tabs)/requests.tsx>) */
-export type RequestStatusUi = 'pending' | 'accepted';
+/**
+ * Legacy landlord request vocabulary (pre-redesign). New screens read the
+ * full lifecycle via `LandlordRequestUi` / `uiStatus`; this type stays wide
+ * enough to hold every DB state the legacy chips render.
+ */
+export type RequestStatusUi = 'pending' | 'rescheduled' | 'accepted' | 'completed' | 'cancelled';
 
 /** Visit History pills — [visits.tsx](<../../app/(landlord)/visits.tsx>) */
-export type VisitStatusLabel = 'Pending Approval' | 'Scheduled' | 'Completed' | 'Cancelled';
+export type VisitStatusLabel =
+  | 'Pending Approval'
+  | 'Scheduled'
+  | 'New Time Proposed'
+  | 'Completed'
+  | 'Cancelled'
+  | 'Still Deciding'
+  | 'Rental Finalized'
+  | 'Declined'
+  | 'Not Interested'
+  | 'Need Another Visit';
 
 /**
  * Tenant-facing visit lifecycle. The DB enum has more members than the
@@ -42,11 +56,38 @@ export type VisitStatusLabel = 'Pending Approval' | 'Scheduled' | 'Completed' | 
  * single source of truth — never compare raw enum values in a screen.
  */
 export type TenantVisitStatusUi =
-  'pending' | 'accepted' | 'rescheduled' | 'rejected' | 'cancelled' | 'completed';
+  | 'pending'
+  | 'accepted'
+  | 'rescheduled'
+  | 'rejected'
+  | 'cancelled'
+  | 'completed'
+  | 'discussion'
+  | 'finalized';
+
+/**
+ * Landlord-facing visit lifecycle — single vocabulary used by Visit
+ * Requests, Request Detail, All Applicants. Tracks the same states the
+ * tenant sees plus the post-visit follow-up branches (discussion,
+ * finalized) so both sides share one model.
+ */
+export type LandlordRequestUi =
+  | 'new'
+  | 'upcoming'
+  | 'rescheduled'
+  | 'completed'
+  | 'discussion'
+  | 'finalized'
+  | 'cancelled'
+  | 'rejected';
 
 /** Post-visit follow-up options — one of 4 fixed answers. */
 export type FollowUpResponse =
   'interested' | 'need_more_time' | 'not_a_fit' | 'missed_visit_reschedule';
+
+/** Landlord-side follow-up outcome vocabulary (after the visit has happened). */
+export type LandlordFollowUpOutcome =
+  'tenant_visited' | 'tenant_did_not_visit' | 'discussion_ongoing' | 'finalize_rental';
 
 // ─── Domain models (camelCase, screen-facing) ────────────────────────────────
 
@@ -122,11 +163,20 @@ export interface LandlordVisitRequest {
   note: string | null;
   rescheduleCount: number;
   landlordResponseNote: string | null;
+  /** Tenant's note sent with a tenant-initiated reschedule proposal. */
+  tenantRescheduleNote: string | null;
   /** Snapshot of the pre-reschedule date/slot — set only while RESCHEDULED. */
   previousRequestedDate: string | null;
   previousTimeSlot: TimeSlot | null;
   tenantFollowUpResponse: FollowUpResponse | null;
   tenantFollowUpNote: string | null;
+  /** When the tenant submitted their follow-up answer. */
+  tenantFollowUpAt: string | null;
+  /** Landlord's post-visit outcome — persisted via `submit_landlord_follow_up`. */
+  landlordFollowUpOutcome: LandlordFollowUpOutcome | null;
+  landlordFollowUpNote: string | null;
+  /** When the landlord submitted their follow-up outcome. */
+  landlordFollowUpAt: string | null;
   respondedAt: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -135,6 +185,8 @@ export interface LandlordVisitRequest {
   tenantAvatarUrl: string | null;
   landlordName: string | null;
   landlordAvatarUrl: string | null;
+  /** Landlord's contact number — exposed only on accepted visits. */
+  landlordPhone: string | null;
   propertyTitle: string | null;
   propertyArea: string | null;
   propertyPrice: number | null;
@@ -177,26 +229,40 @@ export const toPropertyStatusUi = (
 };
 
 /**
- * Two-state vocabulary for the Visit Requests tabs. Only PENDING reads as
- * `pending`; everything the landlord has already acted on reads as `accepted`
- * (the tab screen has no third bucket today).
+ * Three-state vocabulary for the Visit Requests tabs. PENDING reads as
+ * `pending` (the landlord must act), RESCHEDULED reads as `rescheduled`
+ * (the landlord proposed a new time — the tenant still has to confirm, so
+ * it must not show as accepted), and everything else the landlord has
+ * already acted on reads as `accepted`.
  */
-export const toRequestStatusUi = (status: VisitStatus): RequestStatusUi =>
-  status === 'PENDING' ? 'pending' : 'accepted';
+export const toRequestStatusUi = (status: VisitStatus): RequestStatusUi => {
+  switch (status) {
+    case 'PENDING':
+      return 'pending';
+    case 'RESCHEDULED':
+      return 'rescheduled';
+    default:
+      return 'accepted';
+  }
+};
 
 /** Human label for the Visit History pills. */
 export const toVisitStatusLabel = (status: VisitStatus): VisitStatusLabel => {
   switch (status) {
     case 'PENDING':
       return 'Pending Approval';
-    case 'ACCEPTED':
     case 'RESCHEDULED':
-    case 'DISCUSSION_ONGOING':
+      return 'New Time Proposed';
+    case 'ACCEPTED':
       return 'Scheduled';
+    case 'DISCUSSION_ONGOING':
+      return 'Still Deciding';
     case 'VISIT_COMPLETED':
-    case 'RENTAL_FINALIZED':
       return 'Completed';
+    case 'RENTAL_FINALIZED':
+      return 'Rental Finalized';
     case 'REJECTED':
+      return 'Declined';
     case 'CLOSED':
       return 'Cancelled';
     default:
@@ -211,6 +277,43 @@ export const OPEN_VISIT_STATUSES: VisitStatus[] = [
   'RESCHEDULED',
   'DISCUSSION_ONGOING',
 ];
+
+/**
+ * DB visit status → landlord UI vocabulary.
+ *
+ * `new` = landlord must act (PENDING), `upcoming` = time-locked
+ * (ACCEPTED in the future), `rescheduled` = landlord has proposed a new
+ * time, `completed` = visit time has passed and no follow-up yet,
+ * `discussion` = both sides still deciding after the visit,
+ * `finalized` = terminal rental close, terminal states otherwise.
+ */
+export const toLandlordRequestUi = (
+  status: VisitStatus,
+  requestedDate: string,
+  now: Date = new Date()
+): LandlordRequestUi => {
+  const isPast = isPastDate(requestedDate, now);
+  switch (status) {
+    case 'PENDING':
+      return 'new';
+    case 'RESCHEDULED':
+      return 'rescheduled';
+    case 'ACCEPTED':
+      return isPast ? 'completed' : 'upcoming';
+    case 'DISCUSSION_ONGOING':
+      return 'discussion';
+    case 'RENTAL_FINALIZED':
+      return 'finalized';
+    case 'REJECTED':
+      return 'rejected';
+    case 'VISIT_COMPLETED':
+      return 'completed';
+    case 'CLOSED':
+    case 'CANCELLED_BY_TENANT':
+    default:
+      return 'cancelled';
+  }
+};
 
 /** Display window for each slot enum. Matches the tenant-facing copy. */
 export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
@@ -331,7 +434,7 @@ export const toPropertyUnlocked = (row: PropertyRow): PropertyUnlocked => ({
 /** Shape of the joined columns `visits.service` selects alongside a request. */
 export interface VisitRequestJoins {
   tenant?: { full_name: string | null; avatar_url: string | null } | null;
-  landlord?: { full_name: string | null; avatar_url: string | null } | null;
+  landlord?: { full_name: string | null; avatar_url: string | null; phone: string | null } | null;
   property?: { title: string; location_area: string; price: number; photo_urls: string[] } | null;
 }
 
@@ -350,10 +453,16 @@ export const toLandlordVisitRequest = (
   note: row.note,
   rescheduleCount: row.reschedule_count,
   landlordResponseNote: row.landlord_response_note,
+  tenantRescheduleNote: row.tenant_reschedule_note,
   previousRequestedDate: row.previous_requested_date,
   previousTimeSlot: row.previous_time_slot,
   tenantFollowUpResponse: row.tenant_follow_up_response as FollowUpResponse | null,
   tenantFollowUpNote: row.tenant_follow_up_note,
+  tenantFollowUpAt: row.tenant_follow_up_at,
+  landlordFollowUpOutcome:
+    (row.landlord_follow_up_outcome as LandlordFollowUpOutcome | null) ?? null,
+  landlordFollowUpNote: row.landlord_follow_up_note,
+  landlordFollowUpAt: row.landlord_follow_up_at,
   respondedAt: row.responded_at,
   completedAt: row.completed_at,
   createdAt: row.created_at,
@@ -361,6 +470,7 @@ export const toLandlordVisitRequest = (
   tenantAvatarUrl: row.tenant?.avatar_url ?? null,
   landlordName: row.landlord?.full_name ?? null,
   landlordAvatarUrl: row.landlord?.avatar_url ?? null,
+  landlordPhone: row.landlord?.phone ?? null,
   propertyTitle: row.property?.title ?? null,
   propertyArea: row.property?.location_area ?? null,
   propertyPrice: row.property?.price ?? null,
@@ -392,14 +502,16 @@ export const toTenantVisitStatusUi = (
     case 'PENDING':
       return 'pending';
     case 'ACCEPTED':
-    case 'DISCUSSION_ONGOING':
       return isPastDate(requestedDate, now) ? 'completed' : 'accepted';
     case 'RESCHEDULED':
       return 'rescheduled';
+    case 'DISCUSSION_ONGOING':
+      return 'discussion';
+    case 'RENTAL_FINALIZED':
+      return 'finalized';
     case 'REJECTED':
       return 'rejected';
     case 'VISIT_COMPLETED':
-    case 'RENTAL_FINALIZED':
       return 'completed';
     case 'CANCELLED_BY_TENANT':
     case 'CLOSED':
@@ -430,6 +542,14 @@ export const FOLLOW_UP_RESPONSE_LABELS: Record<FollowUpResponse, string> = {
   missed_visit_reschedule: "I wasn't able to make it — can we reschedule?",
 };
 
+/** Human copy for each landlord post-visit outcome — drives the follow-up drawer. */
+export const LANDLORD_FOLLOW_UP_LABELS: Record<LandlordFollowUpOutcome, string> = {
+  tenant_visited: 'Yes — the tenant visited the property',
+  tenant_did_not_visit: "No — the tenant didn't show up",
+  discussion_ongoing: "We're still in discussion",
+  finalize_rental: 'Finalize rental — they got the place',
+};
+
 // ─── Display formatters ──────────────────────────────────────────────────────
 
 const PRICE_FORMATTER = new Intl.NumberFormat('en-IN');
@@ -449,11 +569,59 @@ export const formatVisitDate = (isoDate: string): string => {
   });
 };
 
+/** ISO `YYYY-MM-DD` → `"Today"` / `"Tomorrow"` / `"Wed, Jun 16"`. */
+export const dayLabel = (isoDate: string): string => {
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (d.getTime() === today.getTime()) return 'Today';
+  if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
+/** Short weekday-only label for the DateTimePicker day cells. */
+export const weekdayShort = (isoDate: string): string => {
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+/** `"Sandeep Khatri"` → `"SK"`, falling back to `"T"`. */
+export const initialsOf = (name: string | null): string =>
+  (name ?? 'T')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'T';
+
 const MONTH_INDEX: Record<string, number> = {
-  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-  apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-  aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
-  nov: 10, november: 10, dec: 11, december: 11,
+  jan: 0,
+  january: 0,
+  feb: 1,
+  february: 1,
+  mar: 2,
+  march: 2,
+  apr: 3,
+  april: 3,
+  may: 4,
+  jun: 5,
+  june: 5,
+  jul: 6,
+  july: 6,
+  aug: 7,
+  august: 7,
+  sep: 8,
+  september: 8,
+  oct: 9,
+  october: 9,
+  nov: 10,
+  november: 10,
+  dec: 11,
+  december: 11,
 };
 
 /**

@@ -1,11 +1,5 @@
-import { useCallback, useMemo, useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  View,
-  Text,
-} from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, View, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   AlertCircle,
@@ -13,13 +7,9 @@ import {
   Bell,
   Bookmark,
   CalendarCheck2,
-  ChevronRight,
-  Clock,
-  Edit,
-  LogOut,
   MapPin,
-  Settings,
   ShieldCheck,
+  Settings,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -39,6 +29,8 @@ import { useUser } from '@clerk/expo';
 import { useClerkSupabase } from '@/src/hooks/useClerkSupabase';
 import { getProfile } from '@/src/services/profile.service';
 import { getUserKYCStatusUi } from '@/src/services/kyc.service';
+import { validateImageAsset } from '@/src/lib/imageValidation';
+import { validateImageContent } from '@/src/services/imageValidation.service';
 import { useUserStore } from '@/src/store/userStore';
 import type { KYCStatusUi } from '@/src/types/kyc.types';
 import { tokens } from '@/src/theme/tokens';
@@ -47,8 +39,7 @@ const { color } = tokens;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const monthYear = (d: Date) =>
-  d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+const monthYear = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
 const initialsOf = (first: string, last: string) =>
   `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
@@ -81,6 +72,9 @@ export default function ProfileTab() {
   // KYC status — refreshed on every Profile focus so the menu row subtitle
   // and tap target reflect the latest server state.
   const [kycStatus, setKycStatus] = useState<KYCStatusUi | null>(null);
+
+  // True while the AI avatar gate checks the picked photo.
+  const [avatarValidating, setAvatarValidating] = useState(false);
 
   const proDaysLeft = useMemo(() => {
     if (!profile.pro.expiresAt) return 0;
@@ -118,7 +112,7 @@ export default function ProfileTab() {
 
           if (passData) {
             const pd = passData as any;
-            const totalDays = pd.product_id === '3month' ? 90 : 30;
+            const totalDays = pd.product_id === '15day' ? 15 : 30;
             activatePro(totalDays);
           }
         } catch (err) {
@@ -126,7 +120,9 @@ export default function ProfileTab() {
         }
       })();
 
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [clerkUser?.id, supabase, syncProfileFromDb, activatePro])
   );
 
@@ -144,7 +140,9 @@ export default function ProfileTab() {
         }
       })();
 
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [clerkUser?.id, supabase])
   );
 
@@ -152,17 +150,32 @@ export default function ProfileTab() {
   const onAvatarPicked = useCallback(
     async (uri: string) => {
       try {
+        setAvatarValidating(true);
         const compressed = await compressImage(uri);
+
+        // AI content gate — reject non-face images before saving.
+        const verdict = await validateImageContent(compressed, 'avatar', supabase);
+        if (!verdict.success || !verdict.data.valid) {
+          Alert.alert(
+            'Photo not suitable',
+            verdict.success ? verdict.data.reason ?? '' : '',
+          );
+          return;
+        }
+
         setAvatarUri(compressed);
         // TODO: upload avatar to backend once a profile API is wired up.
       } catch {
         Alert.alert('Image error', 'Could not process the selected image.');
+      } finally {
+        setAvatarValidating(false);
       }
     },
-    [setAvatarUri]
+    [setAvatarUri, supabase]
   );
 
   const pickFromLibrary = useCallback(async () => {
+    if (avatarValidating) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
@@ -178,11 +191,17 @@ export default function ProfileTab() {
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
+      const check = validateImageAsset(result.assets[0], 'avatar');
+      if (!check.ok) {
+        Alert.alert('Invalid photo', check.message);
+        return;
+      }
       onAvatarPicked(result.assets[0].uri);
     }
-  }, [onAvatarPicked]);
+  }, [onAvatarPicked, avatarValidating]);
 
   const pickFromCamera = useCallback(async () => {
+    if (avatarValidating) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
@@ -197,11 +216,17 @@ export default function ProfileTab() {
       quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
+      const check = validateImageAsset(result.assets[0], 'avatar');
+      if (!check.ok) {
+        Alert.alert('Invalid photo', check.message);
+        return;
+      }
       onAvatarPicked(result.assets[0].uri);
     }
-  }, [onAvatarPicked]);
+  }, [onAvatarPicked, avatarValidating]);
 
   const showAvatarOptions = useCallback(() => {
+    if (avatarValidating) return;
     Alert.alert('Profile Photo', 'Choose an option', [
       { text: 'Take Photo', onPress: pickFromCamera },
       { text: 'Choose from Library', onPress: pickFromLibrary },
@@ -216,7 +241,7 @@ export default function ProfileTab() {
         : []),
       { text: 'Cancel', style: 'cancel' },
     ]);
-  }, [pickFromCamera, pickFromLibrary, profile.avatarUrl, setAvatarUri]);
+  }, [pickFromCamera, pickFromLibrary, profile.avatarUrl, setAvatarUri, avatarValidating]);
 
   // ── Navigation helpers ────────────────────────────────────────────────────
   const go = (path: string) => router.push(path as any);
@@ -285,13 +310,6 @@ export default function ProfileTab() {
         {/* ── 1. Header row ─────────────────────────────────────────────────── */}
         <View className="flex-row items-center justify-between px-6 pb-4 pt-2">
           <Text className="font-display text-[22px] leading-tight text-ink">Profile</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open settings"
-            onPress={() => go('/(tenant)/settings')}
-            className="h-10 w-10 items-center justify-center rounded-pill bg-input">
-            <Settings size={18} color="#0A0A0A" />
-          </Pressable>
         </View>
         <View className="h-px w-full bg-line" />
 
@@ -308,19 +326,36 @@ export default function ProfileTab() {
             }}>
             <View className="flex-row items-center">
               {/* Avatar — shows the real profile image, falls back to initials */}
-              <Avatar
-                size={64}
-                uri={profile.avatarUrl}
-                initials={initialsOf(profile.firstName, profile.lastName) || '?'}
-                showEditBadge
-                onEditPress={showAvatarOptions}
-              />
+              <View>
+                <Avatar
+                  size={64}
+                  uri={profile.avatarUrl}
+                  initials={initialsOf(profile.firstName, profile.lastName) || '?'}
+                  showEditBadge
+                  onEditPress={showAvatarOptions}
+                />
+                {avatarValidating && (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: 64,
+                      height: 64,
+                      borderRadius: 999,
+                      backgroundColor: 'rgba(0,0,0,0.45)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <ActivityIndicator color="#FFFFFF" />
+                  </View>
+                )}
+              </View>
 
               <View className="ml-4 flex-1 pr-1">
                 <View className="flex-row items-center">
-                  <Text
-                    numberOfLines={1}
-                    className="font-sans text-[17px] font-semibold text-ink">
+                  <Text numberOfLines={1} className="font-sans font-semibold text-[17px] text-ink">
                     {profile.firstName} {profile.lastName}
                   </Text>
                   {isPro && (
@@ -338,9 +373,7 @@ export default function ProfileTab() {
 
                 <View className={`mt-1.5 flex-row items-center ${isPro ? '' : 'mt-1'}`}>
                   <MapPin size={12} color="#AAAAAA" strokeWidth={2} />
-                  <Text className="ml-1 font-sans text-[13px] text-ink2">
-                    {profile.location}
-                  </Text>
+                  <Text className="ml-1 font-sans text-[13px] text-ink2">{profile.location}</Text>
                 </View>
 
                 {!isPro && (
@@ -375,11 +408,7 @@ export default function ProfileTab() {
                   onPress={() => go('/(tenant)/reviews')}
                 />
                 <View className="w-px bg-divider" />
-                <StatColumn
-                  value={proDaysLeft}
-                  label="Pro Days"
-                  highlight
-                />
+                <StatColumn value={proDaysLeft} label="Pro Days" highlight />
               </View>
             ) : (
               <View className="flex-row">
@@ -406,13 +435,12 @@ export default function ProfileTab() {
 
           {/* ── 3. Upgrade card OR Subscription tracking card ─────────────── */}
           {isPro ? (
-            <View
-              className="mt-3 rounded-[14px] border border-brand/15 bg-brand-light p-4">
+            <View className="mt-3 rounded-[14px] border border-brand/15 bg-brand-light p-4">
               <View className="flex-row items-center justify-between">
                 <ProPill label="PRO MEMBER" icon={BadgeCheck} />
                 <View className="flex-row items-center">
                   <View className="h-2 w-2 rounded-pill bg-[#22C55E]" />
-                  <Text className="ml-1.5 font-sans text-[13px] font-semibold text-[#22C55E]">
+                  <Text className="ml-1.5 font-sans font-semibold text-[13px] text-[#22C55E]">
                     Active
                   </Text>
                 </View>
@@ -438,33 +466,26 @@ export default function ProfileTab() {
               </View>
 
               <View className="mt-1.5 flex-row items-center justify-between">
-                <Text className="font-sans text-[11px] text-ink3">
-                  {proDaysLeft} days left
-                </Text>
+                <Text className="font-sans text-[11px] text-ink3">{proDaysLeft} days left</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Manage subscription"
-                  onPress={() => go('/(tenant)/settings')}>
-                  <Text className="font-sans text-[11px] font-semibold text-brand">
-                    Manage →
-                  </Text>
+                  onPress={() => go('/(tenant)/pro-plan')}>
+                  <Text className="font-sans font-semibold text-[11px] text-brand">Manage →</Text>
                 </Pressable>
               </View>
             </View>
           ) : (
-            <View
-              className="mt-3 flex-row items-center justify-between rounded-[14px] border border-brand/15 bg-brand-light p-4">
+            <View className="mt-3 flex-row items-center justify-between rounded-[14px] border border-brand/15 bg-brand-light p-4">
               <View className="flex-1 pr-3">
                 <View className="flex-row items-center">
                   <ProPill variant="solid" label="PRO" />
-                  <Text className="ml-1.5 font-sans text-[15px] font-semibold text-ink">
+                  <Text className="ml-1.5 font-sans font-semibold text-[15px] text-ink">
                     Go Pro
                   </Text>
                 </View>
-                <Text className="mt-1.5 font-sans text-[13px] text-ink2">
-                  Find rooms first
-                </Text>
-                <Text className="mt-1 font-sans text-[13px] font-semibold text-brand">
+                <Text className="mt-1.5 font-sans text-[13px] text-ink2">Find rooms first</Text>
+                <Text className="mt-1 font-sans font-semibold text-[13px] text-brand">
                   From NPR 249/month
                 </Text>
               </View>
@@ -473,7 +494,7 @@ export default function ProfileTab() {
                 accessibilityLabel="Upgrade to Pro"
                 onPress={() => go('/(tenant)/pro-plan')}
                 className="h-[38px] items-center justify-center rounded-pill bg-brand px-[18px]">
-                <Text className="font-sans text-[14px] font-semibold text-white">Upgrade</Text>
+                <Text className="font-sans font-semibold text-[14px] text-white">Upgrade</Text>
               </Pressable>
             </View>
           )}
@@ -541,6 +562,11 @@ export default function ProfileTab() {
                 label="Notifications"
                 onPress={() => go('/(tenant)/notifications')}
                 icon={iconCell(Bell)}
+              />
+              <MenuRow
+                label="Settings"
+                onPress={() => go('/(tenant)/settings')}
+                icon={iconCell(Settings)}
                 isLast
               />
             </MenuCard>
@@ -570,9 +596,7 @@ const StatColumn = ({
     onPress={onPress}
     className="flex-1 items-center justify-center px-2 py-2">
     <Text
-      className={`font-sans text-[20px] font-semibold ${
-        highlight ? 'text-brand' : 'text-ink'
-      }`}>
+      className={`font-sans font-semibold text-[20px] ${highlight ? 'text-brand' : 'text-ink'}`}>
       {value}
     </Text>
     <Text className="mt-[5px] font-sans text-[11px] text-ink3">{label}</Text>

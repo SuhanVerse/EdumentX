@@ -22,6 +22,7 @@
  */
 
 import { getApp } from "@react-native-firebase/app";
+import { getAuth } from "@react-native-firebase/auth";
 import {
   getFirestore,
   collection,
@@ -220,6 +221,10 @@ function mapBatch(id: string, raw: Record<string, unknown>): Batch {
     createdAt: tsToMs(raw.createdAt),
     memberCount: num(raw.memberCount),
     endedAt: raw.endedAt ? tsToMs(raw.endedAt) : undefined,
+    sessionCode:
+      typeof raw.sessionCode === "string" && raw.sessionCode.length > 0
+        ? raw.sessionCode
+        : undefined,
   };
 }
 
@@ -538,6 +543,15 @@ async function readTutorName(
 
 // ─── Repository ─────────────────────────────────────────────────────────────
 
+/** Diagnostics (Aug 25): stamps permission-denied warnings with the
+ *  current auth uid (or NULL) to split unauthenticated-session walls
+ *  from genuine rules denials. */
+function subAuthTag(): string {
+  const u = getAuth(getApp()).currentUser;
+  return u ? `auth=${u.uid}` : "auth=NULL";
+}
+
+
 export const FirebaseEnrollmentRepository: EnrollmentRepository = {
   // ─── subscriptions ────────────────────────────────────────────────────────
 
@@ -702,6 +716,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         console.warn(
           "FirebaseEnrollmentRepository.subscribeBatchMembers",
           err,
+    subAuthTag(),
         );
         onError?.(err);
       },
@@ -737,6 +752,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         console.warn(
           "FirebaseEnrollmentRepository.subscribeAvailability",
           err,
+    subAuthTag(),
         );
         onError?.(err);
       },
@@ -776,12 +792,62 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
           return mapRequest(d.id, d.data() as Record<string, unknown>, tutorUid);
         });
         requests.sort((a, b) => b.submittedAt - a.submittedAt);
-        onData(requests);
+        // Aug 25: emit immediately with cached tutor identity, then
+        // backfill missing tutors from their PUBLIC profile docs and
+        // re-emit — the pending-tab card flips from the generic
+        // placeholder to the real name/avatar (same pattern as the
+        // enrollments feed above).
+        const applyTutorDisplayToRequests = (
+          list: EnrollmentRequest[],
+        ): EnrollmentRequest[] =>
+          list.map((r) => {
+            const info = tutorDisplayCache.get(r.tutorUid);
+            if (!info) return r;
+            return { ...r, tutorName: info.name, tutorAvatar: info.avatar };
+          });
+        const stamped = requests.map((r) => ({
+          ...r,
+          tutorName: r.tutorName || tutorDisplayCache.get(r.tutorUid)?.name || "",
+          tutorAvatar:
+            r.tutorAvatar ?? tutorDisplayCache.get(r.tutorUid)?.avatar ?? null,
+        }));
+        onData(applyTutorDisplayToRequests(stamped));
+        const missingTutorUids = [
+          ...new Set(
+            requests
+              .map((r) => r.tutorUid)
+              .filter((uid2) => uid2.length > 0 && !tutorDisplayCache.has(uid2)),
+          ),
+        ];
+        if (missingTutorUids.length > 0) {
+          void (async () => {
+            await Promise.all(
+              missingTutorUids.map(async (tutorUid) => {
+                try {
+                  const tSnap = await getDoc(
+                    doc(db, "users", tutorUid, "tutorProfile", "default"),
+                  );
+                  const d = tSnap.data() as
+                    | { fullName?: unknown; photoUrl?: unknown }
+                    | undefined;
+                  tutorDisplayCache.set(tutorUid, {
+                    name: typeof d?.fullName === "string" ? d.fullName : "",
+                    avatar: typeof d?.photoUrl === "string" ? d.photoUrl : null,
+                  });
+                } catch {
+                  tutorDisplayCache.set(tutorUid, { name: "", avatar: null });
+                }
+              }),
+            );
+            onData(applyTutorDisplayToRequests(stamped));
+          })();
+        }
       },
       (err) => {
         console.warn(
           "FirebaseEnrollmentRepository.subscribeRequestsByStudent",
           err,
+    subAuthTag(),
         );
         onError?.(err);
       },
@@ -890,6 +956,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         console.warn(
           "FirebaseEnrollmentRepository.subscribeEnrollmentsByStudent",
           err,
+    subAuthTag(),
         );
         onError?.(err);
       },
@@ -1450,10 +1517,24 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     // (`isOwner(userId) || isAdmin()`) permits any field write, and
     // a full-week draft is exactly what the capacity screen's
     // "Save changes" flushes.
+    // Aug 25: mirror `hasAvailability` onto the discovery doc so
+    // student search/map can filter slot-less tutors out. Any single
+    // enabled slot flips it true; an all-off save keeps it false.
+    const hasAvailability = Object.values(availability).some((day) =>
+      Object.values(day).some((v) => v === "available"),
+    );
     await setDoc(
       profileRef,
       {
         availability,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await setDoc(
+      doc(db, "tutors", tutorUid),
+      {
+        hasAvailability,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -1473,23 +1554,38 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
     // can't count subcollection docs transactionally) — the same
     // fast-fail pattern as the capacity pre-check in acceptRequest.
     {
-      const tierSnap = await getDoc(
-        doc(db, "users", input.tutorUid, "tutorProfile", "default"),
-      );
-      const tier = (tierSnap.data() as { subscriptionTier?: string } | undefined)
-        ?.subscriptionTier;
-      if (tier !== "pro") {
-        const activeSnap = await getDocs(
-          query(
-            collection(db, "batches", input.tutorUid, "classes"),
-            where("status", "==", "active"),
-          ),
+      // Aug 25: a pre-check failure (e.g. failed-precondition from an
+      // index edge case) used to abort the whole save with a cryptic
+      // device-only Alert. Now: log loudly and CONTINUE — the
+      // transaction + security rules still enforce every hard cap
+      // server-side; only this cosmetic early-exit degrades.
+      try {
+        const tierSnap = await getDoc(
+          doc(db, "users", input.tutorUid, "tutorProfile", "default"),
         );
-        if (activeSnap.size >= FREE_TIER_MAX_BATCHES) {
-          throw new Error(
-            `Free tutors can run ${FREE_TIER_MAX_BATCHES} active batch at a time. Upgrade to Pro for unlimited batches.`,
+        const tier = (tierSnap.data() as { subscriptionTier?: string } | undefined)
+          ?.subscriptionTier;
+        if (tier !== "pro") {
+          const activeSnap = await getDocs(
+            query(
+              collection(db, "batches", input.tutorUid, "classes"),
+              where("status", "==", "active"),
+            ),
           );
+          if (activeSnap.size >= FREE_TIER_MAX_BATCHES) {
+            throw new Error(
+              `Free tutors can run ${FREE_TIER_MAX_BATCHES} active batch at a time. Upgrade to Pro for unlimited batches.`,
+            );
+          }
         }
+      } catch (preErr) {
+        const msg = preErr instanceof Error ? preErr.message : String(preErr);
+        if (msg.startsWith("Free tutors")) throw preErr;
+        console.warn(
+          "[createBatch] tier pre-check skipped:",
+          (preErr as { code?: string }).code ?? "",
+          msg,
+        );
       }
     }
 
@@ -1528,6 +1624,16 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         if (rosterSnap.exists()) seedable.push(m);
       }
 
+      // Aug 25 — join code for the session-code enrollment mode.
+      // 6 chars from an unambiguous alphabet (no 0/O/1/I) so students
+      // can read it aloud; stored on the batch doc and shown in the
+      // tutor's batch detail screen.
+      const sessionCode = Array.from({ length: 6 }, () =>
+        "ABCDEFGHJKMNPQRSTUVWXYZ23456789".charAt(
+          Math.floor(Math.random() * 31),
+        ),
+      ).join("");
+
       const batchDoc = stripNulls({
         batchId,
         tutorUid: input.tutorUid,
@@ -1538,6 +1644,7 @@ export const FirebaseEnrollmentRepository: EnrollmentRepository = {
         startDate: input.startDate,
         endDate: input.endDate ?? null,
         status: "active" as const,
+        sessionCode,
         createdAt: serverTimestamp(),
         memberCount: seedable.length,
       });

@@ -68,14 +68,6 @@ export const MockSubscriptionRepository: SubscriptionRepository = {
     }
   },
 
-  async applyProGrant(tutorUid: string, months: number) {
-    const now = Date.now();
-    tierStore.set(tutorUid, {
-      tier: "pro",
-      expiresAt: now + months * 30 * 24 * 60 * 60 * 1000,
-    });
-  },
-
   async readTier(tutorUid: string): Promise<SubscriptionTier> {
     return stateFor(tutorUid).tier;
   },
@@ -84,3 +76,23 @@ export const MockSubscriptionRepository: SubscriptionRepository = {
 /** Keep the unused-import lint happy (Unsubscribe is used in the
  *  interface only). */
 export type { Unsubscribe };
+
+/**
+ * MOCK-ONLY demo grant (the "Demo — Skip eSewa" button). Deliberately
+ * NOT part of `SubscriptionRepository`: in production the Pro tier is
+ * granted exclusively by the `create-esewa-order` edge function after
+ * payment verification (firestore.rules reject client tier writes —
+ * Aug 24 audit fix), so a grant method on the Firebase impl would be
+ * a standing invitation to bypass payment. Mock mode has no rules and
+ * no edge function, so a local store write is correct there.
+ */
+export async function applyDemoProGrant(
+  tutorUid: string,
+  months: number,
+): Promise<void> {
+  const now = Date.now();
+  tierStore.set(tutorUid, {
+    tier: "pro",
+    expiresAt: now + months * 30 * 24 * 60 * 60 * 1000,
+  });
+}

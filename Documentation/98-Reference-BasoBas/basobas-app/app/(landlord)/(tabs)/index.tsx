@@ -1,13 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  ScrollView,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '@clerk/expo';
 import {
@@ -16,7 +8,6 @@ import {
   Star,
   Eye,
   ChevronRight,
-  Plus,
   User,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +46,8 @@ export interface InsightItem {
   title: string;
   /** Secondary subtitle (muted). */
   subtitle: string;
+  /** Route pushed when the row is tapped. Omit for inert rows. */
+  route?: string;
 }
 
 export interface ActivityItem {
@@ -130,7 +123,7 @@ function AddNewListingButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-// ─── Default demo data ──────────────────────────────────────────────────────
+// ─── Loading / empty state ───────────────────────────────────────────────────
 
 /** Shown while the first fetch is in flight, and if it fails. */
 const EMPTY_STATS: StatItem[] = [
@@ -170,22 +163,23 @@ function buildInsights(d: LandlordDashboardData): InsightItem[] {
       icon: Eye,
       iconBg: '#3B82F6',
       title: `${d.totalViews} total views`,
-      subtitle: `Across ${d.activeListings} ${
-        d.activeListings === 1 ? 'listing' : 'listings'
-      }`,
+      subtitle: `Across ${d.activeListings} ${d.activeListings === 1 ? 'listing' : 'listings'}`,
+      // Per-listing view counts live on the listings tab.
+      route: '/(landlord)/(tabs)/listings',
     },
     {
       icon: Inbox,
       iconBg: '#F59E0B',
       title: `${d.requestRate}% request rate`,
-      subtitle:
-        d.totalViews > 0 ? 'Visit requests per listing view' : 'No views yet',
+      subtitle: d.totalViews > 0 ? 'Visit requests per listing view' : 'No views yet',
+      route: '/(landlord)/(tabs)/requests',
     },
     {
       icon: Star,
       iconBg: '#1A6B4A',
       title: d.totalSaves === 1 ? '1 saved listing' : `${d.totalSaves} saved listings`,
       subtitle: 'Tenants who bookmarked your properties',
+      route: '/(landlord)/(tabs)/listings',
     },
   ];
 }
@@ -246,8 +240,7 @@ function StatCard({ item }: { item: StatItem }) {
         item.variant === 'cream' && s.statCream,
         isMint && s.statMint,
       ]}
-      accessibilityLabel={`${item.value} ${item.label}`}
-    >
+      accessibilityLabel={`${item.value} ${item.label}`}>
       {/* Icon — top-right */}
       <View style={s.statIconRow}>
         <View style={s.statSpacer} />
@@ -259,32 +252,13 @@ function StatCard({ item }: { item: StatItem }) {
       </View>
 
       {/* Large serif number */}
-      <Text
-        style={[
-          s.statValue,
-          item.variant === 'dark' && s.statValueLight,
-        ]}
-      >
-        {item.value}
-      </Text>
+      <Text style={[s.statValue, item.variant === 'dark' && s.statValueLight]}>{item.value}</Text>
 
       {/* Label */}
-      <Text
-        style={[
-          s.statLabel,
-          item.variant === 'dark' && s.statLabelLight,
-        ]}
-      >
-        {item.label}
-      </Text>
+      <Text style={[s.statLabel, item.variant === 'dark' && s.statLabelLight]}>{item.label}</Text>
 
       {item.sublabel ? (
-        <Text
-          style={[
-            s.statLabel,
-            item.variant === 'dark' && s.statLabelLight,
-          ]}
-        >
+        <Text style={[s.statLabel, item.variant === 'dark' && s.statLabelLight]}>
           {item.sublabel}
         </Text>
       ) : null}
@@ -332,14 +306,13 @@ function DashboardRow({
 
   if (onPress) {
     return (
-      <Pressable
+      <TouchableOpacity
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
-        style={({ pressed }) => [pressed && s.rowPressed]}
-      >
+        activeOpacity={0.7}>
         {inner}
-      </Pressable>
+      </TouchableOpacity>
     );
   }
   return inner;
@@ -445,7 +418,7 @@ export default function LandlordDashboard({
 
       setRefreshing(false);
     },
-    [clerkId, supabase],
+    [clerkId, supabase]
   );
 
   useEffect(() => {
@@ -456,22 +429,22 @@ export default function LandlordDashboard({
   useFocusEffect(
     useCallback(() => {
       load('refresh');
-    }, [load]),
+    }, [load])
   );
 
   // Explicit props win (used by previews/tests), then live data, then a
   // neutral placeholder — never the old demo numbers.
   const stats = useMemo(
     () => statsProp ?? (data ? buildStats(data) : EMPTY_STATS),
-    [statsProp, data],
+    [statsProp, data]
   );
   const insights = useMemo(
     () => insightsProp ?? (data ? buildInsights(data) : []),
-    [insightsProp, data],
+    [insightsProp, data]
   );
   const activity = useMemo(
     () => activityProp ?? (data ? buildActivity(data) : []),
-    [activityProp, data],
+    [activityProp, data]
   );
 
   // ── Reactive greeting — recomputes at each 12:00 / 17:00 boundary ──
@@ -491,8 +464,7 @@ export default function LandlordDashboard({
 
   // Derive display name: prop override > auth profile > temporary fallback.
   // Use 'there' (not a fake name) when no identity is available.
-  const displayName =
-    landlordNameProp ?? profile?.full_name?.split(' ')[0] ?? 'there';
+  const displayName = landlordNameProp ?? profile?.full_name?.split(' ')[0] ?? 'there';
 
   const navigateToAddListing = () => {
     if (onAddListing) {
@@ -516,6 +488,19 @@ export default function LandlordDashboard({
     }
   };
 
+  // Same pattern for insights: each row carries its destination route
+  // (views → listings, request rate → requests, saves → listings).
+  const handleInsightPress = (index: number) => {
+    if (onInsightPress) {
+      onInsightPress(index);
+      return;
+    }
+    const route = insights[index]?.route;
+    if (route) {
+      router.push(route as never);
+    }
+  };
+
   const handleSeeAllActivity = () => {
     if (onSeeAllActivity) {
       onSeeAllActivity();
@@ -533,8 +518,7 @@ export default function LandlordDashboard({
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load('refresh')} />
-        }
-      >
+        }>
         {/* ── Header ────────────────────────────────────────── */}
         <View style={s.header}>
           {/* Avatar placeholder */}
@@ -558,16 +542,14 @@ export default function LandlordDashboard({
         <View style={s.statsRow}>
           {stats.map((stat) => {
             const card = <StatCard item={stat} />;
-            const navigate = () =>
-              router.push('/(landlord)/(tabs)/listings' as never);
+            const navigate = () => router.push('/(landlord)/(tabs)/listings' as never);
 
             return stat.label === 'Active Listings' ? (
               <TouchableOpacity
                 key={stat.label}
                 style={{ flex: 1 }}
                 onPress={navigate}
-                activeOpacity={0.7}
-              >
+                activeOpacity={0.7}>
                 {card}
               </TouchableOpacity>
             ) : (
@@ -585,16 +567,14 @@ export default function LandlordDashboard({
         <Text style={s.sectionTitle}>INSIGHTS</Text>
         <View style={s.card}>
           {insights.length === 0 ? (
-            <Text style={s.emptyRow}>
-              Publish a listing to start seeing views and requests.
-            </Text>
+            <Text style={s.emptyRow}>Publish a listing to start seeing views and requests.</Text>
           ) : (
             insights.map((item, idx) => (
               <InsightRow
                 key={idx}
                 item={item}
                 isLast={idx === insights.length - 1}
-                onPress={() => onInsightPress?.(idx)}
+                onPress={() => handleInsightPress(idx)}
               />
             ))
           )}
@@ -603,9 +583,9 @@ export default function LandlordDashboard({
         {/* ── Recent Activity ───────────────────────────────── */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>RECENT ACTIVITY</Text>
-          <Pressable onPress={handleSeeAllActivity} style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}>
+          <TouchableOpacity onPress={handleSeeAllActivity} activeOpacity={0.5}>
             <Text style={s.seeAllText}>See all</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
         <View style={s.card}>
           {activity.length === 0 ? (

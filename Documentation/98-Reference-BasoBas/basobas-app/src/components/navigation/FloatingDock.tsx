@@ -13,6 +13,8 @@ type FloatingDockProps = BottomTabBarProps & {
   variant: 'tenant' | 'landlord';
   /** Pending visit request count for the requests tab badge. */
   pendingCount?: number;
+  /** Unread notification count for the notifications tab badge. */
+  notificationCount?: number;
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -39,12 +41,14 @@ type FloatingDockProps = BottomTabBarProps & {
  *   `tabPress` event listeners and the `defaultPrevented` flag so deep-link
  *   interception and modal guards continue to work.
  */
-export const FloatingDock = React.memo(({ state, navigation, variant, pendingCount }: FloatingDockProps) => {
+export const FloatingDock = React.memo(({ state, navigation, variant, pendingCount, notificationCount }: FloatingDockProps) => {
   const items: DockItem[] =
     variant === 'landlord'
-      ? LANDLORD_DOCK_ITEMS.map((item) =>
-          item.key === 'requests' ? { ...item, badge: pendingCount } : item,
-        )
+      ? LANDLORD_DOCK_ITEMS.map((item) => {
+          if (item.key === 'requests') return { ...item, badge: pendingCount };
+          if (item.key === 'notifications') return { ...item, badge: notificationCount };
+          return item;
+        })
       : ([...TENANT_DOCK_ITEMS] as DockItem[]);
 
   // The current route name — equals the `key` of whichever DockItem is active.

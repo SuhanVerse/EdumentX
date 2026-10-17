@@ -198,6 +198,12 @@ export type EnrollmentRequest = {
    *  grid (one-to-one mode). The `schedule` string is derived from
    *  these for the inbox card. */
   pickedSlotKeys?: string[];
+  /** Enriched display info for the STUDENT's pending-request card:
+   *  resolved from the tutor's public profile during
+   *  `subscribeRequestsByStudent` (Aug 25 — the card previously had
+   *  no name/avatar until the tutor replied). */
+  tutorName?: string;
+  tutorAvatar?: string | null;
   /** Teaching address (one-to-one mode). */
   address?: string;
   /** Trial-week discount applied (one-to-one mode). */
@@ -277,6 +283,10 @@ export type Batch = {
   /** When the tutor ended the batch (`status: "ended"`), in epoch
    *  ms. Set by `endBatch`; absent on active/legacy docs. */
   endedAt?: number;
+  /** Aug 25 — join code for the session-code enrollment mode.
+   *  Generated at createBatch; students enter it (or open the batch
+   *  from Browse) to request membership. Absent on legacy docs. */
+  sessionCode?: string;
   /** Enriched display info for the STUDENT's "Browse Batches"
    *  screen: resolved from the tutor's public profile during
    *  `subscribePublicBatches`. Undefined on the tutor's own

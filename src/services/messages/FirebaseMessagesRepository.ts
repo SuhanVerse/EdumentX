@@ -30,7 +30,7 @@ import type {
   Conversation,
   ConversationMeta,
 } from "./types";
-import { conversationKey } from "./types";
+import { conversationKey, peerUidOf } from "./types";
 import type { MessagesRepository } from "./MessagesRepository";
 
 function tsToMs(value: unknown): number {
@@ -119,9 +119,21 @@ function mapConversation(
 // sends don't re-read the profile every time.
 const identityCache = new Map<string, ConversationMeta>();
 
+/**
+ * Aug 25 — resolved TUTOR-peer identities for hub enrichment. Public
+ * `tutors/{uid}` docs are readable by any signed-in user, so the
+ * viewer can label a thread even before the peer's first self-meta
+ * write lands. Negative entries (empty name) prevent refetch storms.
+ */
+const tutorPeerCache = new Map<string, ConversationMeta>();
+
 async function resolveOwnIdentity(uid: string): Promise<ConversationMeta> {
+  // Aug 25: only trust a NON-empty cached identity. The previous
+  // unconditional cache turned one early miss (profile not yet saved /
+  // race at first send) into a permanent empty name — peers saw
+  // "Chat" with a blank avatar until the OTHER side replied.
   const cached = identityCache.get(uid);
-  if (cached) return cached;
+  if (cached && cached.name) return cached;
   const db = getFirestore(getApp());
   let meta: ConversationMeta = { name: "", avatar: null };
   const tutorSnap = await getDoc(doc(db, "users", uid, "tutorProfile", "default"));
@@ -223,9 +235,79 @@ export const FirebaseMessagesRepository: MessagesRepository = {
           mapConversation(d.id, d.data() as Record<string, unknown>),
         );
         // Newest activity first — no composite index needed, the list
-        // is small for a demo and the sort is client-side.
+        // is small for the demo and the sort is client-side.
         conversations.sort((a, b) => b.updatedAt - a.updatedAt);
-        onData(conversations);
+
+        // ── Aug 25: tutor-peer identity resolution (emit-then-enrich)
+        // A conversation only carries each side's SELF-written meta.
+        // Until the peer replies for the first time, their meta entry
+        // doesn't exist and the hub rendered a generic "Chat" row.
+        // Tutor peers are PUBLICLY readable (`tutors/{uid}`), so the
+        // viewer's OWN copy of the list is enriched locally — no
+        // Firestore write, no rules change. Student peers are covered
+        // by sender-written meta on first message already.
+        const applyTutorPeers = (
+          list: Conversation[],
+        ): Conversation[] =>
+          list.map((c) => {
+            const peer = peerUidOf(c, viewerUid);
+            if (!peer) return c;
+            const existing = c.meta[peer];
+            if (existing && existing.name) return c; // already resolved
+            const info = tutorPeerCache.get(peer);
+            if (!info) return c;
+            return {
+              ...c,
+              meta: {
+                ...c.meta,
+                [peer]: { name: info.name, avatar: info.avatar },
+              },
+            };
+          });
+
+        onData(applyTutorPeers(conversations));
+
+        const missingPeers = [
+          ...new Set(
+            conversations
+              .map((c) => peerUidOf(c, viewerUid))
+              .filter((uid): uid is string =>
+                !!uid &&
+                !(tutorPeerCache.has(uid)) &&
+                !(conversations.find(
+                  (c) => c.meta[uid]?.name,
+                )),
+              ),
+          ),
+        ];
+        if (missingPeers.length > 0) {
+          void (async () => {
+            await Promise.all(
+              missingPeers.map(async (peerUid) => {
+                try {
+                  const tSnap = await getDoc(doc(db, "tutors", peerUid));
+                  if (tSnap.exists()) {
+                    const d = tSnap.data() as Record<string, unknown>;
+                    tutorPeerCache.set(peerUid, {
+                      name:
+                        typeof d.fullName === "string" ? d.fullName : "",
+                      avatar:
+                        typeof d.photoUrl === "string" ? d.photoUrl : null,
+                    });
+                  } else {
+                    // Not a tutor — student peer whose meta arrives on
+                    // their first reply; mark resolved-negative so we
+                    // stop re-fetching every snapshot.
+                    tutorPeerCache.set(peerUid, { name: "", avatar: null });
+                  }
+                } catch {
+                  tutorPeerCache.set(peerUid, { name: "", avatar: null });
+                }
+              }),
+            );
+            onData(applyTutorPeers(conversations));
+          })();
+        }
       },
       (err) => {
         console.warn("FirebaseMessagesRepository.subscribeConversations", err);

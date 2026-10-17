@@ -30,12 +30,16 @@ import {
 import { colors } from "@/constants/colors";
 import { getBatchesRepository } from "@/services/batches/dataSource";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
-import { sortBatchesForBrowse } from "@/services/enrollments/derived";
+import {
+  sortBatchesForBrowse,
+  todayIsoInKtm,
+} from "@/services/enrollments/derived";
 import {
   DAY_LABELS,
   MAX_BATCH_MEMBERS,
   parseSlotKey,
   TIME_SLOT_LABELS,
+  type Enrollment,
 } from "@/services/enrollments/types";
 import { useAuthStore } from "@/store/authStore";
 import type { Batch } from "@/services/batches/types";
@@ -51,6 +55,7 @@ export function BrowseBatchesScreen() {
   const router = useRouter();
   const studentUid = useAuthStore((s) => s.user?.uid ?? null);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -65,42 +70,34 @@ export function BrowseBatchesScreen() {
       setLoaded(true);
       return;
     }
-    const enrRepo = getEnrollmentRepository();
     const batchRepo = getBatchesRepository();
-    let batchUnsub: (() => void) | null = null;
+    const enrRepo = getEnrollmentRepository();
+    // Aug 25: track the student's OWN enrollments so cards can show an
+    // "Enrolled" chip instead of a join CTA when they're actively
+    // studying with that tutor (date-derived — a passed endDate frees
+    // them to request again).
     const enrUnsub = enrRepo.subscribeEnrollmentsByStudent(
       studentUid,
-      (enrollments) => {
-        // Only ACTIVE enrollments count — removed/expired students
-        // lose access to that tutor's batches too.
-        const tutorUids = [
-          ...new Set(
-            enrollments
-              .filter((e) => e.status === "active")
-              .map((e) => e.tutorUid),
-          ),
-        ];
-        batchUnsub?.();
-        batchUnsub = batchRepo.subscribePublicBatches(
-          (list) => {
-            setBatches(list);
-            setLoaded(true);
-          },
-          (err) => {
-            console.warn("BrowseBatchesScreen: subscribePublicBatches failed", err);
-            setLoaded(true);
-          },
-          tutorUids,
-        );
+      setMyEnrollments,
+      () => {},
+    );
+    // Aug 25: the marketplace now shows EVERY tutor's active batches
+    // (previously scoped to tutors the student was already enrolled
+    // with, which made discovery circular). Joining still goes through
+    // the session-code request → tutor-accept flow.
+    const unsub = batchRepo.subscribePublicBatches(
+      (list) => {
+        setBatches(list);
+        setLoaded(true);
       },
       (err) => {
-        console.warn("BrowseBatchesScreen: enrollments subscribe failed", err);
+        console.warn("BrowseBatchesScreen: subscribePublicBatches failed", err);
         setLoaded(true);
       },
     );
     return () => {
+      unsub();
       enrUnsub();
-      batchUnsub?.();
     };
   }, [studentUid]);
 
@@ -160,7 +157,7 @@ export function BrowseBatchesScreen() {
             <Text className="text-body text-text-secondary text-center mt-1.5">
               {query
                 ? "Try a different subject or tutor name."
-                : "Batches from your enrolled tutors appear here. Enroll with a tutor to see their open group classes."}
+                : "No tutor has published a group class yet. Check back soon."}
             </Text>
           </View>
         ) : (
@@ -171,6 +168,12 @@ export function BrowseBatchesScreen() {
                 Math.round(((b.memberCount ?? 0) / MAX_BATCH_MEMBERS) * 100),
               );
               const seatsLeft = MAX_BATCH_MEMBERS - (b.memberCount ?? 0);
+              const activelyEnrolled = myEnrollments.some(
+                (e) =>
+                  e.tutorUid === b.tutorUid &&
+                  e.status === "active" &&
+                  e.endDate >= todayIsoInKtm(),
+              );
               return (
                 <Pressable
                   key={`${b.tutorUid}-${b.batchId}`}
@@ -228,6 +231,29 @@ export function BrowseBatchesScreen() {
                     />
                   </View>
 
+                  {/* Aug 25: join CTA / enrolled chip — own row */}
+                  {activelyEnrolled ? (
+                    <View className="flex-row items-center gap-1.5 mb-2 bg-verification-light rounded-md px-2.5 py-1.5 self-start">
+                      <Ionicons name="checkmark-circle" size={13} color={colors.brand.verification} />
+                      <Text className="text-micro font-medium text-verification">Enrolled</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Request to join ${b.name}`}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/enroll",
+                          params: { tutorId: b.tutorUid, batchId: b.batchId },
+                        } as never)
+                      }
+                      className="bg-primary h-10 rounded-card items-center justify-center mb-2 active:opacity-80"
+                    >
+                      <Text className="text-button-sm font-semibold text-white">
+                        Request to join
+                      </Text>
+                    </Pressable>
+                  )}
                   {/* Students + price */}
                   <View className="flex-row items-center justify-between">
                     <Text className="text-caption text-text-muted">
