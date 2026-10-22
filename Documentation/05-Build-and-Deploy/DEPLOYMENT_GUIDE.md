@@ -2,6 +2,8 @@
 
 Repository configuration checked 2026-10-17. This describes owner-operated publication; it does not certify current cloud state or store readiness. Start with [project setup](../03-Implementation-Guides/PROJECT_SETUP.md), the [codebase guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) and [native installation](./install-guide.md).
 
+For the detailed release workflow checked on 21 October 2026, use the [production release guide](./PRODUCTION_RELEASE_GUIDE.md), [Ubuntu/xtool guide](./IOS_ON_LINUX_XTOOL.md), and [release-blocker assessment](./PRODUCTION_READINESS.md). The profiles now select explicit EAS environments; `preview` and `production-apk` produce APKs, while `production` produces a Play AAB or App Store iOS build. Production profiles set mock data off, but do not create or select a separate Firebase project by themselves.
+
 ## Choose the operation
 
 | Goal | Existing path |

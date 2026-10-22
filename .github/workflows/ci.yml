@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_live_checks:
+        description: 'Check deployed rules and run live smoke tests that create backend fixtures'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   check:
@@ -35,6 +41,19 @@ jobs:
       # regression in eslint-rules/design-tokens.js (e.g. missing a
       # template-literal className) fails CI instead of slipping through.
       - run: npm run test:lint-rules
+      - run: npm run test:discovery
+      - run: npm run test:tutor-feed
+      - run: npm run test:motion
+      - run: npm run test:release-config
+      - run: npm run test:auth-recovery
+      - run: npm run test:push-lifecycle
+      - run: npm run test:push-payload
+      - run: npm run test:messages-repository
+      - run: npm run test:session-isolation
+      - run: npm run test:sandbox
+      - run: npm run test:verify-local
+      - run: npm --prefix functions ci
+      - run: npm --prefix functions run build
 
   rules:
     name: Firestore rules emulator
@@ -83,11 +102,9 @@ jobs:
   #     same `EXPO_PUBLIC_FIREBASE_API_KEY` shipped in the app; the
   #     smoke scripts mint real client tokens with it).
   #
-  # Runs on main pushes + manual dispatch only, NOT on PRs: a PR that
-  # legitimately changes rules would show drift until the rules are
-  # deployed, so this would fail every rules-changing PR by design.
-  # The live smoke tests mutate real docs (seeded then cleaned up),
-  # so they're held to the same trigger.
+  # Explicit manual opt-in only. The live smoke tests mutate real docs
+  # (seeded then cleaned up); ordinary repository updates must not do
+  # that. Rules-changing source can also legitimately precede deployment.
   #
   # IMPORTANT: the `secrets` context is NOT available in ANY `if`
   # condition — not job-level and not step-level. GitHub's context
@@ -102,7 +119,7 @@ jobs:
   rules-deployed:
     name: Deployed-rules drift check + live smoke tests
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_checks
     env:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}

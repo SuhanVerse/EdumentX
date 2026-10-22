@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef } from "react";
 import { Animated, Easing, View, type ViewProps } from "react-native";
+import { useMotionPreference } from "./useMotionPreference";
 
 /**
  * A single pulsing rectangle. The base fill comes from the
@@ -22,8 +23,14 @@ import { Animated, Easing, View, type ViewProps } from "react-native";
  */
 export function Skeleton({ className = "", style, ...rest }: ViewProps) {
   const opacity = useRef(new Animated.Value(0.6)).current;
+  const reducedMotion = useMotionPreference();
 
   useEffect(() => {
+    opacity.stopAnimation();
+    if (reducedMotion) {
+      opacity.setValue(0.8);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
@@ -41,12 +48,14 @@ export function Skeleton({ className = "", style, ...rest }: ViewProps) {
       ])
     );
     loop.start();
-    return () => loop.stop();
-  }, [opacity]);
+    return () => {
+      loop.stop();
+      opacity.stopAnimation();
+    };
+  }, [opacity, reducedMotion]);
 
   return (
     <Animated.View
-       
       style={[{ opacity }, style]}
       className={`bg-surface-muted rounded-md ${className}`}
       {...rest}

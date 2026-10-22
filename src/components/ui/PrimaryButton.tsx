@@ -4,7 +4,7 @@
  * Three variants:
  *   - `primary`  : chalkboard-green fill, white label  → the default for
  *                  "Continue", "Next", "Get started", etc.
- *   - `accent`   : accent fill, white label  → highlights a single
+ *   - `accent`   : accent fill, dark label   → highlights a single
  *                  upgrade / paid CTA on a screen.
  *   - `ghost`    : surface fill, primary border + label → secondary
  *                  "I already have an account" links.
@@ -74,7 +74,7 @@ const VARIANT_DISABLED_BG: Record<'primary' | 'accent' | 'ghost', string> = {
 
 const VARIANT_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
   primary: 'text-white',
-  accent: 'text-white',
+  accent: 'text-night',
   ghost: 'text-text-primary',
 };
 
@@ -89,12 +89,6 @@ const VARIANT_DISABLED_LABEL: Record<'primary' | 'accent' | 'ghost', string> = {
 const SIZE: Record<'md' | 'lg', string> = {
   md: 'min-h-btn',
   lg: 'min-h-btn-lg',
-};
-
-const VARIANT_SPINNER: Record<'primary' | 'accent' | 'ghost', string> = {
-  primary: colors.text.inverse,
-  accent: colors.text.inverse,
-  ghost: colors.brand.primary,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -131,7 +125,8 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={VARIANT_SPINNER[variant]}
+          // Loading uses the muted disabled surface, so white would disappear.
+          color={colors.text.primary}
         />
       ) : (
         <View className="flex-row items-center gap-2">

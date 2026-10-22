@@ -41,6 +41,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -193,26 +194,24 @@ async function patchDoc(
   return { status: res.status, text };
 }
 
-/** POST (auto-id create) a document as a signed-in client. */
-async function postDoc(
+/** Commit atomic masked writes/transforms as a signed-in client. */
+async function commitWrites(
   idToken: string,
-  collectionPath: string,
-  fields: Record<string, unknown>,
-): Promise<{ status: number; text: string }> {
-  const res = await fetch(`${FIRESTORE_BASE}${collectionPath}`, {
+  writes: Record<string, unknown>[],
+): Promise<{ status: number }> {
+  const res = await fetch(`${FIRESTORE_BASE}:commit`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,
     },
-    body: JSON.stringify({ fields: restFields(fields) }),
+    body: JSON.stringify({ writes }),
     signal: AbortSignal.timeout(15000),
   });
-  const text = await res.text();
-  if (res.status >= 400) {
-    console.log(`   └ POST ${collectionPath} → ${res.status}: ${text.slice(0, 220)}`);
-  }
-  return { status: res.status, text };
+  // Status is sufficient; avoid logging backend response data or tokens.
+  await res.arrayBuffer();
+  if (res.status >= 400) console.log(`   └ COMMIT → ${res.status}`);
+  return { status: res.status };
 }
 
 /** GET a document as a signed-in client; returns parsed JSON on 200. */
@@ -294,6 +293,7 @@ async function main() {
   const STRANGER = `smoke-msg-c-${stamp}`;
   const CONV = [USER_A, USER_B].sort().join("__");
   const SEED_MSG = "seed-msg-1";
+  const SENT_MSG = randomUUID();
 
   const cleanupRefs = [db.doc(`conversations/${CONV}`)];
   const cleanupUsers = [USER_A, USER_B, STRANGER];
@@ -349,46 +349,64 @@ async function main() {
 
   // ── 5. A sends a message — unreadCount.B must bump to 1 ──
   {
-    const sentAt = new Date();
-    // Mirror sendMessage: conv update (meta/unreadCount/typing/lastMessage)
-    // + message create in the same shape the app's writeBatch does.
-    const upd = await patchDoc(
-      idA,
-      `/conversations/${CONV}`,
+    const messageId = SENT_MSG;
+    const text = "Hi! I'd like to enroll.";
+    const documentRoot = `projects/${PROJECT_ID}/databases/(default)/documents`;
+    // Mirror the native writeBatch: the message id binds the preview
+    // and exact unread increment to this newly created message.
+    const sent = await commitWrites(idA, [
       {
-        meta: { [USER_A]: { name: "Smoke Student A", avatar: null } },
-        unreadCount: { [USER_B]: 1, [USER_A]: 0 },
-        typing: { [USER_A]: false },
-        lastMessage: { senderId: USER_A, text: "Hi! I'd like to enroll.", sentAt },
-        updatedAt: sentAt,
+        update: {
+          name: `${documentRoot}/conversations/${CONV}`,
+          fields: restFields({
+            meta: { [USER_A]: { name: "Smoke Student A", avatar: null } },
+            unreadCount: { [USER_A]: 0 },
+            typing: { [USER_A]: false },
+            lastMessage: { messageId, senderId: USER_A, text },
+          }),
+        },
+        updateMask: {
+          // Native SDK quotes uid segments containing dashes this way.
+          fieldPaths: [
+            `meta.\`${USER_A}\``,
+            `unreadCount.\`${USER_A}\``,
+            `typing.\`${USER_A}\``,
+            "lastMessage",
+            "updatedAt",
+          ],
+        },
+        updateTransforms: [
+          { fieldPath: "lastMessage.sentAt", setToServerValue: "REQUEST_TIME" },
+          { fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" },
+          { fieldPath: `unreadCount.\`${USER_B}\``, increment: { integerValue: "1" } },
+        ],
       },
-      [
-        // Uid segments must be backtick-quoted in REST updateMask
-        // field paths (uids contain dashes); the native SDK quotes
-        // automatically, so this mirrors what the app actually sends.
-        `meta.\`${USER_A}\``,
-        `unreadCount.\`${USER_B}\``,
-        `unreadCount.\`${USER_A}\``,
-        `typing.\`${USER_A}\``,
-        "lastMessage",
-        "updatedAt",
-      ],
-    );
-    expect(upd.status, 200, "participant sends message (conv-doc update)");
+      {
+        update: {
+          name: `${documentRoot}/conversations/${CONV}/messages/${messageId}`,
+          fields: restFields({ senderId: USER_A, text, status: "sent" }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: "sentAt", setToServerValue: "REQUEST_TIME" }],
+      },
+    ]);
+    expect(sent.status, 200, "participant atomically sends message with preview and unread increment");
 
-    const msg = await postDoc(idA, `/conversations/${CONV}/messages`, {
-      senderId: USER_A,
-      text: "Hi! I'd like to enroll.",
-      sentAt,
-      status: "sent",
-    });
-    expect(msg.status, 200, "participant creates message (senderId == auth.uid)");
+    const sentCheck = await getDocAs(idA, `/conversations/${CONV}/messages/${messageId}`);
+    expect(sentCheck.status, 200, "new message readable after atomic send");
+    expect(sentCheck.json?.fields?.text?.stringValue, text, "new message text matches send");
 
     // The badge the recipient sees — re-read the doc as A.
     const check = await getDocAs(idA, `/conversations/${CONV}`);
     const bCount =
       check.json?.fields?.unreadCount?.mapValue?.fields?.[USER_B]?.integerValue;
     expect(bCount, "1", "unread badge bumped for the peer (unreadCount.B == 1)");
+    const preview = check.json?.fields?.lastMessage?.mapValue?.fields;
+    expect(preview?.messageId?.stringValue, messageId, "preview identifies the atomic message");
+    const messageTime = sentCheck.json?.fields?.sentAt?.timestampValue;
+    const previewTime = preview?.sentAt?.timestampValue;
+    expect(typeof messageTime === "string", true, "sentAt persisted as a server timestamp");
+    expect(previewTime, messageTime, "preview and message share the server timestamp");
   }
 
   // ── 6. B sees the thread with their unread badge intact ──
@@ -408,25 +426,30 @@ async function main() {
 
   // ── 7. A marks the seeded message read + zeroes their badge ──
   {
-    const flip = await patchDoc(
-      idA,
-      `/conversations/${CONV}/messages/${SEED_MSG}`,
-      { status: "read", readAt: new Date() },
-      ["status", "readAt"],
-    );
-    expect(flip.status, 200, "participant marks incoming message read (receipt)");
-
-    const zero = await patchDoc(
-      idA,
-      `/conversations/${CONV}`,
-      { unreadCount: { [USER_A]: 0 } },
-      [`unreadCount.\`${USER_A}\``],
-    );
-    expect(zero.status, 200, "participant zeroes their own unread badge");
+    const documentRoot = `projects/${PROJECT_ID}/databases/(default)/documents`;
+    const receipt = await commitWrites(idA, [
+      {
+        update: {
+          name: `${documentRoot}/conversations/${CONV}/messages/${SEED_MSG}`,
+          fields: restFields({ status: "read" }),
+        },
+        updateMask: { fieldPaths: ["status", "readAt"] },
+        updateTransforms: [{ fieldPath: "readAt", setToServerValue: "REQUEST_TIME" }],
+      },
+      {
+        update: {
+          name: `${documentRoot}/conversations/${CONV}`,
+          fields: restFields({ unreadCount: { [USER_A]: 0 } }),
+        },
+        updateMask: { fieldPaths: [`unreadCount.\`${USER_A}\``] },
+      },
+    ]);
+    expect(receipt.status, 200, "participant atomically records server-time receipt and zeroes own badge");
 
     const msgCheck = await getDocAs(idA, `/conversations/${CONV}/messages/${SEED_MSG}`);
     const status = msgCheck.json?.fields?.status?.stringValue;
     expect(status, "read", "seeded message now reads as 'read' (double-checkmark data)");
+    expect(typeof msgCheck.json?.fields?.readAt?.timestampValue, "string", "receipt persisted as a server timestamp");
 
     const convCheck = await getDocAs(idA, `/conversations/${CONV}`);
     const aCount =
@@ -458,13 +481,15 @@ async function main() {
     const read = await getDocAs(idC, `/conversations/${CONV}`);
     expect(read.status >= 400, true, "stranger cannot read the conversation");
 
-    const flip = await patchDoc(
-      idC,
-      `/conversations/${CONV}/messages/${SEED_MSG}`,
-      { status: "read", readAt: new Date() },
-      ["status", "readAt"],
-    );
-    expect(flip.status >= 400, true, "stranger cannot flip message status");
+    const flip = await commitWrites(idC, [{
+      update: {
+        name: `projects/${PROJECT_ID}/databases/(default)/documents/conversations/${CONV}/messages/${SENT_MSG}`,
+        fields: restFields({ status: "read" }),
+      },
+      updateMask: { fieldPaths: ["status", "readAt"] },
+      updateTransforms: [{ fieldPath: "readAt", setToServerValue: "REQUEST_TIME" }],
+    }]);
+    expect(flip.status, 403, "stranger cannot flip message status");
   }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { isSandboxEsewaConfig } from "./sandbox-policy.ts";
 
 // ─── Product Pricing (Server-Side Source of Truth) ───────────────
 // The client NEVER sends the amount. It sends a plan identifier, and
@@ -56,6 +57,10 @@ export function getEsewaConfig() {
 
   if (!formUrl || !statusUrl || !productCode || !secretKey || !successUrl || !failureUrl) {
     throw new Error("Missing one or more ESEWA_* environment variables");
+  }
+
+  if (!isSandboxEsewaConfig({ formUrl, statusUrl, productCode })) {
+    throw new Error("Only the reviewed eSewa sandbox configuration is permitted.");
   }
 
   return { formUrl, statusUrl, productCode, secretKey, successUrl, failureUrl };

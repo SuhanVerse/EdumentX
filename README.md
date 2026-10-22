@@ -1,10 +1,12 @@
 <img src="assets/logo-mark.png" width="72" height="72" alt="EdumentX book and map-pin logo">
 
-# EdumentX
+# EdumentX for Android
 
-EdumentX helps students and parents in Nepal find nearby tutors and request a place in their schedule. Tutors manage availability, enrollments, and group batches in the same Android and iOS app.
+EdumentX helps students and parents in Nepal find nearby tutors and request a place in their schedule. Tutors manage availability, enrollments, and group batches in the Android app.
 
-The project is in development. This repository contains the mobile app, backend functions, and security rules.
+This repository contains the React Native Android client, shared backend functions, and security rules. The separate [EdumentX-iOS](https://github.com/SuhanVerse/EdumentX-iOS) client uses SwiftUI and xtool on Ubuntu. Both apps are in development; the native iOS client currently builds as an unsigned sample trial.
+
+The older React Native iOS target is retained here until native integration and device tests pass. The app name stays **EdumentX**; `EdumentX-Android` identifies this source repository.
 
 <p align="center">
   <img src="Documentation/assets/enrollment-overview.png" width="440" alt="Enrollment overview: a student browses tutors and sends a request; the tutor accepts and assigns an available slot.">
@@ -17,13 +19,13 @@ The project is in development. This repository contains the mobile app, backend 
 - Set tutoring availability, accept requests, and manage student rosters and group batches.
 - Send direct messages with read receipts and receive notifications.
 - Submit tutor documents for verification; review applications and manage accounts through the admin screens.
-- Search for tutors through an AI assistant and try the eSewa Pro upgrade demonstration with sandbox payments.
+- Search for tutors through an AI assistant. The optional eSewa demonstration is restricted to explicitly enabled development builds; production purchase routes are disabled.
 
 Sign-in uses email/password with email verification, or Google. Students and tutors have separate onboarding and dashboards.
 
 ## Run locally
 
-Use Node 24 from [`.nvmrc`](.nvmrc) and npm. Android needs the Android SDK and an emulator or device; local iOS builds need macOS, Xcode, and CocoaPods. **This app requires a native development build; Expo Go is unsupported.**
+Use Node 24 from [`.nvmrc`](.nvmrc), npm, the Android SDK, and an emulator or device. **This app requires a native development build; Expo Go is unsupported.**
 
 From the repository root:
 
@@ -33,14 +35,12 @@ npm ci
 if [ ! -e .env ]; then cp .env.example .env; fi
 ```
 
-Fill in the public Supabase configuration and restricted Android Maps key in `.env`. Obtain the matching `google-services.json` and `GoogleService-Info.plist` from the project owner. The [setup guide](Documentation/03-Implementation-Guides/PROJECT_SETUP.md) covers configuration and Google Sign-In; [installation](Documentation/05-Build-and-Deploy/install-guide.md) covers devices and signing.
+Fill in the public Supabase configuration and restricted Android Maps key in `.env`. Obtain the matching Android `google-services.json` from the project owner. The [setup guide](Documentation/03-Implementation-Guides/PROJECT_SETUP.md) covers configuration and Google Sign-In; [installation](Documentation/05-Build-and-Deploy/install-guide.md) covers devices and signing.
 
-Build for your platform:
+Build the Android app:
 
 ```bash
 npm run android
-# Or, on a Mac configured for iOS:
-npm run ios
 ```
 
 With a compatible development client already installed, use `npx expo start --dev-client`. Sign in, complete a student profile, and browse available tutors.
@@ -49,7 +49,7 @@ With a compatible development client already installed, use `npx expo start --de
 
 ## Development
 
-The app uses Expo SDK 54, React Native, TypeScript, NativeWind, Expo Router, and Zustand. Firebase provides native authentication, Firestore, and push-trigger functions; Supabase provides storage and Edge Functions. Maps use Google on Android and Apple on iOS.
+The app uses Expo SDK 54, React Native, TypeScript, NativeWind, Expo Router, and Zustand. Firebase provides native authentication, Firestore, and push-trigger functions; Supabase provides storage and Edge Functions. Android maps use Google Maps. The Swift client shares the backend contracts and has its own build instructions.
 
 Run the local checks:
 
@@ -62,11 +62,11 @@ npm run test:lint-rules
 
 See [local Firestore rules tests](Documentation/03-Implementation-Guides/PROJECT_SETUP.md#local-firestore-rules-tests) for emulator checks. `npm run test:rules` also requires credentials to compare deployed rules. [CI](.github/workflows/ci.yml) defines the automated checks and optional credentialed smoke tests.
 
-Live features depend on the configured backend, deployed rules, storage policies, and search data. eSewa remains sandbox-only. The project targets $0 at demo usage within service quotas; see the [architecture and cost policy](Documentation/01-Architecture/ARCHITECTURE.md).
+Live features depend on the configured backend, deployed rules, storage policies, and search data. eSewa remains sandbox-only and unavailable in production builds. The project targets $0 at demo usage within service quotas; see the [architecture and cost policy](Documentation/01-Architecture/ARCHITECTURE.md).
 
 ## Learn and contribute
 
-Start with the [codebase and learning guide](Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) for source-reading order, feature walkthroughs, and practice exercises. The [documentation index](Documentation/README.md) links the remaining guides; the [deployment runbook](Documentation/05-Build-and-Deploy/DEPLOYMENT_GUIDE.md) covers distribution.
+Start with the [codebase and learning guide](Documentation/00-Overview/CODEBASE_AND_LEARNING_GUIDE.md) for source-reading order, feature walkthroughs, and practice exercises. The [documentation index](Documentation/README.md) links the remaining guides; the [deployment runbook](Documentation/05-Build-and-Deploy/DEPLOYMENT_GUIDE.md) covers distribution. For your immediate next steps, use the short [owner guide](Documentation/05-Build-and-Deploy/PERSONAL_RELEASE_STEPS.md).
 
 Read [AGENTS.md](AGENTS.md) before changing code. Keep credentials and private user data out of commits.
 

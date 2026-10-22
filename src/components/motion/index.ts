@@ -10,6 +10,7 @@
 export { motion } from "@/lib/motion";
 
 export { AnimatedPressable } from "./AnimatedPressable";
+export { useMotionPreference } from "./useMotionPreference";
 export {
   usePressScale,
   useSwitchThumb,

@@ -8,4 +8,6 @@ Start reading UI code at [PrimaryButton.tsx](../../src/components/ui/PrimaryButt
 
 [Motion notes](motion.md) explain the existing animation helpers. Verify examples against [motion hooks](../../src/components/motion/hooks.ts) before copying them; the notes do not certify reduced-motion or accessibility coverage.
 
+The [reference study and implementation](REFERENCE_RECONSTRUCTION.md) maps the barber-booking and VibeMove references to discovery, tutor cards, dashboard hierarchy, and motion, with the remaining device checks.
+
 Original design PDFs and attribution are preserved under [design context](../07-Design-Context/README.md). The unrelated web export has been removed from the active tree; its markup was never the native app's implementation.

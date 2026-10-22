@@ -35,6 +35,7 @@ import { logout } from "@/services/firebase/authService";
 import { uploadAvatar } from "@/services/supabase/storage";
 import { useAuthStore } from "@/store/authStore";
 import { useAiChatStore } from "@/store/aiChatStore";
+import { sandboxUpgradesEnabled } from "@/lib/releasePolicy";
 
 /**
  * EdumentX — Tutor Profile Edit screen (`/tutor_edit_profile`)
@@ -627,11 +628,11 @@ export function EditTutorProfile() {
               label="My batches"
               onPress={() => router.push("/batches")}
             />
-            <MenuRow
+            {sandboxUpgradesEnabled && <MenuRow
               icon="sparkles-outline"
               label="Go Pro"
               onPress={() => router.push("/pro-upgrade" as never)}
-            />
+            />}
             <MenuRow
               icon="help-circle-outline"
               label="Help & support"

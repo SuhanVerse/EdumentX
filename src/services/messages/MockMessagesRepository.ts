@@ -55,7 +55,12 @@ export const MockMessagesRepository: MessagesRepository = {
   async sendMessage({ conversationId, senderId, peerUid, text }) {
     const trimmed = text.trim();
     if (!trimmed) throw new Error("Message text is empty");
+    if (trimmed.length > 2000) throw new Error("Message text is too long");
+    if (senderId === peerUid || conversationId !== conversationKey(senderId, peerUid)) {
+      throw new Error("Invalid conversation participants");
+    }
     const now = Date.now();
+    const messageId = nextId();
 
     const existing = conversations.get(conversationId);
     const meta =
@@ -64,7 +69,7 @@ export const MockMessagesRepository: MessagesRepository = {
       identityCache.get(senderId)!);
     const conversation: Conversation = existing ?? {
       conversationId,
-      participants: [senderId, peerUid],
+      participants: [senderId, peerUid].sort(),
       meta: {},
       lastMessage: null,
       unreadCount: {},
@@ -75,6 +80,7 @@ export const MockMessagesRepository: MessagesRepository = {
     conversation.meta = { ...conversation.meta, [senderId]: meta };
     conversation.updatedAt = now;
     conversation.lastMessage = {
+      messageId,
       senderId,
       text: trimmed,
       sentAt: now,
@@ -89,7 +95,7 @@ export const MockMessagesRepository: MessagesRepository = {
     conversations.set(conversationId, conversation);
 
     const message: ChatMessage = {
-      messageId: nextId(),
+      messageId,
       senderId,
       text: trimmed,
       sentAt: now,
@@ -108,7 +114,7 @@ export const MockMessagesRepository: MessagesRepository = {
       messagesByConversation.set(
         conversationId,
         list.map((m) =>
-          byId.has(m.messageId) ? { ...m, status: "read" } : m,
+          byId.has(m.messageId) && m.senderId !== viewerUid ? { ...m, status: "read" } : m,
         ),
       );
     }

@@ -9,7 +9,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
@@ -27,6 +27,7 @@ import {
   type SubscriptionState,
 } from "@/services/subscription/types";
 import { useAuthStore } from "@/store/authStore";
+import { sandboxUpgradesEnabled } from "@/lib/releasePolicy";
 
 const BENEFITS = [
   "Raise your active-student capacity beyond the free cap",
@@ -45,6 +46,11 @@ function fmtExpiry(ms: number | null): string | null {
 }
 
 export default function ProSuccessScreen() {
+  if (!sandboxUpgradesEnabled) return <Redirect href="/tutor_edit_profile" />;
+  return <SandboxProSuccessScreen />;
+}
+
+function SandboxProSuccessScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const planParam = useLocalSearchParams<{ plan?: string }>().plan;

@@ -1,5 +1,14 @@
 # eSewa sandbox operations
 
+
+## Development-only gate (22 October 2026)
+
+Purchases are default off. Production builds hide the menu, redirect direct upgrade/success routes and reject purchase/grant methods. Production EAS profiles pin `EXPO_PUBLIC_ENABLE_SANDBOX_PAYMENTS=false`; config resolution rejects an enabled flag. Existing server-owned tier reads remain available.
+
+A developer demonstration requires `EXPO_PUBLIC_APP_ENV=development` and `EXPO_PUBLIC_ENABLE_SANDBOX_PAYMENTS=true` in the client. The server separately requires `APP_ENV=development`, `ALLOW_ESEWA_SANDBOX=true` and its Firebase auth project set to `edumentx-dev` through the existing `FIREBASE_PRODUCT_ID`/`FIREBASE_PROJECT_ID` selection. A request body/header cannot enable this gate. Do not set these opt-ins in production. Demo grants also require explicit mock mode.
+
+The shared configuration rejects live hosts/products: only `EPAYTEST`, the documented `rc-epay` form endpoint and the documented `rc`/`uat` status endpoints are accepted. No live merchant credentials are introduced. These are source controls; the Edge Function must be deployed through the reviewed rollout before the running backend gains the protection. This session did not deploy or send a test payment.
+
 Repository contract checked 2026-10-17. This is the ePay v2 WebView integration in this repository. It stays **sandbox-only (`EPAYTEST`)**; live merchant credentials require a separate documented decision and registered business. Ordinary project setup does not require a payment deployment.
 
 Read the [codebase guide](../00-Overview/CODEBASE_AND_LEARNING_GUIDE.md), [advanced features](../04-Advanced-Features.md) and [deployment runbook](./DEPLOYMENT_GUIDE.md) for context.

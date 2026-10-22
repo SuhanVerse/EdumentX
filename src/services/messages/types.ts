@@ -9,7 +9,7 @@
  *                                           the list/hub needs no extra
  *                                           reads (each side writes only
  *                                           its own key)
- *     lastMessage: { senderId, text, sentAt } | null
+ *     lastMessage: { messageId, senderId, text, sentAt } | null
  *     unreadCount: { [uid]: number }      — per-participant unread
  *                                           count, bumped by the sender
  *                                           and zeroed by the receiver
@@ -38,6 +38,8 @@ export type ConversationMeta = {
 };
 
 export type ConversationLastMessage = {
+  /** Present on new sends; legacy previews did not store the message id. */
+  messageId?: string;
   senderId: string;
   text: string;
   /** epoch ms (Firestore Timestamp.milliseconds) */

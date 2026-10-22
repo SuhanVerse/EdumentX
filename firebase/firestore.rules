@@ -755,78 +755,141 @@ service cloud.firestore {
     }
 
     // ────────────────────────────────────────────────────────────────────
-    // 1:1 messaging — conversations/{conversationId} + messages
-    // ────────────────────────────────────────────────────────────────────
-    //
-    // Deterministic conversation ids (sorted participant pair joined
-    // with `__` — see services/messages/types.ts), so either side
-    // addresses the same doc without a query. Membership is checked
-    // via two SCALAR fields (`participantA` / `participantB` = the
-    // sorted pair) — scalar equality against `request.auth.uid` is the
-    // battle-tested operator in this file, and list-membership ops
-    // (`in` / `hasAny` / index access) fail the local rules emulator
-    // with "Null value error" for doc-sourced lists (firebase-tools
-    // 15.18 emulator quirk). The `participants` ARRAY still exists
-    // for the SDK's `where participants array-contains uid` hub query.
-    //
-    // NOTE: bare `auth.uid` also hits that emulator null-value bug —
-    // every check here uses `request.auth.uid`, matching the rest of
-    // this rules file.
+    // 1:1 conversations use a canonical sorted scalar pair for authorization.
+    // The participants array is retained for display; legacy array order is pinned.
     match /conversations/{conversationId} {
-      // `resource == null` matters: the chat screen subscribes to a
-      // conversation doc that does NOT exist yet (before the first
-      // message). Accessing `resource.data.X` on a missing doc THROWS
-      // in rules, which surfaces as `permission-denied` instead of an
-      // empty snapshot. Allow the (empty) read of a nonexistent doc;
-      // existing docs still require participant membership.
-      allow read: if isSignedIn()
-        && (resource == null
-            || resource.data.participantA == request.auth.uid
-            || resource.data.participantB == request.auth.uid);
+      function member(data) {
+        return isSignedIn() && (data.participantA == request.auth.uid
+          || data.participantB == request.auth.uid);
+      }
+      function peer() {
+        return resource.data.participantA == request.auth.uid
+          ? resource.data.participantB : resource.data.participantA;
+      }
+      function pairMap(data, key) {
+        return data.get(key, {}) is map
+          && data.get(key, {}).keys().hasOnly([data.participantA, data.participantB]);
+      }
+      function validMeta(value) {
+        return value is map && value.keys().hasOnly(["name", "avatar"])
+          && value.name is string && (value.avatar == null || value.avatar is string);
+      }
+      function validMaps(data) {
+        let meta = data.get("meta", {});
+        let unread = data.get("unreadCount", {});
+        let typing = data.get("typing", {});
+        return pairMap(data, "meta") && pairMap(data, "unreadCount") && pairMap(data, "typing")
+          && (!(data.participantA in meta) || validMeta(meta[data.participantA]))
+          && (!(data.participantB in meta) || validMeta(meta[data.participantB]))
+          && unread.get(data.participantA, 0) is int && unread.get(data.participantA, 0) >= 0
+          && unread.get(data.participantB, 0) is int && unread.get(data.participantB, 0) >= 0
+          && typing.get(data.participantA, false) is bool
+          && typing.get(data.participantB, false) is bool;
+      }
+      // Presence parity matters: deletion must not compare equal to a default.
+      // Avoid diff(), which mis-evaluates some masked patches in the emulator.
+      function sameEntry(key, uid) {
+        let before = resource.data.get(key, {});
+        let after = request.resource.data.get(key, {});
+        return (!(uid in before) && !(uid in after))
+          || (uid in before && uid in after && before[uid] == after[uid]);
+      }
+      function knownFields(data) {
+        return data.keys().hasOnly(["participants", "participantA", "participantB",
+          "meta", "lastMessage", "unreadCount", "typing", "createdAt", "updatedAt"]);
+      }
+      function newMessageMatches(last) {
+        let path = /databases/$(database)/documents/conversations/$(conversationId)/messages/$(last.messageId);
+        let message = getAfter(path).data;
+        return !exists(path) && message.senderId == request.auth.uid
+          && message.text == last.text && message.sentAt == last.sentAt
+          && message.status == "sent";
+      }
+      function sending() {
+        let data = request.resource.data;
+        let last = data.lastMessage;
+        return last is map
+          && last.keys().hasAll(["messageId", "senderId", "text", "sentAt"])
+          && last.keys().hasOnly(["messageId", "senderId", "text", "sentAt"])
+          && last.messageId is string && last.messageId.size() > 0
+          && last.senderId == request.auth.uid
+          && last.text is string && last.text.size() > 0 && last.text.size() <= 2000
+          && last.sentAt == request.time && data.updatedAt == request.time
+          && request.auth.uid in data.get("meta", {})
+          && sameEntry("meta", peer()) && sameEntry("typing", peer())
+          && data.get("typing", {}).get(request.auth.uid, true) == false
+          && data.get("unreadCount", {}).get(request.auth.uid, -1) == 0
+          && data.get("unreadCount", {}).get(peer(), -1)
+            == resource.data.get("unreadCount", {}).get(peer(), 0) + 1
+          && newMessageMatches(last);
+      }
+      function reading() {
+        return unchanged("meta") && unchanged("typing") && unchanged("lastMessage")
+          && unchanged("updatedAt") && sameEntry("unreadCount", peer())
+          && request.resource.data.get("unreadCount", {}).get(request.auth.uid, -1) == 0;
+      }
+      function typingOnly() {
+        return unchanged("meta") && unchanged("unreadCount") && unchanged("lastMessage")
+          && unchanged("updatedAt") && sameEntry("typing", peer())
+          && request.auth.uid in request.resource.data.get("typing", {});
+      }
+      allow get: if isSignedIn() && (resource == null || member(resource.data));
+      // The inbox must use participantA == uid OR participantB == uid.
+      allow list: if member(resource.data);
       allow create: if isSignedIn()
-        && request.resource.data.participants is list
-        && request.resource.data.participants.size() == 2
-        && (request.resource.data.participantA == request.auth.uid
-            || request.resource.data.participantB == request.auth.uid);
-      // Participants may bump lastMessage / their own meta entry;
-      // non-participants can never touch the thread.
-      allow update: if isSignedIn()
-        && (resource.data.participantA == request.auth.uid
-            || resource.data.participantB == request.auth.uid);
+        && knownFields(request.resource.data)
+        && request.resource.data.participantA is string
+        && request.resource.data.participantB is string
+        && request.resource.data.participantA.size() > 0
+        && request.resource.data.participantA < request.resource.data.participantB
+        && conversationId == request.resource.data.participantA + "__" + request.resource.data.participantB
+        && request.resource.data.participants == [request.resource.data.participantA, request.resource.data.participantB]
+        && member(request.resource.data) && validMaps(request.resource.data)
+        && request.resource.data.get("meta", {}).keys().hasOnly([request.auth.uid])
+        && request.resource.data.get("unreadCount", {}).size() == 0
+        && request.resource.data.get("typing", {}).size() == 0
+        && request.resource.data.lastMessage == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if member(resource.data)
+        && knownFields(request.resource.data)
+        && unchanged("participantA") && unchanged("participantB")
+        && unchanged("participants") && unchanged("createdAt")
+        && validMaps(request.resource.data)
+        && (reading() || typingOnly() || sending());
       allow delete: if false;
 
       match /messages/{messageId} {
-        // Same missing-parent guard: the messages subcollection query
-        // runs while the conversation doc may not exist yet.
-        allow read: if isSignedIn() && (
-          !exists(/databases/$(database)/documents/conversations/$(conversationId))
-          || get(/databases/$(database)/documents/conversations/$(conversationId))
-              .data.participantA == request.auth.uid
-          || get(/databases/$(database)/documents/conversations/$(conversationId))
-              .data.participantB == request.auth.uid
-        );
-        allow create: if isSignedIn()
+        function conversation() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+        function receipt() {
+          return resource.data.keys().hasOnly(["senderId", "text", "sentAt", "status", "readAt"])
+            && request.resource.data.keys().hasOnly(["senderId", "text", "sentAt", "status", "readAt"])
+            && resource.data.senderId != request.auth.uid
+            && unchanged("senderId") && unchanged("text") && unchanged("sentAt")
+            && request.resource.data.status == "read"
+            && ((resource.data.get("status", "sent") == "sent"
+                && !("readAt" in resource.data) && request.resource.data.readAt == request.time)
+              || (resource.data.get("status", "sent") == "read" && unchanged("readAt")));
+        }
+        // A missing parent must fail closed: subcollections can outlive it.
+        allow read: if member(conversation());
+        allow create: if member(conversation())
+          && request.resource.data.keys().hasOnly(["senderId", "text", "sentAt", "status"])
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000
-          && (get(/databases/$(database)/documents/conversations/$(conversationId))
-                .data.participantA == request.auth.uid
-              || get(/databases/$(database)/documents/conversations/$(conversationId))
-                .data.participantB == request.auth.uid);
-        // Read receipts: a participant flips INCOMING messages from
-        // "sent" to "read" when the chat opens (markMessagesRead).
-        // Narrow — only status/readAt may change; text/senderId are
-        // immutable after create. Either participant may flip any
-        // message in the thread (both share the same chat), which is
-        // how the double-checkmark works in practice.
-        allow update: if isSignedIn()
-          && (get(/databases/$(database)/documents/conversations/$(conversationId))
-                .data.participantA == request.auth.uid
-              || get(/databases/$(database)/documents/conversations/$(conversationId))
-                .data.participantB == request.auth.uid)
-          && request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(["status", "readAt"]);
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.status == "sent" && request.resource.data.sentAt == request.time
+          && getAfter(/databases/$(database)/documents/conversations/$(conversationId))
+            .data.lastMessage.messageId == messageId
+          && getAfter(/databases/$(database)/documents/conversations/$(conversationId))
+            .data.lastMessage.senderId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/conversations/$(conversationId))
+            .data.lastMessage.text == request.resource.data.text
+          && getAfter(/databases/$(database)/documents/conversations/$(conversationId))
+            .data.lastMessage.sentAt == request.resource.data.sentAt;
+        allow update: if member(conversation()) && receipt();
         allow delete: if false;
       }
     }

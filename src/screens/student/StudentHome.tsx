@@ -3,11 +3,12 @@ import { useRouter } from "expo-router";
 import {
   ScreenLayout,
   ScreenHeader,
-  ScreenScroll,
 } from "@/components/shared/ScreenLayout";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  ScrollView,
   Pressable,
   Text,
   TextInput,
@@ -31,6 +32,11 @@ import {
 } from "@/services/tutors/dataSource";
 import { useUnreadCount } from "@/services/messages/useUnreadCount";
 import { createDefaultTutorProfile } from "@/lib/tutor/types";
+import { filterDiscoveryTutors, getDiscoverySubjects } from "@/lib/tutor/discovery";
+import { AnimatedPressable, Skeleton, usePressScale } from "@/components/motion";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
+import { motion } from "@/lib/motion";
 
 /**
  * EdumentX — Student Home
@@ -94,6 +100,10 @@ function resolveLocationLabel(
 export function StudentHome() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [directoryError, setDirectoryError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const listRef = useRef<FlatList<TutorListing>>(null);
 
   // Live reads from Firestore. We hold them in local state and
   // subscribe via `onSnapshot` so the dashboard re-renders if the
@@ -108,17 +118,38 @@ export function StudentHome() {
     locationLabel: "Add your location",
   });
 
-  // Subscribe to the live tutor directory
+  // One shared feed: search and subject selection are entirely local.
   useEffect(() => {
-    const unsub = getTutorRepository().subscribeTutors(
+    setTutorsLoading(true);
+    setDirectoryError(false);
+    return getTutorRepository().subscribeTutors(
       (list) => {
         setTutors(list);
+        setDirectoryError(false);
         setTutorsLoading(false);
       },
-      () => setTutorsLoading(false),
+      () => {
+        setDirectoryError(true);
+        setTutorsLoading(false);
+      },
     );
-    return unsub;
-  }, []);
+  }, [retry]);
+
+  const subjects = useMemo(() => getDiscoverySubjects(tutors), [tutors]);
+  const visibleTutors = useMemo(
+    () => filterDiscoveryTutors(tutors, search, selectedSubject),
+    [tutors, search, selectedSubject],
+  );
+  const filtering = search.trim().length > 0 || selectedSubject !== null;
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [search, selectedSubject]);
+
+  function clearFilters() {
+    setSearch("");
+    setSelectedSubject(null);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -173,53 +204,33 @@ export function StudentHome() {
 
   return (
     <ScreenLayout variant="background">
-
-      {/* Hero header — standard ScreenHeader slot */}
       <ScreenHeader variant="light">
-        <View className="flex-row items-start justify-between mb-4 gap-3">
-          {/* `flex-1 min-w-0` lets the greeting shrink to fit a long
-              name (e.g. "Suhan Dongol") next to the notification
-              bell — without it the View clips to the bell's width
-              and the name reads "Su…" in the screenshots. */}
+        <View className="flex-row items-center justify-between gap-3 mb-4">
           <View className="flex-1 min-w-0">
-            <Text className="text-body text-text-secondary mb-0.5">Good day,</Text>
-            <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
-              <Text
-                className="text-screen-title font-medium text-text-primary"
-                numberOfLines={1}
-              >
-                {profile.fullName}
-              </Text>
-            </View>
+            <Text className="text-caption text-text-secondary" numberOfLines={1}>
+              Hello, {profile.fullName || "there"}
+            </Text>
+            <Text className="text-screen-title font-semibold text-text-primary mt-1">
+              Find your tutor
+            </Text>
           </View>
           <View className="flex-row items-center gap-2">
             <View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={
-                  unreadMessages > 0
-                    ? `Messages, ${unreadMessages} unread`
-                    : "Messages"
-                }
+                accessibilityLabel={unreadMessages > 0 ? `Messages, ${unreadMessages} unread` : "Messages"}
                 onPress={() => router.push("/messages" as never)}
-                className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+                className="w-12 h-12 rounded-pill bg-background border border-border items-center justify-center active:opacity-80"
               >
-                <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.brand.primary} />
               </Pressable>
               {unreadMessages > 0 && (
                 <View
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                   className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-pill bg-danger items-center justify-center"
-                  style={{
-                    shadowColor: "#000",
-                    shadowOpacity: 0.15,
-                    shadowRadius: 2,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 2,
-                  }}
                 >
-                  <Text className="text-[10px] font-semibold text-white leading-none">
+                  <Text className="text-micro font-semibold text-text-inverse">
                     {unreadMessages > 9 ? "9+" : unreadMessages}
                   </Text>
                 </View>
@@ -228,144 +239,210 @@ export function StudentHome() {
             <NotificationBell tone="light" />
           </View>
         </View>
-
-        {/* Location */}
-        <View className="flex-row items-center gap-1.5 mb-3.5">
-          <Ionicons name="location-outline" size={14} color={colors.text.muted} />
-          <Text className="text-caption text-text-secondary">{profile.locationLabel}</Text>
+        <View className="flex-row items-center gap-1.5 mb-4">
+          <Ionicons name="location-outline" size={14} color={colors.brand.primary} />
+          <Text className="flex-1 text-caption text-text-secondary" numberOfLines={1}>
+            {profile.locationLabel}
+          </Text>
         </View>
-
-        {/* Search bar — white surface input on the warm-paper hero
-            (hairline border separates it from the body) */}
-        <View className="bg-surface rounded-card h-input flex-row items-center px-4 gap-2.5 border border-border">
-          <Ionicons name="search-outline" size={18} color={colors.text.muted} />
+        <View className="bg-background rounded-pill min-h-btn flex-row items-center px-4 gap-2.5 border border-border">
+          <Ionicons name="search-outline" size={20} color={colors.brand.primary} />
           <TextInput
+            accessibilityLabel="Search tutors, subjects, or locations"
             value={search}
             onChangeText={setSearch}
-            placeholder="Search subjects, tutors, locations…"
+            placeholder="Subject, tutor or location"
             placeholderTextColor={colors.text.muted}
-            className="flex-1 text-body-lg text-text-primary"
+            returnKeyType="search"
+            onSubmitEditing={Keyboard.dismiss}
+            autoCapitalize="none"
+            autoCorrect={false}
+            className="flex-1 text-body text-text-primary py-3"
           />
+          {search.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              onPress={() => setSearch("")}
+              className="w-11 h-11 items-center justify-center"
+            >
+              <Ionicons name="close-circle" size={20} color={colors.text.muted} />
+            </Pressable>
+          )}
         </View>
       </ScreenHeader>
 
-      {/* Content — warm-paper body (Premium UI pass): the scroll sits on
-          `bg-background` so the white cards read as floating surfaces. */}
-      <ScreenScroll className="flex-1 bg-background">
-        {/* Primary CTA — the ONLY amber surface on this screen. Amber
-            is reserved for high-priority actions; tapping this
-            launches the map discovery surface. */}
-        <View className="mb-6">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Explore tutors on the map"
-            onPress={() => router.replace("/map-search")}
-            className="min-h-btn rounded-card bg-amber items-center justify-center shadow-[0_10px_30px_rgba(229,160,59,0.25)] active:opacity-90"
-          >
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="map-outline" size={18} color={colors.text.primary} />
-              <Text className="text-button font-semibold text-night">
-                Explore tutors on the map
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Browse batches — secondary entry into the group-class
-            marketplace. AI blue is the batch-family brand (amber is
-            already spent on the map CTA above). */}
-        <View className="mb-6">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Browse open batches"
-            onPress={() => router.push("/browse-batches" as never)}
-            className="flex-row items-center gap-3 bg-surface border border-border rounded-card p-3.5 active:opacity-80"
-          >
-            <View className="w-10 h-10 rounded-pill bg-ai-light items-center justify-center">
-              <Ionicons name="people-outline" size={19} color={colors.brand.ai} />
-            </View>
-            <View className="flex-1 min-w-0">
-              <Text className="text-card-title font-medium text-text-primary">
-                Browse open batches
-              </Text>
-              <Text className="text-caption text-text-muted mt-0.5">
-                Join an existing group class near you
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </Pressable>
-        </View>
-
-        {/* Tutor list section header */}
-        <View className="pb-3">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-section-title font-semibold text-text-primary">
-              Recommended tutors
-            </Text>
-            {!tutorsLoading && (
-              <Text className="text-caption text-text-muted">
-                {tutors.length} available
-              </Text>
-            )}
-          </View>
-          <Text className="text-body-sm text-text-muted mt-1">
-            Verified tutors ready to help you learn
-          </Text>
-        </View>
-
-        {/* Tutor cards — live from Firestore */}
-        <View className="gap-4">
-          {tutorsLoading ? (
-            <View className="items-center py-12">
-              <ActivityIndicator size="small" color={colors.brand.primary} />
-              <Text className="text-caption text-text-muted mt-3">
-                Loading tutors…
-              </Text>
-            </View>
-          ) : tutors.length === 0 ? (
-            <View className="items-center py-12 px-6">
-              <View className="w-14 h-14 rounded-card bg-surface items-center justify-center mb-3 border border-border">
-                <Ionicons
-                  name="search-outline"
-                  size={26}
-                  color={colors.text.muted}
-                />
+      <Animated.View
+        entering={FadeIn.duration(motion.duration.medium).reduceMotion(ReduceMotion.System)}
+        className="flex-1"
+      >
+        <FlatList
+          ref={listRef}
+          data={tutorsLoading || directoryError ? [] : visibleTutors}
+          keyExtractor={(tutor) => tutor.uid}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerClassName="px-6 pt-6 pb-8"
+          ItemSeparatorComponent={TutorSeparator}
+          ListHeaderComponent={
+            <View>
+              {subjects.length > 0 && (
+                <View className="mb-5">
+                  <Text className="text-label font-medium text-text-secondary mb-2">BROWSE BY SUBJECT</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <View className="flex-row gap-2 pr-1">
+                      <SubjectFilter label="All subjects" selected={selectedSubject === null} onPress={() => setSelectedSubject(null)} />
+                      {subjects.map(subject => (
+                        <SubjectFilter key={subject} label={subject} selected={selectedSubject === subject} onPress={() => setSelectedSubject(subject)} />
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+              {!filtering && (
+                <>
+                  <View className="bg-primary rounded-hero p-5 mb-4">
+                    <View className="flex-row items-center gap-2 mb-3">
+                      <View className="w-8 h-8 rounded-pill bg-surface/10 items-center justify-center">
+                        <Ionicons name="compass-outline" size={18} color={colors.text.inverse} />
+                      </View>
+                      <Text className="flex-1 text-label font-medium tracking-wide text-glass-secondary">LEARN CLOSE TO HOME</Text>
+                    </View>
+                    <Text className="text-display font-semibold text-text-inverse">Your goals. Your tutor.</Text>
+                    <Text className="text-body-sm text-glass-secondary mt-2">
+                      Explore subjects and tutors around you, then find a schedule that fits.
+                    </Text>
+                    <PrimaryButton
+                      label="Explore the map"
+                      variant="accent"
+                      className="mt-4"
+                      leftIcon={<Ionicons name="map-outline" size={18} color={colors.text.primary} />}
+                      onPress={() => router.replace("/map-search")}
+                    />
+                  </View>
+                  <View className="flex-row gap-3 mb-6">
+                    <DiscoveryShortcut icon="people-outline" label="Group classes" hint="Browse open batches" onPress={() => router.push("/browse-batches" as never)} />
+                    <DiscoveryShortcut icon="heart-outline" label="Your shortlist" hint="Revisit saved tutors" onPress={() => router.push("/saved-tutors" as never)} />
+                  </View>
+                </>
+              )}
+              <View className="flex-row items-center justify-between gap-3 mb-4">
+                <View className="flex-1">
+                  <Text className="text-heading font-semibold text-text-primary">{filtering ? "Your results" : "Explore tutors"}</Text>
+                  <Text className="text-caption text-text-secondary mt-1">{selectedSubject ?? "Find support for your next step"}</Text>
+                </View>
+                {!tutorsLoading && !directoryError && (
+                  <Text accessibilityLiveRegion="polite" className="text-caption text-text-secondary">
+                    {visibleTutors.length} {visibleTutors.length === 1 ? "tutor" : "tutors"}
+                  </Text>
+                )}
               </View>
-              <Text className="text-card-title font-medium text-text-primary text-center">
-                No tutors available yet
-              </Text>
-              <Text className="text-body-sm text-text-muted text-center mt-1.5">
-                Approved tutors will appear here once they&apos;ve been
-                verified by our team.
-              </Text>
             </View>
-          ) : (
-            tutors.map((tutor) => (
-              <TutorCard
-                key={tutor.uid}
-                tutor={createDefaultTutorProfile({
-                  id: tutor.uid,
-                  fullName: tutor.fullName,
-                  username: tutor.username,
-                  headline: tutor.headline,
-                  subjects: tutor.subjects,
-                  yearsExperience: tutor.yearsExperience,
-                  monthlyRateNpr: tutor.monthlyRateNpr,
-                  location: tutor.location,
-                  rating: tutor.rating,
-                  reviewCount: tutor.reviewCount,
-                  isVerifiedProfessional: tutor.isVerifiedProfessional,
-                  photoUrl: tutor.photoUrl,
-                })}
-                variant="wide"
-              />
-            ))
+          }
+          ListEmptyComponent={
+            tutorsLoading ? <DiscoveryLoading /> : directoryError ? (
+              <View className="rounded-hero bg-surface border border-border p-6 gap-3">
+                <Ionicons name="cloud-offline-outline" size={28} color={colors.brand.primary} />
+                <Text accessibilityRole="alert" className="text-heading text-text-primary">Couldn’t load tutors</Text>
+                <Text className="text-body-sm text-text-secondary">Check your connection and try again.</Text>
+                <PrimaryButton label="Try again" onPress={() => setRetry(n => n + 1)} />
+              </View>
+            ) : (
+              <View className="rounded-hero bg-surface border border-border p-6 gap-3">
+                <Ionicons name="search-outline" size={28} color={colors.brand.primary} />
+                <Text className="text-heading text-text-primary">{filtering ? "No matching tutors" : "No tutors available yet"}</Text>
+                <Text className="text-body-sm text-text-secondary">
+                  {filtering ? "Try a different subject, name or location." : "Tutors appear here once their profiles are approved and they have availability."}
+                </Text>
+                {filtering && <PrimaryButton label="Clear filters" variant="ghost" onPress={clearFilters} />}
+              </View>
+            )
+          }
+          renderItem={({ item: tutor }) => (
+            <TutorCard
+              tutor={createDefaultTutorProfile({
+                id: tutor.uid,
+                fullName: tutor.fullName,
+                username: tutor.username,
+                headline: tutor.headline,
+                subjects: tutor.subjects,
+                yearsExperience: tutor.yearsExperience,
+                monthlyRateNpr: tutor.monthlyRateNpr,
+                location: tutor.location,
+                rating: tutor.rating,
+                reviewCount: tutor.reviewCount,
+                isVerifiedProfessional: tutor.isVerifiedProfessional,
+                photoUrl: tutor.photoUrl,
+                subscriptionTier: tutor.subscriptionTier,
+              })}
+              variant="wide"
+            />
           )}
-        </View>
-
-      </ScreenScroll>
-
+        />
+      </Animated.View>
       <BottomNav role="student" current="/student-home" tone="light" />
     </ScreenLayout>
+  );
+}
+
+function TutorSeparator() {
+  return <View className="h-4" />;
+}
+
+function SubjectFilter({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({ haptic: false });
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={`Filter by ${label}`}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className={`min-h-11 rounded-pill border px-4 py-3 flex-row items-center justify-center gap-1.5 ${selected ? "bg-primary border-primary" : "bg-surface border-border"}`}
+    >
+      {selected && <Ionicons name="checkmark" size={14} color={colors.text.inverse} />}
+      <Text className={`text-caption font-medium ${selected ? "text-text-inverse" : "text-text-secondary"}`}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
+function DiscoveryShortcut({ icon, label, hint, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; hint: string; onPress: () => void }) {
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale();
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${hint}`}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={animatedStyle}
+      className="flex-1 rounded-card bg-surface border border-border p-4"
+    >
+      <View className="w-9 h-9 rounded-card bg-primary-light items-center justify-center mb-3">
+        <Ionicons name={icon} size={18} color={colors.brand.primary} />
+      </View>
+      <Text className="text-body font-semibold text-text-primary">{label}</Text>
+      <Text className="text-caption text-text-secondary mt-1">{hint}</Text>
+    </AnimatedPressable>
+  );
+}
+
+function DiscoveryLoading() {
+  return (
+    <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading tutors" accessibilityState={{ busy: true }} className="gap-4">
+      {[0, 1].map(n => (
+        <View key={n} className="rounded-card bg-surface border border-border p-5 gap-4">
+          <View className="flex-row items-center gap-3">
+            <Skeleton className="w-14 h-14 rounded-pill" />
+            <View className="flex-1 gap-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></View>
+          </View>
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+        </View>
+      ))}
+    </View>
   );
 }
