@@ -19,18 +19,11 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 import { colors } from "@/constants/colors";
-import { motion } from "@/lib/motion";
 import { TutorBottomBar } from "@/components/domain/TutorBottomBar";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { NotificationBell } from "@/components/shared/NotificationBell";
-import { SwitchThumb, ActivePill, FloatingEmptyIcon } from "@/components/motion";
+import { SwitchThumb, FloatingEmptyIcon } from "@/components/motion";
 import { RemoveEnrollmentDialog } from "@/components/domain/RemoveEnrollmentDialog";
 import { getEnrollmentRepository } from "@/services/enrollments/dataSource";
 import { getReviewRepository } from "@/services/enrollments/reviewDataSource";
@@ -111,8 +104,6 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
   { label: "Messages", route: "/messages" },
 ];
 
-type ReqTab = "enrollments" | "batches";
-
 /**
  * Sign-out used to live here but moved to the tutor profile tab
  * (`screens/tutor/edit_profile.tsx`) on June 28, 2026 so the
@@ -141,7 +132,6 @@ export function TutorDashboard() {
   const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const [reqTab, setReqTab] = useState<ReqTab>("enrollments");
   // Live pending enrollment requests addressed to this tutor. The
   // subscription returns the full list (pending + decided history);
   // we filter to pending so decided rows drop off the dashboard
@@ -424,6 +414,7 @@ export function TutorDashboard() {
   const capacity = data.capacity;
   const currentStudents = data.currentStudents;
   const activeRoster = roster.filter((e) => e.status === "active");
+  const todaySessions = deriveTodaySessions(roster);
   const capPct = capacity > 0 ? (currentStudents / capacity) * 100 : 0;
   const capColor =
     capPct >= 100
@@ -490,7 +481,7 @@ export function TutorDashboard() {
               and reads as "Suh…" in the screenshots. */}
           <View className="flex-1 min-w-0">
             <Text className="text-body text-text-secondary">Good to see you,</Text>
-            <View style={{ borderBottomWidth: 2, borderBottomColor: colors.brand.accent, paddingBottom: 2, alignSelf: 'flex-start' }}>
+            <View className="border-b-2 border-accent pb-0.5 self-start">
               <Text
                 className="text-screen-title font-medium text-text-primary mt-0.5"
                 numberOfLines={1}
@@ -517,7 +508,7 @@ export function TutorDashboard() {
                     : "Messages"
                 }
                 onPress={() => router.push("/messages" as never)}
-                className="w-10 h-10 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
+                className="w-12 h-12 rounded-pill bg-surface border border-border items-center justify-center active:opacity-80"
               >
                 <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.brand.primary} />
               </Pressable>
@@ -526,13 +517,6 @@ export function TutorDashboard() {
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                   className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-pill bg-danger items-center justify-center"
-                  style={{
-                    shadowColor: "#000",
-                    shadowOpacity: 0.15,
-                    shadowRadius: 2,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 2,
-                  }}
                 >
                   <Text className="text-[10px] font-semibold text-white leading-none">
                     {unreadMessages > 9 ? "9+" : unreadMessages}
@@ -631,51 +615,93 @@ export function TutorDashboard() {
       ) : null}
 
       <ScreenScroll className="flex-1 bg-background">
-        {/* Metric cards — all live. Active students + capacity come
-            from the profile doc (maintained by acceptRequest); Avg
-            rating + Reviews from the reviews collection; Response
-            rate from the full request history. */}
-        <View className="flex-row flex-wrap justify-between mb-3.5">
+        <View className="bg-primary rounded-hero p-5 mb-4">
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-overline uppercase tracking-widest text-glass-secondary">Your teaching day</Text>
+              <Text className="text-heading font-semibold text-text-inverse mt-1">Today’s sessions</Text>
+            </View>
+            <View className="w-12 h-12 rounded-lg bg-glass-strong border border-glass-border items-center justify-center">
+              <Ionicons name="calendar-outline" size={23} color={colors.text.inverse} />
+            </View>
+          </View>
+          <View className="flex-row items-end gap-2 mt-4 mb-4">
+            <Text className="text-display text-text-inverse">{rosterLoaded ? todaySessions.length : "…"}</Text>
+            <Text className="flex-1 text-caption text-glass-secondary mb-1">
+              {todaySessions.length === 1 ? "session scheduled" : "sessions scheduled"}
+            </Text>
+          </View>
+          {!rosterLoaded ? (
+            <Text className="text-caption text-glass-secondary">Loading your schedule…</Text>
+          ) : todaySessions.length === 0 ? (
+            <View className="border-t border-glass-border pt-3">
+              <Text className="text-caption text-glass-secondary">No sessions scheduled today.</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Manage your availability"
+                onPress={() => router.push("/tutor-capacity")}
+                className="min-h-input flex-row items-center gap-1.5 self-start mt-1 active:opacity-75"
+              >
+                <Text className="text-button-sm font-semibold text-text-inverse">Manage availability</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.text.inverse} />
+              </Pressable>
+            </View>
+          ) : (
+            <View className="border-t border-glass-border">
+              {todaySessions.map((session, index) => (
+                <View key={session.key} className={`py-3 ${index > 0 ? "border-t border-glass-border" : ""}`}>
+                  <View className="flex-row flex-wrap items-center gap-1.5 mb-1">
+                    <Ionicons name="time-outline" size={13} color={colors.brand.accent} />
+                    <Text className="text-caption font-semibold text-amber">{session.time}</Text>
+                    {session.duration ? <Text className="text-caption text-glass-secondary">· {session.duration}</Text> : null}
+                  </View>
+                  <Text className="text-body font-semibold text-text-inverse">{session.student}</Text>
+                  <Text className="text-caption text-glass-secondary mt-0.5">{session.subject}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={requestsLoaded ? `Review ${pendingRequests.length} pending enrollment requests` : "Open enrollment inbox"}
+          onPress={() => router.push("/tutor-inbox")}
+          className="flex-row items-center gap-3 bg-accent-light border border-accent/30 rounded-card p-4 mb-5 active:opacity-80"
+        >
+          <View className="w-12 h-12 rounded-lg bg-surface items-center justify-center">
+            <Ionicons name="mail-unread-outline" size={23} color={colors.brand.primary} />
+          </View>
+          <View className="flex-1 min-w-0">
+            <Text className="text-body font-semibold text-text-primary">
+              {!requestsLoaded ? "Loading requests…" : pendingRequests.length > 0 ? `${pendingRequests.length} pending ${pendingRequests.length === 1 ? "request" : "requests"}` : "No pending requests"}
+            </Text>
+            <Text className="text-caption text-accent-dark mt-0.5">
+              {pendingRequests.length > 0 ? "Review students and choose a suitable slot." : "New enrollment requests will appear here."}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.brand.primary} />
+        </Pressable>
+
+        <Text className="text-section-title font-semibold text-text-primary mb-3">At a glance</Text>
+        <View className="flex-row flex-wrap justify-between mb-2">
+          <Metric iconName="people-outline" label="Active students" value={hasLoaded ? String(currentStudents) : "…"} />
           <Metric
-            iconName="people"
-            label="Active students"
-            value={String(currentStudents)}
-          />
-          <Metric
-            iconName="star"
+            iconName="star-outline"
             label="Avg rating"
-            value={
-              !reviewsLoaded
-                ? "…"
-                : reviewCount === 0
-                  ? "—"
-                  : avgRating.toFixed(1)
-            }
+            value={!reviewsLoaded ? "…" : reviewCount === 0 ? "—" : avgRating.toFixed(1)}
           />
-          <Metric
-            iconName="chatbox-ellipses-outline"
-            label="Reviews"
-            value={!reviewsLoaded ? "…" : String(reviewCount)}
-          />
-          <Metric
-            iconName="flash-outline"
-            label="Response rate"
-            value={
-              responseRate == null ? "—" : `${responseRate}%`
-            }
-          />
-          <Metric
-            iconName="time"
-            label="Pending requests"
-            value={String(pendingRequests.length)}
-          />
+          <Metric iconName="chatbox-ellipses-outline" label="Reviews" value={!reviewsLoaded ? "…" : String(reviewCount)} />
+          <Metric iconName="flash-outline" label="Response rate" value={responseRate == null ? "—" : `${responseRate}%`} />
         </View>
 
         {/* Capacity — tappable, routes to the capacity & schedule
             editor (live availability grid) */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Manage student capacity and availability"
           onPress={() => router.push("/tutor-capacity")}
-          className="bg-surface border border-border rounded-card p-4 mb-3.5 active:opacity-70"
+          className="bg-surface border border-border rounded-card p-4 mb-5 active:opacity-70"
         >
           <View className="flex-row items-center gap-2 mb-2.5">
             <Ionicons name="people" size={16} color={colors.text.muted} />
@@ -694,46 +720,10 @@ export function TutorDashboard() {
           <View className="h-2 rounded-pill bg-border overflow-hidden">
             <View
               className={`h-full rounded-pill ${capColor}`}
-              style={{ width: `${capPct}%` }}
+              style={{ width: `${Math.min(capPct, 100)}%` }}
             />
           </View>
         </Pressable>
-
-        {/* Today's sessions — derived live from the roster (active
-            enrollments on today's weekday within their date window),
-            not a `sessions` collection. */}
-        <View className="bg-surface border border-border rounded-card p-6 mb-3.5 items-center">
-          <View className="w-14 h-14 rounded-pill bg-background border border-border items-center justify-center mb-3">
-            <Ionicons name="briefcase-outline" size={26} color={colors.brand.accent} />
-          </View>
-          {!rosterLoaded ? (
-            <Text className="text-caption text-text-muted py-2">
-              Loading sessions…
-            </Text>
-          ) : deriveTodaySessions(roster).length === 0 ? (
-            <Text className="text-caption text-text-muted py-2">
-              No sessions scheduled today.
-            </Text>
-          ) : (
-            deriveTodaySessions(roster).map((s, i) => (
-              <View
-                key={s.key}
-                className={`flex-row items-center gap-3 py-2.5 ${
-                  i > 0 ? "border-t border-border" : ""
-                }`}
-              >
-                <Text className="w-[60px] text-caption font-medium text-accent">{s.time}</Text>
-                <View className="flex-1">
-                  <Text className="text-button-sm text-text-primary">{s.student}</Text>
-                  <Text className="text-caption text-text-muted mt-0.5">
-                    {s.subject}
-                    {s.duration ? ` · ${s.duration}` : ""}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
 
         {/* Active students — the live roster (same stream the
             capacity screen reads). Removing a student soft-deletes
@@ -842,91 +832,74 @@ export function TutorDashboard() {
               Pending requests
             </Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View all enrollment requests"
               onPress={() => router.push("/tutor-inbox")}
-              className="flex-row items-center gap-0.5 active:opacity-70"
+              className="min-h-input flex-row items-center gap-1 active:opacity-70"
             >
-              <Text className="text-button-sm text-amber">See all</Text>
+              <Text className="text-button-sm text-primary font-semibold">See all</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.brand.primary} />
             </Pressable>
           </View>
 
-          {/* Sub-tabs */}
-          <RequestsSubTabs
-            activeKey={reqTab}
-            onChange={setReqTab}
-            tabs={[
-              { key: "enrollments", label: "New enrollments", count: pendingRequests.length },
-              { key: "batches", label: "Batch requests", count: 0 },
-            ]}
-          />
-
-          {reqTab === "enrollments" && (
-            <View className="flex-col gap-2.5">
-              {!requestsLoaded ? (
-                <Text className="text-caption text-text-muted py-2">
-                  Loading requests…
-                </Text>
-              ) : pendingRequests.length === 0 ? (
-                <Text className="text-caption text-text-muted py-2">
-                  No new enrollment requests.
-                </Text>
-              ) : (
-                pendingRequests.map((req) => (
-                  <Pressable
-                    key={req.requestId}
-                    onPress={() => router.push("/tutor-inbox")}
-                    className="bg-surface rounded-card p-3.5 border border-border active:opacity-70"
-                  >
-                    <View className="flex-row gap-2.5 items-start">
-                      <AvatarCircle uri={req.studentAvatar} name={req.studentName} />
-                      <View className="flex-1">
-                        <View className="flex-row justify-between items-center">
-                          <Text className="text-card-title font-medium text-text-primary">
-                            {req.studentName}
-                          </Text>
-                          <StatusBadge status="pending" />
-                        </View>
-                        <Text className="text-caption text-text-muted mt-0.5">
-                          {req.studentGrade}
+          <View className="flex-col gap-2.5">
+            {!requestsLoaded ? (
+              <Text className="text-caption text-text-muted py-2">
+                Loading requests…
+              </Text>
+            ) : pendingRequests.length === 0 ? (
+              <Text className="text-caption text-text-muted py-2">
+                No new enrollment requests.
+              </Text>
+            ) : (
+              pendingRequests.map((req) => (
+                <Pressable
+                  key={req.requestId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Review ${req.studentName}'s enrollment request`}
+                  onPress={() => router.push("/tutor-inbox")}
+                  className="bg-surface rounded-card p-3.5 border border-border active:opacity-70"
+                >
+                  <View className="flex-row gap-2.5 items-start">
+                    <AvatarCircle uri={req.studentAvatar} name={req.studentName} />
+                    <View className="flex-1">
+                      <View className="flex-row justify-between items-center gap-2">
+                        <Text className="text-card-title font-medium text-text-primary flex-1" numberOfLines={1}>
+                          {req.studentName}
                         </Text>
-                        <View className="flex-row gap-1 mt-1.5 flex-wrap">
-                          {req.subjects.map((s) => (
-                            <SubjectChip key={s} label={s} />
-                          ))}
-                        </View>
-                        <Text className="mt-1.5 text-micro text-text-muted">
-                          {req.schedule} · From {req.startDate}
-                        </Text>
-                        {req.message.trim().length > 0 ? (
-                          <Text
-                            className="mt-1.5 text-caption text-text-secondary"
-                            numberOfLines={2}
-                          >
-                            {req.message}
-                          </Text>
-                        ) : null}
+                        <StatusBadge status="pending" />
                       </View>
+                      <Text className="text-caption text-text-muted mt-0.5">
+                        {req.studentGrade}
+                      </Text>
+                      <View className="flex-row gap-1 mt-1.5 flex-wrap">
+                        {req.subjects.map((s) => (
+                          <SubjectChip key={s} label={s} />
+                        ))}
+                      </View>
+                      <Text className="mt-1.5 text-micro text-text-muted">
+                        {req.schedule} · From {req.startDate}
+                      </Text>
+                      {req.message.trim().length > 0 ? (
+                        <Text
+                          className="mt-1.5 text-caption text-text-secondary"
+                          numberOfLines={2}
+                        >
+                          {req.message}
+                        </Text>
+                      ) : null}
                     </View>
-                  </Pressable>
-                ))
-              )}
-            </View>
-          )}
-
-          {reqTab === "batches" && (
-            <View className="flex-col gap-2.5">
-              <View className="bg-surface rounded-card p-4 border border-border items-center">
-                <Ionicons name="people-outline" size={22} color={colors.text.muted} />
-                <Text className="text-caption text-text-muted mt-2 text-center">
-                  No batch requests right now.
-                </Text>
-              </View>
-            </View>
-          )}
+                  </View>
+                </Pressable>
+              ))
+            )}
+          </View>
         </View>
 
         {/* Group batch CTA */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Create or manage a group batch"
           onPress={() => router.push("/batches")}
           className="w-full flex-row items-center gap-3 p-3.5 bg-surface border border-border rounded-card active:opacity-70"
         >
@@ -950,8 +923,7 @@ export function TutorDashboard() {
               accessibilityRole="button"
               accessibilityLabel={label}
               onPress={() => router.push(route as never)}
-              style={{ width: "48%" }}
-              className="bg-surface border border-border rounded-card p-3.5 mb-2.5 active:opacity-70"
+              className="w-[48%] min-h-input bg-surface border border-border rounded-card p-3.5 mb-2.5 active:opacity-70"
             >
               <Text className="text-button-sm font-medium text-text-primary">{label}</Text>
             </Pressable>
@@ -990,8 +962,7 @@ type MetricProps = {
 function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
   return (
     <View
-      className="bg-surface border border-border rounded-card p-3.5 mb-2.5"
-      style={{ width: "48%" }}
+      className="w-[48%] bg-surface border border-border rounded-card p-4 mb-3"
     >
       <View className="flex-row items-center justify-between mb-2">
         <View className="w-8 h-8 rounded-lg items-center justify-center bg-background border border-border">
@@ -1001,15 +972,15 @@ function Metric({ iconName, label, value, trend, trendUp }: MetricProps) {
             color={colors.brand.primary}
           />
         </View>
-        {trendUp ? <Ionicons name="trending-up" size={14} color={colors.brand.verification} /> : null}
+        {trend && trendUp ? <Ionicons name="trending-up" size={14} color={colors.brand.verification} /> : null}
       </View>
       <Text className="text-label text-text-muted mb-1">{label}</Text>
       <Text className="text-heading text-text-primary leading-tight">{value}</Text>
-      <Text
-        className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}
-      >
-        {trend}
-      </Text>
+      {trend ? (
+        <Text className={`text-caption mt-1 ${trendUp ? "text-verification" : "text-text-muted"}`}>
+          {trend}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -1098,7 +1069,7 @@ function TutorDashboardEmptyState() {
       <View className="flex-1 items-center justify-center px-8">
         <FloatingEmptyIcon
           iconName="document-text-outline"
-          iconColor="#E5A03B"
+          iconColor={colors.brand.accent}
           iconBgClass="bg-accent-soft"
           size={28}
           sizeClass="w-16 h-16"
@@ -1135,13 +1106,7 @@ function TutorDashboardEmptyState() {
 const TRACK_WIDTH = 44;
 const THUMB_SIZE = 20;
 
-/**
- * Animated availability switch. Replaces the previous class-swap
- * (`bg-verification` vs `bg-white/20` + `left-5` vs `left-0.5`) with
- * a spring-sliding thumb and a smoothly interpolated track color
- * (white/20 → verification green). Wrapped in a `Pressable` so the
- * tap target stays tappable on the full 44×24 area.
- */
+/** The visible track is 44×24; its press target is 48×48. */
 function AvailabilitySwitch({
   checked,
   onToggle,
@@ -1151,127 +1116,22 @@ function AvailabilitySwitch({
   onToggle: () => void;
   disabled?: boolean;
 }) {
-  // Track bg color — interpolated between the off (white/20) and on
-  // (verification green) tokens. Using the same hex lookups that
-  // exist elsewhere in the codebase so we don't introduce new colors.
-  const TRACK_OFF = "#E7E1D3";
-  const TRACK_ON = colors.brand.verification;
-  const progress = useSharedValue(checked ? 1 : 0);
-
-  useEffect(() => {
-    progress.value = withTiming(checked ? 1 : 0, {
-      duration: motion.duration.medium,
-    });
-  }, [checked, progress]);
-
-  const trackStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      backgroundColor: interpolateColor(
-        progress.value,
-        [0, 1],
-        [TRACK_OFF, TRACK_ON],
-      ),
-    };
-  });
-
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityState={{ checked, disabled }}
-      accessibilityLabel="Toggle availability"
+      accessibilityLabel="Show your profile in tutor search"
       onPress={disabled ? undefined : onToggle}
-      // `overflow-hidden` clips the sliding thumb (and its shadow)
-      // to the rounded track so it never bleeds outside the 44×24
-      // pill while animating.
-      className="w-11 h-6 rounded-pill px-0.5 justify-center overflow-hidden"
+      className="w-12 h-12 items-center justify-center"
     >
-      <Animated.View
-        style={trackStyle}
-        className="absolute inset-0 rounded-pill"
-      />
-      <SwitchThumb
-        checked={checked}
-        trackWidth={TRACK_WIDTH}
-        thumbSize={THUMB_SIZE}
-        thumbClassName="w-5 h-5 rounded-pill bg-white border border-border shadow-sm"
-        style={{ elevation: 2 }}
-      />
-    </Pressable>
-  );
-}
-
-/**
- * Two-tab segmented control for the requests section ("New
- * enrollments" / "Batch requests"). The active tab is signaled by
- * a single sliding `ActivePill` behind the labels (and the count
- * chip), instead of a per-tab `bg-primary` class-swap.
- */
-function RequestsSubTabs<TKey extends string>({
-  tabs,
-  activeKey,
-  onChange,
-}: {
-  tabs: { key: TKey; label: string; count: number }[];
-  activeKey: TKey;
-  onChange: (key: TKey) => void;
-}) {
-  const [width, setWidth] = useState(0);
-  const activeIndex = Math.max(
-    0,
-    tabs.findIndex((t) => t.key === activeKey),
-  );
-  return (
-    <View
-      className="flex-row bg-surface-muted rounded-pill p-1 mb-2.5 relative"
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-    >
-      {width > 0 ? (
-        <ActivePill
-          count={tabs.length}
-          activeIndex={activeIndex}
-          itemWidth={width / tabs.length}
-          pillClassName="absolute top-1 h-9 rounded-pill bg-primary"
-          style={{
-            top: 4,
-            height: 36,
-            width: width / tabs.length - 8,
-            marginLeft: 4,
-            backgroundColor: colors.brand.primary,
-          }}
+      <View className={`w-11 h-6 rounded-pill px-0.5 justify-center overflow-hidden ${checked ? "bg-verification" : "bg-border"}`}>
+        <SwitchThumb
+          checked={checked}
+          trackWidth={TRACK_WIDTH}
+          thumbSize={THUMB_SIZE}
+          thumbClassName="w-5 h-5 rounded-pill bg-surface border border-border shadow-sm"
         />
-      ) : null}
-      {tabs.map((t, i) => {
-        const on = i === activeIndex;
-        return (
-          <Pressable
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            className="flex-1 h-9 rounded-lg flex-row items-center justify-center gap-1.5 active:opacity-80 z-10"
-          >
-            <Text
-              className={`text-caption font-medium ${
-                on ? "text-white" : "text-text-secondary"
-              }`}
-            >
-              {t.label}
-            </Text>
-            <View
-              className={`px-1.5 py-[1px] rounded-pill ${
-                on ? "bg-white/25" : "bg-border"
-              }`}
-            >
-              <Text
-                className={`text-micro font-semibold ${
-                  on ? "text-white" : "text-text-muted"
-                }`}
-              >
-                {t.count}
-              </Text>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
+      </View>
+    </Pressable>
   );
 }

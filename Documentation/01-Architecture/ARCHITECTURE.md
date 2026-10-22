@@ -18,8 +18,13 @@ The project uses Firebase Blaze with a **$0 usage target at demo scale**. Billin
 | AI retrieval | Supabase PostgreSQL/pgvector and Edge Functions | Use real search data; limit requests; distinguish database search from model inference |
 | Model access | Server-mediated Groq/HuggingFace integrations | No public LLM keys; no paid OpenAI/Anthropic/Cohere integration |
 | Notifications | Firebase Gen1 triggers plus Expo push service | Current triggers use `maxInstances: 5`; bound fan-out and review delivery/usage |
-| Payment demonstration | eSewa sandbox through an Edge Function | `EPAYTEST` only; no live merchant credentials; server-authorized grants |
+| Payment demonstration | eSewa sandbox through an Edge Function | Default off. Explicit development-only client/server opt-in and `edumentx-dev` auth project; `EPAYTEST`/reviewed test hosts only. No live merchant credentials; server-authorized grants |
 | Mobile UI | React Native, NativeWind, Reanimated, SVG | Reuse installed dependencies and tokens; do not reintroduce Tamagui or the removed GL stack |
+| Ubuntu Swift lab and separate iOS trial | User-local xtool, SwiftUI and Foundation core at `~/Projects/EdumentX-iOS` | Xcode 27.1 SDK installed; unsigned ARM64 trial builds on Ubuntu. No external runtime packages or live backend calls in the app; fixture discovery/session tests run locally. Native Firebase/Google and push adapters remain pending. Cannot build the React Native/CocoaPods target. Signing and device/account prompts need the owner; see the [Ubuntu guide](../05-Build-and-Deploy/IOS_ON_LINUX_XTOOL.md). |
+
+**Build-tool decision, 21 October 2026:** EdumentX keeps its existing EAS/macOS route for iOS. One Android and one iOS cloud build consume two build jobs and no application Firestore/Edge traffic; check the account's current free allowance before running either. No paid build, new subscription, live merchant setup, or cloud publication was initiated for the guide. Usage beyond the available free allowance requires an explicit budget decision. Verify current [EAS pricing](https://expo.dev/pricing); store developer memberships are separate from the application's $0 demo-traffic target.
+
+**Approved staged split, 21 October 2026:** The existing React Native iOS target/configuration remains until the separate Swift/xtool trial passes native feasibility and integration. The native client's selected route is Linux/xtool; it does not automatically fall back to EAS/macOS. Its initial source/core checks add zero Firestore reads/writes, Edge invocations or storage objects. A proposed Linux CI run is one source/core job using the official Swift 6.4.1 container and Python; no workflow has been published or triggered. Check account runner allowance before remote use. Both future clients share the same backend quotas; provider adapters and any push schema/sender changes require their own documented quota/control decision. See the [approved design](./2026-10-21-ANDROID-SWIFT-SPLIT-DESIGN.md).
 
 Before adding a dependency or service, add a row or an explicit change note here covering:
 
@@ -138,7 +143,7 @@ The actual build uses [babel.config.js](../../babel.config.js), [metro.config.js
 
 Use the [setup checks](../03-Implementation-Guides/PROJECT_SETUP.md#5-run-local-checks). The root unit pattern is TypeScript compilation followed by Node's test runner. Rules emulation and credentialed live checks are separate evidence levels.
 
-See [CI](../../.github/workflows/ci.yml) for current triggers and suite lists. A skipped credentialed job does not establish backend correctness.
+See [CI](../../.github/workflows/ci.yml) for current triggers and suite lists. Credentialed deployed/live smoke checks require manual dispatch with `run_live_checks=true`; ordinary pushes do not create backend fixtures. A skipped credentialed job does not establish backend correctness.
 
 ## 10. Release status
 

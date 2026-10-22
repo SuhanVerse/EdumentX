@@ -26,6 +26,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApp } from "@react-native-firebase/app";
+import { getAuth } from "@react-native-firebase/auth";
 import {
   sendChatMessage,
   generateSessionId,
@@ -62,6 +64,8 @@ export type Message = {
 
 export interface AiChatState {
   // ── State ──
+  /** Exact authenticated owner; no history is loaded before this is confirmed. */
+  ownerUid: string | null;
   messages: Message[];
   sessionId: string | null;
   isLoading: boolean;
@@ -98,6 +102,8 @@ export interface AiChatState {
 
   // ── Actions ──
   sendMessage: (text: string) => Promise<void>;
+  /** Called centrally by the root auth listener on confirmed identity changes. */
+  setOwnerUid: (uid: string | null) => void;
   clearError: () => void;
   resetSession: () => void;
   /** Merge a partial patch into the constraints slice. Used by chip / pill handlers. */
@@ -115,6 +121,7 @@ export interface AiChatState {
 
 /** The slice of state written to AsyncStorage (see `partialize`). */
 interface PersistedChatState {
+  ownerUid: string | null;
   messages: Message[];
   sessionId: string | null;
   constraints: ClientSearchConstraints;
@@ -131,6 +138,32 @@ interface PersistedChatState {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 let messageCounter = 0;
+let chatGeneration = 0;
+let hydrationGeneration = -1;
+let persistenceReady = false;
+let storageWrites = Promise.resolve();
+
+const nativeUid = () => getAuth(getApp()).currentUser?.uid ?? null;
+const ownerStorageKey = (uid: string) => `${STORAGE_KEY}:v2:${encodeURIComponent(uid)}`;
+
+// Writes carry their original owner key and are serialized. A queued A write
+// cannot overwrite B's cache. Unscoped legacy history is never read/migrated.
+const ownerStorage = {
+  async getItem(name: string): Promise<string | null> {
+    if (name === STORAGE_KEY) return null;
+    const ticket = chatGeneration;
+    const value = await AsyncStorage.getItem(name);
+    return ticket === chatGeneration ? value : null;
+  },
+  setItem(name: string, value: string): Promise<void> {
+    if (!persistenceReady || name === STORAGE_KEY) return Promise.resolve();
+    storageWrites = storageWrites.then(() => AsyncStorage.setItem(name, value)).catch(() => {
+      // Persistence failure must not reveal private content in logs or block logout.
+    });
+    return storageWrites;
+  },
+  removeItem: (name: string) => AsyncStorage.removeItem(name),
+};
 
 function createMessageId(): string {
   messageCounter++;
@@ -166,9 +199,27 @@ export const useAiChatStore = create<AiChatState>()(
     (set, get) => ({
       // ── Initial state ──
       ...initialState(),
+      ownerUid: null,
       hasHydrated: false,
 
       // ── Actions ──
+
+      setOwnerUid: (uid) => {
+        // Never bind a caller-supplied UID that the native provider has not confirmed.
+        if (uid !== null && nativeUid() !== uid) return;
+        void AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+        if (get().ownerUid === uid && (uid !== null || get().hasHydrated)) return;
+        const ticket = ++chatGeneration;
+        persistenceReady = false;
+        useAiChatStore.persist.setOptions({ name: uid === null ? STORAGE_KEY : ownerStorageKey(uid) });
+        set({ ...initialState(), ownerUid: uid, hasHydrated: uid === null });
+        // Rehydrating even on signout invalidates Zustand's older pending hydration.
+        void Promise.resolve(useAiChatStore.persist.rehydrate()).finally(() => {
+          if (ticket !== chatGeneration || get().ownerUid !== uid || (uid !== null && nativeUid() !== uid)) return;
+          persistenceReady = uid !== null;
+          set({ hasHydrated: true });
+        });
+      },
 
       /**
        * Send a message to the AI chatbot.
@@ -181,7 +232,8 @@ export const useAiChatStore = create<AiChatState>()(
        */
       sendMessage: async (text: string) => {
         // Guard against double-sends
-        if (get().isLoading) return;
+        const ownerUid = get().ownerUid;
+        if (!ownerUid || nativeUid() !== ownerUid || !get().hasHydrated || get().isLoading) return;
 
         const trimmed = text.trim();
         if (!trimmed) return;
@@ -194,7 +246,7 @@ export const useAiChatStore = create<AiChatState>()(
           console.log(
             "[aiChatStore] Session stale (>30 min) — auto-resetting",
           );
-          set({ ...initialState(), hasHydrated: true });
+          get().resetSession();
         }
 
         // Generate or reuse session ID
@@ -248,6 +300,8 @@ export const useAiChatStore = create<AiChatState>()(
         // The server must reset those in ITS session or the stale filter
         // (e.g. "male") survives and re-applies on every search.
         const pendingRemovals = get().removedConstraints;
+        const ticket = chatGeneration;
+        const isCurrent = () => ticket === chatGeneration && get().ownerUid === ownerUid && nativeUid() === ownerUid;
 
         try {
           const response: ChatResponse = await sendChatMessage(
@@ -259,6 +313,8 @@ export const useAiChatStore = create<AiChatState>()(
               removed_constraints: pendingRemovals,
             },
           );
+
+          if (!isCurrent()) return;
 
           // Removals were acknowledged by the server — clear the queue so
           // the next message doesn't re-send stale removals.
@@ -291,6 +347,7 @@ export const useAiChatStore = create<AiChatState>()(
             lastActivity: Date.now(),
           }));
         } catch (err) {
+          if (!isCurrent()) return;
           // ── 5. Handle errors gracefully ──
           const errorMessage =
             err instanceof ChatServiceError
@@ -318,11 +375,14 @@ export const useAiChatStore = create<AiChatState>()(
 
       clearError: () => set({ error: null }),
 
-      resetSession: () =>
+      resetSession: () => {
+        chatGeneration += 1;
+        persistenceReady = get().ownerUid !== null && nativeUid() === get().ownerUid;
         set({
           ...initialState(),
           hasHydrated: true,
-        }),
+        });
+      },
 
       /**
        * Remove a constraint from the client mirror AND queue it for the
@@ -374,11 +434,18 @@ export const useAiChatStore = create<AiChatState>()(
     }),
     {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      skipHydration: true,
+      storage: createJSONStorage(() => ownerStorage),
+      onRehydrateStorage: () => {
+        // Storage resolution precedes middleware merge; reset must invalidate that gap too.
+        hydrationGeneration = chatGeneration;
+      },
 
       // Persist only what's needed to resume a conversation. Never persist
-      // transient fields (isLoading / error) or anything sensitive.
+      // transient fields (isLoading / error). Chat remains local private data.
       partialize: (state): PersistedChatState => ({
+        ownerUid: state.ownerUid,
         messages: state.messages.slice(-MAX_HISTORY_MESSAGES),
         sessionId: state.sessionId,
         constraints: state.constraints,
@@ -398,7 +465,12 @@ export const useAiChatStore = create<AiChatState>()(
           typeof p?.lastActivity === "number" ? p.lastActivity : Date.now();
         // First-ever launch (no persisted state) or an expired session
         // (> 30 min since last activity) → start with a clean conversation.
-        if (!p || Date.now() - lastActivity > SESSION_TTL_MS) {
+        if (
+          hydrationGeneration !== chatGeneration ||
+          !p || !current.ownerUid || p.ownerUid !== current.ownerUid ||
+          nativeUid() !== current.ownerUid || !Number.isFinite(lastActivity) ||
+          Date.now() - lastActivity > SESSION_TTL_MS
+        ) {
           return { ...current, hasHydrated: true };
         }
         return {

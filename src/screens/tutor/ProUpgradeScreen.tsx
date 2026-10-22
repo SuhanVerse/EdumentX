@@ -19,7 +19,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,6 +45,7 @@ import type {
 } from "@/services/subscription/types";
 import { PRO_PLANS } from "@/services/subscription/types";
 import { useAuthStore } from "@/store/authStore";
+import { sandboxUpgradesEnabled } from "@/lib/releasePolicy";
 
 // ─── WebView user agent — avoid CAPTCHA/bot detection ─────────────
 // eSewa's payment page is known to block stock WebView UAs. A real
@@ -134,6 +135,11 @@ ${inputs}
 }
 
 export function ProUpgradeScreen() {
+  if (!sandboxUpgradesEnabled) return <Redirect href="/tutor_edit_profile" />;
+  return <SandboxProUpgradeScreen />;
+}
+
+function SandboxProUpgradeScreen() {
   const router = useRouter();
   const tutorUid = useAuthStore((s) => s.user?.uid ?? null);
   const repo = getSubscriptionRepository();

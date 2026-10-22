@@ -25,6 +25,8 @@ import {
   stopInboxSync,
 } from "@/services/notifications/pushService";
 import { useAuthStore, type UserRole, type TutorVerificationStatus } from "@/store/authStore";
+import { useAiChatStore } from "@/store/aiChatStore";
+import { createAuthSessionGuard, type AuthSessionScope } from "@/lib/auth/sessionIsolation";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // The native splash module is not always available in dev. Safe to ignore.
@@ -483,7 +485,7 @@ export default function RootLayout() {
    * transient network blip. The next auth-state change will retry.
    */
   const checkTutorVerificationStatus = useCallback(
-    async (uid: string): Promise<void> => {
+    async (uid: string, session: AuthSessionScope): Promise<void> => {
     try {
       const app = getApp();
       const firebaseDb = getFirestore(app);
@@ -494,7 +496,8 @@ export default function RootLayout() {
         "tutorProfile",
         "default",
       );
-      const profileSnap = await getDoc(profileRef);
+      const profileSnap = await session.waitFor(getDoc(profileRef));
+      if (!session.isCurrent()) return;
 
       // Case 1: a user with a tutor role but no profile doc —
       // either an admin-console edit, a legacy account, or a
@@ -551,7 +554,7 @@ export default function RootLayout() {
         needsReasonHeal
       ) {
         try {
-          await setDoc(
+          await session.waitFor(setDoc(
             profileRef,
             {
               verificationStatus: status,
@@ -561,8 +564,9 @@ export default function RootLayout() {
               updatedAt: serverTimestamp(),
             },
             { merge: true },
-          );
+          ));
         } catch (healErr) {
+          if (!session.isCurrent()) return;
           // Non-fatal. The next login will retry.
           console.warn(
             "RootLayout: failed to backfill tutor verification fields",
@@ -571,6 +575,7 @@ export default function RootLayout() {
         }
       }
     } catch (err) {
+      if (!session.isCurrent()) return;
       console.warn(
         "RootLayout: failed to read tutorProfile/{default}",
         err,
@@ -599,12 +604,13 @@ export default function RootLayout() {
    * change will retry.
    */
   const checkAdminProfileFlag = useCallback(
-    async (uid: string): Promise<void> => {
+    async (uid: string, session: AuthSessionScope): Promise<void> => {
     try {
       const app = getApp();
       const firebaseDb = getFirestore(app);
       const profileRef = doc(firebaseDb, "users", uid, "adminProfile", "default");
-      const profileSnap = await getDoc(profileRef);
+      const profileSnap = await session.waitFor(getDoc(profileRef));
+      if (!session.isCurrent()) return;
       const data = profileSnap.data() as
         | { fullName?: string | null }
         | undefined;
@@ -612,6 +618,7 @@ export default function RootLayout() {
         typeof data?.fullName === "string" ? data.fullName.trim() : "";
       setHasAdminProfile(profileSnap.exists() && fullName.length > 0);
     } catch (err) {
+      if (!session.isCurrent()) return;
       console.warn("RootLayout: failed to read adminProfile/{default}", err);
     }
   },
@@ -623,14 +630,30 @@ export default function RootLayout() {
     const app = getApp();
     const firebaseAuth = getAuth(app);
     const firebaseDb = getFirestore(app);
+    const sessionGuard = createAuthSessionGuard({
+      currentUid: () => firebaseAuth.currentUser?.uid ?? null,
+      onOwnerChange: (uid) => {
+        lastUidRef.current = null;
+        initPushForUser(null);
+        // One synchronous store update prevents B ever inheriting A's role/flags.
+        useAuthStore.setState({
+          user: null, role: null, hasExistingRole: false, hasAdminProfile: false,
+          tutorVerificationStatus: null, isLoading: uid !== null,
+        });
+        useAiChatStore.getState().setOwnerUid(uid);
+      },
+    });
     const subscriber = onAuthStateChanged(
       firebaseAuth,
       async (nextUser: FirebaseAuthTypes.User | null) => {
+        const session = sessionGuard.begin(nextUser?.uid ?? null);
+        if (!session) return;
         setLoading(true);
         setUser(nextUser);
         if (!nextUser) {
           lastUidRef.current = null;
           setRole(null);
+          setHasExistingRole(false);
           setHasAdminProfile(false);
           setTutorVerificationStatus(null);
           setLoading(false);
@@ -646,14 +669,15 @@ export default function RootLayout() {
         // If `role` is null (e.g. the user just signed back in
         // after `reset()`), always re-fetch — the doc may now
         // contain a role that wasn't there before.
-        const cachedRole = useAuthStore.getState().role;          if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
+        const cachedRole = useAuthStore.getState().role;
+        if (lastUidRef.current === nextUser.uid && cachedRole !== null) {
           setLoading(false);
           return;
         }
-        lastUidRef.current = nextUser.uid;
         try {
           const userDocRef = doc(firebaseDb, "users", nextUser.uid);
-          const snap = await getDoc(userDocRef);
+          const snap = await session.waitFor(getDoc(userDocRef));
+          if (!session.isCurrent()) return;
           const data = snap.data() as
             | {
                 role?: string | null;
@@ -685,21 +709,18 @@ export default function RootLayout() {
             snap.exists() &&
             (accountStatus === "suspended" || accountStatus === "deleted")
           ) {
-            lastUidRef.current = null;
-            setUser(null);
-            setRole(null);
-            setHasAdminProfile(false);
-            setTutorVerificationStatus(null);
+            if (!sessionGuard.block(session)) return;
+            // Lock local state before any cleanup await. A failed native signout
+            // cannot restore this UID through another auth callback.
+            Alert.alert(
+              "Access Denied",
+              "This account has been suspended or deleted. Please contact support.",
+            );
             try {
               await fbSignOut(firebaseAuth);
             } catch (signOutErr) {
               console.warn("RootLayout: signOut for blocked account failed", signOutErr);
             }
-            setLoading(false);
-            Alert.alert(
-              "Access Denied",
-              "This account has been suspended or deleted. Please contact support.",
-            );
             return;
           }
 
@@ -736,7 +757,8 @@ export default function RootLayout() {
           // matters: any future read against the user doc by a
           // student/tutor-facing query would see "student" and treat
           // this account as a normal user.
-          const isAdmin = await checkAdminStatus(nextUser.uid);
+          const isAdmin = await session.waitFor(checkAdminStatus(nextUser.uid, session));
+          if (!session.isCurrent()) return;
           const finalRole: UserRole = isAdmin ? "admin" : roleValue;
           if (isAdmin) {
             setRole("admin");
@@ -768,12 +790,13 @@ export default function RootLayout() {
           // `role === "admin"` branch, so the value is irrelevant
           // for them.
           if (isAdmin) {
-            await checkAdminProfileFlag(nextUser.uid);
+            await session.waitFor(checkAdminProfileFlag(nextUser.uid, session));
           } else {
             // Defensive: a non-admin signing in shouldn't have a
             // stale `true` lying around from a prior session.
             setHasAdminProfile(false);
           }
+          if (!session.isCurrent()) return;
 
           // Tutor verification status. Only meaningful for tutors —
             // we read it from `users/{uid}/tutorProfile/default`
@@ -786,10 +809,11 @@ export default function RootLayout() {
             // tree only consults it on the `role === "tutor"`
             // branch, so the value is irrelevant for them.
             if (finalRole === "tutor") {
-            await checkTutorVerificationStatus(nextUser.uid);
+            await session.waitFor(checkTutorVerificationStatus(nextUser.uid, session));
           } else {
             setTutorVerificationStatus(null);
           }
+          if (!session.isCurrent()) return;
 
           // ---- One-time heal of the `users/{uid}` root doc ----
           //
@@ -837,7 +861,7 @@ export default function RootLayout() {
                   ? finalRole
                   : (data?.role ?? null);
               try {
-                await setDoc(
+                await session.waitFor(setDoc(
                   userDocRef,
                   {
                     uid: nextUser.uid,
@@ -846,7 +870,8 @@ export default function RootLayout() {
                     updatedAt: serverTimestamp(),
                   },
                   { merge: true },
-                );
+                ));
+                if (!session.isCurrent()) return;
                 console.log(
                   "RootLayout: healed users/{uid} — uid/missing:",
                   needsUidHeal,
@@ -854,6 +879,7 @@ export default function RootLayout() {
                   needsRoleHeal,
                 );
               } catch (healErr) {
+                if (!session.isCurrent()) return;
                 // Healing failed — likely a rules mismatch. Don't
                 // block the user; the redirect already happened and
                 // they can still proceed. The next login will retry.
@@ -865,16 +891,23 @@ export default function RootLayout() {
             }
           }
         } catch (err) {
+          if (!session.isCurrent()) return;
           // Treat any read failure as "no role yet" — the user will be
           // sent to /role-selection and can re-try.
           console.warn("RootLayout: failed to read users/{uid}", err);
           setRole(null);
         } finally {
-          setLoading(false);
+          if (session.isCurrent()) {
+            lastUidRef.current = nextUser.uid;
+            setLoading(false);
+          }
         }
       },
     );
-    return subscriber;
+    return () => {
+      sessionGuard.dispose();
+      subscriber();
+    };
   }, [
     setUser,
     setRole,
@@ -893,14 +926,16 @@ export default function RootLayout() {
    * This runs after the user doc is read in onAuthStateChanged.
    * The admin status overrides any role from users/{uid}.
    */
-  async function checkAdminStatus(uid: string): Promise<boolean> {
+  async function checkAdminStatus(uid: string, session: AuthSessionScope): Promise<boolean> {
     try {
       const app = getApp();
       const firebaseDb = getFirestore(app);
       const adminDocRef = doc(firebaseDb, "admins", uid);
-      const adminSnap = await getDoc(adminDocRef);
+      const adminSnap = await session.waitFor(getDoc(adminDocRef));
+      if (!session.isCurrent()) throw new Error("The authentication session changed.");
       return adminSnap.exists();
     } catch (err) {
+      if (!session.isCurrent()) throw err;
       console.warn("RootLayout: failed to read admins/{uid}", err);
       return false;
     }

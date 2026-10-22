@@ -153,8 +153,13 @@ export const FirebaseTutorRepository: TutorRepository = {
     // tutor list (discovery docs) + the reviews collectionGroup for
     // live rating/reviewCount. `emit` re-fires on either snapshot;
     // listings without an aggregate keep their discovery values.
-    let latest: TutorListing[] = [];
+    // null means the directory has not loaded; [] is a valid loaded result.
+    // Reviews alone must not clear a caller's loading/error state.
+    let latest: TutorListing[] | null = null;
+    let active = true;
+    let directoryFailed = false;
     const emit = () => {
+      if (!active || directoryFailed || latest === null) return;
       const merged = latest.map((t) => {
         const agg = latestAggregates.get(t.uid);
         return agg
@@ -167,13 +172,22 @@ export const FirebaseTutorRepository: TutorRepository = {
 
     const unsubTutors = firestoreSubscribeTutors(
       (firestoreList) => {
+        if (!active || directoryFailed) return;
         latest = firestoreList.map(toCanonicalListing);
         emit();
       },
-      onError,
+      (error) => {
+        if (!active || directoryFailed) return;
+        // Firestore listener errors are terminal; only resubscribing can
+        // recover. The independent reviews listener cannot prove recovery.
+        directoryFailed = true;
+        onError?.(error);
+      },
     );
     const unsubReviews = subscribeReviewAggregates(() => emit());
     return () => {
+      if (!active) return;
+      active = false;
       unsubTutors();
       unsubReviews();
     };

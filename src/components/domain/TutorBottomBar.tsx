@@ -3,6 +3,7 @@ import { LayoutDashboard, Inbox, Users, User } from "lucide-react-native";
 import React from "react";
 import { Text, View } from "react-native";
 import Animated, {
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -11,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   AnimatedPressable,
+  useMotionPreference,
   usePressScale,
 } from "@/components/motion";
 import { motion } from "@/lib/motion";
@@ -42,7 +44,7 @@ const TUTOR_TABS: readonly TutorTabDef[] = [
 
 // Active state is the amber accent — uniform with the student +
 // admin bottom bars ("you are here" = amber pill + amber tint).
-const ACTIVE_COLOR = colors.brand.accent;
+const ACTIVE_COLOR = colors.semantic.warningText;
 const INACTIVE_COLOR = colors.text.muted;
 
 type TutorBottomBarProps = {
@@ -67,6 +69,7 @@ export function TutorBottomBar({
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const [width, setWidth] = React.useState(0);
+  const reducedMotion = useMotionPreference();
   const activeIndex = Math.max(
     0,
     TUTOR_TABS.findIndex(
@@ -85,14 +88,18 @@ export function TutorBottomBar({
   const underlineX = useSharedValue(0);
   const firstLayout = React.useRef(true);
   React.useEffect(() => {
+    if (width <= 0) return;
     const center = tabWidth * activeIndex + tabWidth / 2 - UNDERLINE_WIDTH / 2;
-    if (firstLayout.current) {
+    if (firstLayout.current || reducedMotion) {
       firstLayout.current = false;
       underlineX.value = center;
       return;
     }
-    underlineX.value = withSpring(center, motion.spring.indicator);
-  }, [activeIndex, tabWidth, underlineX]);
+    underlineX.value = withSpring(center, {
+      ...motion.spring.indicator,
+      reduceMotion: ReduceMotion.Never,
+    });
+  }, [activeIndex, reducedMotion, tabWidth, underlineX, width]);
   const underlineStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: underlineX.value }],
   }));
@@ -186,6 +193,7 @@ function TutorTab({
   inboxBadgeCount: number;
   tone?: "light" | "dark";
 }) {
+  const pathname = usePathname();
   // Nav tabs don't fire haptics — the sliding pill/underline is the
   // feedback and per-tap haptics add perceived lag on budget Android
   // devices (see BottomNav).
@@ -203,26 +211,21 @@ function TutorTab({
 
   return (
     <AnimatedPressable
-      onPress={() =>
-        router.push(tab.path as Parameters<typeof router.push>[0])
-      }
+      onPress={() => {
+        // A child screen can visually belong to Home without being Home.
+        if (pathname !== tab.path) router.replace(tab.path as Parameters<typeof router.replace>[0]);
+      }}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className="flex-1 items-center justify-center py-1"
-      accessibilityRole="button"
+      className="flex-1 min-h-touch items-center justify-center py-1"
+      accessibilityRole="tab"
+      accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}
     >
-      <View
-        className="w-12 h-7 rounded-pill items-center justify-center"
-        style={{
-          backgroundColor: active
-            ? tone === "dark"
-              ? "rgba(255,255,255,0.08)"
-              : `${ACTIVE_COLOR}1A` // accent at 10%
-            : "transparent",
-        }}
-      >
+      <View className={`w-12 h-7 rounded-pill items-center justify-center ${
+        active ? tone === "dark" ? "bg-glass-strong" : "bg-accent/10" : "bg-transparent"
+      }`}>
         <Icon color={color} size={22}></Icon>
         {tab.key === "inbox" && inboxBadgeCount > 0 && (
           <BadgeDot count={inboxBadgeCount} />

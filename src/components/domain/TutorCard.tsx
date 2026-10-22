@@ -1,42 +1,7 @@
-/**
- * TutorCard — listing card for a single tutor.
- *
- * Two variants:
- *   - `wide`     : full-width card with a 160h hero placeholder, save
- *                  heart top-right, name + rating + city + price.
- *                  Used in vertical lists (search results, profile).
- *   - `compact-h`: 200px-wide rail card for horizontal carousels
- *                  (Discover, "Similar tutors").
- *
- * The card renders the avatar via the shared `<Avatar>` primitive
- * (which falls back to initials until Supabase Storage uploads ship).
- * Verified tutors get a green check-circle badge top-right of the
- * avatar.
- *
- * Motion:
- *   - The outer card uses `usePressScale` at 0.98 (`cardPressed`) so
- *     the whole card visibly responds to a tap.
- *   - The save/heart icon button extracts to a `HeartSaveButton` sub-
- *     component so it can run a 0.85 press scale + a one-shot
- *     "pop" scale sequence (1 → 1.25 → 1) on each toggle. The icon
- *     name still flips `heart-outline` ↔ `heart`; the pop is layered
- *     on top.
- *
- * **Note on the placeholder image:** Today the hero block is a
- * tinted surface rectangle (no images — we have no image-storage
- * pipeline yet). When Supabase Storage lands, swap the `<View>` for
- * an `<Image>` and pass `tutor.photoUrl` to it.
- */
+/** Tutor listing cards for vertical results and horizontal discovery rails. */
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-} from 'react-native-reanimated';
 
 import { AnimatedPressable, usePressScale } from '@/components/motion';
 import { Avatar } from '@/components/ui/Avatar';
@@ -44,36 +9,19 @@ import { colors } from '@/constants/colors';
 import { motion } from '@/lib/motion';
 import { formatNpr, type TutorProfile } from '@/lib/mock/tutors';
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
 export type TutorCardProps = {
   tutor: TutorProfile;
   variant?: 'wide' | 'compact-h';
-  /** Optional press handler (e.g. navigate to `tutor/[id]`).
-   *  Defaults to navigating to `/tutor/${tutor.id}` if omitted. */
+  /** Defaults to the tutor detail route. */
   onPress?: () => void;
-  /** Optional save/heart toggle handler. If omitted, the heart is hidden. */
+  /** When omitted, no save control is shown. */
   onSaveToggle?: () => void;
-  /** Saved-state — drives the heart icon's fill colour. */
   saved?: boolean;
-  /** Extra Tailwind classes appended to the outer wrapper. */
   className?: string;
-  /**
-   * Visual tone — dark renders the glass surface (Premium UI pass:
-   * translucent white over night canvas + hairline borders) so the
-   * card can sit on the dark Home screen while the light screens
-   * (Map / search / details) keep the classic solid surface.
-   */
   tone?: 'light' | 'dark';
-  /**
-   * Width for the `compact-h` variant (px). Defaults to 200 — the
-   * classic rail width. MapSearch overrides it with ~85% of the
-   * screen width so the carousel shows a peek of the next card.
-   */
+  /** Rail width; map results use a responsive width with a next-card peek. */
   width?: number;
 };
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function TutorCard({
   tutor,
@@ -86,11 +34,8 @@ export function TutorCard({
   width = 200,
 }: TutorCardProps) {
   const router = useRouter();
-
-  // Default navigation: go to the tutor's detail page.
-  // Callers can override by passing their own `onPress`.
   const handlePress = onPress ?? (() => {
-    router.push({ pathname: '/tutor/[id]', params: { id: tutor.id } } as any);
+    router.push({ pathname: '/tutor/[id]', params: { id: tutor.id } });
   });
 
   if (variant === 'compact-h') {
@@ -110,74 +55,51 @@ export function TutorCard({
   );
 }
 
-// ─── Heart save button ───────────────────────────────────────────────────────
-
 function HeartSaveButton({
   saved,
   onSaveToggle,
   dark,
+  name,
 }: {
   saved: boolean;
   onSaveToggle: () => void;
-  dark?: boolean;
+  dark: boolean;
+  name: string;
 }) {
-  // `pressed` covers press-in scale-down; `pop` runs once per tap as a
-  // little "burst" the user feels even when the card itself is also
-  // being scaled.
-  const pressed = useSharedValue(0);
-  const pop = useSharedValue(0);
-
-  const handlePress = useCallback(() => {
-    pop.value = withSequence(
-      withSpring(1, motion.spring.pop),
-      withSpring(0, motion.spring.gentle)
-    );
-    onSaveToggle();
-  }, [onSaveToggle, pop]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Compose: idle = 1; press = 0.85; pop adds up to +0.25.
-    return {
-      transform: [
-        { scale: 1 - pressed.value * 0.15 + pop.value * 0.25 },
-      ],
-    };
+  const { onPressIn, onPressOut, animatedStyle } = usePressScale({
+    targetScale: motion.scale.pressed,
   });
 
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      accessibilityLabel={saved ? 'Unsave tutor' : 'Save tutor'}
-      hitSlop={8}
-      onPress={handlePress}
-      onPressIn={() => {
-        pressed.value = withSpring(1, motion.spring.press);
+      accessibilityLabel={saved ? `Unsave ${name}` : `Save ${name}`}
+      accessibilityState={{ selected: saved }}
+      onPress={(event) => {
+        event.stopPropagation();
+        onSaveToggle();
       }}
-      onPressOut={() => {
-        pressed.value = withSpring(0, motion.spring.press);
+      onPressIn={(event) => {
+        event.stopPropagation();
+        onPressIn();
+      }}
+      onPressOut={(event) => {
+        event.stopPropagation();
+        onPressOut();
       }}
       style={animatedStyle}
-      className={`absolute top-3 right-3 h-9 w-9 rounded-pill items-center justify-center ${
-        dark ? 'bg-glass-strong border border-glass-border' : 'bg-surface'
+      className={`h-12 w-12 shrink-0 rounded-pill items-center justify-center border ${
+        dark ? 'bg-glass-strong border-glass-border' : 'bg-background border-border'
       }`}
     >
       <Ionicons
-        color={
-          saved
-            ? colors.semantic.danger
-            : dark
-              ? 'rgba(255,255,255,0.55)'
-              : colors.text.muted
-        }
+        color={saved ? colors.semantic.danger : dark ? colors.text.inverse : colors.brand.primary}
         name={saved ? 'heart' : 'heart-outline'}
-        size={18}
+        size={21}
       />
     </AnimatedPressable>
   );
 }
-
-// ─── Wide variant ────────────────────────────────────────────────────────────
 
 function WideCard({
   tutor,
@@ -198,10 +120,7 @@ function WideCard({
     targetScale: motion.scale.cardPressed,
   });
   const dark = tone === 'dark';
-  const surfaceClass = dark
-    ? 'bg-glass border border-glass-border'
-    : 'bg-surface border border-border';
-  const primaryText = dark ? 'text-white' : 'text-text-primary';
+  const primaryText = dark ? 'text-text-inverse' : 'text-text-primary';
   const secondaryText = dark ? 'text-glass-secondary' : 'text-text-secondary';
   const mutedText = dark ? 'text-glass-muted' : 'text-text-muted';
 
@@ -213,114 +132,86 @@ function WideCard({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className={`rounded-card ${surfaceClass} border overflow-hidden ${className}`}
+      className={`rounded-card border overflow-hidden ${
+        dark ? 'bg-glass border-glass-border' : 'bg-surface border-border'
+      } ${className}`}
     >
-      {onSaveToggle ? (
-        <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} dark={dark} />
-      ) : null}
-      {/* Info block — no hero/cover panel, content starts immediately */}
-      <View className="p-4 gap-2">
-        {/* `pr-9` clears the absolutely-positioned save heart (36px at
-            top-3 right-3): without it the verified badge (pinned to
-            the end of the name row) can slide under the heart. */}
-        <View
-          className={`flex-row items-center gap-2 ${onSaveToggle ? "pr-9" : ""}`}
-        >
-          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
+      <View className="p-4 gap-3.5">
+        <View className="flex-row items-start gap-3">
+          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={56} />
           <View className="flex-1 min-w-0">
-            <View className="flex-row items-center gap-1">
-              <Text
-                className={`text-card-title ${primaryText} flex-1`}
-                numberOfLines={1}
-              >
+            <View className="flex-row items-center gap-1.5">
+              <Text className={`text-body font-semibold ${primaryText} flex-1`} numberOfLines={2}>
                 {tutor.fullName}
               </Text>
-              {tutor.subscriptionTier === "pro" ? (
-                // Pro subscription badge — deliberately an AMBER
-                // "PRO" pill, NOT a second green checkmark, so it can
-                // never be confused with the verification Blue Tick.
-                <View className="shrink-0 px-1.5 py-0.5 rounded-sm bg-amber">
-                  <Text className="text-micro font-bold text-white">PRO</Text>
-                </View>
-              ) : null}
               {tutor.isVerifiedProfessional ? (
-                // `shrink-0` keeps the verification badge anchored
-                // at the end of the row when the name truncates with
-                // `numberOfLines={1}` — without it the badge can be
-                // squished off-screen on narrow cards.
-                <View className="shrink-0">
-                  <Ionicons
-                    color={colors.brand.verification}
-                    name="checkmark-circle"
-                    size={16}
-                  />
-                </View>
+                <Ionicons
+                  accessibilityLabel="Verified professional"
+                  color={colors.brand.verification}
+                  name="checkmark-circle"
+                  size={17}
+                />
               ) : null}
             </View>
-            <Text
-              className={`text-caption ${secondaryText}`}
-              numberOfLines={1}
-            >
+            <Text className={`text-caption ${secondaryText} mt-1`} numberOfLines={2}>
               {tutor.headline}
             </Text>
+            {tutor.subscriptionTier === 'pro' ? (
+              <View className="self-start px-2 py-0.5 rounded-sm bg-accent-light mt-1.5">
+                <Text className="text-micro font-semibold text-accent-dark">PRO</Text>
+              </View>
+            ) : null}
           </View>
+          {onSaveToggle ? (
+            <HeartSaveButton saved={saved} onSaveToggle={onSaveToggle} dark={dark} name={tutor.fullName} />
+          ) : null}
         </View>
 
-        {/* Subject pills — compact horizontal scroll */}
         <View className="flex-row flex-wrap gap-1.5">
           {tutor.subjects.slice(0, 3).map((subject) => (
-            <View
-              key={subject}
-              className="px-2 py-0.5 rounded-pill bg-amber/10"
-            >
-              <Text className="text-micro text-amber">{subject}</Text>
+            <View key={subject} className={`px-2.5 py-1 rounded-pill ${dark ? 'bg-amber/10' : 'bg-accent-light'}`}>
+              <Text className={`text-caption ${dark ? 'text-amber' : 'text-accent-dark'}`}>{subject}</Text>
             </View>
           ))}
-          {tutor.subjects.length > 3 && (
-            <View
-              className={`px-2 py-0.5 rounded-pill border ${
-                dark ? 'bg-glass-strong border-glass-border' : 'bg-surface border-border'
-              }`}
-            >
-              <Text className={`text-micro ${mutedText}`}>
-                +{tutor.subjects.length - 3}
-              </Text>
+          {tutor.subjects.length > 3 ? (
+            <View className={`px-2.5 py-1 rounded-pill border ${dark ? 'border-glass-border' : 'border-border'}`}>
+              <Text className={`text-caption ${mutedText}`}>+{tutor.subjects.length - 3}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
           <View className="flex-row items-center gap-1">
-            <Ionicons color={colors.brand.accent} name="star" size={12} />
-            <Text className={`text-caption ${primaryText}`}>
-              {tutor.rating.toFixed(1)}
+            <Ionicons color={colors.brand.accent} name="star" size={13} />
+            <Text className={`text-caption font-semibold ${primaryText}`}>
+              {tutor.reviewCount > 0 ? tutor.rating.toFixed(1) : 'New'}
             </Text>
-            <Text className={`text-caption ${mutedText}`}>
-              ({tutor.reviewCount})
-            </Text>
+            {tutor.reviewCount > 0 ? (
+              <Text className={`text-caption ${mutedText}`}>({tutor.reviewCount})</Text>
+            ) : null}
           </View>
-          <View className="flex-row items-center gap-1">
-            <Ionicons
-              color={dark ? 'rgba(255,255,255,0.45)' : colors.text.muted}
-              name="location-outline"
-              size={12}
-            />
-            <Text className={`text-caption ${secondaryText}`}>
-              {tutor.location.city}
-            </Text>
+          <View className="flex-row items-center gap-1 shrink min-w-0">
+            <Ionicons color={dark ? colors.text.inverse : colors.text.muted} name="location-outline" size={13} />
+            <Text className={`text-caption ${secondaryText} shrink`} numberOfLines={1}>{tutor.location.city}</Text>
           </View>
         </View>
+      </View>
 
-        <Text className={`text-button ${primaryText} mt-1`}>
-          {formatNpr(tutor.monthlyRateNpr)}
-          <Text className={`text-caption ${mutedText}`}> /mo</Text>
-        </Text>
+      <View className={`flex-row items-center justify-between gap-3 px-4 py-3.5 border-t ${
+        dark ? 'bg-glass-faint border-glass-border' : 'bg-background border-border'
+      }`}>
+        <View className="flex-1 min-w-0">
+          <Text className={`text-label ${mutedText}`}>Monthly rate</Text>
+          <Text className={`text-body font-semibold ${primaryText} mt-0.5`}>{formatNpr(tutor.monthlyRateNpr)}</Text>
+        </View>
+        <View className="flex-row items-center gap-1.5">
+          <Text className={`text-button-sm font-semibold ${dark ? 'text-amber' : 'text-primary'}`}>View profile</Text>
+          <Ionicons name="arrow-forward" size={17} color={dark ? colors.brand.accent : colors.brand.primary} />
+        </View>
       </View>
     </AnimatedPressable>
   );
 }
-
-// ─── Compact-horizontal variant ──────────────────────────────────────────────
 
 function CompactCard({
   tutor,
@@ -347,71 +238,44 @@ function CompactCard({
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      // Width comes from the `style` prop so carousels can size the
-      // card to ~85% of the screen (a peek of the next card) while
-      // other callers keep the classic 200px rail. The shadow pops
-      // the card off the map surface.
-      style={[{ width }, animatedStyle, {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.18,
-        shadowRadius: 8,
-        elevation: 5,
-      }]}
-      className={`border rounded-card overflow-hidden ${
-        dark
-          ? 'bg-glass border-glass-border'
-          : 'bg-surface border-border'
+      // A caller-provided width preserves the map carousel's next-card peek.
+      style={[{ width }, animatedStyle]}
+      className={`border rounded-card overflow-hidden shadow-md ${
+        dark ? 'bg-glass border-glass-border' : 'bg-surface border-border'
       } ${className}`}
     >
-      <View className="p-3 gap-1.5">
-        <View className="flex-row items-center gap-2">
-          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={36} />
+      <View className="p-3.5 gap-2">
+        <View className="flex-row items-center gap-2.5">
+          <Avatar name={tutor.fullName} imageUri={tutor.photoUrl} size={44} />
           <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-1">
-              <Text
-                className={`text-card-title flex-1 ${dark ? "text-white" : "text-text-primary"}`}
-                numberOfLines={1}
-              >
+              <Text className={`text-card-title font-semibold flex-1 ${dark ? 'text-text-inverse' : 'text-text-primary'}`} numberOfLines={1}>
                 {tutor.fullName}
               </Text>
               {tutor.isVerifiedProfessional ? (
-                <View className="-ml-0.5">
-                  <Ionicons
-                    color={colors.brand.verification}
-                    name="checkmark-circle"
-                    size={14}
-                  />
-                </View>
+                <Ionicons accessibilityLabel="Verified professional" color={colors.brand.verification} name="checkmark-circle" size={15} />
               ) : null}
             </View>
           </View>
         </View>
-        <Text
-          className={`text-caption ${dark ? 'text-glass-secondary' : 'text-text-secondary'}`}
-          numberOfLines={2}
-        >
+        <Text className={`text-caption ${dark ? 'text-glass-secondary' : 'text-text-secondary'}`} numberOfLines={2}>
           {tutor.headline}
         </Text>
-        <View className="flex-row items-center gap-1 mt-1">
-          <Ionicons color={colors.brand.accent} name="star" size={11} />
-          <Text
-            className={`text-micro ${dark ? 'text-white' : 'text-text-primary'}`}
-          >
-            {tutor.rating.toFixed(1)}
+        <View className="flex-row items-center gap-1">
+          <Ionicons color={colors.brand.accent} name="star" size={12} />
+          <Text className={`text-caption ${dark ? 'text-text-inverse' : 'text-text-primary'}`}>
+            {tutor.reviewCount > 0 ? tutor.rating.toFixed(1) : 'New'}
           </Text>
-          <Text
-            className={`text-micro ${
-              dark ? 'text-glass-muted' : 'text-text-muted'
-            }`}
-          >
+          <Text className={`text-caption flex-1 ${dark ? 'text-glass-muted' : 'text-text-muted'}`} numberOfLines={1}>
             · {tutor.location.city}
           </Text>
         </View>
-        <Text className={`text-button-sm mt-1 ${dark ? 'text-white' : 'text-text-primary'}`}>
-          {formatNpr(tutor.monthlyRateNpr)}
-          <Text className={`text-caption ${dark ? 'text-glass-muted' : 'text-text-muted'}`}> /mo</Text>
-        </Text>
+        <View className={`pt-2 border-t ${dark ? 'border-glass-border' : 'border-border'}`}>
+          <Text className={`text-button-sm font-semibold ${dark ? 'text-text-inverse' : 'text-text-primary'}`}>
+            {formatNpr(tutor.monthlyRateNpr)}
+            <Text className={`text-caption ${dark ? 'text-glass-muted' : 'text-text-muted'}`}> /mo</Text>
+          </Text>
+        </View>
       </View>
     </AnimatedPressable>
   );

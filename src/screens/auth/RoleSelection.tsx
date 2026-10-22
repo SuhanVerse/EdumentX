@@ -252,16 +252,20 @@ export function RoleSelectionScreen() {
                       text: "Sign out",
                       style: "destructive",
                       onPress: async () => {
-                        const { logout } = await import(
-                          "@/services/firebase/authService"
-                        );
-                        await logout();
-                        useAuthStore.getState().reset();
-                        // Wipe the AI chat session so a different user
-                        // signing in on this device never inherits the
-                        // previous account's conversation context.
-                        useAiChatStore.getState().resetSession();
-                        router.replace("/email-signup");
+                        try {
+                          const { logout } = await import(
+                            "@/services/firebase/authService"
+                          );
+                          await logout();
+                          useAuthStore.getState().reset();
+                          useAiChatStore.getState().resetSession();
+                          router.replace("/email-signup");
+                        } catch {
+                          Alert.alert(
+                            "Could not sign out",
+                            "Sign-out did not complete. Please check your connection and try again.",
+                          );
+                        }
                       },
                     },
                   ],

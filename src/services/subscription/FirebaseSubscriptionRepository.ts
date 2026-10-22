@@ -35,6 +35,7 @@ import type {
 } from "@/services/subscription/types";
 import type { SubscriptionRepository } from "./SubscriptionRepository";
 import { getSupabase } from "@/services/supabase/client";
+import { assertSandboxUpgradesAllowed } from "@/lib/releasePolicy";
 
 const EDGE_FUNCTION = "create-esewa-order";
 
@@ -76,6 +77,7 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
   },
 
   async createEsewaOrder(plan: ProPlanId): Promise<EsewaFormFields> {
+    assertSandboxUpgradesAllowed();
     const auth = getAuth(getApp());
     const idToken = auth.currentUser
       ? await getIdToken(auth.currentUser)
@@ -101,6 +103,7 @@ export const FirebaseSubscriptionRepository: SubscriptionRepository = {
   },
 
   async verifyEsewaCallback(data: string) {
+    assertSandboxUpgradesAllowed();
     const auth = getAuth(getApp());
     const idToken = auth.currentUser
       ? await getIdToken(auth.currentUser)

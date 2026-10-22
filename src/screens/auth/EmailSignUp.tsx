@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import { colors } from "@/constants/colors";
 import { motion } from "@/lib/motion";
 import {
   loginWithEmail,
+  requestPasswordReset,
   sendVerificationAgain,
   getSignInMethodsForEmail,
   signInWithGoogle,
@@ -148,6 +149,11 @@ export function EmailSignUp() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isCheckingVerified, setIsCheckingVerified] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const resetPendingRef = useRef(false);
   // Which side of the Sign-up / Log-in pill the user is currently
   // pressing. Held in state (not driven by `active:opacity-80` on
   // the Pressable's className) because CssInterop tracks
@@ -169,7 +175,8 @@ export function EmailSignUp() {
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmailValid = EMAIL_REGEX.test(email.trim());
   const isPasswordValid = password.length >= 6;
-  const canSubmit = isEmailValid && isPasswordValid && !isSubmitting;
+  const isBusy = isSubmitting || isGoogleLoading || isResetting;
+  const canSubmit = isEmailValid && isPasswordValid && !isBusy;
 
   // Password strength is only meaningful when the user is creating a new
   // account. On login the password is something they already picked — a
@@ -282,7 +289,7 @@ export function EmailSignUp() {
   }
 
   async function handleGoogle() {
-    if (isGoogleLoading) return;
+    if (isBusy) return;
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
@@ -303,6 +310,24 @@ export function EmailSignUp() {
     }
   }
 
+  async function handlePasswordReset() {
+    if (!isEmailValid || resetPendingRef.current) return;
+    resetPendingRef.current = true;
+    setIsResetting(true);
+    setResetSent(false);
+    setResetError(null);
+    try {
+      await requestPasswordReset(email.trim());
+      setResetSent(true);
+    } catch (error: unknown) {
+      // authService replaces provider errors with allowlisted copy.
+      setResetError(error instanceof Error ? error.message : "Could not send a reset link. Please try again later.");
+    } finally {
+      resetPendingRef.current = false;
+      setIsResetting(false);
+    }
+  }
+
   async function handleResend() {
     if (isResending) return;
     setIsResending(true);
@@ -320,6 +345,71 @@ export function EmailSignUp() {
     } finally {
       setIsResending(false);
     }
+  }
+
+  if (isRecovering) {
+    return (
+      <ScreenLayout variant="background">
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+          <ScrollView contentContainerClassName="flex-grow px-5 pt-5 pb-5" keyboardShouldPersistTaps="handled">
+            <View className="gap-3 mb-7">
+              <Text className="text-hero text-text-primary">Reset your password</Text>
+              <Text className="text-body text-text-secondary">
+                Enter your email to request a password reset link. You can also return to log in with Google.
+              </Text>
+            </View>
+            <View className="gap-2">
+              <Text className="text-label text-ink-muted">Email</Text>
+              <TextInput
+                accessibilityLabel="Email for password recovery"
+                className="h-input px-3 rounded-card bg-surface border border-border text-body-lg text-text-primary"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                inputMode="email"
+                keyboardType="email-address"
+                placeholder="you@example.com"
+                placeholderTextColor={colors.text.muted}
+                editable={!isResetting}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  setResetSent(false);
+                  setResetError(null);
+                }}
+                value={email}
+              />
+              {resetSent ? (
+                <Text accessibilityLiveRegion="polite" className="text-body text-text-secondary">
+                  If an account can be recovered with that email, you’ll receive a reset link. Check your inbox and spam folder.
+                </Text>
+              ) : null}
+              {resetError ? (
+                <Text accessibilityRole="alert" className="text-body text-danger">{resetError}</Text>
+              ) : null}
+              <View className="pt-4 gap-3">
+                <PrimaryButton
+                  label={isResetting ? "Sending..." : "Send reset link"}
+                  loading={isResetting}
+                  disabled={!isEmailValid || isResetting}
+                  onPress={handlePasswordReset}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isResetting}
+                  className="min-h-touch items-center justify-center"
+                  onPress={() => {
+                    setIsRecovering(false);
+                    setMode("login");
+                  }}
+                >
+                  <Text className="text-button text-primary">Back to log in</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ScreenLayout>
+    );
   }
 
   /**
@@ -477,6 +567,7 @@ export function EmailSignUp() {
                 <Pressable
                   key={item}
                   accessibilityRole="button"
+                  disabled={isBusy}
                   onPress={() => setMode(item)}
                   onPressIn={() => setPressedMode(item)}
                   onPressOut={() => setPressedMode(null)}
@@ -586,6 +677,22 @@ export function EmailSignUp() {
               ) : null}
             </View>
           </View>
+
+          {mode === "login" ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              className="min-h-touch self-end items-center justify-center"
+              onPress={() => {
+                setPassword("");
+                setResetSent(false);
+                setResetError(null);
+                setIsRecovering(true);
+              }}
+            >
+              <Text className="text-button text-primary">Forgot password?</Text>
+            </Pressable>
+          ) : null}
 
           {/* Primary CTA — email + password */}
           <View className="pt-6">

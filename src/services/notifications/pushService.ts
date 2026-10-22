@@ -1,12 +1,15 @@
 import { getApp } from "@react-native-firebase/app";
+import { getAuth } from "@react-native-firebase/auth";
 import {
   doc,
+  arrayRemove,
   arrayUnion,
   collection,
   getFirestore,
   onSnapshot,
   query,
   setDoc,
+  updateDoc,
   where,
 } from "@react-native-firebase/firestore";
 import Constants from "expo-constants";
@@ -66,6 +69,27 @@ const ACTION_DISMISS = "dismiss";
  *  is idempotent but wasteful. */
 let categoriesRegistered = false;
 
+// A generation invalidates work that is still waiting on native APIs.
+// Token ownership here is intentionally device-local and in-memory; it
+// cannot repair unknown legacy ownership after reinstall/forced signout.
+let generation = 0;
+let activeUid: string | null = null;
+let closingUid: string | null = null;
+let registrationQueue: Promise<void> = Promise.resolve();
+const registrations = new Map<string, Set<Promise<void>>>();
+const deviceTokens = new Map<string, Set<string>>();
+
+function currentSession(uid: string, version: number): boolean {
+  return generation === version && activeUid === uid && closingUid !== uid
+    && getAuth(getApp()).currentUser?.uid === uid;
+}
+
+function isCurrentRecipient(recipientUid: unknown): boolean {
+  return typeof recipientUid === "string" && activeUid === recipientUid
+    && closingUid !== recipientUid
+    && getAuth(getApp()).currentUser?.uid === recipientUid;
+}
+
 /**
  * Register the action-button category. Runs once per init; failures
  * are non-fatal (notifications still show, just without buttons).
@@ -119,6 +143,7 @@ function handleNotificationResponse(
     | { notificationId?: string; recipientUid?: string }
     | undefined;
   const { notificationId, recipientUid } = data ?? {};
+  if (!isCurrentRecipient(recipientUid)) return;
 
   if (response.actionIdentifier === ACTION_MARK_READ) {
     if (!notificationId || !recipientUid) return;
@@ -157,12 +182,15 @@ function handleNotificationResponse(
  */
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const show = isCurrentRecipient(notification.request.content.data?.recipientUid);
+      return {
+        shouldShowBanner: show,
+        shouldShowList: show,
+        shouldPlaySound: show,
+        shouldSetBadge: false,
+      };
+    },
   });
 }
 
@@ -204,22 +232,35 @@ export async function requestPushPermission(): Promise<boolean> {
  * — we include `uid` explicitly and use `setDoc` + merge so
  * `request.resource.data.uid == userId` always passes.
  */
-export async function registerPushToken(uid: string): Promise<void> {
-  if (Platform.OS === "web") return;
-  if (!Device.isDevice) return;
-  try {
+export function registerPushToken(
+  uid: string,
+  devicePushToken?: Notifications.DevicePushToken,
+): Promise<void> {
+  const version = generation;
+  if (Platform.OS === "web" || !Device.isDevice || !currentSession(uid, version)) {
+    return Promise.resolve();
+  }
+  const task = registrationQueue.then(async () => {
+    if (!currentSession(uid, version)) return;
     const granted = await requestPushPermission();
-    if (!granted) return;
+    if (!granted || !currentSession(uid, version)) return;
 
     const easExtra = Constants.expoConfig?.extra as
       | { eas?: { projectId?: string } }
       | undefined;
     const projectId = easExtra?.eas?.projectId;
-    const token = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
+    // The listener supplies a native token. Passing it through avoids
+    // getDevicePushTokenAsync emitting the same event recursively.
+    const token = await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken });
     const tokenValue = token?.data;
     if (!tokenValue) return;
+
+    // Record even a late acquisition so explicit logout can detach a
+    // token that was registered during an earlier app session.
+    const owned = deviceTokens.get(uid) ?? new Set<string>();
+    owned.add(tokenValue);
+    deviceTokens.set(uid, owned);
+    if (!currentSession(uid, version)) return;
 
     const db = getFirestore(getApp());
     await setDoc(
@@ -227,28 +268,89 @@ export async function registerPushToken(uid: string): Promise<void> {
       { uid, pushTokens: arrayUnion(tokenValue) },
       { merge: true },
     );
-  } catch (err) {
-    console.warn("[pushService] push token registration failed", err);
+  }).catch(() => {
+    console.warn("[pushService] push token registration failed");
+  });
+  registrationQueue = task;
+  const pending = registrations.get(uid) ?? new Set<Promise<void>>();
+  pending.add(task);
+  registrations.set(uid, pending);
+  void task.then(() => {
+    pending.delete(task);
+    if (pending.size === 0) registrations.delete(uid);
+  });
+  return task;
+}
+
+/** Await server detachment while the owner is still authenticated.
+ * Rejecting this operation must prevent an explicit Firebase logout.
+ * Unmount cleanup alone must never perform privileged user-doc writes. */
+export function detachPushForUser(uid: string): Promise<void> {
+  if (getAuth(getApp()).currentUser?.uid !== uid) {
+    return Promise.reject(new Error("Your account changed. Please try signing out again."));
   }
+  closingUid = uid;
+  stopInboxSync(); // Invalidate synchronously, before the first await.
+  const version = generation;
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout>;
+  // Native Firestore promises may stay pending while offline. The
+  // session stays signed in and retryable instead of hanging forever.
+  const deadline = new Promise<void>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      expired = true;
+      reject(new Error("Notification cleanup timed out. Please try again."));
+    }, 10_000);
+  });
+  const assertClosing = () => {
+    if (expired || generation !== version || getAuth(getApp()).currentUser?.uid !== uid) {
+      throw new Error("Notification cleanup was interrupted. Please try again.");
+    }
+  };
+  const cleanup = (async () => {
+    await Promise.all([...(registrations.get(uid) ?? [])]);
+    assertClosing();
+    // A rejected registration may still have acquired a candidate
+    // token. Its removal, rather than a historical registration error,
+    // determines whether explicit logout can safely proceed.
+    const tokens = [...(deviceTokens.get(uid) ?? [])];
+    if (tokens.length > 0) {
+      // updateDoc avoids recreating a deleted user document. Never remove
+      // another phone's tokens by replacing the entire array.
+      await updateDoc(doc(getFirestore(getApp()), "users", uid), {
+        pushTokens: arrayRemove(...tokens),
+      });
+      assertClosing();
+      deviceTokens.delete(uid);
+    }
+    if (Platform.OS !== "web") {
+      await Promise.all([
+        Notifications.cancelAllScheduledNotificationsAsync(),
+        Notifications.dismissAllNotificationsAsync(),
+        Notifications.clearLastNotificationResponseAsync(),
+      ]);
+      assertClosing();
+    }
+  })();
+  return Promise.race([cleanup, deadline]).finally(() => clearTimeout(timer));
 }
 
 /** Show an immediate local notification (heads-up banner). */
 async function postLocalNotification(opts: {
-  title: string;
-  body: string;
   /** The notification doc id (for mark-read via the response). */
   notificationId: string;
   /** The inbox owner uid (same doc path segment). */
   recipientUid: string;
   type?: string;
-}): Promise<void> {
+}, version: number): Promise<void> {
   if (Platform.OS === "web") return;
   try {
     await ensureAndroidChannel();
-    await Notifications.scheduleNotificationAsync({
+    if (!currentSession(opts.recipientUid, version)) return;
+    const id = await Notifications.scheduleNotificationAsync({
       content: {
-        title: opts.title,
-        body: opts.body,
+        title: "EdumentX",
+        body: "You have an update. Open EdumentX to view it.",
         sound: "default",
         // Attaches the action buttons to the tray item.
         categoryIdentifier: INBOX_CATEGORY_ID,
@@ -260,6 +362,9 @@ async function postLocalNotification(opts: {
       },
       trigger: null, // fire immediately
     });
+    if (!currentSession(opts.recipientUid, version)) {
+      await Notifications.dismissNotificationAsync(id);
+    }
   } catch (err) {
     console.warn("[pushService] local notification failed", err);
   }
@@ -283,6 +388,7 @@ async function postLocalNotification(opts: {
  * app is backgrounded / inactive. Returns an unsubscribe function.
  */
 export function subscribeInboxNotifications(uid: string): () => void {
+  const version = generation;
   const db = getFirestore(getApp());
   const q = query(
     collection(db, "notifications", uid, "items"),
@@ -294,6 +400,7 @@ export function subscribeInboxNotifications(uid: string): () => void {
   return onSnapshot(
     q,
     (snap) => {
+      if (!currentSession(uid, version)) return;
       // Baseline: remember the current unread doc ids so opening the
       // app doesn't re-alert for already-known unread content.
       if (firstSnapshot) {
@@ -313,15 +420,13 @@ export function subscribeInboxNotifications(uid: string): () => void {
         if (AppState.currentState === "active") continue;
 
         const data = docSnap.data() as
-          | { title?: string; body?: string; type?: string }
+          | { type?: string }
           | undefined;
         void postLocalNotification({
-          title: data?.title ?? "New notification",
-          body: data?.body ?? "",
           notificationId: docSnap.id,
           recipientUid: uid,
           type: data?.type,
-        });
+        }, version);
       }
     },
     (err) => {
@@ -334,14 +439,19 @@ export function subscribeInboxNotifications(uid: string): () => void {
  *  duplicate inbox listeners. */
 let inboxUnsub: (() => void) | null = null;
 let responseUnsub: (() => void) | null = null;
+let rotationUnsub: (() => void) | null = null;
 
 /** Tear down the inbox listener + response listener (call on
  *  sign-out / unmount so they never stack across uid changes). */
 export function stopInboxSync(): void {
+  generation += 1;
+  activeUid = null;
   inboxUnsub?.();
   inboxUnsub = null;
   responseUnsub?.();
   responseUnsub = null;
+  rotationUnsub?.();
+  rotationUnsub = null;
 }
 
 /**
@@ -349,9 +459,17 @@ export function stopInboxSync(): void {
  * registration runs in the background and failures are swallowed.
  * Pass `null` (signed out) to tear everything down.
  */
-export function initPushForUser(uid: string | null): void {
+export function initPushForUser(uid: string | null, resumeAfterFailedLogout = false): void {
+  if (uid && closingUid === uid && !resumeAfterFailedLogout) return;
   stopInboxSync();
-  if (!uid) return;
+  if (!uid) {
+    closingUid = null;
+    return;
+  }
+  if (getAuth(getApp()).currentUser?.uid !== uid) return;
+  // A failed explicit logout may resume the same authenticated user.
+  closingUid = null;
+  activeUid = uid;
   void registerPushToken(uid);
   inboxUnsub = subscribeInboxNotifications(uid);
   // Attach the tray action buttons + handle their taps. The category
@@ -366,5 +484,10 @@ export function initPushForUser(uid: string | null): void {
       handleNotificationResponse,
     );
     responseUnsub = () => sub.remove();
+    const version = generation;
+    const rotation = Notifications.addPushTokenListener((token) => {
+      if (currentSession(uid, version)) void registerPushToken(uid, token);
+    });
+    rotationUnsub = () => rotation.remove();
   }
 }

@@ -36,54 +36,22 @@ initializeApp();
 
 interface ChatMessage {
   senderId?: string;
-  text?: string;
   status?: string;
 }
 
 interface ParticipantDoc {
   participantA?: string;
   participantB?: string;
-  meta?: Record<string, { name?: string }>;
 }
 
 interface EnrollmentRequestDoc {
   studentUid?: string;
-  studentName?: string;
-  slotKey?: string;
   status?: string;
-  pickedSlotKeys?: string[];
-  subjects?: string[];
 }
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 /** MUST match INBOX_CHANNEL_ID in src/services/notifications/pushService.ts */
 const PUSH_CHANNEL_ID = "inbox";
-
-/** Format a `"<day>:<slot>"` slotKey as "Tue 7–9 PM". */
-function formatSlotKey(key: string): string {
-  const parsed = /^([a-z]{3}):(.+)$/.exec(key);
-  if (!parsed) return key;
-  const days: Record<string, string> = {
-    mon: "Mon",
-    tue: "Tue",
-    wed: "Wed",
-    thu: "Thu",
-    fri: "Fri",
-    sat: "Sat",
-    sun: "Sun",
-  };
-  const slots: Record<string, string> = {
-    "6-9": "6–9 AM",
-    "9-12": "9 AM–12 PM",
-    "12-3": "12–3 PM",
-    "3-5": "3–5 PM",
-    "5-7": "5–7 PM",
-    "7-9": "7–9 PM",
-  };
-  const day = days[parsed[1]] ?? parsed[1];
-  const slot = slots[parsed[2]] ?? parsed[2];
-  return `${day} ${slot}`;
-}
 
 /**
  * Push one notification to every registered device of `uid` via the
@@ -92,8 +60,6 @@ function formatSlotKey(key: string): string {
  */
 async function pushToUser(
   uid: string,
-  title: string,
-  body: string,
   data: Record<string, string>,
 ): Promise<void> {
   const db = getFirestore();
@@ -109,9 +75,11 @@ async function pushToUser(
 
   const payload = tokenList.map((to) => ({
     to,
-    title,
-    body,
-    data,
+    // OS delivery may outlive an app session or token ownership.
+    // Private content is fetched after authentication inside the app.
+    title: "EdumentX",
+    body: "You have an update. Open EdumentX to view it.",
+    data: { ...data, recipientUid: uid },
     sound: "default",
     priority: "high",
     channelId: PUSH_CHANNEL_ID,
@@ -124,20 +92,24 @@ async function pushToUser(
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      logger.error("expo push failed", res.status, (await res.text()).slice(0, 200));
+      logger.error("expo push request failed", { status: res.status });
       return;
     }
     const out = (await res.json()) as {
       data?: { status: string; message?: string }[];
     };
-    const errors = (out.data ?? []).filter((d) => d.status !== "ok");
-    if (errors.length > 0) {
-      logger.warn("expo push partial errors", JSON.stringify(errors).slice(0, 300));
-    } else {
-      logger.info("push delivered", { count: tokenList.length, uid });
+    if (!Array.isArray(out.data) || out.data.length !== tokenList.length) {
+      logger.warn("expo push ticket response incomplete");
+      return;
     }
-  } catch (err) {
-    logger.error("expo push threw", err);
+    const errors = out.data.filter((d) => d.status !== "ok");
+    if (errors.length > 0) {
+      logger.warn("expo push tickets rejected", { count: errors.length });
+    } else {
+      logger.info("expo push tickets accepted; delivery receipts pending", { count: tokenList.length });
+    }
+  } catch {
+    logger.error("expo push request failed");
   }
 }
 
@@ -152,7 +124,6 @@ export const onNewChatMessage = functionsV1
 
     const msg = snap.data() as ChatMessage;
     const senderId = msg.senderId;
-    const text = typeof msg.text === "string" ? msg.text : "";
     if (!senderId) return;
     // Read-receipt updates use `update`; only creations land here, but
     // guard anyway against non-"sent" echoes.
@@ -160,8 +131,7 @@ export const onNewChatMessage = functionsV1
 
     const db = getFirestore();
 
-    // 1. Load the conversation to find the other participant + the
-    //    sender's display name from either side's meta entry.
+    // Load the conversation to find the other participant.
     const convoSnap = await db
       .doc(`conversations/${event.params.conversationId}`)
       .get();
@@ -175,11 +145,9 @@ export const onNewChatMessage = functionsV1
           ? undefined // self-thread edge case
           : convo.participantA;
 
-    // Sender display name: whichever meta entry the SENDER wrote.
-    const senderName = convo.meta?.[senderId]?.name ?? "New message";
     if (!recipientUid) return;
 
-    await pushToUser(recipientUid, senderName, text.length > 140 ? `${text.slice(0, 137)}…` : text, {
+    await pushToUser(recipientUid, {
       type: "chat",
       conversationId: event.params.conversationId,
       peerId: senderId,
@@ -199,14 +167,8 @@ export const onEnrollmentRequestCreated = functionsV1
   .firestore.document("enrollmentRequests/{tutorUid}/requests/{requestId}")
   .onCreate(async (snap, event) => {
     const req = snap.data() as EnrollmentRequestDoc | undefined;
-    const studentName = req?.studentName || "A student";
-    const slot = req?.pickedSlotKeys?.[0] ?? req?.slotKey;
-    const slotLabel = slot ? ` for ${formatSlotKey(slot)}` : "";
-
     await pushToUser(
       event.params.tutorUid,
-      "New enrollment request",
-      `${studentName} wants to enroll${slotLabel}. Open your inbox to respond.`,
       {
         type: "enrollment",
         studentUid: req?.studentUid ?? "",
@@ -237,17 +199,8 @@ export const onEnrollmentRequestDecided = functionsV1
     const studentUid = after.studentUid;
     if (!studentUid) return;
 
-    const db = getFirestore();
-    const tutorSnap = await db.doc(`users/${event.params.tutorUid}`).get();
-    const tutorName = (tutorSnap.get("fullName") as string) || "Your tutor";
-    const slot = after.slotKey ? formatSlotKey(after.slotKey) : "";
-
     await pushToUser(
       studentUid,
-      "Enrollment accepted 🎉",
-      slot
-        ? `${tutorName} accepted your request for ${slot}.`
-        : `${tutorName} accepted your enrollment request.`,
       {
         type: "enrollment",
         tutorUid: event.params.tutorUid,
@@ -273,14 +226,8 @@ export const onEnrollmentRequestDeleted = functionsV1
     // don't send the student a confusing "declined" notice.
     if (req.status === "accepted") return;
 
-    const db = getFirestore();
-    const tutorSnap = await db.doc(`users/${event.params.tutorUid}`).get();
-    const tutorName = (tutorSnap.get("fullName") as string) || "The tutor";
-
     await pushToUser(
       req.studentUid,
-      "Enrollment update",
-      `${tutorName} couldn't accept your enrollment request this time.`,
       {
         type: "enrollment",
         tutorUid: event.params.tutorUid,

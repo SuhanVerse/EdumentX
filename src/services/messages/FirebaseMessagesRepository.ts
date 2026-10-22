@@ -18,8 +18,8 @@ import {
   or,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   updateDoc,
   where,
   writeBatch,
@@ -101,6 +101,7 @@ function mapConversation(
     meta,
     lastMessage: rawLast
       ? {
+          ...(typeof rawLast.messageId === "string" ? { messageId: rawLast.messageId } : {}),
           senderId: str(rawLast.senderId),
           text: str(rawLast.text),
           sentAt: tsToMs(rawLast.sentAt),
@@ -185,14 +186,33 @@ export const FirebaseMessagesRepository: MessagesRepository = {
 
   subscribeMessages(conversationId, onData, onError) {
     const db = getFirestore(getApp());
+    const parentRef = doc(db, "conversations", conversationId);
     const q = query(
       collection(db, "conversations", conversationId, "messages"),
       orderBy("sentAt", "asc"),
     );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const messages: ChatMessage[] = snap.docs.map((d) => {
+    let stopped = false;
+    let generation = 0;
+    let stopMessages: (() => void) | null = null;
+    const clearMessages = () => {
+      generation++;
+      stopMessages?.();
+      stopMessages = null;
+      onData([]);
+    };
+    // Messages may outlive a deleted parent. Rules require a parent;
+    // wait for its snapshot instead of querying an unauthorized orphan path.
+    const stopParent = onSnapshot(parentRef, (parent) => {
+      if (stopped) return;
+      if (!parent.exists()) {
+        clearMessages();
+        return;
+      }
+      if (stopMessages) return;
+      const currentGeneration = ++generation;
+      stopMessages = onSnapshot(q, (snap) => {
+        if (stopped || generation !== currentGeneration) return;
+        onData(snap.docs.map((d): ChatMessage => {
           const raw = d.data() as Record<string, unknown>;
           return {
             messageId: d.id,
@@ -201,15 +221,23 @@ export const FirebaseMessagesRepository: MessagesRepository = {
             sentAt: tsToMs(raw.sentAt),
             status: raw.status === "read" ? "read" : "sent",
           };
-        });
-        onData(messages);
-      },
-      (err) => {
-        console.warn("FirebaseMessagesRepository.subscribeMessages", err);
+        }));
+      }, (err) => {
+        if (stopped || generation !== currentGeneration) return;
+        clearMessages();
         onError?.(err);
-      },
-    );
-    return unsub;
+      });
+    }, (err) => {
+      if (stopped) return;
+      clearMessages();
+      onError?.(err);
+    });
+    return () => {
+      stopped = true;
+      generation++;
+      stopMessages?.();
+      stopParent();
+    };
   },
 
   subscribeConversations(viewerUid, onData, onError) {
@@ -320,40 +348,44 @@ export const FirebaseMessagesRepository: MessagesRepository = {
   async sendMessage({ conversationId, senderId, peerUid, text }) {
     const trimmed = text.trim();
     if (!trimmed) throw new Error("Message text is empty");
+    if (trimmed.length > 2000) throw new Error("Message text is too long");
+    if (senderId === peerUid || conversationId !== conversationKey(senderId, peerUid)) {
+      throw new Error("Invalid conversation participants");
+    }
     const db = getFirestore(getApp());
     const convRef = doc(db, "conversations", conversationId);
 
-    // Ensure the conversation doc exists before the message write —
-    // the message-create rule reads the parent's participants, and
-    // `get()` on a missing doc denies.
-    const existing = await getDoc(convRef);
-    if (!existing.exists()) {
-      // Sorted scalar pair — the rules check membership via these two
-      // fields (list-membership ops fail the local rules emulator).
+    const ownIdentity = await resolveOwnIdentity(senderId);
+    // A transaction retries when both participants start the first chat
+    // together, so neither initializer can replace the other's metadata.
+    await runTransaction(db, async (transaction) => {
+      const existing = await transaction.get(convRef);
+      if (existing.exists()) return;
       const [participantA, participantB] = [senderId, peerUid].sort();
-      await setDoc(convRef, {
-        participants: [senderId, peerUid],
+      transaction.set(convRef, {
+        participants: [participantA, participantB],
         participantA,
         participantB,
-        meta: { [senderId]: await resolveOwnIdentity(senderId) },
+        meta: { [senderId]: ownIdentity },
         lastMessage: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-    }
+    });
 
     const messageRef = doc(collection(db, "conversations", conversationId, "messages"));
     const batch = writeBatch(db);
     // Dotted-path updates touch only the sender's own keys — the
     // peer's meta / unreadCount / typing entries survive.
     batch.update(convRef, {
-      [`meta.${senderId}`]: await resolveOwnIdentity(senderId),
+      [`meta.${senderId}`]: ownIdentity,
       // Bump the peer's unread badge; zero our own (we're composing).
       [`unreadCount.${peerUid}`]: increment(1),
       [`unreadCount.${senderId}`]: 0,
       // Sending clears our own typing flag.
       [`typing.${senderId}`]: false,
       lastMessage: {
+        messageId: messageRef.id,
         senderId,
         text: trimmed,
         sentAt: serverTimestamp(),
@@ -372,17 +404,22 @@ export const FirebaseMessagesRepository: MessagesRepository = {
   async markMessagesRead({ conversationId, viewerUid, messageIds }) {
     if (messageIds.length === 0) return;
     const db = getFirestore(getApp());
-    const batch = writeBatch(db);
-    for (const id of messageIds) {
-      batch.update(
-        doc(db, "conversations", conversationId, "messages", id),
-        { status: "read", readAt: serverTimestamp() },
-      );
-    }
-    batch.update(doc(db, "conversations", conversationId), {
-      [`unreadCount.${viewerUid}`]: 0,
+    // Read before writing so transaction retries skip a receipt already
+    // recorded by another device and preserve its original readAt timestamp.
+    await runTransaction(db, async (transaction) => {
+      const refs = [...new Set(messageIds)].map((id) =>
+        doc(db, "conversations", conversationId, "messages", id));
+      const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+      snapshots.forEach((snap, index) => {
+        if (!snap.exists()) return;
+        const message = snap.data();
+        if (message?.senderId === viewerUid || message?.status === "read") return;
+        transaction.update(refs[index], { status: "read", readAt: serverTimestamp() });
+      });
+      transaction.update(doc(db, "conversations", conversationId), {
+        [`unreadCount.${viewerUid}`]: 0,
+      });
     });
-    await batch.commit();
   },
 
   async setTyping({ conversationId, uid, isTyping }) {

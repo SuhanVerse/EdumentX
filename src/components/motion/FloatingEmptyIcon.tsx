@@ -8,6 +8,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import Animated, {
+  ReduceMotion,
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -15,6 +17,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { useMotionPreference } from "./useMotionPreference";
 
 export function FloatingEmptyIcon({
   iconName,
@@ -34,29 +37,41 @@ export function FloatingEmptyIcon({
   cycleMs?: number;
 }) {
   const y = useSharedValue(0);
+  const reducedMotion = useMotionPreference();
   useEffect(() => {
+    if (reducedMotion) {
+      cancelAnimation(y);
+      y.value = 0;
+      return;
+    }
     y.value = withRepeat(
       withSequence(
+        ReduceMotion.Never,
         withTiming(-floatDistance, {
           duration: cycleMs,
           easing: Easing.inOut(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
         }),
         withTiming(0, {
           duration: cycleMs,
           easing: Easing.inOut(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
         }),
       ),
       -1,
       false,
+      undefined,
+      ReduceMotion.Never,
     );
-  }, [y, floatDistance, cycleMs]);
+    return () => cancelAnimation(y);
+  }, [y, floatDistance, cycleMs, reducedMotion]);
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: y.value }],
+    transform: [{ translateY: reducedMotion ? 0 : y.value }],
   }));
   return (
     <Animated.View
-      style={[animatedStyle, { marginBottom: 12 }]}
-      className={`${sizeClass} rounded-pill items-center justify-center ${iconBgClass}`}
+      style={animatedStyle}
+      className={`${sizeClass} mb-3 rounded-pill items-center justify-center ${iconBgClass}`}
     >
       <Ionicons name={iconName} size={size} color={iconColor} />
     </Animated.View>

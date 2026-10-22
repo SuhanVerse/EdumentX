@@ -59,6 +59,7 @@ import {
   firestorePatch,
 } from "../_shared/firestore-rest.ts";
 import { getSupabaseClient } from "../../ai/utils/supabaseClient.ts";
+import { isSandboxServerEnabled } from "../_shared/sandbox-policy.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +71,16 @@ const CORS_HEADERS = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
+  }
+
+  // Default off, including verification/grant callbacks. Production callers
+  // cannot reactivate this with a modified app or request body.
+  if (!isSandboxServerEnabled({
+    enabled: Deno.env.get("ALLOW_ESEWA_SANDBOX"),
+    environment: Deno.env.get("APP_ENV"),
+    projectId: Deno.env.get("FIREBASE_PRODUCT_ID") ?? Deno.env.get("FIREBASE_PROJECT_ID"),
+  })) {
+    return json({ error: "Sandbox payments are disabled." }, 403);
   }
 
   try {

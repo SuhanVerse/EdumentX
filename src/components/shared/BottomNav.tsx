@@ -3,13 +3,14 @@ import { useRouter, usePathname } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
 import Animated, {
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AnimatedPressable, usePressScale } from "@/components/motion";
+import { AnimatedPressable, useMotionPreference, usePressScale } from "@/components/motion";
 import { motion } from "@/lib/motion";
 import { colors } from "@/constants/colors";
 
@@ -57,9 +58,6 @@ export type BottomNavTab = {
   route: `/${string}`;
 };
 
-/** Amber accent — the only colour in the dark dock besides white. */
-const AMBER = "#E5A03B";
-
 /** Active pill size — matches the icon box (`w-12 h-7`) exactly. */
 const PILL_SIZE = 48;
 const PILL_HEIGHT = 28;
@@ -102,7 +100,7 @@ function TabButton({
   // Light-tone active state is the amber accent (matches the admin
   // nav + tutor nav) so the "you are here" signal is uniform across
   // every role's bottom bar. The dark tone keeps white icons.
-  const activeColor = tone === "dark" ? "#FFFFFF" : colors.brand.accent;
+  const activeColor = tone === "dark" ? colors.text.inverse : colors.semantic.warningText;
   const color = active ? activeColor : tone === "dark"
     ? "rgba(255,255,255,0.45)"
     : INACTIVE_COLOR;
@@ -116,7 +114,7 @@ function TabButton({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={animatedStyle}
-      className="flex-1 items-center justify-center"
+      className="flex-1 min-h-touch items-center justify-center"
     >
       {/* Icon box — same footprint as the pill so the active
           background hugs exactly this box. */}
@@ -128,7 +126,7 @@ function TabButton({
         />
       </View>
       {tone === "dark" && active ? (
-        <View className="w-1 h-1 rounded-pill mb-0.5" style={{ backgroundColor: AMBER }} />
+        <View className="w-1 h-1 rounded-pill mb-0.5 bg-amber" />
       ) : null}
       {/* Single-line label: `adjustsFontSizeToFit` shrinks only when
           the text would overflow its tab; `maxFontSizeMultiplier`
@@ -166,6 +164,7 @@ function TabRow({
   tone: "light" | "dark";
 }) {
   const [width, setWidth] = React.useState(0);
+  const reducedMotion = useMotionPreference();
   const tabWidth = tabs.length > 0 ? width / tabs.length : 0;
 
   // Pill left edge = active tab's left edge + centering inset. All
@@ -182,13 +181,17 @@ function TabRow({
   // first layout; animate only on subsequent tab changes.
   const firstLayout = React.useRef(true);
   React.useEffect(() => {
-    if (firstLayout.current) {
+    if (width <= 0) return;
+    if (firstLayout.current || reducedMotion) {
       firstLayout.current = false;
       pillX.value = pillLeft;
       return;
     }
-    pillX.value = withSpring(pillLeft, motion.spring.indicator);
-  }, [pillLeft, pillX]);
+    pillX.value = withSpring(pillLeft, {
+      ...motion.spring.indicator,
+      reduceMotion: ReduceMotion.Never,
+    });
+  }, [pillLeft, pillX, reducedMotion, width]);
   const pillStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pillX.value }],
   }));

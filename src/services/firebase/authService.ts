@@ -5,12 +5,15 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithCredential,
   signOut,
   fetchSignInMethodsForEmail,
 } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+import { detachPushForUser, initPushForUser } from '@/services/notifications/pushService';
 
 // Initialize Google Sign-In with the Web Client ID we extracted from
 // google-services.json. The webClientId (NOT the Android client ID) is
@@ -151,11 +154,48 @@ export const loginWithEmail = async (
   return await signInWithEmailAndPassword(auth, email, password);
 };
 
+/** Request Firebase's hosted password-reset flow without exposing account lookup results. */
+export const requestPasswordReset = async (email: string): Promise<void> => {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error: unknown) {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === 'auth/user-not-found' || code === 'auth/user-disabled') return;
+    const safeMessages: Record<string, string> = {
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/network-request-failed': 'Please check your connection and try again.',
+      'auth/too-many-requests': 'Please wait a few minutes before trying again.',
+    };
+    // Never forward a provider's raw message, email, token or existence details.
+    throw new Error(safeMessages[code ?? ''] ?? 'Could not send a reset link. Please try again later.');
+  }
+};
+
+let pendingLogout: Promise<void> | null = null;
+
 /**
- * Sign out the current user. Clears the native Firebase Auth session
- * so the next render of `app/_layout.tsx` sees `user === null` and
- * routes to the auth screen.
+ * Detach this device before ending its authenticated owner session.
+ * Cleanup failure rejects logout while this device's known tokens
+ * remain registered to this user. Forced SDK signout
+ * and unknown legacy ownership still need server-side protection.
  */
-export const logout = async (): Promise<void> => {
-  await signOut(auth);
+export const logout = (): Promise<void> => {
+  if (pendingLogout) return pendingLogout;
+  const uid = auth.currentUser?.uid ?? null;
+  pendingLogout = (async () => {
+    try {
+      if (uid) await detachPushForUser(uid);
+      if ((auth.currentUser?.uid ?? null) !== uid) {
+        throw new Error('Your account changed. Please try signing out again.');
+      }
+      await signOut(auth);
+      initPushForUser(null);
+    } catch {
+      if (uid && auth.currentUser?.uid === uid) initPushForUser(uid, true);
+      throw new Error('Sign-out did not complete. Please check your connection and try again.');
+    }
+  })().finally(() => {
+    pendingLogout = null;
+  });
+  return pendingLogout;
 };

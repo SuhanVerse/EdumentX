@@ -24,6 +24,8 @@ import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import {
+  ReduceMotion,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -34,6 +36,10 @@ import {
 } from "react-native-reanimated";
 
 import { motion } from "@/lib/motion";
+import { useMotionPreference } from "./useMotionPreference";
+
+// Reanimated's System setting is captured at startup. Only start explicit
+// motion when our live preference permits it, so toggling it back off works too.
 
 // ─── usePressScale ────────────────────────────────────────────────────────────
 
@@ -72,23 +78,40 @@ export function usePressScale({
   haptic = true,
 }: UsePressScaleOptions = {}) {
   const pressed = useSharedValue(0);
+  const reducedMotion = useMotionPreference();
+
+  useEffect(() => {
+    if (reducedMotion) {
+      cancelAnimation(pressed);
+      pressed.value = 0;
+    }
+    return () => cancelAnimation(pressed);
+  }, [pressed, reducedMotion]);
 
   const onPressIn = () => {
     if (haptic && Platform.OS !== "web") {
       try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       } catch {
         // Haptics disabled / unavailable — never let a tap crash.
       }
     }
-    pressed.value = withSpring(1, spring);
+    if (!reducedMotion) {
+      pressed.value = withSpring(1, {
+        ...spring,
+        reduceMotion: spring.reduceMotion ?? ReduceMotion.Never,
+      });
+    }
   };
   const onPressOut = () => {
-    pressed.value = withSpring(0, spring);
+    pressed.value = reducedMotion ? 0 : withSpring(0, {
+      ...spring,
+      reduceMotion: spring.reduceMotion ?? ReduceMotion.Never,
+    });
   };
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * (1 - targetScale) }],
+    transform: [{ scale: reducedMotion ? 1 : 1 - pressed.value * (1 - targetScale) }],
   }));
 
   return { onPressIn, onPressOut, animatedStyle };
@@ -115,10 +138,17 @@ export function useSwitchThumb(
   thumbSize: number
 ) {
   const progress = useSharedValue(checked ? 1 : 0);
+  const reducedMotion = useMotionPreference();
 
   useEffect(() => {
-    progress.value = withSpring(checked ? 1 : 0, motion.spring.gentle);
-  }, [checked, progress]);
+    progress.value = reducedMotion
+      ? checked ? 1 : 0
+      : withSpring(checked ? 1 : 0, {
+          ...motion.spring.gentle,
+          reduceMotion: ReduceMotion.Never,
+        });
+    return () => cancelAnimation(progress);
+  }, [checked, progress, reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => {
     const range = Math.max(0, trackWidth - thumbSize);
@@ -156,6 +186,7 @@ export function useActiveIndicator({
   gap = 0,
 }: UseActiveIndicatorOptions) {
   const target = useSharedValue(activeIndex);
+  const reducedMotion = useMotionPreference();
   // First-render guard: when a nav/segmented row mounts it typically
   // renders once with `itemWidth = 0` (the row hasn't been laid out
   // yet), then re-renders with the real width. Without this guard the
@@ -166,15 +197,19 @@ export function useActiveIndicator({
   const firstMeasure = useRef(true);
 
   useEffect(() => {
+    if (itemWidth <= 0 || count <= 0) return;
     // Clamp to valid range so a stale prop doesn't spring past the end.
     const clamped = Math.max(0, Math.min(count - 1, activeIndex));
-    if (firstMeasure.current) {
+    if (firstMeasure.current || reducedMotion) {
       firstMeasure.current = false;
       target.value = clamped;
       return;
     }
-    target.value = withSpring(clamped, motion.spring.indicator);
-  }, [activeIndex, count, target]);
+    target.value = withSpring(clamped, {
+      ...motion.spring.indicator,
+      reduceMotion: ReduceMotion.Never,
+    });
+  }, [activeIndex, count, itemWidth, reducedMotion, target]);
 
   const animatedStyle = useAnimatedStyle(() => {
     const step = itemWidth + gap;
@@ -220,17 +255,33 @@ export function useShake({
   config,
 }: UseShakeOptions = {}) {
   const offset = useSharedValue(0);
+  const reducedMotion = useMotionPreference();
+
+  useEffect(() => {
+    if (reducedMotion) {
+      cancelAnimation(offset);
+      offset.value = 0;
+    }
+    return () => cancelAnimation(offset);
+  }, [offset, reducedMotion]);
 
   const shake = () => {
+    if (reducedMotion) return;
+    const timing = {
+      duration,
+      ...(config ?? {}),
+      reduceMotion: config?.reduceMotion ?? ReduceMotion.Never,
+    };
     offset.value = withSequence(
-      withTiming(-amplitude, { duration, ...(config ?? {}) }),
-      withTiming(amplitude, { duration, ...(config ?? {}) }),
-      withTiming(0, { duration, ...(config ?? {}) })
+      ReduceMotion.Never,
+      withTiming(-amplitude, timing),
+      withTiming(amplitude, timing),
+      withTiming(0, timing)
     );
   };
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: offset.value }],
+    transform: [{ translateX: reducedMotion ? 0 : offset.value }],
   }));
 
   return { shake, animatedStyle };

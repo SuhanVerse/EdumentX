@@ -18,6 +18,7 @@ import type {
 } from "@/services/subscription/types";
 import { PRO_PLANS } from "@/services/subscription/types";
 import type { SubscriptionRepository } from "./SubscriptionRepository";
+import { assertSandboxUpgradesAllowed } from "@/lib/releasePolicy";
 
 const tierStore = new Map<string, SubscriptionState>();
 
@@ -34,6 +35,7 @@ export const MockSubscriptionRepository: SubscriptionRepository = {
   },
 
   async createEsewaOrder(plan: ProPlanId): Promise<EsewaFormFields> {
+    assertSandboxUpgradesAllowed();
     const p = PRO_PLANS[plan];
     const transactionUuid = `${Date.now()}-mock`;
     return {
@@ -53,6 +55,7 @@ export const MockSubscriptionRepository: SubscriptionRepository = {
   },
 
   async verifyEsewaCallback(data: string) {
+    assertSandboxUpgradesAllowed();
     try {
       const payload = JSON.parse(
         decodeURIComponent(atob(data.replace(/-/g, "+").replace(/_/g, "/"))),
@@ -90,6 +93,10 @@ export async function applyDemoProGrant(
   tutorUid: string,
   months: number,
 ): Promise<void> {
+  assertSandboxUpgradesAllowed();
+  if (process.env.EXPO_PUBLIC_USE_MOCK_DATA !== "true") {
+    throw new Error("Demo grants require explicit mock mode.");
+  }
   const now = Date.now();
   tierStore.set(tutorUid, {
     tier: "pro",
