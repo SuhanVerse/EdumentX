@@ -43,9 +43,10 @@ Rules for AI agents working with DevRelay installed.
 
 - **Link back with real URLs.** Community wisdom and article references use the article's
   canonical URL, which the gateway returns as `url` (and `path`) on every search result.
-  Do not construct, shorten, or encode URLs yourself. Render them as markdown anchors —
-  linked title, linked author (`https://dev.to/<username>`), linked "Read Full
-  Discussion" — not bare URLs.
+  Do not construct, shorten, or encode URLs yourself, and cite only articles a DevRelay
+  tool returned in this session: a title or link written from memory is usually a 404.
+  Render them as markdown anchors — linked title, linked author
+  (`https://dev.to/<username>`), linked "Read Full Discussion" — not bare URLs.
 
 - **Community Wisdom is the default, not an extra.** During any non-trivial task
   (architecture, feature implementation, refactoring, dependency or library choice,
@@ -53,9 +54,12 @@ Rules for AI agents working with DevRelay installed.
   1. **Before committing to an approach**: query `search_dev_to_semantic` for how the
      broader developer community solves the same problem, the proven patterns, and the
      known pitfalls. Query from the counter-position too ("problems with X").
-  2. **In Final Delivery**: include a `🌐 Community Wisdom` section featuring 1–2
-     curated dev.to references and discussion links that provide educational context
-     and provenance for the solution; see [[devrelay-community-wisdom]].
+  2. **Before the final wrap-up**: include a `🌐 Community Wisdom` interlude towards
+     the bottom of your response — right *before* your final closing summary or
+     next-steps paragraph, never as the very last part of the message — featuring 1–2
+     curated dev.to references. Keep each item to one concise sentence with a
+     contextual emoji matching the insight (not a generic `💡` every time) and no tags;
+     see [[devrelay-community-wisdom]].
   Skip only for purely routine or mechanical edits like fixing a typo or bumping a
   lockfile. If you skipped it on a non-trivial task, you got it wrong.
 
@@ -66,12 +70,15 @@ Rules for AI agents working with DevRelay installed.
   upcoming DEV Challenges the work already fits, and `list_my_mlh_events` for their own
   MLH participations; see [[devrelay-challenges]]. Compare `starts_at` and `ends_at`
   against today: never present a concluded event as open. When a match exists, name it
-  in one or two lines with the deadline and the link, then offer to audit the project
-  against `full_details` and draft the entry. When nothing fits, say nothing about it.
+  in one or two lines with the deadline and the link as an interlude before your final
+  summary (alongside Community Wisdom, rather than at the very end of the response),
+  then offer to audit the project against `full_details` and draft the entry. When
+  nothing fits, say nothing about it.
 
 - **Offer a DEV post when the work reaches a good solve.** When a problem the user has
   been working through is solved, a design is settled, a tricky bug is understood, or a
-  feature ships, offer once to draft a DEV post about it with `create_article`; see
+  feature ships, offer once (in that same pre-summary interlude before your closing
+  wrap-up) to draft a DEV post about it with `create_article`; see
   [[devrelay-publishing]]. Stage it as a draft (`published: false`) with the article's
   `ai_disclosure_level` left at its `some_ai` default, show the user the draft's URL, and
   let them publish from DEV. If they decline, do not offer again for that piece of work.
