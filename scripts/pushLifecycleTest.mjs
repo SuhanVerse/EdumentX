@@ -104,6 +104,7 @@ function createLogout(push) {
   const exports = {};
   runInNewContext(compiledAuth, {
     exports,
+    process: { env: {} },
     require(name) {
       if (name === "@react-native-firebase/app") return { getApp: () => ({}) };
       if (name === "@react-native-firebase/auth") return {

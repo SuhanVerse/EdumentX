@@ -4,6 +4,8 @@
 
 EdumentX helps students and parents in Nepal find nearby tutors and request a place in their schedule. Tutors manage availability, enrollments, and group batches in the Android app.
 
+This Android app is the original **academic minor project**. The separate iOS version is an AI-assisted, experimental port and may contain errors. Later maintenance and documentation in this repository also use AI assistance.
+
 This repository contains the React Native Android client, shared backend functions, and security rules. The separate [EdumentX-iOS](https://github.com/SuhanVerse/EdumentX-iOS) client uses SwiftUI and xtool on Ubuntu. Both apps are in development; the native iOS client currently builds as an unsigned sample trial.
 
 The older React Native iOS target is retained here until native integration and device tests pass. The app name stays **EdumentX**; `EdumentX-Android` identifies this source repository.
@@ -25,21 +27,26 @@ Sign-in uses email/password with email verification, or Google. Students and tut
 
 ## Run locally
 
-Use Node 24 from [`.nvmrc`](.nvmrc), npm, the Android SDK, and an emulator or device. **This app requires a native development build; Expo Go is unsupported.**
+Use Node **24.16.0** from [`.nvmrc`](.nvmrc) and npm 11. The tested npm baseline is 11.21.0. Android builds also need a compatible JDK, Android SDK, and emulator or device. **This app requires a native development build; Expo Go is unsupported.**
 
-From the repository root:
+Start with a fresh clone:
 
 ```bash
+git clone https://github.com/SuhanVerse/EdumentX-Android.git
+cd EdumentX-Android
+nvm install
 nvm use
 npm ci
+npm run setup:check
 if [ ! -e .env ]; then cp .env.example .env; fi
 ```
 
-Fill in the public Supabase configuration and restricted Android Maps key in `.env`. Obtain the matching Android `google-services.json` from the project owner. The [setup guide](Documentation/03-Implementation-Guides/PROJECT_SETUP.md) covers configuration and Google Sign-In; [installation](Documentation/05-Build-and-Deploy/install-guide.md) covers devices and signing.
+Fill in public Supabase configuration and a restricted Android Maps key in `.env`. Use your own Firebase Android configuration or an owner-approved development backend. Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` when using your own Google project. The [setup guide](Documentation/03-Implementation-Guides/PROJECT_SETUP.md) covers JDK/SDK versions, Firebase and Google Sign-In; [installation](Documentation/05-Build-and-Deploy/install-guide.md) covers devices and signing.
 
 Build the Android app:
 
 ```bash
+npm run setup:check -- --android
 npm run android
 ```
 
@@ -50,6 +57,8 @@ With a compatible development client already installed, use `npx expo start --de
 ## Development
 
 The app uses Expo SDK 54, React Native, TypeScript, NativeWind, Expo Router, and Zustand. Firebase provides native authentication, Firestore, and push-trigger functions; Supabase provides storage and Edge Functions. Android maps use Google Maps. The Swift client shares the backend contracts and has its own build instructions.
+
+Use `npm ci` to install the exact dependencies in the committed lockfile. [requirements.txt](requirements.txt) provides a generated overview of locked versions; it is not a Python installer for this app. The Cloud Functions runtime and lockfile are separate under `functions/`.
 
 Run the local checks:
 

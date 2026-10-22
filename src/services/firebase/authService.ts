@@ -15,12 +15,12 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 import { detachPushForUser, initPushForUser } from '@/services/notifications/pushService';
 
-// Initialize Google Sign-In with the Web Client ID we extracted from
-// google-services.json. The webClientId (NOT the Android client ID) is
-// what the Android-side Google Sign-In library uses to request the ID
-// token.
+// A clone can use its own public Web OAuth client ID. The fallback keeps
+// the original minor project's configuration working. This is not a secret
+// or an Android OAuth client ID.
 GoogleSignin.configure({
-  webClientId: '343719549266-ue4i8d19kqel7sobu6vqheuqftdogndv.apps.googleusercontent.com',
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
+    '343719549266-ue4i8d19kqel7sobu6vqheuqftdogndv.apps.googleusercontent.com',
 });
 
 // Modular API: get the auth instance once at module load. The namespaced
