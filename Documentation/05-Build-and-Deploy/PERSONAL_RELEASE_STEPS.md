@@ -1,44 +1,46 @@
-# Your next release steps
+# Your next steps: iPhone 15 Plus and a free Apple account
 
-**Next: choose the app identifiers and Apple developer team, then connect a test phone.** The Apple SDK is installed; you do not need to download Xcode again.
+**Next: sign in to Apple privately, then connect your iPhone to Ubuntu.** The SDK is installed and the unsigned Swift app builds. You do not need to download Xcode again.
 
-The unsigned Swift app builds on Ubuntu. Firebase Core, Auth and Firestore also compile and link in separate trials. The full iOS app, live integrations, signing and store release still need engineering work.
+The trial uses `com.suhanverse.edumentx.ios.trial`. This is a development identifier, not the final production identity. The current app shows labelled samples; live sign-in, database integration and the full iOS feature port remain engineering work.
 
-## 1. Confirm ownership and product choices
+## 1. Prepare pairing and sign in
 
-Send the coding agent these **non-secret** choices:
-
-- Your Apple developer team and intended iOS bundle identifier. The current Swift trial uses `com.example.EdumentXiOS`; the agent must replace this placeholder before signing or registering the app. Confirm the Android package too, especially if already registered.
-- Which Firebase/Supabase projects will serve production, your public support email and the domain for privacy/deletion pages.
-- Intended user ages and guardian involvement; what account deletion removes or retains; who handles reports and blocks.
-- Whether the first release will be free. Sandbox payments remain disabled in production.
-
-The agent can apply the configuration and implement the agreed behavior. Keep passwords, API keys, signing files and recovery codes out of chat and Git.
-
-## 2. Sign in privately and connect your iPhone
-
-**Wait until the agent has configured your chosen bundle identifier.** Then run locally:
+On this Ubuntu machine, `usbmuxd` is installed. The pairing utilities still need installation. Run in your own terminal:
 
 ```bash
+sudo apt-get install libimobiledevice-utils
 cd "$HOME/Projects/EdumentX-iOS"
-xtool auth login
+xtool auth login --mode password
 ```
 
-Complete your own Apple login, two-factor authentication and team selection in the interactive tool. Connect and unlock the iPhone, accept **Trust This Computer**, and enable [Developer Mode](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
+Enter your Ubuntu password for `sudo`, then your Apple account credentials and 2FA only in the interactive prompts. Choose your personal team if asked. Free-account password mode uses private Apple APIs, as described in [xtool's instructions](https://github.com/xtool-org/xtool/blob/1.22.2/Documentation/xtool.docc/Installation-Linux.md). Keep credentials out of chat, command arguments and Git.
 
-Tell the agent when the phone is connected and authorized. The next `xtool dev` step contacts Apple and can register signing resources, the app and device. The agent can help build/install and collect logs; you handle private prompts and physical interactions.
+## 2. Connect and trust the phone
 
-For Android, connect an unlocked phone, enable USB debugging and accept its computer authorization prompt.
+1. Connect the unlocked iPhone 15 Plus with a USB data cable.
+2. Tap **Trust This Computer** and enter the phone passcode on the phone.
+3. Pair it from Ubuntu:
 
-## 3. Check the app on real devices
+```bash
+idevicepair pair
+idevice_id -l
+```
 
-Complete sign-in and system permission prompts yourself. Report visible problems with a screenshot or short description, device model and OS version. The agent handles repeatable tests, logs, code fixes and remaining implementation.
+Enable **Settings → Privacy & Security → Developer Mode** and restart if prompted. If the option is absent, tell the agent; its availability can depend on the development connection/setup. See [Apple's instructions](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
 
-Review actual privacy text, screenshots and store disclosures after the corresponding features work. Complete store-account verification and approve the final submission when tested release candidates are ready. The selected xtool version's App Store distribution route remains unverified.
+Reply: **“Apple login complete; iPhone connected and trusted”**, with your iOS version. You do not need to send the device ID or credentials. The agent can then attempt `xtool dev`, which contacts Apple to create development signing resources and install the trial. You handle phone/2FA prompts; the agent handles builds, logs, repeatable tests and fixes.
 
-## Where everything lives
+## 3. Know the free-account limits
 
-- [EdumentX-Android](https://github.com/SuhanVerse/EdumentX-Android): Android app and shared backend. The existing local folder stays `/media/xlegion/Win/PROJECTS/EdumentX`.
-- [EdumentX-iOS](https://github.com/SuhanVerse/EdumentX-iOS): native Swift app, locally at `~/Projects/EdumentX-iOS`.
-- [iOS setup details](https://github.com/SuhanVerse/EdumentX-iOS/blob/main/Documentation/SETUP.md): commands and toolchain limits.
-- [Release readiness](PRODUCTION_READINESS.md): remaining engineering and release checks.
+Apple's personal-team provisioning expires after **seven days**, so development apps need reprovisioning/reinstallation. App Store and TestFlight distribution require Apple Developer Program membership. See [Apple's account limits](https://developer.apple.com/help/account/basics/about-your-developer-account). No membership purchase is needed for this initial device trial.
+
+## Later, before production
+
+Choose the final app identifiers/team, production backend projects, public support/privacy URLs, intended ages, deletion/retention and reporting policies, and whether launch is free. The agent implements those decisions. Review tested store materials before submission; the selected xtool version's App Store distribution route is still unverified.
+
+## Repositories and details
+
+- [EdumentX-Android](https://github.com/SuhanVerse/EdumentX-Android): Android client and shared backend. Local folder: `/media/xlegion/Win/PROJECTS/EdumentX`.
+- [EdumentX-iOS](https://github.com/SuhanVerse/EdumentX-iOS): native Swift client. Local folder: `~/Projects/EdumentX-iOS`.
+- [iOS setup](https://github.com/SuhanVerse/EdumentX-iOS/blob/main/Documentation/SETUP.md) · [Release readiness](PRODUCTION_READINESS.md).
