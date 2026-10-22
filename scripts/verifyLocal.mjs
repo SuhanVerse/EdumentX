@@ -14,6 +14,7 @@ const LIMIT = 'Local source/helper/demo-emulator checks only; native compilation
 
 // Keep this explicit. Never accept package-script names or commands from the CLI.
 export const LOCAL_SCRIPTS = Object.freeze([
+  'setup:check', 'test:setup', 'requirements:check', 'test:requirements',
   'typecheck', 'lint', 'test:derived', 'test:lint-rules', 'test:discovery',
   'test:tutor-feed', 'test:motion', 'test:release-config', 'test:verify-local',
   'test:auth-recovery', 'test:push-lifecycle', 'test:push-payload',

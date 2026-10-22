@@ -20,16 +20,20 @@ jobs:
       # v5 of the setup actions runs on Node 24 (v4 targets the
       # deprecated Node 20 runtime — GitHub warns on every run).
       - uses: actions/checkout@v5
-      # Node 24 matches the repo's `.nvmrc` and `engines` (`>=20.19.4`);
+      # Use the same audited Node version as local clones (.nvmrc).
       # Node 20 is also deprecated on GitHub runners AND breaks
       # `npm ci` — firebase-tools pulls
       # `@google-cloud/cloud-sql-connector` which requires `>=22`
       # (EBADENGINE failure seen on run #15).
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run requirements:check
+      - run: npm run test:requirements
+      - run: npm run test:setup
+      - run: npm run setup:check
       # Zero errors expected: `Documentation/02-Design-System/**` (the
       # extracted Figma reference bundle) is excluded in tsconfig +
       # eslint.config.js.
@@ -62,7 +66,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       # The Firestore emulator is a Java process. firebase-tools 15.x
       # rejects JDK < 21 ("firebase-tools no longer supports Java
@@ -127,7 +131,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Write service-account key

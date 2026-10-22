@@ -45,6 +45,7 @@ test('fixed local commands run sequentially and write sanitized local evidence',
   assert.equal(result.report.status, 'passed');
   const npmCalls = f.calls.filter(call => call.command === 'npm');
   assert.deepEqual(npmCalls.map(call => call.args), [
+    ['run', 'setup:check'], ['run', 'test:setup'], ['run', 'requirements:check'], ['run', 'test:requirements'],
     ['run', 'typecheck'], ['run', 'lint'], ['run', 'test:derived'],
     ['run', 'test:lint-rules'], ['run', 'test:discovery'], ['run', 'test:tutor-feed'],
     ['run', 'test:motion'], ['run', 'test:release-config'], ['run', 'test:verify-local'],

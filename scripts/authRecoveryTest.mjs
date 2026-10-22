@@ -16,12 +16,14 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function loadAuth({ resetError, detach = async () => {} } = {}) {
+function loadAuth({ resetError, detach = async () => {}, googleWebClientId } = {}) {
   const events = [];
+  let googleConfiguration;
   const auth = { currentUser: { uid: "account-a" } };
   const exports = {};
   runInNewContext(compiled, {
     exports,
+    process: { env: { EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: googleWebClientId } },
     console: { warn() {} },
     require(name) {
       if (name === "@react-native-firebase/app") return { getApp: () => ({}) };
@@ -39,7 +41,9 @@ function loadAuth({ resetError, detach = async () => {} } = {}) {
           auth.currentUser = null;
         },
       };
-      if (name === "@react-native-google-signin/google-signin") return { GoogleSignin: { configure() {} } };
+      if (name === "@react-native-google-signin/google-signin") return {
+        GoogleSignin: { configure(configuration) { googleConfiguration = configuration; } },
+      };
       if (name === "@/services/notifications/pushService") return {
         detachPushForUser: async (uid) => { events.push(["detach", uid]); await detach(); },
         initPushForUser: (uid) => events.push(["resume", uid]),
@@ -47,8 +51,21 @@ function loadAuth({ resetError, detach = async () => {} } = {}) {
       throw new Error(`Unexpected dependency: ${name}`);
     },
   });
-  return { ...exports, auth, events };
+  return { ...exports, auth, events, googleConfiguration };
 }
+
+test("a clone can configure its own public Google web client without editing app source", () => {
+  const service = loadAuth({ googleWebClientId: "  clone-client.apps.googleusercontent.com  " });
+  assert.equal(service.googleConfiguration.webClientId, "clone-client.apps.googleusercontent.com");
+});
+
+test("an absent or blank override preserves the original project's Google configuration", () => {
+  for (const googleWebClientId of [undefined, "", "   "]) {
+    const service = loadAuth({ googleWebClientId });
+    assert.equal(service.googleConfiguration.webClientId,
+      "343719549266-ue4i8d19kqel7sobu6vqheuqftdogndv.apps.googleusercontent.com");
+  }
+});
 
 test("password recovery sends the trimmed address without looking up providers", async () => {
   const service = loadAuth();
